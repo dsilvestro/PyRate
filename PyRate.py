@@ -4,7 +4,7 @@ import argparse, os,sys, platform, time, csv
 import random as rand
 import warnings
 version= "      PyRate 0.570       "
-build  = "        20140708         "
+build  = "        20140709         "
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
@@ -103,7 +103,7 @@ def calcHPD(data, level) :
 	return (d[i], d[i+nIn-1])
 
 def check_burnin(b,I):
-	print b, I
+	#print b, I
 	if b<1: burnin=int(b*I)
 	else: burnin=int(b)
 	if burnin>=(I-10):
@@ -192,7 +192,8 @@ def plot_RTT(files, stem_file, wd, burnin):
 		for j in range(1,len(v)-1): vec += "%s," % (v[j])
 		vec += "%s)"  % (v[j+1])
 		return vec
-	out="%s/%sRTTplot.r" % (wd, stem_file)
+	if platform.system() == "Windows" or platform.system() == "Microsoft": out="%s\%sRTTplot.r" % (wd, stem_file)
+	else: out="%s/%sRTTplot.r" % (wd, stem_file)
 	newfile = open(out, "wb") 
 	for PAR in ["l","m","r"]: # speciation/extinction/diversification
 		mean_sp_m,mean_sp_M,hpd__sp_m,hpd__sp_M= list(),list(),list(),list()
@@ -226,7 +227,11 @@ def plot_RTT(files, stem_file, wd, burnin):
 				k+=1
 			count +=1
 			Rfile="\n# %s" % (f)		
-		if PAR=="l": Rfile+= "\n\npdf(file='%s/%sRTTplot.pdf',width=7, height=7)" % (wd, stem_file) # \npar(mfrow=c(3,1))
+		if PAR=="l":
+			if platform.system() == "Windows" or platform.system() == "Microsoft":
+				Rfile+= "\n\npdf(file='%s\%sRTTplot.pdf',width=7, height=7)" % (wd, stem_file) # \npar(mfrow=c(3,1))
+			else: 
+				Rfile+= "\n\npdf(file='%s/%sRTTplot.pdf',width=7, height=7)" % (wd, stem_file) # \npar(mfrow=c(3,1))
 		Rfile+= print_R_vec('\nhpd_m',  hpd__sp_m)
 		Rfile+= print_R_vec('\nhpd_M',  hpd__sp_M)
 		Rfile+= print_R_vec('\nmean_m', mean_sp_m)
@@ -246,7 +251,10 @@ def plot_RTT(files, stem_file, wd, burnin):
 	newfile.close()
 	print "\n95% HPD calculated code from Biopy\n(https://www.cs.auckland.ac.nz/~yhel002/biopy/)"
 	print "\nAn R script with the source for the RTT plot was saved as: %sRTTplot.pdf\n(in %s)" % (stem_file, wd)
-	cmd="cd %s; Rscript %s/%sRTTplot.r" % (wd,wd, stem_file)
+	if platform.system() == "Windows" or platform.system() == "Microsoft":
+		cmd="cd %s; Rscript %s\%sRTTplot.r" % (wd,wd, stem_file)
+	else: 
+		cmd="cd %s; Rscript %s/%sRTTplot.r" % (wd,wd, stem_file)
 	os.system(cmd)
 	#print "\nThe RTT plot was saved as: %sRTTplot.pdf\n" % (wd, stem_file)
 
