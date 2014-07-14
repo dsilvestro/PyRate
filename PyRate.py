@@ -4,7 +4,7 @@ import argparse, os,sys, platform, time, csv
 import random as rand
 import warnings
 version= "      PyRate 0.570       "
-build  = "        20140709         "
+build  = "        20140714         "
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
@@ -995,6 +995,7 @@ def MCMC(all_arg):
 			log_state=log_state.split('\t')
 			wlog.writerow(log_state)
 			logfile.flush()
+			os.fsync(logfile)
 
 			lik_tmp += sum(likBDtempA)
 			if TDI !=1 and n_proc==0:
@@ -1030,6 +1031,7 @@ def marginal_rates(it, margL,margM, marginal_file, run):
 	log_state=log_state.split('\t')
 	wmarg.writerow(log_state)
 	marginal_file.flush()
+	os.fsync(marginal_file)
 
 def marginal_likelihood(marginal_file, l, t):
 	mL=0
@@ -1173,7 +1175,9 @@ if args.fixShift != "":          # fix times of rate shift
 		time_framesL=len(fixed_times_of_shift)+1
 		time_framesM=len(fixed_times_of_shift)+1
 		min_allowed_t=0
-	except: sys.exit("\nError in the input file.\n")
+	except: 
+		msg = "\nError in the input file %s.\n" % (args.fixShift)
+		sys.exit(msg)
 else: fixed_times_of_shift=[]
 
 # BDMCMC & MCMC SETTINGS
@@ -1348,13 +1352,13 @@ Scipy version: %s
 
 o=''.join([o0,o1,o2,version_notes])
 out_sum = "%s/%s_sum.txt" % (path_dir,suff_out)
-sumfile = open(out_sum , "wb") 
+sumfile = open(out_sum , "w",0) 
 sumfile.writelines(o)
 sumfile.close()
 
 # OUTPUT 1 LOG MCMC
 out_log = "%s/%s_mcmc.log" % (path_dir, suff_out) #(path_dir, output_file, out_run)
-logfile = open(out_log , "wb") 
+logfile = open(out_log , "w",0) 
 if TDI<2:
 	head="it\tposterior\tprior\tPP_lik\tBD_lik\tq_rate\talpha\tcov_sp\tcov_ex\tcov_q\tbeta\troot_age\t"
 	for i in range(time_framesL): head += "lambda_%s\t" % (i)
@@ -1369,11 +1373,12 @@ head=head.split('\t')
 wlog=csv.writer(logfile, delimiter='	')
 wlog.writerow(head)
 logfile.flush()
+os.fsync(logfile)
 
 # OUTPUT 2 MARGINAL RATES
 if TDI!=1: # (path_dir, output_file, out_run)
 	out_log_marginal = "%s/%s_marginal_rates.log" % (path_dir, suff_out) 
-	marginal_file = open(out_log_marginal , "wb") 
+	marginal_file = open(out_log_marginal , "w") 
 	head="it\t"
 	for i in range(int(max(FA))+1): head += "l_%s\t" % i #int(fabs(int(max(FA))))
 	for i in range(int(max(FA))+1): head += "m_%s\t" % i #int(fabs(int(max(FA))))
@@ -1382,12 +1387,13 @@ if TDI!=1: # (path_dir, output_file, out_run)
 	wmarg=csv.writer(marginal_file, delimiter='	')
 	wmarg.writerow(head)
 	marginal_file.flush()
+	os.fsync(marginal_file)
 	marginal_frames= array([int(fabs(i-int(max(FA)))) for i in range(int(max(FA))+1)])
 
 # OUTPUT 3 MARGINAL LIKELIHOOD
 else: 
 	out_log_marginal_lik = "%s/%s_marginal_likelihood.txt" % (path_dir, suff_out) 
-	marginal_file = open(out_log_marginal_lik , "wb") 
+	marginal_file = open(out_log_marginal_lik , "w") 
 	marginal_file.writelines(o)
 	marginal_frames=0	
 
