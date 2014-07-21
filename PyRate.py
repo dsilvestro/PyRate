@@ -4,7 +4,7 @@ import argparse, os,sys, platform, time, csv
 import random as rand
 import warnings
 version= "      PyRate 0.570       "
-build  = "        20140714         "
+build  = "        20140721         "
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
@@ -939,7 +939,7 @@ def MCMC(all_arg):
 		Post=lik_alter+prior
 		if it==0: PostA=Post
 		#print Post, PostA, alphasA #, lik, likA
-		if Post>-inf: #and Post<inf:
+		if Post>-inf and Post<inf:
 			if Post*tempMC3-PostA*tempMC3 >= log(rand.random()) or stop_update==inf: # or it==0:
 				likBDtempA=likBDtemp
 				PostA=Post
@@ -979,27 +979,42 @@ def MCMC(all_arg):
 		elif it % sample_freq ==0 and it>=burnin or it==0 and it>=burnin:
 			s_max=max(tsA)
 			if TDI<2: # normal MCMC or MCMC-TI
-				log_state="%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t" \
-				% (it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), alphasA[1], alphasA[0], cov_parA[0], cov_parA[1],cov_parA[2], temperature, s_max)
-				for i in LA: log_state += "%s\t" % (i)
-				for i in MA: log_state += "%s\t" % (i)			
-				for i in range(1,time_framesL): log_state += "%s\t" % (timesLA[i])
-				for i in range(1,time_framesM): log_state += "%s\t" % (timesMA[i])
+				log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), alphasA[1], alphasA[0], cov_parA[0], cov_parA[1],cov_parA[2], temperature, s_max]
+				log_state += list(LA)
+				log_state += list(timesLA[1:-1])
+				log_state += list(timesMA[1:-1])
 			else: # BD-MCMC
-				log_state="%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t" \
-				% (it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), alphasA[1], alphasA[0], cov_parA[0], cov_parA[1],cov_parA[2], len(LA), len(MA), s_max)				
-
-			log_state += "%s\t" % (SA) 
-			for i in range(len(FA)): log_state += "%s\t" % (tsA[i])
-			for i in range(len(LO)): log_state += "%s\t" % (teA[i])
-			log_state=log_state.split('\t')
+				log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), alphasA[1], alphasA[0], cov_parA[0], cov_parA[1],cov_parA[2], len(LA), len(MA), s_max]
+                
+			log_state += [SA]
+			log_state += list(tsA)
+			log_state += list(teA)
 			wlog.writerow(log_state)
 			logfile.flush()
 			os.fsync(logfile)
+			##else:
+			#if TDI<2: # normal MCMC or MCMC-TI
+			#	log_state="\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" \
+			#	% (it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), alphasA[1], alphasA[0], cov_parA[0], cov_parA[1],cov_parA[2], temperature, s_max)
+			#	for i in LA: log_state += "\t%s" % (i)
+			#	for i in MA: log_state += "\t%s" % (i)			
+			#	for i in range(1,time_framesL): log_state += "\t%s" % (timesLA[i])
+			#	for i in range(1,time_framesM): log_state += "\t%s" % (timesMA[i])
+			#else: # BD-MCMC
+			#	log_state="\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" \
+			#	% (it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), alphasA[1], alphasA[0], cov_parA[0], cov_parA[1],cov_parA[2], len(LA), len(MA), s_max)				
+                        #
+			#log_state += "\t%s" % (SA) 
+			#for i in range(len(FA)): log_state += "\t%s" % (tsA[i])
+			#for i in range(len(LO)): log_state += "\t%s" % (teA[i])
+			##wlog.writerow()
+			#logfile.writelines(log_state)
+			#logfile.flush()
+			#os.fsync(logfile)
+			
 
 			lik_tmp += sum(likBDtempA)
 			if TDI !=1 and n_proc==0:
-				marg_log="%s" % it
 				margL=zeros(len(marginal_frames))
 				margM=zeros(len(marginal_frames))
 				for i in range(len(timesLA)-1): # indexes of the 1My bins within each timeframe
@@ -1023,12 +1038,20 @@ def MCMC(all_arg):
 
 def marginal_rates(it, margL,margM, marginal_file, run):
 	#print len(margL), len(margM)
-	log_state="%s\t" % (it)
-	for i in margL: log_state += "%s\t" % (i)
-	for i in margM: log_state += "%s\t" % (i)
-	for i in range(len(margL)): log_state += "%s\t" % (margL[i]-margM[i])
+	#log_state="%s\t" % (it)
+	#for i in margL: log_state += "%s\t" % (i)
+	#for i in margM: log_state += "%s\t" % (i)
+	#for i in range(len(margL)): log_state += "%s\t" % (margL[i]-margM[i])
+	#for i in margM: log_state += "%s\t" % (i)
+	#for i in range(len(margL)): log_state += "%s\t" % (margL[i]-margM[i])
+	##marginal_file.write(log_state)
+	#log_state=log_state.split('\t')
+	log_state= [it]
+	log_state += list(margL)
+	log_state += list(margM)
+	log_state += list(margL-margM)
 	#marginal_file.write(log_state)
-	log_state=log_state.split('\t')
+	#log_state=log_state.split('\t')
 	wmarg.writerow(log_state)
 	marginal_file.flush()
 	os.fsync(marginal_file)
@@ -1370,8 +1393,10 @@ head += "tot_length\t"
 for i in taxa_names: head += "%s_TS\t" % (i)
 for i in taxa_names: head += "%s_TE\t" % (i)
 head=head.split('\t')
-wlog=csv.writer(logfile, delimiter='	')
+wlog=csv.writer(logfile, delimiter='\t')
 wlog.writerow(head)
+
+#logfile.writelines(head)
 logfile.flush()
 os.fsync(logfile)
 
@@ -1460,6 +1485,8 @@ else:
 	res=start_MCMC(0)
 t1 = time.clock()
 print "\nfinished at:", time.ctime(),"\n"
+logfile.close()
+marginal_file.close()
 
 #cmd="cd %s && cd .. && tar -czf %s.tar.gz %s;" % (path_dir, folder_name, folder_name)
 #print cmd
