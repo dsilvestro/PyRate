@@ -1389,10 +1389,10 @@ if TDI<2:
 	for i in range(1,time_framesL): head += "shift_sp_%s\t" % (i)
 	for i in range(1,time_framesM): head += "shift_ex_%s\t" % (i)
 else: head="it\tposterior\tprior\tPP_lik\tBD_lik\tq_rate\talpha\tcov_sp\tcov_ex\tcov_q\tk_birth\tk_death\troot_age\t"
-head += "tot_length\t"
-for i in taxa_names: head += "%s_TS\t" % (i)
-for i in taxa_names: head += "%s_TE\t" % (i)
+head += "tot_length"
 head=head.split('\t')
+for i in taxa_names: head.append("%s_TS" % (i))
+for i in taxa_names: head.append("%s_TE" % (i))
 wlog=csv.writer(logfile, delimiter='\t')
 wlog.writerow(head)
 
