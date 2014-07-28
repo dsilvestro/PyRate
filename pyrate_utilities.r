@@ -14,9 +14,11 @@ if (is.null(file))
 
 rnd <- random
 q <- cutoff
-dat1 <- read.table(file, header=T, stringsAsFactors=F, row.names=NULL, sep="\t")
+dat1 <- read.table(file, header=T, stringsAsFactors=F, row.names=NULL, sep="\t", strip.white=T)
 fname <- no.extension(basename(file))
 outfile <- paste(dirname(file), "/", fname, "_PyRate.py", sep="")
+
+dat1[,1] <- gsub("[[:blank:]]{1,}","_", dat1[,1])
 
 if (replicates > 1){
 	rnd <- TRUE
@@ -151,7 +153,7 @@ if (is.null(file)){
     stop("You must enter a valid filename.\n")
 	}
 
-dat <- read.table(file, header=T, stringsAsFactors=F, row.names=NULL)
+dat <- read.table(file, header=T, stringsAsFactors=F, row.names=NULL, sep="\t")
 fname <- no.extension(basename(file))
 outfile <- paste(dirname(file), "/", lineage, "_Prior.txt", sep="")
 
