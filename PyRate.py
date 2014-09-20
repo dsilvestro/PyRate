@@ -771,12 +771,14 @@ def MCMC(all_arg):
 			stop_update=0
 			tsA, teA= globalTS, globalTE
 			lik_fossilA=np.zeros(1)
-		elif rand.random() < 1./freq_Alg_3_1 and it>start_Alg_3_1 and TDI==2:
-			stop_update=inf
-			rr=1.5 # no updates
 		else:
 			rr=random.uniform(0,1) #random.uniform(.8501, 1)
 			stop_update=I+1
+
+		if rand.random() < 1./freq_Alg_3_1 and it>start_Alg_3_1 and TDI==2:
+			stop_update=inf
+			rr=1.5 # no updates
+			
 
 		alphas=zeros(2)
 		cov_par=zeros(3)
@@ -829,7 +831,7 @@ def MCMC(all_arg):
 			ind2=(ts-te == tsA-teA).nonzero()[0]
 		lik_fossil=zeros(len(fossil))
 
-		if len(ind1)>0 and it<stop_update:
+		if len(ind1)>0 and it<stop_update and global_stop_update is False:
 			# generate args lik (ts, te)
 			z=zeros(len(fossil)*7).reshape(len(fossil),7)
 			z[:,0]=te
@@ -890,29 +892,31 @@ def MCMC(all_arg):
 			likBDtemp, L,M, timesL, timesM, cov_par = Alg_3_1(args)
 			
 			# NHPP Lik: needs to be recalculated after Alg 3.1
-			# generate args lik (ts, te)
-			ind1=range(0,len(fossil))
-			lik_fossil=zeros(len(fossil))
-			# generate args lik (ts, te)
-			z=zeros(len(fossil)*7).reshape(len(fossil),7)
-			z[:,0]=te
-			z[:,1]=ts
-			z[:,2]=alphas[0]   # shape prm Gamma
-			z[:,3]=alphas[1]   # baseline foss rate (q)
-			z[:,4]=range(len(fossil))
-			z[:,5]=cov_par[2]  # covariance baseline foss rate
-			z[:,6]=M[len(M)-1] # ex rate
-			args=list(z[ind1])
-			if num_processes_ts==0:
-				for j in range(len(ind1)):
-					i=ind1[j] # which species' lik
-					if argsHPP is True or  frac1==0: lik_fossil[i] = HOMPP_lik(args[j])
-					elif argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
-					else: lik_fossil[i] = NHPP_lik(args[j])
-			else:
-				if argsHPP is True or frac1==0: lik_fossil[ind1] = array(pool_ts.map(HOMPP_lik, args))
-				elif argsG is True: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args))
-				else: lik_fossil[ind1] = array(pool_ts.map(NHPP_lik, args))
+			if global_stop_update is False:
+				# NHPP calculated only if not -fixSE
+				# generate args lik (ts, te)
+				ind1=range(0,len(fossil))
+				lik_fossil=zeros(len(fossil))
+				# generate args lik (ts, te)
+				z=zeros(len(fossil)*7).reshape(len(fossil),7)
+				z[:,0]=te
+				z[:,1]=ts
+				z[:,2]=alphas[0]   # shape prm Gamma
+				z[:,3]=alphas[1]   # baseline foss rate (q)
+				z[:,4]=range(len(fossil))
+				z[:,5]=cov_par[2]  # covariance baseline foss rate
+				z[:,6]=M[len(M)-1] # ex rate
+				args=list(z[ind1])
+				if num_processes_ts==0:
+					for j in range(len(ind1)):
+						i=ind1[j] # which species' lik
+						if argsHPP is True or  frac1==0: lik_fossil[i] = HOMPP_lik(args[j])
+						elif argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
+						else: lik_fossil[i] = NHPP_lik(args[j])
+				else:
+					if argsHPP is True or frac1==0: lik_fossil[ind1] = array(pool_ts.map(HOMPP_lik, args))
+					elif argsG is True: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args))
+					else: lik_fossil[ind1] = array(pool_ts.map(NHPP_lik, args))
 			
 			sys.stderr = original_stderr
 			
