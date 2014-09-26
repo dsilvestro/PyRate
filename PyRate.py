@@ -985,6 +985,7 @@ def MCMC(all_arg):
 			if TDI<2: # normal MCMC or MCMC-TI
 				log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), alphasA[1], alphasA[0], cov_parA[0], cov_parA[1],cov_parA[2], temperature, s_max]
 				log_state += list(LA)
+				log_state += list(MA)
 				log_state += list(timesLA[1:-1])
 				log_state += list(timesMA[1:-1])
 			else: # BD-MCMC
