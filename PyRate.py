@@ -1479,7 +1479,6 @@ if use_seq_lik is False and runs>1:
 			seed=0
 			args.append([current_it,i, current_it+IT, sample_freq, print_freq, temperatures, burnin, marginal_frames, res[i]])
 		res = pool.map(MCMC, args)
-		#except: print current_it,i, current_it+IT
 		attempts+=1.
 		#if attempts % 100 ==0: 
 		#	print "swap freq.", swap_rate/attempts
