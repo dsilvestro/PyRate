@@ -946,8 +946,8 @@ def MCMC(all_arg):
 			lik= sum(lik_fossil) + sum(likBDtemp)
 
 		T= max(ts)
-		prior += sum(prior_times_frames(timesL, max(tsA),min(teA), lam_s))
-		prior += sum(prior_times_frames(timesM, max(tsA),min(teA), lam_s))
+		prior += sum(prior_times_frames(timesL, max(ts),min(te), lam_s))
+		prior += sum(prior_times_frames(timesM, max(ts),min(te), lam_s))
 
 		priorBD= get_hyper_priorBD(timesL,timesM,L,M,T,hyperP)
 		prior += priorBD
