@@ -25,7 +25,7 @@ if (replicates > 1){
 }
 
 if (any(is.na(dat1[,1:4]))){
-	stop("missing data. Please check your input file.\n")
+	stop("the input file contains missing data in species names, status or ages)\n")
 }
 
 if (!is.null(q)){
@@ -58,7 +58,11 @@ for (j in 1:replicates){
 			dat$min_age[i] <- dat$min_age[i] + 0.001
 		}
 	}
-
+	
+	if (any(dat[,4] < dat[,3])){
+		stop("the min age is older than the max age for at least one record\n")
+	}
+	
 	if (isTRUE(rnd)){
 			dat$new_age <- round(runif(length(dat[,1]), min=dat[,3], max=dat[,4]), digits=6)
 		} else {
