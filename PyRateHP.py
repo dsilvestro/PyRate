@@ -1073,6 +1073,7 @@ p.add_argument('-cite',      help='print PyRate citation', action='store_true', 
 p.add_argument('input_data', metavar='<input file>', type=str,help='Input python file - see template',default=[],nargs='*')
 p.add_argument('-j',         type=int, help='number of data set in input file', default=1, metavar=1)
 p.add_argument('-trait',     type=int, help='number of trait for Cov model', default=1, metavar=1)
+p.add_argument('-logT',      type=int, help='Transform trait: 0) False, 1) Ln(x), 2) Log10(x)', default=2, metavar=2)
 p.add_argument("-N",         type=float, help='number of exant species') 
 p.add_argument("-wd",        type=str, help='path to working directory', default="")
 p.add_argument("-out",       type=str, help='output tag', default="")
@@ -1321,7 +1322,11 @@ else: global_stop_update=False
 
 # Get trait values (Cov model)
 if model_cov>=1:
-	try: trait_values=log(input_data_module.get_continuous(max(args.trait-1,0)))
+	try:
+		trait_values=input_data_module.get_continuous(max(args.trait-1,0))
+		if args.logT==0: pass
+		elif args.logT==1: trait_values = log(trait_values)
+		else: trait_values = np.log10(trait_values)		
 	except: sys.exit("\nTrait data not found! Check input file.\n")
 			
 	MidPoints=np.zeros(len(fossil_complete))
