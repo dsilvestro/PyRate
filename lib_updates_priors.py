@@ -58,11 +58,11 @@ def update_parameter_normal(i, m, M, d):
 def update_multiplier_proposal(i,d,f=.65):
 	S=shape(i)
 	u = np.random.uniform(0,1,S) #*np.rint(np.random.uniform(0,f,S))
-	U=sum(log(u[u>0]))
 	l = 2*log(d)
 	m = exp(l*(u-.5))
 	#print "\n",u,m,"\n"
  	ii = i * m
+	U=sum(log(m))
 	return ii, U
 
 def update_parameter_normal_2d(L, d):
@@ -130,4 +130,8 @@ def PERT4_density(M,m,a,b,x):  # relative 'stretched' PERT density: PERT4 * (s-e
 
 def logPERT4_density5(M,m,a,b,x): # relative LOG-PERT density: PERT4
 	return log((M-x)**(b-1) * (-m+x)**(a-1)) - log ((M-m)**5 * f_beta(a,b))
+
+def pdf_exp(x,r): 
+	rate=1./r
+	return sum(log(rate)-rate*x)
 

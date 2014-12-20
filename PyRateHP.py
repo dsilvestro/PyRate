@@ -955,7 +955,7 @@ def MCMC(all_arg):
 		if model_cov >0: prior+=sum(prior_normal(cov_par,covar_prior))
 
 		# exponential prior on root age
-		# prior += prior_root_age(max(ts),max(FA),max(FA))
+		prior += prior_root_age(max(ts),max(FA),max(FA))
 		
 		if temperature==1: 
 			tempMC3=1./(1+n_proc*temp_pr)
