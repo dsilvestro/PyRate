@@ -119,7 +119,7 @@ for iteration in range(1250000):
 	prior= prior_normal(Garray,scale=2) +prior_gamma(l0,1.1,.5)+prior_gamma(m0,1.1,.5)  
 	
 	if (lik + prior + hasting) - postA >= log(rand.random()) or iteration==0:
-		postA=lik+prior+hasting
+		postA=lik+prior
 		likA=lik
 		priorA=prior
 		l0A=l0
