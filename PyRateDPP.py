@@ -1,6 +1,7 @@
 #!/usr/bin/env python 
 # Created by Daniele Silvestro on 02/03/2012 => pyrate.help@gmail.com 
-import argparse, os,sys, platform, time, csv
+import argparse, os,sys, platform, csv
+from time import time
 import random as rand
 import warnings
 version= "      PyRate 0.600       "
@@ -1318,6 +1319,7 @@ p.add_argument('-tC', type=float, help='Tuning -window sizes cov parameters (l,m
 p.add_argument('-fU', type=float, help='Tuning - update freq. (q/alpha,l/m,cov)', default=[.02, .18, .08], nargs=3)
 
 args = p.parse_args()
+t1=time()
 
 if args.cite is True:
 	sys.exit(citation)
@@ -1716,7 +1718,7 @@ else:
 	if runs>1: print "\nWarning: MC3 algorithm requires multi-threading.\nUsing standard (BD)MCMC algorithm instead.\n"
 	res=start_MCMC(0)
 t1 = time.clock()
-print "\nfinished at:", time.ctime(),"\n"
+print "\nfinished at:", time.ctime(), "\nelapsed time:", time()-t1, "\n"
 logfile.close()
 marginal_file.close()
 
