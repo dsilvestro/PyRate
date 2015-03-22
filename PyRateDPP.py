@@ -1,7 +1,7 @@
 #!/usr/bin/env python 
 # Created by Daniele Silvestro on 02/03/2012 => pyrate.help@gmail.com 
-import argparse, os,sys, platform, csv
-from time import time
+import argparse, os,sys, platform, csv, time
+#from time import time, clock
 import random as rand
 import warnings
 version= "      PyRate 0.600       "
@@ -1181,18 +1181,18 @@ def MCMC(all_arg):
 			if TDI<2: # normal MCMC or MCMC-TI
 				log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), alphasA[1], alphasA[0], cov_parA[0], cov_parA[1],cov_parA[2], temperature, s_max]
 				if fix_Shift is True: log_state += list(hyperPA)
-				log_state += list(LA)
-				log_state += list(MA)
-				log_state += list(timesLA[1:-1])
-				log_state += list(timesMA[1:-1])
+				log_state += list(LA.astype(round_rate))
+				log_state += list(MA.astype(round_rate))
+				log_state += list(timesLA[1:-1].astype(round_rate))
+				log_state += list(timesMA[1:-1].astype(round_rate))
 			elif TDI==2: # BD-MCMC
 				log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), alphasA[1], alphasA[0], cov_parA[0], cov_parA[1],cov_parA[2], len(LA), len(MA), s_max]
                 	else:  # DPP 
 				log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), alphasA[1], alphasA[0], cov_parA[0], \
 				cov_parA[1],cov_parA[2], len(LA), len(MA), alpha_par_Dir_L,alpha_par_Dir_M,s_max]
 			log_state += [SA]
-			log_state += list(tsA)
-			log_state += list(teA)
+			log_state += list(tsA.astype(round_times))
+			log_state += list(teA.astype(round_times))
 			wlog.writerow(log_state)
 			logfile.flush()
 			os.fsync(logfile)
@@ -1232,9 +1232,9 @@ def MCMC(all_arg):
 
 def marginal_rates(it, margL,margM, marginal_file, run):
 	log_state= [it]
-	log_state += list(margL)
-	log_state += list(margM)
-	log_state += list(margL-margM)
+	log_state += list(margL.astype(round_rate))
+	log_state += list(margM.astype(round_rate))
+	log_state += list((margL-margM).astype(round_rate))
 	wmarg.writerow(log_state)
 	marginal_file.flush()
 	os.fsync(marginal_file)
@@ -1308,18 +1308,20 @@ p.add_argument('-fixShift',metavar='<input file>', type=str,help="Input tab-deli
 p.add_argument('-fixSE',metavar='<input file>', type=str,help="Input mcmc.log file",default="")
 
 # TUNING
-p.add_argument('-tT', type=float, help='Tuning - window size (ts, te)', default=1., metavar=1.)
-p.add_argument('-nT', type=int,   help='Tuning - max number updated values (ts, te)', default=5, metavar=5)
-p.add_argument('-tQ', type=float, help='Tuning - window sizes (q/alpha)', default=[1.2,1.2], nargs=2)
-p.add_argument('-tR', type=float, help='Tuning - window size (rates)', default=.05, metavar=.05)
-p.add_argument('-tS', type=float, help='Tuning - window size (time of shift)', default=1., metavar=1.)
-p.add_argument('-fR', type=float, help='Tuning - fraction of updated values (rates)', default=1., metavar=1.)
-p.add_argument('-fS', type=float, help='Tuning - fraction of updated values (shifts)', default=.7, metavar=.7)
-p.add_argument('-tC', type=float, help='Tuning -window sizes cov parameters (l,m,q)', default=[.025, .025, .15], nargs=3)
-p.add_argument('-fU', type=float, help='Tuning - update freq. (q/alpha,l/m,cov)', default=[.02, .18, .08], nargs=3)
+p.add_argument('-tT',      type=float, help='Tuning - window size (ts, te)', default=1., metavar=1.)
+p.add_argument('-nT',      type=int,   help='Tuning - max number updated values (ts, te)', default=5, metavar=5)
+p.add_argument('-tQ',      type=float, help='Tuning - window sizes (q/alpha)', default=[1.2,1.2], nargs=2)
+p.add_argument('-tR',      type=float, help='Tuning - window size (rates)', default=.05, metavar=.05)
+p.add_argument('-tS',      type=float, help='Tuning - window size (time of shift)', default=1., metavar=1.)
+p.add_argument('-fR',      type=float, help='Tuning - fraction of updated values (rates)', default=1., metavar=1.)
+p.add_argument('-fS',      type=float, help='Tuning - fraction of updated values (shifts)', default=.7, metavar=.7)
+p.add_argument('-tC',      type=float, help='Tuning -window sizes cov parameters (l,m,q)', default=[.025, .025, .15], nargs=3)
+p.add_argument('-fU',      type=float, help='Tuning - update freq. (q/alpha,l/m,cov)', default=[.02, .18, .08], nargs=3)
+p.add_argument('-round_r', type=int,   help='Floor-round marginal rates (n. digits after zero)', default=5, metavar=5)
+p.add_argument('-round_t', type=int,   help='Floor-round ts, te (n. logged digits)', default=6, metavar=6)
 
 args = p.parse_args()
-t1=time()
+t1=time.time()
 
 if args.cite is True:
 	sys.exit(citation)
@@ -1442,6 +1444,9 @@ hp_gamma_shape = args.dpp_hp
 target_k       = args.dpp_eK
 hp_gamma_rate  = get_rate_HP(time_framesL,target_k,hp_gamma_shape)
 
+# floor-round marginal rates (save disk space)
+round_rate  = "S%s" % (args.round_r+2)
+round_times = "S%s" % (args.round_t+1)
 
 ############### PLOT RTT
 list_files=sort(args.plot)
@@ -1561,7 +1566,7 @@ if model_cov>=1:
 if tot_extant==-1 or TDI ==3:
 	if fix_Shift is True and TDI < 3: 
 		print "Using Cauchy priors on the birth-death rates.\n"
-		get_hyper_priorBD = HPBD1 # cauchy
+		get_hyper_priorBD = HPBD1 # cauchy with hyper-priors
 	else: 
 		print "Using Gamma priors on the birth-death rates.\n"
 		get_hyper_priorBD = HPBD2 # gamma
@@ -1592,10 +1597,6 @@ if len(fixed_times_of_shift)>0:
 	o2 += "using the following fixed time frames: "
 	for i in fixed_times_of_shift: o2 += "%s " % (i)
 version_notes="""\n
-BETTER STARTING TS,TE,L,M (based on PyRate565modHP.py)
-ADDED CONDITION IN HPP LIKELIHOOD: - log(1-exp(-q*(M-m)))
-added hyper-parameter to sample alpha in DPP gibbs sampling
-
 Please cite: \n%s\n
 Feedback and support: pyrate.help@gmail.com
 OS: %s %s
@@ -1718,7 +1719,7 @@ else:
 	if runs>1: print "\nWarning: MC3 algorithm requires multi-threading.\nUsing standard (BD)MCMC algorithm instead.\n"
 	res=start_MCMC(0)
 t1 = time.clock()
-print "\nfinished at:", time.ctime(), "\nelapsed time:", time()-t1, "\n"
+print "\nfinished at:", time.ctime(), "\nelapsed time:", time.time()-t1, "\n"
 logfile.close()
 marginal_file.close()
 
