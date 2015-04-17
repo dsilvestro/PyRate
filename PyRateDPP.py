@@ -761,7 +761,8 @@ def calc_rel_prob(log_lik):
 	
 def G0(alpha=2,beta=3,n=1):
 	#return np.array([np.random.random()])
-	return np.random.gamma(shape=alpha,scale=1./beta,size=n)
+	#return np.random.gamma(shape=alpha,scale=1./beta,size=n)
+	return init_BD(n)
 
 def BD_partial_lik_vec(arg): # calculates BD_partial_lik for a vector of rates
 	[ts,te,up,lo,rate, par]=arg
@@ -969,12 +970,12 @@ def MCMC(all_arg):
 				timesL=update_times(timesLA, max(ts),mod_d4)
 				timesM=update_times(timesMA, max(ts),mod_d4)
 			else: 
-				if TDI<3:
+				if TDI<2: # 
 					if rand.random()<.95:
 						L,M=update_rates(LA,MA,3,mod_d3)
 					else:
 						hyperP,hasting = update_multiplier_proposal(hyperPA,1.2)
-				elif TDI==3: # DPP
+				else: # DPP or BDMCMC
 						L,M=update_rates(LA,MA,3,mod_d3)
 
 		elif rr<f_update_cov: # cov
@@ -1115,11 +1116,11 @@ def MCMC(all_arg):
 
 		T= max(ts)
 		
-		if TDI < 3:
+		if TDI<3:
 			prior += sum(prior_times_frames(timesL, max(ts),min(te), lam_s))
 			prior += sum(prior_times_frames(timesM, max(ts),min(te), lam_s))
-			priorBD= get_hyper_priorBD(timesL,timesM,L,M,T,hyperP)
-			prior += priorBD
+		priorBD= get_hyper_priorBD(timesL,timesM,L,M,T,hyperP)
+		prior += priorBD
 		###
 		if model_cov >0: prior+=sum(prior_normal(cov_par,covar_prior))
 
@@ -1270,7 +1271,7 @@ p.add_argument('-n',      type=int, help='mcmc generations',default=10000000, me
 p.add_argument('-s',      type=int, help='sample freq.', default=1000, metavar=1000)
 p.add_argument('-p',      type=int, help='print freq.',  default=1000, metavar=1000)
 p.add_argument('-b',      type=float, help='burnin', default=0, metavar=0)
-p.add_argument('-thread', type=int, help='no. threads used for BD and NHPP likelihood respectively (set to 0 to bypass multi-threading)', default=[1,3], metavar=4, nargs=2)
+p.add_argument('-thread', type=int, help='no. threads used for BD and NHPP likelihood respectively (set to 0 to bypass multi-threading)', default=[0,0], metavar=0, nargs=2)
 
 # MCMC ALGORITHMS
 p.add_argument('-A',      type=int,   help='0) parameter estimation, 1) marginal likelihood, 2) BDMCMC', default=2, metavar=2)
@@ -1285,7 +1286,7 @@ p.add_argument('-k',      type=int,   help='TI - no. scaling factors', default=1
 p.add_argument('-a',      type=float, help='TI - shape beta distribution', default=.3, metavar=.3)
 p.add_argument('-dpp_f',  type=float, help='DPP - frequency ', default=500, metavar=500)
 p.add_argument('-dpp_hp', type=float, help='DPP - shape of gamma HP on concentration parameter', default=2., metavar=2.)
-p.add_argument('-dpp_eK', type=int,   help='DPP - expected number of rate categories', default=2, metavar=2)
+p.add_argument('-dpp_eK', type=float, help='DPP - expected number of rate categories', default=1.5, metavar=1.5)
 p.add_argument('-dpp_max_grid', type=float, help='DPP - max age of time frames',default=1400., metavar=1400.)
 p.add_argument('-ddp_grid'    , type=float, help='DPP - size of time frames',default=1.5, metavar=1.5)
 
@@ -1593,6 +1594,7 @@ o0 = "\n%s build %s\n" % (version, build)
 o1 = "\ninput: %s output: %s/%s" % (args.input_data, path_dir, out_name)
 o2 = "\n\nPyRate was called as follows:\n%s\n" % (args)
 if model_cov>=1: o2 += regression_trait
+if TDI==3: o2 += "\n\nHyper-prior on concentration parameter (Gamma shape, rate): %s, %s\n" % (hp_gamma_shape, hp_gamma_rate)
 if len(fixed_times_of_shift)>0:
 	o2 += "using the following fixed time frames: "
 	for i in fixed_times_of_shift: o2 += "%s " % (i)
