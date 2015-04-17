@@ -1,5 +1,4 @@
 #!/usr/bin/env python 
-# Created by Daniele Silvestro on 02/03/2012 => dsilvestro@senckenberg.de 
 import argparse, os,sys
 from numpy import *
 import numpy as np
