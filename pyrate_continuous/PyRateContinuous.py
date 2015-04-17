@@ -40,6 +40,7 @@ p.add_argument('-r', type=float, help='rescale values (0 to scale in [0,1], 0.1 
 p.add_argument('-clade', type=int, help='clade analyzed', default=0, metavar=0)
 p.add_argument('-ginput', type=str,help='generate input file from *mcmc.log', default="", metavar="<path_to_mcmc.log>")
 p.add_argument('-b', type=float, help='burnin in *mcmc.log to generate input file', default=0.1, metavar=0.1)
+p.add_argument('-w',  type=float, help='window sizes (bd rates, G)',  default=[1.4, .05], metavar=1.4, nargs=2)
 
 args = p.parse_args()
 
@@ -50,6 +51,7 @@ dataset=args.d
 cov_file=args.c
 rescale_factor=args.r
 focus_clade=args.clade
+win_size=args.w
 
 if args.ginput != "":
 	import lib_utilities
@@ -182,8 +184,9 @@ elif args.A==1:
 	# parameters for TI are currently hard-coded (K=10, alpha=0.3)
 	scal_fac_TI=get_temp_TI()
 
-d3 = .05 # starting win size for Gl, Gm
-list_d3=sort(exp(scal_fac_TI))**3*d3+(exp(1-np.array(scal_fac_TI))-1)*d3
+d1 = win_size[0]
+d2 = win_size[1] # starting win size for Gl, Gm
+list_d2=sort(exp(scal_fac_TI))**3*d2+(exp(1-np.array(scal_fac_TI))-1)*d2
 
 scal_fac_ind=0
 for iteration in range(mcmc_gen * len(scal_fac_TI)):	
@@ -207,18 +210,18 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 		if rr[0]<.25 or iteration<1000:
 			if rr[1]>.5: 
 				l0=np.zeros(1)+l0A
-				l0,U=update_multiplier_proposal(l0A,1.4)
+				l0,U=update_multiplier_proposal(l0A,d1)
 			else: 	
 				m0=np.zeros(1)+m0A
-				m0,U=update_multiplier_proposal(m0A,1.4)
+				m0,U=update_multiplier_proposal(m0A,d1)
 			hasting=U
 		else:
 			if rr[2]>.5:
 				Garray=GarrayA+np.zeros(2)
-				Garray[0]=update_parameter_normal(Garray[0],list_d3[scal_fac_ind]) 
+				Garray[0]=update_parameter_normal(Garray[0],list_d2[scal_fac_ind]) 
 			else:
 				Garray=GarrayA+np.zeros(2)
-				Garray[1]=update_parameter_normal(Garray[1],list_d3[scal_fac_ind]) 
+				Garray[1]=update_parameter_normal(Garray[1],list_d2[scal_fac_ind]) 
 			
 	if args.m==0: 
 		l_at_events=trasfRateTemp(l0, Garray[0],Temp_at_events)
