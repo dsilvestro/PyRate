@@ -133,3 +133,8 @@ def PERT4_density(M,m,a,b,x):  # relative 'stretched' PERT density: PERT4 * (s-e
 def logPERT4_density5(M,m,a,b,x): # relative LOG-PERT density: PERT4
 	return log((M-x)**(b-1) * (-m+x)**(a-1)) - log ((M-m)**5 * f_beta(a,b))
 
+def pdf_exp(x,r): 
+	rate=1./r
+	return sum(log(rate)-rate*x)
+
+
