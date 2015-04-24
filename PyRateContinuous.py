@@ -16,17 +16,13 @@ np.set_printoptions(suppress=True)
 np.set_printoptions(precision=3)  
 from multiprocessing import Pool, freeze_support
 import thread
+import imp
+lib_updates_priors = imp.load_source("lib_updates_priors", "pyrate_lib/lib_updates_priors.py")
+lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "pyrate_lib/lib_DD_likelihood.py")
 from lib_updates_priors import *
-from lib_DD_likelihood import *
+from lib_DD_likelihood  import *
 
-#### DATA ###
-def return_float(v):
-	new_v=list()
-	for i in v:
-		try: new_v.append(float(i))
-		except: pass
-	return np.array(new_v)
-
+#### ARGS
 p = argparse.ArgumentParser() #description='<input file>') 
 p.add_argument('-A', type=int, help='algorithm: "0" parameter estimation, "1" TI', default=0, metavar=0) # 0: par estimation, 1: TI
 p.add_argument('-d', type=str, help='data set', default="", metavar="<file>")
