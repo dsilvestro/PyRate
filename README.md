@@ -8,4 +8,4 @@ The model implemented in PyRateHP is described here:
 
 Silvestro D., Cascales-Minana B., Bacon C. D., Antonelli A. (2015) Revisiting the origin and diversification of vascular plants through a comprehensive Bayesian analysis of the fossil record. New Phytologist, doi:10.1111/nph.13247.    
 
-Manual and example files can be found here: https://sourceforge.net/projects/pyrate/
+Manual and example files can be found here: https://sourceforge.net/projects/pyrate/, a Wiki page is also under construction: https://github.com/dsilvestro/PyRate/wiki. 
