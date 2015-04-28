@@ -5,10 +5,10 @@ import numpy as np
 from scipy.special import gamma
 from scipy.special import beta as f_beta
 import random as rand
-import sys, platform, time
+import platform, time
 import multiprocessing, thread
 import multiprocessing.pool
-import os, csv
+import csv
 from scipy.special import gdtr, gdtrix
 from scipy.special import betainc
 import scipy.stats
@@ -106,7 +106,7 @@ else: Temp_values = Temp_values/(max(Temp_values)-min(Temp_values))
 #print "BRL" , sum(ts-te)
 #print "range:", max(Temp_values)-min(Temp_values)
 
-# create matrix of all events sorted (1st rox) with indexes 0: times_of_T_change, 1: ts, 2: te, 3: te=0
+# create matrix of all events sorted (1st row) with indexes 0: times_of_T_change, 1: ts, 2: te, 3: te=0
 z=np.zeros(len(te))+2
 z[te==0] = 3
 all_events_temp= np.array([np.concatenate((times_of_T_change,ts,te),axis=0),
