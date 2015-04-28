@@ -101,6 +101,8 @@ def make_constraint_matrix(n, constraint):
 		
 	
 ########################## PRIORS #######################################
+def prior_exponential(L,rate): return sum(scipy.stats.expon.logpdf(L, scale=1./rate))
+
 def prior_gamma(L,a,b): return sum(scipy.stats.gamma.logpdf(L, a, scale=1./b,loc=0))
 
 def prior_normal(L,loc=0,scale=1): return sum(scipy.stats.norm.logpdf(L,loc,scale))
@@ -133,8 +135,8 @@ def PERT4_density(M,m,a,b,x):  # relative 'stretched' PERT density: PERT4 * (s-e
 def logPERT4_density5(M,m,a,b,x): # relative LOG-PERT density: PERT4
 	return log((M-x)**(b-1) * (-m+x)**(a-1)) - log ((M-m)**5 * f_beta(a,b))
 
-def pdf_exp(x,r): 
-	rate=1./r
-	return sum(log(rate)-rate*x)
+#def pdf_exp(x,r): 
+#	rate=1./r
+#	return sum(log(rate)-rate*x)
 
 
