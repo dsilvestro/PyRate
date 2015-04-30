@@ -166,7 +166,7 @@ for iteration in range(n_iterations):
 		##### START FOCAL CLADE ONLY
 		focal_clade= np.random.random_integers(0,(n_clades-1),1)[0]
 		rr=np.random.random()
-		if rr<.1 or iteration<1000:
+		if rr<.1 or iteration<10000:
 			if rand.random()>.5: 
 				l0=np.zeros(n_clades)+l0A
 				l0[focal_clade],U=update_multiplier_proposal(l0A[focal_clade],1.2)
@@ -180,9 +180,11 @@ for iteration in range(n_iterations):
 			B_hp_alpha,B_hp_beta=1.,1. # uniform hyper-prior in [0,1]
 			sum_R_per_clade = np.sum(RA,axis=(1,2))
 			number_of_draws_per_clade = n_clades*2.
-			alpha = B_hp_alpha+sum_R_per_clade
-			beta  = B_hp_beta + number_of_draws_per_clade - sum_R_per_clade
+			alpha = B_hp_alpha+ (number_of_draws_per_clade - sum_R_per_clade) # no. zeros  
+			beta  = B_hp_beta + sum_R_per_clade # no. ones
 			hypZeroA=np.random.beta(alpha,beta)			
+			#print RA
+			#print alpha, beta, hypZeroA
 			# Gibbs sampler (Exponential + Gamma[2,2])
 			G_hp_alpha,G_hp_beta=2.,2.
 			g_shape=G_hp_alpha+len(l0A)+len(m0A)
