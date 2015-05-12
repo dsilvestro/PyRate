@@ -38,15 +38,15 @@ def write_ts_te_table(path_dir, clade=0,burnin=0.1):
 		name_file = os.path.splitext(input_file)[0]
 		path_dir = "%s/" % os.path.dirname(f)
 		shape_f=list(shape(t_file))
-		print "%s" % (name_file)
+		print "%s" % (name_file),
 		
-		if count==0:
-			head = next(open(f)).split()
-			w=[x for x in head if 'TS' in x]
-			ind_ts0 = head.index(w[0])
-			y=[x for x in head if 'TE' in x]
-			ind_te0 = head.index(y[0])
-		
+		#if count==0:
+		head = next(open(f)).split()
+		w=[x for x in head if 'TS' in x]
+		ind_ts0 = head.index(w[0])
+		y=[x for x in head if 'TE' in x]
+		ind_te0 = head.index(y[0])
+		print len(w), "species", np.shape(t_file)
 		j=0
 		out_list=list()
 		if burnin<1: burnin = int(burnin*shape_f[0])
