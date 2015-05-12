@@ -19,6 +19,7 @@ import thread
 import imp
 lib_updates_priors = imp.load_source("lib_updates_priors", "pyrate_lib/lib_updates_priors.py")
 lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "pyrate_lib/lib_DD_likelihood.py")
+lib_utilities = imp.load_source("lib_utilities", "pyrate_lib/lib_utilities.py")
 from lib_updates_priors import *
 from lib_DD_likelihood  import *
 
@@ -50,7 +51,6 @@ focus_clade=args.clade
 win_size=args.w
 
 if args.ginput != "":
-	import lib_utilities
 	lib_utilities.write_ts_te_table(args.ginput, clade=focus_clade,burnin=args.b)
 	quit()
 
