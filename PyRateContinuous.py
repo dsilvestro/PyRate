@@ -156,9 +156,9 @@ GarrayA=np.zeros(2) # correlation parameters with Temp of lambda and mu, respect
 
 l0A,m0A= init_BD(1),init_BD(1)
 
-if args.m== -1: out_file_name="%s_%s_%s_const.log"  % (os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j)
-if args.m==  0: out_file_name="%s_%s_%s_exp.log"    % (os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j)
-if args.m==  1: out_file_name="%s_%s_%s_linear.log" % (os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j)
+if args.m== -1: out_file_name="%s/%s_%s_%s_const.log"  % (os.path.dirname(dataset),os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j)
+if args.m==  0: out_file_name="%s/%s_%s_%s_exp.log"    % (os.path.dirname(dataset),os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j)
+if args.m==  1: out_file_name="%s/%s_%s_%s_linear.log" % (os.path.dirname(dataset),os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j)
 
 
 
