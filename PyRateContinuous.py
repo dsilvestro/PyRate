@@ -36,9 +36,11 @@ p.add_argument('-s', type=int, help='sample freq.', default=1000, metavar=1000)
 p.add_argument('-p', type=int, help='print freq.', default=1000, metavar=1000)
 p.add_argument('-r', type=float, help='rescale values (0 to scale in [0,1], 0.1 to reduce range 10x, 1 to leave unchanged)', default=0, metavar=0)
 p.add_argument('-clade', type=int, help='clade analyzed', default=0, metavar=0)
-p.add_argument('-ginput', type=str,help='generate input file from *mcmc.log', default="", metavar="<path_to_mcmc.log>")
 p.add_argument('-b', type=float, help='burnin in *mcmc.log to generate input file', default=0.1, metavar=0.1)
 p.add_argument('-w',  type=float, help='window sizes (bd rates, G)',  default=[1.4, .05], metavar=1.4, nargs=2)
+p.add_argument('-ginput', type=str,help='generate input file from *mcmc.log', default="", metavar="<path_to_mcmc.log>")
+p.add_argument('-tag', metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted",default="")
+p.add_argument('-mL',  type=str, help='calculate marginal likelihood',  default="", metavar="<path_to_log_files>")
 
 args = p.parse_args()
 
@@ -52,9 +54,12 @@ focus_clade=args.clade
 win_size=args.w
 
 if args.ginput != "":
-	lib_utilities.write_ts_te_table(args.ginput, clade=focus_clade,burnin=args.b)
+	lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=focus_clade,burnin=args.b)
 	quit()
 
+if args.mL != "":
+	lib_utilities.calc_marginal_likelihood(infile=args.mL,burnin=int(args.b))
+	quit()
 
 #t_file=np.genfromtxt(dataset, names=True, delimiter='\t', dtype=float)
 t_file=np.loadtxt(dataset, skiprows=1)
