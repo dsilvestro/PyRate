@@ -31,6 +31,8 @@ p.add_argument('-m', type=int, help='model', default=0, metavar=0)
 p.add_argument('-n', type=int, help='MCMC iterations', default=1000000, metavar=1000000)
 p.add_argument('-s', type=int, help='sampling freq.', default=1000, metavar=1000)
 p.add_argument('-j', type=int, help='replicate', default=0, metavar=0)
+p.add_argument('-c', type=int, help='clade', default=0, metavar=0)
+
 
 args = p.parse_args()
 
@@ -47,6 +49,17 @@ ts=t_file[:,2+2*args.j]
 te=t_file[:,3+2*args.j]
 
 constr=args.m
+
+if args.c==0:
+	single_focal_clade = False
+	clade_name = ""
+else:
+	single_focal_clade = True
+	fixed_focal_clade = args.c-1
+	clade_name = "_c%s" % (args.c)
+
+
+
 
 all_events=sort(np.concatenate((ts,te),axis=0))[::-1] # events are speciation/extinction that change the diversity trajectory
 n_clades,n_events=max(clade_ID)+1,len(all_events)
@@ -109,7 +122,7 @@ Constr_matrix=make_constraint_matrix(n_clades, constr)
 
 l0A,m0A=init_BD(n_clades),init_BD(n_clades)
 
-out_file_name="%s_%s_m%s_MCDD.log" % (dataset,args.j,constr)
+out_file_name="%s_%s_m%s_MCDD%s.log" % (dataset,args.j,constr,clade_name)
 logfile = open(out_file_name , "wb") 
 wlog=csv.writer(logfile, delimiter='\t')
 
@@ -164,9 +177,14 @@ for iteration in range(n_iterations):
 
 	else:	
 		##### START FOCAL CLADE ONLY
-		focal_clade= np.random.random_integers(0,(n_clades-1),1)[0]
-		rr=np.random.random()
-		if rr<.1 or iteration<10000:
+		sampling_freqs=[.15,.16,.58]		
+		if iteration<25000: rr = np.random.uniform(0,sampling_freqs[1])
+		else: rr = np.random.random()
+		
+		if single_focal_clade is True and rr > sampling_freqs[1]: focal_clade=fixed_focal_clade
+		else: focal_clade= np.random.random_integers(0,(n_clades-1),1)[0]
+		
+		if rr<sampling_freqs[0]:
 			if rand.random()>.5: 
 				l0=np.zeros(n_clades)+l0A
 				l0[focal_clade],U=update_multiplier_proposal(l0A[focal_clade],1.2)
@@ -174,7 +192,7 @@ for iteration in range(n_iterations):
 				m0=np.zeros(n_clades)+m0A
 				m0[focal_clade],U=update_multiplier_proposal(m0A[focal_clade],1.2)
 			hasting=U
-		elif rr<.125: 
+		elif rr<sampling_freqs[1]:
 			# Gibbs sampler (Bernoulli distribution + Beta[1,1])
 			gibbs_sampling=1
 			B_hp_alpha,B_hp_beta=1.,1. # uniform hyper-prior in [0,1]
@@ -186,11 +204,11 @@ for iteration in range(n_iterations):
 			#print RA
 			#print alpha, beta, hypZeroA
 			# Gibbs sampler (Exponential + Gamma[2,2])
-			G_hp_alpha,G_hp_beta=2.,2.
+			G_hp_alpha,G_hp_beta=1.,.01
 			g_shape=G_hp_alpha+len(l0A)+len(m0A)
 			rate=G_hp_beta+sum(l0A)+sum(m0A)
 			hypRA = np.random.gamma(shape= g_shape, scale= 1./rate, size=1)		
-		elif rr<.5:
+		elif rr<sampling_freqs[2]:
 			Garray_temp= update_parameter_normal_2d_freq(GarrayA[focal_clade,:,:],.35,m=-MAX_G,M=MAX_G) 			
 			Garray=np.zeros(n_clades*n_clades*2).reshape(n_clades,2,n_clades)+GarrayA
 			Garray[focal_clade,:,:]=Garray_temp
@@ -247,9 +265,9 @@ for iteration in range(n_iterations):
 		#hypZeroA=hypZero
 		#hypRA=hypR
 	
-	if iteration % 1000 ==0: 
+	if iteration % 5000 ==0: 
 		print iteration, array([postA]), sum(likA),sum(lik),prior, hasting
-		print likA
+		#print likA
 		#print "l:",l0A
 		#print "m:", m0A
 		#print "G:", actualGarray.flatten()
@@ -257,7 +275,7 @@ for iteration in range(n_iterations):
 		#print "Gr:", GarrayA.flatten()
 		#print "Hmu:", hypZeroA, 1./hypRA[0] #,1./hypRA[1],hypRA[2]
 	if iteration % sampling_freq ==0:
-		log_state=[iteration,postA,sum(likA)]+list(likA)+[priorA]+list(l0A)+list(m0A)+list(actualGarray.flatten())+list(hypZeroA) +[1./hypRA[0]]
+		log_state=[iteration,postA,sum(likA)]+list(likA)+[priorA]+list(l0A)+list(m0A)+list(actualGarray.flatten())+list(hypZeroA) +[hypRA[0]]
 		wlog.writerow(log_state)
 		logfile.flush()
 
