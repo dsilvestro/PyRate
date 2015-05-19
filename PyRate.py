@@ -191,7 +191,11 @@ def calc_BF(f1, f2):
 
 ########################## PLOT RTT ##############################
 def plot_RTT(infile,burnin, file_stem=""):
-
+	burnin = int(burnin)
+	if burnin<=1:
+		print "Burnin must be provided in terms of number of samples to be excluded."
+		print "E.g. '-b 100' will remove the first 100 samples."
+		print "Assuming burnin = 1.\n"
 	def print_R_vec(name,v):
 		new_v=[]
 		for j in range(0,len(v)): 
@@ -282,6 +286,7 @@ def plot_RTT(infile,burnin, file_stem=""):
 			hpd1=np.around(calcHPD(L_tbl[:,time_ind],threshold),decimals=3)
 			hpd2=np.around(calcHPD(M_tbl[:,time_ind],threshold),decimals=3)
 			hpd3=np.around(calcHPD(R_tbl[:,time_ind],threshold),decimals=3)
+				
 			L_hpd_m.append(hpd1[0])
 			L_hpd_M.append(hpd1[1])
 	                M_hpd_m.append(hpd2[0])
@@ -292,13 +297,14 @@ def plot_RTT(infile,burnin, file_stem=""):
 
 	hpds95 = get_HPD(threshold=.95)
 	hpds50 = get_HPD(threshold=.50)
-	hpds10 = get_HPD(threshold=.10)
+	#hpds10 = get_HPD(threshold=.10)
 
-	L_tbl_meam=np.around(np.mean(L_tbl,axis=0),3)
-	M_tbl_meam=np.around(np.mean(M_tbl,axis=0),3)
-	R_tbl_meam=np.around(np.mean(R_tbl,axis=0),3)
+	L_tbl_mean=np.around(np.mean(L_tbl,axis=0),3)
+	M_tbl_mean=np.around(np.mean(M_tbl,axis=0),3)
+	R_tbl_mean=np.around(np.mean(R_tbl,axis=0),3)
+	mean_rates=[L_tbl_mean,L_tbl_mean,M_tbl_mean,M_tbl_mean,R_tbl_mean,R_tbl_mean] 
 
-	print np.shape(np.array(hpds50)	), np.shape(L_tbl_meam)
+	print np.shape(np.array(hpds50)	), np.shape(L_tbl_mean)
 
 	########################################################
 	######                  PLOT RTTs                 ######
@@ -306,8 +312,8 @@ def plot_RTT(infile,burnin, file_stem=""):
 	print "\ngenerating R file...",
 	out="%s/%s_RTT.r" % (wd,name_file)
 	newfile = open(out, "wb") 
-
-	Rfile="\n\n\n# %s" % (f)	
+	Rfile="# %s files combined:\n" % (len(files))
+	for f in files: Rfile+="# \t%s\n" % (f)	
 	Rfile+= """\n# 95% HPDs calculated using code from Biopy (https://www.cs.auckland.ac.nz/~yhel002/biopy/)"""
 		
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
@@ -315,25 +321,28 @@ def plot_RTT(infile,burnin, file_stem=""):
 	else: 
 		Rfile+= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*9, height=0.6*21)\npar(mfrow=c(3,1))" % (wd,name_file) # 
 
-	Rfile+= """
-	library(scales)
-	"""
+	Rfile+= "\nlibrary(scales)"
 
 	def RTT_plot_in_R(args, alpha):
 		count=0
 		data=""
 
-		name=['95','50','10']
+		name=['95','50','_mean']
 		for hpd_list in args:
 			sys.stdout.write(".")
 			sys.stdout.flush()
 			[L_hpd_m,L_hpd_M,M_hpd_m,M_hpd_M,R_hpd_m,R_hpd_M]=hpd_list
-			data += print_R_vec('\nL_hpd_m%s',L_hpd_m) % name[count]
-			data += print_R_vec('\nL_hpd_M%s',L_hpd_M) % name[count]
-			data += print_R_vec('\nM_hpd_m%s',M_hpd_m) % name[count]
-			data += print_R_vec('\nM_hpd_M%s',M_hpd_M) % name[count]
-			data += print_R_vec('\nR_hpd_m%s',R_hpd_m) % name[count]
-			data += print_R_vec('\nR_hpd_M%s',R_hpd_M) % name[count]
+			if name[count]=="_mean":
+				data += print_R_vec('\nL_mean',L_hpd_m)
+				data += print_R_vec('\nM_mean',M_hpd_m)
+				data += print_R_vec('\nR_mean',R_hpd_m)
+			else:
+				data += print_R_vec('\nL_hpd_m%s',L_hpd_m) % name[count]
+				data += print_R_vec('\nL_hpd_M%s',L_hpd_M) % name[count]
+				data += print_R_vec('\nM_hpd_m%s',M_hpd_m) % name[count]
+				data += print_R_vec('\nM_hpd_M%s',M_hpd_M) % name[count]
+				data += print_R_vec('\nR_hpd_m%s',R_hpd_m) % name[count]
+				data += print_R_vec('\nR_hpd_M%s',R_hpd_M) % name[count]
 			if count==0: 
 				plot_L = "\ntrans=%s\nage=(0:(%s-1))* -1" % (alpha, len(L_hpd_m))
 				plot_L += "\nplot(age,age,type = 'n', ylim = c(%s, %s), xlim = c(%s,0), ylab = 'Speciation rate', xlab = 'Ma' )" \
@@ -344,19 +353,21 @@ def plot_RTT(infile,burnin, file_stem=""):
 					% (1.05*min(R_hpd_m),1.05*max(R_hpd_M),-len(L_hpd_m)) # 
 				plot_R += """\nabline(h=0,lty=2,col="darkred")""" # \nabline(v=-c(65,200,251,367,445),lty=2,col="darkred")
 		
-			plot_L += """\npolygon(c(age, rev(age)), c(L_hpd_M%s, rev(L_hpd_m%s)), col = alpha("#4c4cec",trans), border = NA)""" % (name[count],name[count])
-			plot_M += """\npolygon(c(age, rev(age)), c(M_hpd_M%s, rev(M_hpd_m%s)), col = alpha("#e34a33",trans), border = NA)""" % (name[count],name[count])
-			plot_R += """\npolygon(c(age, rev(age)), c(R_hpd_M%s, rev(R_hpd_m%s)), col = alpha("#504A4B",trans), border = NA)""" % (name[count],name[count])
+			if name[count]=="_mean": 
+				plot_L += """\nlines(rev(age), rev(L_mean), col = "#4c4cec", lwd=2)""" 
+				plot_M += """\nlines(rev(age), rev(M_mean), col = "#e34a33", lwd=2)""" 
+				plot_R += """\nlines(rev(age), rev(R_mean), col = "#504A4B", lwd=2)""" 
+			else: 
+				plot_L += """\npolygon(c(age, rev(age)), c(L_hpd_M%s, rev(L_hpd_m%s)), col = alpha("#4c4cec",trans), border = NA)""" % (name[count],name[count])
+				plot_M += """\npolygon(c(age, rev(age)), c(M_hpd_M%s, rev(M_hpd_m%s)), col = alpha("#e34a33",trans), border = NA)""" % (name[count],name[count])
+				plot_R += """\npolygon(c(age, rev(age)), c(R_hpd_M%s, rev(R_hpd_m%s)), col = alpha("#504A4B",trans), border = NA)""" % (name[count],name[count])
+				
 		
 			count+=1
 		R_code=data+plot_L+plot_M+plot_R
 		return R_code
 
-	Rfile += RTT_plot_in_R([hpds95,hpds50,hpds10],.45)
-
-	Rfile += print_R_vec('\nL_mean',L_tbl_meam)
-	Rfile += print_R_vec('\nM_mean',M_tbl_meam)
-	Rfile += print_R_vec('\nR_mean',R_tbl_meam)
+	Rfile += RTT_plot_in_R([hpds95,hpds50,mean_rates],.5)
 
 	Rfile += "\nn <- dev.off()"
 	newfile.writelines(Rfile)
