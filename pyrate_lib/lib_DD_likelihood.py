@@ -91,6 +91,16 @@ def trasfRateTempLinear(l0, alpha,Temp_at_events):
 	return r_rate
 
 
+"""INTRODUCE TRANSF RATES WITH MULTIPLE BASELINE RATES!!!"""
+
+def trasfMultipleRateTempLinear(L0, Alpha,Temp_at_events,Index_at_events):
+	mTemp_at_events = Temp_at_events #/np.mean(Temp_at_events, axis=0)
+	r_rate= L0[Index_at_events] + L0[Index_at_events]*Alpha[Index_at_events]*mTemp_at_events
+	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+.0001)),axis=0)
+	return r_rate
+
+
+
 def intRate_(t1,t2,events,R):            # R = rates_at_events 
 	#                               #
 	#  e1     e2    e3  e4      e5  #
