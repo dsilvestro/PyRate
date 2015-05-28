@@ -295,9 +295,34 @@ def plot_RTT(infile,burnin, file_stem=""):
 			R_hpd_M.append(hpd3[1])
 		return [L_hpd_m,L_hpd_M,M_hpd_m,M_hpd_M,R_hpd_m,R_hpd_M]
 
+	def get_CI(threshold=.95):
+		threshold = (1-threshold)/2.
+		L_hpd_m,L_hpd_M=[],[]
+		M_hpd_m,M_hpd_M=[],[]
+		R_hpd_m,R_hpd_M=[],[]
+		sys.stdout.write(".")
+		sys.stdout.flush()
+		for time_ind in range(shape(R_tbl)[1]):
+			l=np.sort(L_tbl[:,time_ind])
+			m=np.sort(M_tbl[:,time_ind])
+			r=np.sort(R_tbl[:,time_ind])
+			hpd1=np.around(np.array([l[int(threshold*len(l))] , l[int(len(l) - threshold*len(l))] ]),decimals=3)
+			hpd2=np.around(np.array([m[int(threshold*len(m))] , m[int(len(m) - threshold*len(m))] ]),decimals=3)
+			hpd3=np.around(np.array([r[int(threshold*len(r))] , r[int(len(r) - threshold*len(r))] ]),decimals=3)
+				
+			L_hpd_m.append(hpd1[0])
+			L_hpd_M.append(hpd1[1])
+	                M_hpd_m.append(hpd2[0])
+			M_hpd_M.append(hpd2[1])
+	                R_hpd_m.append(hpd3[0])
+			R_hpd_M.append(hpd3[1])
+		return [L_hpd_m,L_hpd_M,M_hpd_m,M_hpd_M,R_hpd_m,R_hpd_M]
+
+
+
 	hpds95 = get_HPD(threshold=.95)
-	hpds50 = get_HPD(threshold=.50)
-	#hpds10 = get_HPD(threshold=.10)
+	hpds50 =  get_CI(threshold=.50)
+	#hpds10 =  get_CI(threshold=.10)
 
 	L_tbl_mean=np.around(np.mean(L_tbl,axis=0),3)
 	M_tbl_mean=np.around(np.mean(M_tbl,axis=0),3)
@@ -354,9 +379,9 @@ def plot_RTT(infile,burnin, file_stem=""):
 				plot_R += """\nabline(h=0,lty=2,col="darkred")""" # \nabline(v=-c(65,200,251,367,445),lty=2,col="darkred")
 		
 			if name[count]=="_mean": 
-				plot_L += """\nlines(rev(age), rev(L_mean), col = "#4c4cec", lwd=2)""" 
-				plot_M += """\nlines(rev(age), rev(M_mean), col = "#e34a33", lwd=2)""" 
-				plot_R += """\nlines(rev(age), rev(R_mean), col = "#504A4B", lwd=2)""" 
+				plot_L += """\nlines(rev(age), rev(L_mean), col = "#4c4cec", lwd=3)""" 
+				plot_M += """\nlines(rev(age), rev(M_mean), col = "#e34a33", lwd=3)""" 
+				plot_R += """\nlines(rev(age), rev(R_mean), col = "#504A4B", lwd=3)""" 
 			else: 
 				plot_L += """\npolygon(c(age, rev(age)), c(L_hpd_M%s, rev(L_hpd_m%s)), col = alpha("#4c4cec",trans), border = NA)""" % (name[count],name[count])
 				plot_M += """\npolygon(c(age, rev(age)), c(M_hpd_M%s, rev(M_hpd_m%s)), col = alpha("#e34a33",trans), border = NA)""" % (name[count],name[count])
@@ -723,13 +748,15 @@ def born_prm(times, R, ind, tse):
 	Q2=times[0]+cumsum(Q1)
 	Q3=insert(Q2,0,times[0])
 	Q3[len(Q3)-1]=0
-	n_R= insert(R, ind, init_BD(1))
+	#n_R= insert(R, ind, init_BD(1))
+	#n_R= insert(R, ind, R[max(ind-1,0)]) # R[np.random.randint(0,len(R))]
 	#print "old", R, n_R,
 	
 	# better proposals for birth events
 	#if len(R)>1: R_init=mean(R)
 	#else: R_init=R
-	#n_R= insert(R, ind,update_parameter(R_init,0,5,.2,1))
+	R_init = R[max(ind-1,0)]
+	n_R= insert(R, ind,update_parameter(R_init,0,5,.05,1))
 	
 	
 	#print "new", n_R
@@ -759,10 +786,13 @@ def kill_prm(times, R, ind):
 	Q3[len(Q3)-1]=0
 	R=np.delete(R,ind)       # remove corresponding rate
 	n_times= sort(Q3)[::-1]  # reverse array
+	#ind_rm= max(1,ind)
+	#n_times= np.delete(times,ind_rm)
 	return n_times, R
 
 def estimate_delta(likBDtemp, R,par,times, ts, te, cov_par, ind,deathRate,n_likBD,q,m0):
-	# ESTIMATE DELTAS (individual death rates)		
+	# ESTIMATE DELTAS (individual death rates)
+	#print "now",R,times		
 	for temp in range(0,len(R)):
 		if par=="l": 
 			temp_l=temp
@@ -771,11 +801,13 @@ def estimate_delta(likBDtemp, R,par,times, ts, te, cov_par, ind,deathRate,n_likB
 			temp_l=temp+ind
 			cov_par_one=cov_par[1]
 		n_times, n_rates=kill_prm(times, R, temp)
+		#print temp,n_rates,n_times
 
 		tempL=0
 		for temp1 in range(len(n_times)-1):
 			up, lo = n_times[temp1], n_times[temp1+1]
 			l = n_rates[temp1]
+			#print up,lo,l,n_rates
 			args=[ts, te, up, lo, l, L_lam_r,L_lam_m,lam_s, par, cov_par_one,q,m0]
 			tempL+=BD_partial_lik(args)
 		#print "LIK", 	tempL, sum(likBDtemp[ind:ind+len(R)])
@@ -800,7 +832,7 @@ def Alg_3_1(arg):
 		if len(M)>1:  # EXTINCTION RATES
 			deathRate=estimate_delta(likBDtemp, M,"m",timesM, ts, te, cov_par, len(L),deathRate,n_likBD,q,M[len(M)-1])
 		deltaRate=sum(deathRate)
-		#print "DELTA:", deltaRate, "\t", deathRate
+		#print it, "DELTA:", round(deltaRate,3), "\t", deathRate, len(L), len(M),round(sum(likBDtemp),3)
 		cont_time += np.random.exponential(1./min((deltaRate+birthRate), 100000))
 		if cont_time>len_cont_time: break
 			
@@ -1034,7 +1066,7 @@ def MCMC(all_arg):
 
 		else: # run BD algorithm (Alg. 3.1)
 			sys.stderr = NO_WARN
-			args=[it, likBDtempA,tsA, teA, LA,MA, timesLA, timesMA, cov_parA,alphas[1],M[len(M)-1]]
+			args=[it, likBDtempA,tsA, teA, LA,MA, timesLA, timesMA, cov_parA,alphasA[1],M[len(M)-1]]
 			likBDtemp, L,M, timesL, timesM, cov_par = Alg_3_1(args)
 			
 			# NHPP Lik: needs to be recalculated after Alg 3.1
