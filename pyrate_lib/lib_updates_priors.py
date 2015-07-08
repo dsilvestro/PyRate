@@ -106,6 +106,12 @@ def prior_exponential(L,rate): return sum(scipy.stats.expon.logpdf(L, scale=1./r
 def prior_gamma(L,a,b): return sum(scipy.stats.gamma.logpdf(L, a, scale=1./b,loc=0))
 
 def prior_normal(L,loc=0,scale=1): return sum(scipy.stats.norm.logpdf(L,loc,scale))
+
+def prior_normal_tau(L,loc=0,precision=1): 
+	# precision: tau = 1/sig2
+	# scale: sqrt(sig2) = sqrt(1/tau)
+	return sum(scipy.stats.norm.logpdf(L,loc,scale=sqrt(1./precision)))
+
 	
 def prior_times_frames(t, root,a): # un-normalized Dirichlet (truncated)
 	t_rel=abs(np.diff(t))/root
