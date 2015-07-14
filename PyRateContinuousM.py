@@ -108,8 +108,11 @@ times_of_T_change= tempfile[:,0] # array of times of Temp change
 Temp_values=       tempfile[:,1] # array of Temp values at times_of_T_change
 
 # Temp_values= (Temp_values-Temp_values[0]) # so l0 and m0 are rates at the present
-# if rescale_factor > 0: Temp_values = Temp_values*rescale_factor
-# else: Temp_values = Temp_values/(max(Temp_values)-min(Temp_values))
+if rescale_factor > 0: Temp_values = Temp_values*rescale_factor
+else: 
+	denom = (max(Temp_values)-min(Temp_values))
+	if denom==0: denom=1.
+	Temp_values = Temp_values/denom
 
 #print "BRL" , sum(ts-te)
 #print "range:", max(Temp_values)-min(Temp_values)
@@ -172,8 +175,6 @@ for i in range(len(np.unique(shift_ind))):
 	Temp_values= Temp_at_events[shift_ind==i]
 	#Temp_values= (Temp_values-Temp_values[-1]) # so l0 and m0 are rates at the end of the time bin
 	Temp_values= (Temp_values-mean(Temp_values)) # so l0 and m0 are rates at the mean temp value
-	if rescale_factor > 0: Temp_values = Temp_values*rescale_factor
-	else: Temp_values = Temp_values/(max(Temp_values)-min(Temp_values))
 	scaled_temp[shift_ind==i]= Temp_values
 
 Temp_at_events=scaled_temp
@@ -194,9 +195,9 @@ if len(s_times)>0: s_times_str = "s_" + '_'.join(s_times.astype("str"))
 else: s_times_str=""
 
 
-if args.m== -1: out_file_name="%s/%s_%s_%s_%sconst.log"  % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str)
-if args.m==  0: out_file_name="%s/%s_%s_%s_%sexp.log"    % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str)
-if args.m==  1: out_file_name="%s/%s_%s_%s_%slinear.log" % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str)
+if args.m== -1: out_file_name="%s/%s_%s_%s_%s_const.log"  % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str)
+if args.m==  0: out_file_name="%s/%s_%s_%s_%s_exp.log"    % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str)
+if args.m==  1: out_file_name="%s/%s_%s_%s_%s_linear.log" % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str)
 
 
 
