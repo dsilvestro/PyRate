@@ -764,7 +764,7 @@ def born_prm(times, R, ind, tse):
 	go=True
 	for j in range(len(n_times)-1):
 		up,lo=n_times[j],n_times[j+1]
-		if len(np.intersect1d((tse <= up).nonzero()[0], (tse > lo).nonzero()[0]))<1: 
+		if len(np.intersect1d((tse <= up).nonzero()[0], (tse > lo).nonzero()[0]))<=1: 
 			go=False
 			#print len(np.intersect1d((tse <= up).nonzero()[0], (tse > lo).nonzero()[0])), up , lo
 
@@ -1183,11 +1183,11 @@ def MCMC(all_arg):
 				margL=zeros(len(marginal_frames))
 				margM=zeros(len(marginal_frames))
 				for i in range(len(timesLA)-1): # indexes of the 1My bins within each timeframe
-					ind=np.intersect1d(marginal_frames[marginal_frames<=timesLA[i]],marginal_frames[marginal_frames>=timesLA[i+1]])
+					ind=np.intersect1d(marginal_frames[marginal_frames<=timesLA[i]],marginal_frames[marginal_frames>=max(min(LO),timesLA[i+1])])
 					j=array(ind)
 					margL[j]=LA[i]
 				for i in range(len(timesMA)-1): # indexes of the 1My bins within each timeframe
-					ind=np.intersect1d(marginal_frames[marginal_frames<=timesMA[i]],marginal_frames[marginal_frames>=timesMA[i+1]])
+					ind=np.intersect1d(marginal_frames[marginal_frames<=timesMA[i]],marginal_frames[marginal_frames>=max(min(LO),timesMA[i+1])])
 					j=array(ind)
 					margM[j]=MA[i]
 				marginal_rates(it, margL, margM, marginal_file, n_proc)
