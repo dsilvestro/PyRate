@@ -3,8 +3,8 @@
 import argparse, os,sys, platform, time, csv, glob
 import random as rand
 import warnings
-version= "      PyRate 0.580       "
-build  = "        20150714         "
+version= "      PyRate 0.581       "
+build  = "        20150722         "
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
@@ -200,7 +200,7 @@ def plot_RTT(infile,burnin, file_stem=""):
 		new_v=[]
 		for j in range(0,len(v)): 
 			value=v[j]
-			if value is nan: value="NA"
+			if isnan(v[j]): value="NA"
 			new_v.append(value)
 	
 		vec="%s=c(%s, " % (name,new_v[0])
@@ -211,8 +211,10 @@ def plot_RTT(infile,burnin, file_stem=""):
 
 	path_dir = infile
 	sys.path.append(infile)
+	plot_title = file_stem.split('_')[0]
+	print "FILE STEM:",file_stem, plot_title
 	if file_stem=="": direct="%s/*_marginal_rates.log" % infile
-	else: direct="%s/*%s*_marginal_rates.log" % (infile,file_stem)
+	else: direct="%s/*%s*marginal_rates.log" % (infile,file_stem)
 	files=glob.glob(direct)
 	files=sort(files)
 	stem_file=files[0]
@@ -320,14 +322,22 @@ def plot_RTT(infile,burnin, file_stem=""):
 
 
 
-	hpds95 = get_HPD(threshold=.95)
-	hpds50 =  get_CI(threshold=.50)
+	hpds95 =  np.array(get_HPD(threshold=.95))
+	hpds50 =  np.array(get_CI(threshold=.50))
 	#hpds10 =  get_CI(threshold=.10)
 
 	L_tbl_mean=np.around(np.mean(L_tbl,axis=0),3)
 	M_tbl_mean=np.around(np.mean(M_tbl,axis=0),3)
 	R_tbl_mean=np.around(np.mean(R_tbl,axis=0),3)
-	mean_rates=[L_tbl_mean,L_tbl_mean,M_tbl_mean,M_tbl_mean,R_tbl_mean,R_tbl_mean] 
+	mean_rates=np.array([L_tbl_mean,L_tbl_mean,M_tbl_mean,M_tbl_mean,R_tbl_mean,R_tbl_mean] )
+	
+	nonzero_rate = L_tbl_mean+ M_tbl_mean
+	NA_ind = (nonzero_rate==0).nonzero()[0]
+	
+	hpds95[:,NA_ind] = np.nan
+	hpds50[:,NA_ind] = np.nan
+	mean_rates[:,NA_ind] = np.nan
+	
 
 	print np.shape(np.array(hpds50)	), np.shape(L_tbl_mean)
 
@@ -342,9 +352,9 @@ def plot_RTT(infile,burnin, file_stem=""):
 	Rfile+= """\n# 95% HPDs calculated using code from Biopy (https://www.cs.auckland.ac.nz/~yhel002/biopy/)"""
 		
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		Rfile+= "\n\npdf(file='%s\%s_RTT.pdf',width=0.6*9, height=0.6*21)\npar(mfrow=c(3,1))" % (wd,name_file) # 
+		Rfile+= "\n\npdf(file='%s\%s_RTT.pdf',width=0.6*9, height=0.6*21)\npar(mfrow=c(3,1))" % (wd,name_file) # 9
 	else: 
-		Rfile+= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*9, height=0.6*21)\npar(mfrow=c(3,1))" % (wd,name_file) # 
+		Rfile+= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*9, height=0.6*21)\npar(mfrow=c(3,1))" % (wd,name_file) # 9
 
 	Rfile+= "\nlibrary(scales)"
 
@@ -352,7 +362,7 @@ def plot_RTT(infile,burnin, file_stem=""):
 		count=0
 		data=""
 
-		name=['95','50','_mean']
+		name=['95','_mean'] # ,'50'
 		for hpd_list in args:
 			sys.stdout.write(".")
 			sys.stdout.flush()
@@ -369,13 +379,15 @@ def plot_RTT(infile,burnin, file_stem=""):
 				data += print_R_vec('\nR_hpd_m%s',R_hpd_m) % name[count]
 				data += print_R_vec('\nR_hpd_M%s',R_hpd_M) % name[count]
 			if count==0: 
+				max_x_axis,min_x_axis = -len(L_hpd_m), 0 # root to the present
+ 				max_x_axis,min_x_axis = -(len(L_hpd_m)+.05*len(L_hpd_m)), -(len(L_hpd_m)-len(L_hpd_m[np.isfinite(L_hpd_m)]))+.05*len(L_hpd_m)
 				plot_L = "\ntrans=%s\nage=(0:(%s-1))* -1" % (alpha, len(L_hpd_m))
-				plot_L += "\nplot(age,age,type = 'n', ylim = c(%s, %s), xlim = c(%s,0), ylab = 'Speciation rate', xlab = 'Ma' )" \
-					% (0,1.05*max(L_hpd_M),-len(L_hpd_m)) # 
-				plot_M  = "\nplot(age,age,type = 'n', ylim = c(%s, %s), xlim = c(%s,0), ylab = 'Extinction rate', xlab = 'Ma' )" \
-					% (0,1.05*max(M_hpd_M),-len(L_hpd_m)) # 
-				plot_R  = "\nplot(age,age,type = 'n', ylim = c(%s, %s), xlim = c(%s,0), ylab = 'Net diversification rate', xlab = 'Ma' )" \
-					% (1.05*min(R_hpd_m),1.05*max(R_hpd_M),-len(L_hpd_m)) # 
+				plot_L += "\nplot(age,age,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = 'Speciation rate', xlab = 'Ma',main='%s' )" \
+					% (0,1.1*np.nanmax(L_hpd_M),max_x_axis,min_x_axis,plot_title) 
+				plot_M  = "\nplot(age,age,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = 'Extinction rate', xlab = 'Ma' )" \
+					% (0,1.1*np.nanmax(M_hpd_M),max_x_axis,min_x_axis)
+				plot_R  = "\nplot(age,age,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = 'Net diversification rate', xlab = 'Ma' )" \
+					% (1.1*np.nanmin(R_hpd_m),1.1*np.nanmax(R_hpd_M),max_x_axis,min_x_axis)
 				plot_R += """\nabline(h=0,lty=2,col="darkred")""" # \nabline(v=-c(65,200,251,367,445),lty=2,col="darkred")
 		
 			if name[count]=="_mean": 
@@ -392,7 +404,7 @@ def plot_RTT(infile,burnin, file_stem=""):
 		R_code=data+plot_L+plot_M+plot_R
 		return R_code
 
-	Rfile += RTT_plot_in_R([hpds95,hpds50,mean_rates],.5)
+	Rfile += RTT_plot_in_R([hpds95,mean_rates],.5) # ,hpds50
 
 	Rfile += "\nn <- dev.off()"
 	newfile.writelines(Rfile)
@@ -1147,8 +1159,8 @@ def MCMC(all_arg):
 				print print_out
 				#if TDI==1: print "\tpower posteriors:", marginal_lik[0:10], "..."
 
-				print "\tt.frames:", timesLA, "(sp.)"
-				print "\tt.frames:", timesMA, "(ex.)"
+				print "\tt.frames:", timesLA[0:-1],round(min(teA),3), "(sp.)"
+				print "\tt.frames:", timesMA[0:-1],round(min(teA),3), "(ex.)"
 				print "\tsp.rates:", LA, "\n\tex.rates:", MA
 				
 				if model_cov>=1: print "\tcov. (sp/ex/q):", cov_parA
@@ -1162,14 +1174,14 @@ def MCMC(all_arg):
 		elif it % sample_freq ==0 and it>=burnin or it==0 and it>=burnin:
 			s_max=max(tsA)
 			if TDI<2: # normal MCMC or MCMC-TI
-				log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), alphasA[1], alphasA[0], cov_parA[0], cov_parA[1],cov_parA[2], temperature, s_max]
+				log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), alphasA[1], alphasA[0], cov_parA[0], cov_parA[1],cov_parA[2], temperature, s_max,min(teA)]
 				if fix_Shift is True: log_state += list(hyperPA)
 				log_state += list(LA)
 				log_state += list(MA)
 				log_state += list(timesLA[1:-1])
 				log_state += list(timesMA[1:-1])
 			else: # BD-MCMC
-				log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), alphasA[1], alphasA[0], cov_parA[0], cov_parA[1],cov_parA[2], len(LA), len(MA), s_max]
+				log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), alphasA[1], alphasA[0], cov_parA[0], cov_parA[1],cov_parA[2], len(LA), len(MA), s_max,min(teA)]
                 
 			log_state += [SA]
 			log_state += list(tsA)
@@ -1401,7 +1413,18 @@ path_dir_log_files=sort(args.plot)
 list_files_BF=sort(args.BF)
 file_stem=args.tag
 if path_dir_log_files != "":
-	plot_RTT(path_dir_log_files, burnin, file_stem)
+	
+	# plot each file separately
+	if file_stem == "":
+		direct="%s/*marginal_rates.log" % path_dir_log_files
+		files=glob.glob(direct)
+		files=sort(files)
+		for f in files:
+			name_file = os.path.splitext(os.path.basename(f))[0]
+			name_file = name_file.split("marginal_rates")[0]
+			plot_RTT(path_dir_log_files, burnin, name_file)
+	else:
+		plot_RTT(path_dir_log_files, burnin, file_stem)
 	quit()
 elif args.mProb != "": calc_model_probabilities(args.mProb,burnin)
 elif len(list_files_BF):
@@ -1554,14 +1577,14 @@ sumfile.close()
 out_log = "%s/%s_mcmc.log" % (path_dir, suff_out) #(path_dir, output_file, out_run)
 logfile = open(out_log , "w",0) 
 if TDI<2:
-	head="it\tposterior\tprior\tPP_lik\tBD_lik\tq_rate\talpha\tcov_sp\tcov_ex\tcov_q\tbeta\troot_age\t"
+	head="it\tposterior\tprior\tPP_lik\tBD_lik\tq_rate\talpha\tcov_sp\tcov_ex\tcov_q\tbeta\troot_age\tdeath_age\t"
 	if fix_Shift is True: 
 		head += "hypL\thypM\t"
 	for i in range(time_framesL): head += "lambda_%s\t" % (i)
 	for i in range(time_framesM): head += "mu_%s\t" % (i)
 	for i in range(1,time_framesL): head += "shift_sp_%s\t" % (i)
 	for i in range(1,time_framesM): head += "shift_ex_%s\t" % (i)
-else: head="it\tposterior\tprior\tPP_lik\tBD_lik\tq_rate\talpha\tcov_sp\tcov_ex\tcov_q\tk_birth\tk_death\troot_age\t"
+else: head="it\tposterior\tprior\tPP_lik\tBD_lik\tq_rate\talpha\tcov_sp\tcov_ex\tcov_q\tk_birth\tk_death\troot_age\tdeath_age\t"
 head += "tot_length"
 head=head.split('\t')
 for i in taxa_names: head.append("%s_TS" % (i))
