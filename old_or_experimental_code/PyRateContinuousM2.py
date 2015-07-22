@@ -42,6 +42,9 @@ p.add_argument('-ginput', type=str,help='generate input file from *mcmc.log', de
 p.add_argument('-tag', metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted",default="")
 p.add_argument('-mL',  type=str, help='calculate marginal likelihood',  default="", metavar="<path_to_log_files>")
 p.add_argument('-stimes',  type=float, help='shift times',  default=[], metavar=0, nargs='+') 
+p.add_argument('-extract_mcmc', type=int, help='Extract "cold" chain in separate log file', default=1, metavar=1)
+
+
 
 args = p.parse_args()
 
@@ -60,7 +63,7 @@ if args.ginput != "":
 	quit()
 
 if args.mL != "":
-	lib_utilities.calc_marginal_likelihood(infile=args.mL,burnin=int(args.b))
+	lib_utilities.calc_marginal_likelihood(infile=args.mL,burnin=int(args.b),extract_mcmc=args.extract_mcmc)
 	quit()
 
 #t_file=np.genfromtxt(dataset, names=True, delimiter='\t', dtype=float)
@@ -205,6 +208,7 @@ logfile = open(out_file_name , "wb")
 wlog=csv.writer(logfile, delimiter='\t')
 
 head="it\tposterior\tlikelihood\tprior" 
+for i in range(n_time_bins): head+="\tlik_%s" % (i)
 for i in range(n_time_bins): head+="\tl0_t%s" % (i)
 for i in range(n_time_bins): head+="\tm0_t%s" % (i)
 for j in range(n_time_bins): 
@@ -227,7 +231,24 @@ d1 = win_size[0]
 d2 = win_size[1] # starting win size for Gl, Gm
 list_d2=sort(exp(scal_fac_TI))**3*d2+(exp(1-np.array(scal_fac_TI))-1)*d2
 
+## prep for lik calculation
+abs_diff = abs(np.diff(all_events))
+#abs_diff = np.concatenate((abs_diff,np.zeros(10)))
+V1,V2,V3,V4 = list(),list(),list(),list()
+for i in range(n_time_bins):
+	v1 = (shift_ind==i).nonzero()[0]
+	if i == n_time_bins-1: v_1 = v1[0:-1]
+	else: v_1 = v1
+	v_2 = v_1+1
+	V1.append(v_1)
+	V2.append(v_2)
+	V3.append(np.intersect1d(ind_s,v_1))
+	V4.append(np.intersect1d(ind_e,v_1))
+	
+
+
 scal_fac_ind=0
+lik_pA=np.zeros(n_time_bins)
 for iteration in range(mcmc_gen * len(scal_fac_TI)):	
 	
 	if (iteration+1) % (mcmc_gen+1) ==0: 
@@ -246,6 +267,7 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 	rr=np.random.uniform(0,1,3)
 	if args.m== -1: rr[0]=0 # never update Garray
 	
+	GIBBS = 0
 	if iteration>10:
 		if rr[0]<sampling_freqs[0] or iteration<1000:
 			if rr[1]>.5: 
@@ -254,8 +276,9 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 				m0,U=update_multiplier_proposal(m0A,d1)
 			hasting=U
 		elif rr[0]<sampling_freqs[1]:# Gibbs sampling
+			GIBBS = 1
 			# Gibbs sampler - Exponential + Gamma
-			G_hp_alpha,G_hp_beta=1.,1.
+			G_hp_alpha,G_hp_beta=2.,2.
 			g_shape=G_hp_alpha+len(l0A)+len(m0A)
 			g_rate=G_hp_beta+sum(l0A)+sum(m0A)
 			hypRA = np.random.gamma(shape= g_shape, scale= 1./g_rate)
@@ -285,20 +308,37 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 		l_at_events=np.repeat(l0,len(Temp_at_events))
 		m_at_events=np.repeat(m0,len(Temp_at_events))
 	
-	l_s1a=l_at_events[ind_s]
-	m_e1a=m_at_events[ind_e]
+	# Global likelihood
+	#__ l_s1a=l_at_events[ind_s]
+	#__ m_e1a=m_at_events[ind_e]
+        #__ 
+	#__ lik =  sum(log(l_s1a))-sum( abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(Dtraj[:,0][1:len(l_at_events)])) \
+	#__       +sum(log(m_e1a))-sum( abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(Dtraj[:,0][1:len(l_at_events)])) 
 
-	lik =  sum(log(l_s1a))-sum( abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(Dtraj[:,0][1:len(l_at_events)])) \
-	      +sum(log(m_e1a))-sum( abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(Dtraj[:,0][1:len(l_at_events)])) 
+	# partial likelihoods
+	lik_p=np.zeros(n_time_bins)
+	for i in range(n_time_bins):
+		v_1 = V1[i]
+		v_2 = V2[i]
+		l_s1a=l_at_events[V3[i]]
+		m_e1a=m_at_events[V4[i]]
+		lik_p[i] = sum(log(l_s1a)) -sum( abs_diff[v_1] * l_at_events[v_1] * (Dtraj[v_2,0])) \
+		           +sum(log(m_e1a)) -sum( abs_diff[v_1] * m_at_events[v_1] * (Dtraj[v_2,0])) 
+	
+	# Check likelihoods  
+	#__ if iteration % 100 ==0:
+	#__ 	print round(lik - sum(lik_p), 8)
+	lik=sum(lik_p)
 	
 	lik_alter = lik * scal_fac_TI[scal_fac_ind]
 	
 	# Add hyper-prior + Gibbs sampling 
 	prior= prior_normal(Garray,scale=sqrt(hypGA)) + prior_exponential(l0,rate=hypRA) + prior_exponential(m0,rate=hypRA)  # prior_normal_tau(Garray,precision=hypGA)
 	
-	if (lik_alter + prior + hasting) - postA >= log(rand.random()) or iteration==0:
+	if (lik_alter + prior + hasting) - postA >= log(rand.random()) or iteration==0 or GIBBS == 1:
 		postA=lik_alter+prior
 		likA=lik
+		lik_pA=lik_p
 		priorA=prior
 		l0A=l0
                 m0A=m0
@@ -307,7 +347,7 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 		print iteration, array([postA, likA,lik,prior]), hasting, scal_fac_TI[scal_fac_ind]
 		print "l:",l0A, "\nm:", m0A, "\nG:", GarrayA
 	if iteration % sampling_freq ==0:
-		log_state=[iteration,postA,likA,priorA] + list(l0A) + list(m0A) +list(GarrayA.flatten()) + [hypRA,hypGA] + [scal_fac_TI[scal_fac_ind]]
+		log_state=[iteration,postA,likA,priorA] + list(lik_pA) + list(l0A) + list(m0A) +list(GarrayA.flatten()) + [hypRA,hypGA] + [scal_fac_TI[scal_fac_ind]]
 		wlog.writerow(log_state)
 		logfile.flush()
 
