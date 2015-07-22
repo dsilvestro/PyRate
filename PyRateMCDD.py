@@ -26,12 +26,14 @@ from lib_DD_likelihood  import *
 #### DATA ###
 
 p = argparse.ArgumentParser() #description='<input file>') 
-p.add_argument('-d', type=str, help='data set', default=0, metavar=0)
-p.add_argument('-m', type=int, help='model', default=0, metavar=0)
-p.add_argument('-n', type=int, help='MCMC iterations', default=1000000, metavar=1000000)
-p.add_argument('-s', type=int, help='sampling freq.', default=1000, metavar=1000)
-p.add_argument('-j', type=int, help='replicate', default=0, metavar=0)
+p.add_argument('-d', type=str,   help='data set', default=0, metavar=0)
+p.add_argument('-m', type=int,   help='model', default=0, metavar=0)
+p.add_argument('-n', type=int,   help='MCMC iterations', default=1000000, metavar=1000000)
+p.add_argument('-s', type=int,   help='sampling freq.', default=1000, metavar=1000)
+p.add_argument('-p', type=int,   help='print freq.', default=5000, metavar=5000)
+p.add_argument('-j', type=int,   help='replicate', default=0, metavar=0)
 p.add_argument('-c', type=int, help='clade', default=0, metavar=0)
+p.add_argument('-b', type=float, help='shape parameter (beta) of Be hyper=prior pn indicators', default=1, metavar=1)
 
 
 args = p.parse_args()
@@ -40,6 +42,7 @@ args = p.parse_args()
 dataset=args.d
 n_iterations=args.n
 sampling_freq=args.s
+print_freq = args.p
 #t_file=np.genfromtxt(dataset, names=True, delimiter='\t', dtype=float)
 t_file=np.loadtxt(dataset, skiprows=1)
 
@@ -58,8 +61,9 @@ else:
 	fixed_focal_clade = args.c-1
 	clade_name = "_c%s" % (args.c)
 
-
-
+Be_shape_beta = args.b
+if Be_shape_beta>1: beta_value = "_B%s" % (args.b)	
+else: beta_value = ""
 
 all_events=sort(np.concatenate((ts,te),axis=0))[::-1] # events are speciation/extinction that change the diversity trajectory
 n_clades,n_events=max(clade_ID)+1,len(all_events)
@@ -122,7 +126,7 @@ Constr_matrix=make_constraint_matrix(n_clades, constr)
 
 l0A,m0A=init_BD(n_clades),init_BD(n_clades)
 
-out_file_name="%s_%s_m%s_MCDD%s.log" % (dataset,args.j,constr,clade_name)
+out_file_name="%s_%s_m%s_MCDD%s%s.log" % (dataset,args.j,constr,clade_name,beta_value)
 logfile = open(out_file_name , "wb") 
 wlog=csv.writer(logfile, delimiter='\t')
 
@@ -177,7 +181,7 @@ for iteration in range(n_iterations):
 
 	else:	
 		##### START FOCAL CLADE ONLY
-		sampling_freqs=[.15,.16,.58]		
+		sampling_freqs=[.20,.205,.60]		
 		if iteration<25000: rr = np.random.uniform(0,sampling_freqs[1])
 		else: rr = np.random.random()
 		
@@ -192,10 +196,10 @@ for iteration in range(n_iterations):
 				m0=np.zeros(n_clades)+m0A
 				m0[focal_clade],U=update_multiplier_proposal(m0A[focal_clade],1.2)
 			hasting=U
-		elif rr<sampling_freqs[1]:
+		elif rr<sampling_freqs[1]: # update hypZ and hypR
 			# Gibbs sampler (Bernoulli distribution + Beta[1,1])
 			gibbs_sampling=1
-			B_hp_alpha,B_hp_beta=1.,1. # uniform hyper-prior in [0,1]
+			B_hp_alpha,B_hp_beta=Be_shape_beta,1. # uniform hyper-prior in [0,1]
 			sum_R_per_clade = np.sum(RA,axis=(1,2))
 			number_of_draws_per_clade = n_clades*2.
 			alpha = B_hp_alpha+ (number_of_draws_per_clade - sum_R_per_clade) # no. zeros  
@@ -208,12 +212,12 @@ for iteration in range(n_iterations):
 			g_shape=G_hp_alpha+len(l0A)+len(m0A)
 			rate=G_hp_beta+sum(l0A)+sum(m0A)
 			hypRA = np.random.gamma(shape= g_shape, scale= 1./rate, size=1)		
-		elif rr<sampling_freqs[2]:
+		elif rr<sampling_freqs[2]: # update Garray (effect size) 
 			Garray_temp= update_parameter_normal_2d_freq(GarrayA[focal_clade,:,:],.35,m=-MAX_G,M=MAX_G) 			
 			Garray=np.zeros(n_clades*n_clades*2).reshape(n_clades,2,n_clades)+GarrayA
 			Garray[focal_clade,:,:]=Garray_temp
 		else:
-			rrr=np.random.uniform(0,1,2)
+			rrr=np.random.uniform(0,1,2) # update R (indicators)
 			r_clade =np.random.randint(0,n_clades,2)
 			r1= np.array([focal_clade, r_clade[0]])
 			r2= np.array([focal_clade, r_clade[1]])
@@ -265,7 +269,7 @@ for iteration in range(n_iterations):
 		#hypZeroA=hypZero
 		#hypRA=hypR
 	
-	if iteration % 5000 ==0: 
+	if iteration % print_freq ==0: 
 		print iteration, array([postA]), sum(likA),sum(lik),prior, hasting
 		#print likA
 		#print "l:",l0A
