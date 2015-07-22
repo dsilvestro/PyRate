@@ -84,7 +84,7 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1):
 
 
 
-def calc_marginal_likelihood(infile,burnin):
+def calc_marginal_likelihood(infile,burnin,extract_mcmc=1):
 	sys.path.append(infile)
 	direct="%s/*.log" % infile # PyRateContinuous
 	files=glob.glob(direct)
@@ -95,19 +95,30 @@ def calc_marginal_likelihood(infile,burnin):
 	else: print "found", len(files), "log files...\n"	
 	out_file="%s/marginal_likelihoods.txt" % (infile)
 	newfile =open(out_file,'wb')
-	newfile.writelines("file_name\tmarginal_likelihood\treplicate\tmodel")
+	tbl_header = "file_name\treplicate\tmodel"
 	for f in files:
-		try: 
+		#try: 
+		if 2>1:
 			t=loadtxt(f, skiprows=max(1,burnin))
 			input_file = os.path.basename(f)
 			name_file = os.path.splitext(input_file)[0]
-			replicate = int(name_file.split('_')[-2])
+			try: replicate = int(name_file.split('_')[-5])
+			except: replicate = 0
 			model = name_file.split('_')[-1]
 			head = np.array(next(open(f)).split()) # should be faster
-			try:
-				like_index = np.where(head=="BD_lik")[0][0]
-			except(IndexError): 
-				like_index = np.where(head=="likelihood")[0][0] 
+			head_l = list(head)
+			
+			L_index = [head_l.index(i) for i in head_l if "lik" in i]
+			
+			for i in L_index: tbl_header+= ("\t"+head[i])
+			
+			if f==files[0]: newfile.writelines(tbl_header)
+			
+			
+			#try:
+			#	like_index = np.where(head=="BD_lik")[0][0]
+			#except(IndexError): 
+			#	like_index = np.where(head=="likelihood")[0][0] 
 			try: 
 				temp_index = np.where(head=="temperature")[0][0]
 			except(IndexError): 
@@ -120,18 +131,40 @@ def calc_marginal_likelihood(infile,burnin):
 			l=zeros(len(x))
 			s=zeros(len(x))
 			l_str,s_str="",""
-			for i in range(len(x)): 
-				l[i]=mean(t[:,like_index][(t[:,temp_index]==x[i]).nonzero()[0]]) 
-				s[i]=std(t[:,like_index][(t[:,temp_index]==x[i]).nonzero()[0]]) 
-				l_str += "\t%s" % round(l[i],3)
-				s_str += "\t%s" % round(s[i],3)
-			mL=0
-			for i in range(len(l)-1): mL+=((l[i]+l[i+1])/2.)*(x[i]-x[i+1]) # Beerli and Palczewski 2010
-			ml_str="\n%s\t%s\t%s\t%s%s%s" % (name_file,round(mL,3),replicate,model    ,l_str,s_str)
+			for like_index in L_index:
+				for i in range(len(x)): 
+					l[i]=mean(t[:,like_index][(t[:,temp_index]==x[i]).nonzero()[0]]) 
+					s[i]=std(t[:,like_index][(t[:,temp_index]==x[i]).nonzero()[0]]) 
+					#l_str += "\t%s" % round(l[i],3)
+					#s_str += "\t%s" % round(s[i],3)
+				mL=0
+				for i in range(len(l)-1): mL+=((l[i]+l[i+1])/2.)*(x[i]-x[i+1]) # Beerli and Palczewski 2010
+				#ml_str="\n%s\t%s\t%s\t%s%s%s" % (name_file,round(mL,3),replicate,model    ,l_str,s_str)
+				if like_index == min(L_index): ml_str="\n%s\t%s\t%s\t%s" % (name_file,replicate,model,round(mL,3))
+				else: ml_str += "\t%s" % (round(mL,3))
 			newfile.writelines(ml_str)
+			
+			if extract_mcmc==1:
+				out_name="%s/%s_cold.log" % (infile,name_file)
+				newfile2 =open(out_name,'wb')
+				
+				t_red = t[(t[:,temp_index]==1).nonzero()[0]]
+				newfile2.writelines( "\t".join(head_l)  )
+				for l in range(shape(t_red)[0]):
+					line= ""
+					for i in t_red[l,:]: line+= "%s\t" % (i)
+					newfile2.writelines( "\n"+line  )
+				#
+				#l[i]=mean(t[:,like_index][(t[:,temp_index]==x[i]).nonzero()[0]]) 
+			        #
+				newfile2.close()
+			
+			
+			
+			
 			sys.stdout.write(".")
 			sys.stdout.flush()
-		except:
-			print "\n WARNING: cannot read file:", f, "\n\n"
+		#except:
+		#	print "\n WARNING: cannot read file:", f, "\n\n"
 
 	newfile.close()
