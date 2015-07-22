@@ -8,8 +8,8 @@ An updated manual is available here: https://github.com/dsilvestro/PyRate/wiki. 
 
 The model with fixed shift times and Cauchy hyper-priors on the birth-death rates is described here:
 
-Silvestro D., Cascales-Minana B., Bacon C. D., Antonelli A. (2015) Revisiting the origin and diversification of vascular plants through a comprehensive Bayesian analysis of the fossil record. New Phytologist, doi:10.1111/nph.13247.    
+Silvestro D., Cascales-Minana B., Bacon C. D., Antonelli A. (2015) Revisiting the origin and diversification of vascular plants through a comprehensive Bayesian analysis of the fossil record. New Phytologist, 207, 425-436.    
 
 The MCDD model is described here: 
 
-Silvestro D., Antonelli A., Salamin N., Quental T. B. (2015) The role of clade competition in the diversification of North American canids. PNAS, doi:10.1073/pnas.1502803112.
+Silvestro D., Antonelli A., Salamin N., Quental T. B. (2015) The role of clade competition in the diversification of North American canids. PNAS, 112, 8684-8689.
