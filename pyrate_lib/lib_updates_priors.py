@@ -80,6 +80,25 @@ def update_parameter_normal_2d_freq(oldL,d,f=.65,m=-2,M=2):
 	s[s<m]=(m-s[s<m])+m
 	return s
 
+def multiplier_proposal_pos_neg_vec(i,d):
+	S=shape(i)
+	ff=np.rint(np.random.uniform(0,.65,S))
+	ii = np.zeros(S)
+	
+	if np.random.random() < .05:
+		ii += i
+		ii[ff>0] = -ii[ff>0] # change sign
+		return ii, 0 
+	else: # multiplier proposal
+		u = np.random.uniform(0,1,S)
+		l = 2*log(d)
+		m = exp(l*(u-.5))
+		m = m * ff
+	 	ii = i * m
+		ii[m==0] = i[m==0]
+		return ii, sum(log(m[m>0]))
+
+
 def make_constraint_matrix(n, constraint):
 	M=np.zeros(n*n*2).reshape(n,2,n)
 	if constraint==-1: return M
