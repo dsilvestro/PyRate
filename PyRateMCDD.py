@@ -59,7 +59,7 @@ if args.c==0:
 else:
 	single_focal_clade = True
 	fixed_focal_clade = args.c-1
-	clade_name = "_c%s" % (args.c)
+	clade_name = "_c%s" % (fixed_focal_clade)
 
 Be_shape_beta = args.b
 if Be_shape_beta>1: beta_value = "_B%s" % (args.b)	
