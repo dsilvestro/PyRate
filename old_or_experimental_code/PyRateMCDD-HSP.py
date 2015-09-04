@@ -125,34 +125,49 @@ def pdf_cauchy(x,s=1):
 	return scipy.stats.cauchy.logpdf(x,scale=s,loc=0)
  
 def sample_lambda_vec(lam,G_vec,tau):
-	eta_vec = 1./lam**2
+	eta_vec = 1./(lam**2)
 	mu_vec  = G_vec/tau
-
+	
 	u_vec  = np.random.uniform(0,1./(1+eta_vec),len(eta_vec))
-	scale_exp = 2./(mu_vec**2)
+	scale_exp = (2./(mu_vec**2))
 	n_attempts=1000
 	scale_exp = np.repeat(scale_exp,n_attempts).reshape(len(eta_vec),n_attempts)
 	random_exp = np.random.exponential(scale=scale_exp,size=(len(eta_vec),n_attempts))
 	u_vec_2D = np.repeat(u_vec,n_attempts).reshape(len(eta_vec),n_attempts)
-
+	
 	ind=(random_exp<u_vec_2D).nonzero() # x, y indexes of random_exp < u_vec
 	uni_index=np.unique(ind[0],return_index=1)[1]
 	random_exp_trunc = random_exp[ind[0],ind[1]][uni_index]
-
+	
 	new_lam = sqrt(1./random_exp_trunc)
 	return new_lam
+
+
+def sample_lam(lam,beta,tau):
+	eta=1./(lam**2)
+	mu =beta/tau
+	u =np.random.uniform(0, 1./(1+eta), len(eta))
+	truncate = (1-u)/u
+	new_eta = np.random.exponential( 2/(mu**2), len(mu)  )
+	new_eta = new_eta[new_eta<truncate]
+	new_lam= sqrt(1./new_eta)
+	if len(new_lam) != len(lam): raise(ValueError)
+	return new_lam
+
+
 
 #####
 
 scale_factor = 1./np.max(Dtraj)
-MAX_G = 0.30/scale_factor # loc_shrinkage
+MAX_G = np.inf #0.30/scale_factor # loc_shrinkage
+MAX_G = 0.30/scale_factor
 
 GarrayA=init_Garray(n_clades) # 3d array so:
                                  # Garray[i,:,:] is the 2d G for one clade
 			         # Garray[0,0,:] is G_lambda, Garray[0,1,:] is G_mu for clade 0
-GarrayA[fixed_focal_clade,:,:] += 0.0001
+GarrayA[fixed_focal_clade,:,:] += np.random.normal(0,1,np.shape(GarrayA[fixed_focal_clade,:,:]))
 
-LAM=init_Garray(n_clades)+1.
+LAM=init_Garray(n_clades)+.5
 Constr_matrix=make_constraint_matrix(n_clades, constr)
 
 l0A,m0A=init_BD(n_clades),init_BD(n_clades)
@@ -162,10 +177,9 @@ logfile = open(out_file_name , "wb")
 wlog=csv.writer(logfile, delimiter='\t')
 
 lik_head=""
-for i in range(n_clades): lik_head+="\tlik_%s" % (i)
-head="it\tposterior\tlikelihood%s\tprior" % (lik_head)
-for i in range(n_clades): head+="\tl%s" % (i)
-for i in range(n_clades): head+="\tm%s" % (i)
+head="it\tposterior\tlikelihood\tprior"
+head+="\tl%s" % (fixed_focal_clade)
+head+="\tm%s" % (fixed_focal_clade)
 for j in range(n_clades): 
 	head+="\tGl%s_%s" % (fixed_focal_clade,j)
 for j in range(n_clades): 
@@ -182,7 +196,7 @@ head+="\thypR"
 wlog.writerow(head.split('\t'))
 logfile.flush()
 
-TauA=np.ones(1) # P(G==0)
+TauA=np.array([.5]) # np.ones(1) # P(G==0)
 hypRA=np.ones(1)
 Tau=TauA
 
@@ -206,53 +220,57 @@ for iteration in range(n_iterations):
 		uniq_eve=np.unique(all_events,return_index=True)[1]  # indexes of unique values
 		Garray_temp=Garray
 		prior_r=0
-		for i in range(n_clades):
-			l_at_events=trasfMultiRate(l0[i],-Garray_temp[i,0,:],Dtraj)
-			m_at_events=trasfMultiRate(m0[i],Garray_temp[i,1,:],Dtraj)
-			l_s1a=l_at_events[idx_s[i]]
-			m_e1a=m_at_events[idx_e[i]]
-			lik[i] = (sum(log(l_s1a))-sum(abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(Dtraj[:,i][1:len(l_at_events)])) \
-			         +sum(log(m_e1a))-sum(abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(Dtraj[:,i][1:len(l_at_events)])) )
+		#for i in range(n_clades):
+		i = fixed_focal_clade
+		l_at_events=trasfMultiRate(l0[i],-Garray_temp[i,0,:],Dtraj)
+		m_at_events=trasfMultiRate(m0[i],Garray_temp[i,1,:],Dtraj)
+		l_s1a=l_at_events[idx_s[i]]
+		m_e1a=m_at_events[idx_e[i]]
+		lik[i] = (sum(log(l_s1a))-sum(abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(Dtraj[:,i][1:len(l_at_events)])) \
+		         +sum(log(m_e1a))-sum(abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(Dtraj[:,i][1:len(l_at_events)])) )
 		likA=lik
 
 	else:	
 		##### START FOCAL CLADE ONLY
-		sampling_freqs=[.20,.25,.95]		
-		if iteration<250: rr = np.random.uniform(0,sampling_freqs[1])
+		sampling_freqs=[.35,.40]		
+		if iteration<1000: rr = np.random.uniform(0,sampling_freqs[1])
 		else: rr = np.random.random()
 
-		if single_focal_clade is True and rr > sampling_freqs[1]: focal_clade=fixed_focal_clade
-		else: focal_clade= np.random.random_integers(0,(n_clades-1),1)[0]
+		#if single_focal_clade is True and rr > sampling_freqs[1]: 
+		focal_clade=fixed_focal_clade
+		#else: focal_clade= np.random.random_integers(0,(n_clades-1),1)[0]
 		
 		if rr<sampling_freqs[0]:
-			if rand.random()>.5: 
+			rr2 = np.random.random()
+			if rr2<.25: 
 				l0=np.zeros(n_clades)+l0A
-				l0[focal_clade],U=update_multiplier_proposal(l0A[focal_clade],1.2)
-			else: 	
+				l0[focal_clade],hasting=update_multiplier_proposal(l0A[focal_clade],1.2)
+			elif rr2<.5: 	
 				m0=np.zeros(n_clades)+m0A
-				m0[focal_clade],U=update_multiplier_proposal(m0A[focal_clade],1.2)
-			hasting=U
+				m0[focal_clade],hasting=update_multiplier_proposal(m0A[focal_clade],1.2)
+			if iteration> 2000:
+				Tau_t,hasting = update_multiplier_proposal(TauA,1.2)
+				Tau = np.zeros(1)+Tau_t
+
 		elif rr<sampling_freqs[1]: # update hypZ and hypR
 			gibbs_sampling=1
 			# Gibbs sampler (slice-sampling, Scott 2011)
 			try:
-				LAM[focal_clade,0,:] = sample_lambda_vec(LAM[focal_clade,0,:],GarrayA[focal_clade,0,:],Tau)
+				LAM[focal_clade,0,:] = sample_lam(LAM[focal_clade,0,:],GarrayA[focal_clade,0,:],Tau)
 			except: pass
 			try:	
-				LAM[focal_clade,1,:] = sample_lambda_vec(LAM[focal_clade,1,:],GarrayA[focal_clade,1,:],Tau)
+				LAM[focal_clade,1,:] = sample_lam(LAM[focal_clade,1,:],GarrayA[focal_clade,1,:],Tau)
 			except: pass
 			# Gibbs sampler (Exponential + Gamma[2,2])
 			G_hp_alpha,G_hp_beta=1.,.01
 			g_shape=G_hp_alpha+len(l0A)+len(m0A)
 			rate=G_hp_beta+sum(l0A)+sum(m0A)
 			hypRA = np.random.gamma(shape= g_shape, scale= 1./rate, size=1)		
-		elif rr<sampling_freqs[2]: # update Garray (effect size) 
-			Garray_temp= update_parameter_normal_2d_freq(GarrayA[focal_clade,:,:],.35,m=-MAX_G,M=MAX_G) 			
+		else: # update Garray (effect size) 
+			Garray_temp= update_parameter_normal_2d_freq((GarrayA[focal_clade,:,:]),.35,m=-MAX_G,M=MAX_G) 			
 			Garray=np.zeros(n_clades*n_clades*2).reshape(n_clades,2,n_clades)+GarrayA
 			Garray[focal_clade,:,:]=Garray_temp
-		else:
-			Tau,U = update_multiplier_proposal(TauA,1.2)
-			hasting=U 
+			#print GarrayA[focal_clade,:,:]-Garray[focal_clade,:,:]
 
 		
 		Garray_temp=Garray
@@ -280,7 +298,8 @@ for iteration in range(n_iterations):
 	log(TauA) * (1-sum_R_per_clade) + log(1-TauA)*(sum_R_per_clade))
 	
 	"""
-	prior = sum(pdf_normal(Garray[fixed_focal_clade,:,:],sd=sqrt(LAM[fixed_focal_clade,:,:]**2 * Tau**2)))
+
+	prior = sum(pdf_normal(Garray[fixed_focal_clade,:,:],sd=LAM[fixed_focal_clade,:,:] * Tau))
 	prior +=sum(pdf_cauchy(LAM[fixed_focal_clade,:,:]))
 	prior +=sum(pdf_cauchy(Tau))	
 	prior += prior_exponential(l0,hypRA)+prior_exponential(m0,hypRA)
@@ -297,7 +316,9 @@ for iteration in range(n_iterations):
 		#hypRA=hypR
 	
 	if iteration % print_freq ==0: 
-		print iteration, array([postA]), sum(likA),sum(lik),prior, hasting
+		k= 1./(1+Tau**2 * LAM[fixed_focal_clade,:,:]**2) # Carvalho 2010 Biometrika, p. 471
+		loc_shrinkage = (1-k)-.5 # so if loc_shrinkage > 0 is signal, otherwise it's noise (cf. Carvalho 2010 Biometrika, p. 474)
+		print iteration, array([postA]), TauA, mean(LAM), len(loc_shrinkage[loc_shrinkage>0]) #, sum(likA),sum(lik),prior, hasting
 		#print likA
 		#print "l:",l0A
 		#print "m:", m0A
@@ -308,7 +329,8 @@ for iteration in range(n_iterations):
 	if iteration % sampling_freq ==0:
 		k= 1./(1+Tau**2 * LAM[fixed_focal_clade,:,:]**2) # Carvalho 2010 Biometrika, p. 471
 		loc_shrinkage = (1-k)-.5 # so if loc_shrinkage > 0 is signal, otherwise it's noise (cf. Carvalho 2010 Biometrika, p. 474)
-		log_state=[iteration,postA,sum(likA)]+list(likA)+[priorA]+list(l0A)+list(m0A)+list(actualGarray.flatten())+list(loc_shrinkage.flatten())+[mean(LAM),std(LAM)] +list(TauA) +[hypRA[0]]
+		#loc_shrinkage =LAM[fixed_focal_clade,:,:]**2
+		log_state=[iteration,postA,sum(likA)]+[priorA]+[l0A[fixed_focal_clade]]+[m0A[fixed_focal_clade]]+list(actualGarray.flatten())+list(loc_shrinkage.flatten())+[mean(LAM),std(LAM)] +list(TauA) +[hypRA[0]]
 		wlog.writerow(log_state)
 		logfile.flush()
 
