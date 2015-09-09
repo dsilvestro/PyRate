@@ -304,7 +304,7 @@ for iteration in range(n_iterations):
 	if iteration % print_freq ==0: 
 		k= 1./(1+Tau**2 * LAM[fixed_focal_clade,:,:]**2) # Carvalho 2010 Biometrika, p. 471
 		loc_shrinkage = (1-k) # if loc_shrinkage > 0.5 is signal, otherwise it's noise (cf. Carvalho 2010 Biometrika, p. 474)
-		print iteration, array([postA]), TauA, mean(LAM), len(loc_shrinkage[loc_shrinkage>0]) #, sum(likA),sum(lik),prior, hasting
+		print iteration, array([postA]), TauA, mean(LAM[fixed_focal_clade,:,:]), len(loc_shrinkage[loc_shrinkage>0]) #, sum(likA),sum(lik),prior, hasting
 		#print likA
 		#print "l:",l0A
 		#print "m:", m0A
@@ -316,7 +316,7 @@ for iteration in range(n_iterations):
 		k= 1./(1+Tau**2 * LAM[fixed_focal_clade,:,:]**2) # Carvalho 2010 Biometrika, p. 471
 		loc_shrinkage = (1-k) # so if loc_shrinkage > 0 is signal, otherwise it's noise (cf. Carvalho 2010 Biometrika, p. 474)
 		#loc_shrinkage =LAM[fixed_focal_clade,:,:]**2
-		log_state=[iteration,postA,sum(likA)]+[priorA]+[l0A[fixed_focal_clade]]+[m0A[fixed_focal_clade]]+list(actualGarray.flatten())+list(loc_shrinkage.flatten())+[mean(LAM),std(LAM)] +list(TauA) +[hypRA[0]]
+		log_state=[iteration,postA,sum(likA)]+[priorA]+[l0A[fixed_focal_clade]]+[m0A[fixed_focal_clade]]+list(actualGarray.flatten())+list(loc_shrinkage.flatten())+[mean(LAM[fixed_focal_clade,:,:]),std(LAM[fixed_focal_clade,:,:])] +list(TauA) +[hypRA[0]]
 		wlog.writerow(log_state)
 		logfile.flush()
 
