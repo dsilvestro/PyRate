@@ -28,9 +28,9 @@ from lib_DD_likelihood  import *
 p = argparse.ArgumentParser() #description='<input file>') 
 p.add_argument('-d', type=str,   help='data set', default=0, metavar=0)
 p.add_argument('-m', type=int,   help='model', default=0, metavar=0)
-p.add_argument('-n', type=int,   help='MCMC iterations', default=1000000, metavar=1000000)
-p.add_argument('-s', type=int,   help='sampling freq.', default=1000, metavar=1000)
-p.add_argument('-p', type=int,   help='print freq.', default=5000, metavar=5000)
+p.add_argument('-n', type=int,   help='MCMC iterations', default=5000000, metavar=5000000)
+p.add_argument('-s', type=int,   help='sampling freq.', default=5000, metavar=5000)
+p.add_argument('-p', type=int,   help='print freq.', default=5000000, metavar=5000000)
 p.add_argument('-j', type=int,   help='replicate', default=0, metavar=0)
 p.add_argument('-c', type=int, help='clade', default=0, metavar=0)
 p.add_argument('-b', type=float, help='shape parameter (beta) of Be hyper=prior pn indicators', default=1, metavar=1)
@@ -59,8 +59,7 @@ else: fixed_focal_clade = args.c-1
 clade_name = "_c%s" % (args.c)
 
 Be_shape_beta = args.b
-if Be_shape_beta>1: beta_value = "_B%s" % (args.b)	
-else: beta_value = ""
+beta_value = "_hsp_gibbs"
 
 all_events=sort(np.concatenate((ts,te),axis=0))[::-1] # events are speciation/extinction that change the diversity trajectory
 n_clades,n_events=max(clade_ID)+1,len(all_events)
@@ -155,6 +154,15 @@ def sample_lam(lam,beta,tau):
 	return new_lam
 
 
+def sample_lam_mod(lam,beta,tau):
+	eta=1./(lam**2)
+	mu =beta/tau
+	u =np.random.uniform(0, 1./(1+eta), len(eta))
+	truncate = (1-u)/u
+	new_eta = np.random.exponential( 2/(mu**2), len(mu)  )
+	new_lam = np.zeros(len(lam))+lam
+	new_lam[new_eta<truncate]= sqrt(1./new_eta[new_eta<truncate])
+	return new_lam
 
 #####
 
@@ -167,7 +175,7 @@ GarrayA=init_Garray(n_clades) # 3d array so:
 			         # Garray[0,0,:] is G_lambda, Garray[0,1,:] is G_mu for clade 0
 GarrayA[fixed_focal_clade,:,:] += np.random.normal(0,1,np.shape(GarrayA[fixed_focal_clade,:,:]))
 
-LAM=init_Garray(n_clades)+.5
+LAM=init_Garray(n_clades)+1.
 Constr_matrix=make_constraint_matrix(n_clades, constr)
 
 l0A,m0A=init_BD(n_clades),init_BD(n_clades)
@@ -232,7 +240,7 @@ for iteration in range(n_iterations):
 
 	else:	
 		##### START FOCAL CLADE ONLY
-		sampling_freqs=[.35,.40]		
+		sampling_freqs=[.50,.60]		
 		if iteration<1000: rr = np.random.uniform(0,sampling_freqs[1])
 		else: rr = np.random.random()
 
@@ -255,12 +263,8 @@ for iteration in range(n_iterations):
 		elif rr<sampling_freqs[1]: # update hypZ and hypR
 			gibbs_sampling=1
 			# Gibbs sampler (slice-sampling, Scott 2011)
-			try:
-				LAM[focal_clade,0,:] = sample_lam(LAM[focal_clade,0,:],GarrayA[focal_clade,0,:],Tau)
-			except: pass
-			try:	
-				LAM[focal_clade,1,:] = sample_lam(LAM[focal_clade,1,:],GarrayA[focal_clade,1,:],Tau)
-			except: pass
+			LAM[focal_clade,0,:] = sample_lam_mod(LAM[focal_clade,0,:],GarrayA[focal_clade,0,:],Tau)
+			LAM[focal_clade,1,:] = sample_lam_mod(LAM[focal_clade,1,:],GarrayA[focal_clade,1,:],Tau)
 			# Gibbs sampler (Exponential + Gamma[2,2])
 			G_hp_alpha,G_hp_beta=1.,.01
 			g_shape=G_hp_alpha+len(l0A)+len(m0A)
@@ -317,8 +321,8 @@ for iteration in range(n_iterations):
 	
 	if iteration % print_freq ==0: 
 		k= 1./(1+Tau**2 * LAM[fixed_focal_clade,:,:]**2) # Carvalho 2010 Biometrika, p. 471
-		loc_shrinkage = (1-k)-.5 # so if loc_shrinkage > 0 is signal, otherwise it's noise (cf. Carvalho 2010 Biometrika, p. 474)
-		print iteration, array([postA]), TauA, mean(LAM), len(loc_shrinkage[loc_shrinkage>0]) #, sum(likA),sum(lik),prior, hasting
+		loc_shrinkage = (1-k) # so if loc_shrinkage > 0 is signal, otherwise it's noise (cf. Carvalho 2010 Biometrika, p. 474)
+		print iteration, array([postA]), TauA, mean(LAM[fixed_focal_clade,:,:]), len(loc_shrinkage[loc_shrinkage>0.5]) #, sum(likA),sum(lik),prior, hasting
 		#print likA
 		#print "l:",l0A
 		#print "m:", m0A
@@ -328,9 +332,9 @@ for iteration in range(n_iterations):
 		#print "Hmu:", TauA, 1./hypRA[0] #,1./hypRA[1],hypRA[2]
 	if iteration % sampling_freq ==0:
 		k= 1./(1+Tau**2 * LAM[fixed_focal_clade,:,:]**2) # Carvalho 2010 Biometrika, p. 471
-		loc_shrinkage = (1-k)-.5 # so if loc_shrinkage > 0 is signal, otherwise it's noise (cf. Carvalho 2010 Biometrika, p. 474)
+		loc_shrinkage = (1-k) # so if loc_shrinkage > 0 is signal, otherwise it's noise (cf. Carvalho 2010 Biometrika, p. 474)
 		#loc_shrinkage =LAM[fixed_focal_clade,:,:]**2
-		log_state=[iteration,postA,sum(likA)]+[priorA]+[l0A[fixed_focal_clade]]+[m0A[fixed_focal_clade]]+list(actualGarray.flatten())+list(loc_shrinkage.flatten())+[mean(LAM),std(LAM)] +list(TauA) +[hypRA[0]]
+		log_state=[iteration,postA,sum(likA)]+[priorA]+[l0A[fixed_focal_clade]]+[m0A[fixed_focal_clade]]+list(actualGarray.flatten())+list(loc_shrinkage.flatten())+[mean(LAM[fixed_focal_clade,:,:]),std(LAM[fixed_focal_clade,:,:])] +list(TauA) +[hypRA[0]]
 		wlog.writerow(log_state)
 		logfile.flush()
 
