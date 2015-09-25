@@ -56,10 +56,10 @@ constr=args.m
 single_focal_clade = True
 if args.c==0: fixed_focal_clade=0
 else: fixed_focal_clade = args.c-1
-clade_name = "_c%s" % (args.c)
+clade_name = "_c%s" % (fixed_focal_clade)
 
 Be_shape_beta = args.b
-beta_value = "_hsp_gibbs"
+beta_value = "_hsp_corr"
 
 all_events=sort(np.concatenate((ts,te),axis=0))[::-1] # events are speciation/extinction that change the diversity trajectory
 n_clades,n_events=max(clade_ID)+1,len(all_events)
@@ -167,7 +167,7 @@ def sample_lam_mod(lam,beta,tau):
 #####
 
 scale_factor = 1./np.max(Dtraj)
-MAX_G = np.inf #0.30/scale_factor # loc_shrinkage
+#MAX_G = np.inf #0.30/scale_factor # loc_shrinkage
 MAX_G = 0.30/scale_factor
 
 GarrayA=init_Garray(n_clades) # 3d array so:
@@ -175,7 +175,8 @@ GarrayA=init_Garray(n_clades) # 3d array so:
 			         # Garray[0,0,:] is G_lambda, Garray[0,1,:] is G_mu for clade 0
 GarrayA[fixed_focal_clade,:,:] += np.random.normal(0,1,np.shape(GarrayA[fixed_focal_clade,:,:]))
 
-LAM=init_Garray(n_clades)+1.
+LAM=init_Garray(n_clades)
+LAM[fixed_focal_clade,:,:] = 1.
 Constr_matrix=make_constraint_matrix(n_clades, constr)
 
 l0A,m0A=init_BD(n_clades),init_BD(n_clades)
@@ -271,7 +272,9 @@ for iteration in range(n_iterations):
 			rate=G_hp_beta+sum(l0A)+sum(m0A)
 			hypRA = np.random.gamma(shape= g_shape, scale= 1./rate, size=1)		
 		else: # update Garray (effect size) 
-			Garray_temp= update_parameter_normal_2d_freq((GarrayA[focal_clade,:,:]),.35,m=-MAX_G,M=MAX_G) 			
+			Garray_temp= update_parameter_normal_2d_freq((GarrayA[focal_clade,:,:]),.35,m=-MAX_G,M=MAX_G)
+			#Garray_temp,hasting= multiplier_normal_proposal_pos_neg_vec((GarrayA[focal_clade,:,:]),d=.35,f=.65)
+			
 			Garray=np.zeros(n_clades*n_clades*2).reshape(n_clades,2,n_clades)+GarrayA
 			Garray[focal_clade,:,:]=Garray_temp
 			#print GarrayA[focal_clade,:,:]-Garray[focal_clade,:,:]
@@ -320,7 +323,7 @@ for iteration in range(n_iterations):
 		#hypRA=hypR
 	
 	if iteration % print_freq ==0: 
-		k= 1./(1+Tau**2 * LAM[fixed_focal_clade,:,:]**2) # Carvalho 2010 Biometrika, p. 471
+		k= 1./(1+TauA**2 * LAM[fixed_focal_clade,:,:]**2) # Carvalho 2010 Biometrika, p. 471
 		loc_shrinkage = (1-k) # so if loc_shrinkage > 0 is signal, otherwise it's noise (cf. Carvalho 2010 Biometrika, p. 474)
 		print iteration, array([postA]), TauA, mean(LAM[fixed_focal_clade,:,:]), len(loc_shrinkage[loc_shrinkage>0.5]) #, sum(likA),sum(lik),prior, hasting
 		#print likA
@@ -331,7 +334,7 @@ for iteration in range(n_iterations):
 		#print "Gr:", GarrayA.flatten()
 		#print "Hmu:", TauA, 1./hypRA[0] #,1./hypRA[1],hypRA[2]
 	if iteration % sampling_freq ==0:
-		k= 1./(1+Tau**2 * LAM[fixed_focal_clade,:,:]**2) # Carvalho 2010 Biometrika, p. 471
+		k= 1./(1+TauA**2 * LAM[fixed_focal_clade,:,:]**2) # Carvalho 2010 Biometrika, p. 471
 		loc_shrinkage = (1-k) # so if loc_shrinkage > 0 is signal, otherwise it's noise (cf. Carvalho 2010 Biometrika, p. 474)
 		#loc_shrinkage =LAM[fixed_focal_clade,:,:]**2
 		log_state=[iteration,postA,sum(likA)]+[priorA]+[l0A[fixed_focal_clade]]+[m0A[fixed_focal_clade]]+list(actualGarray.flatten())+list(loc_shrinkage.flatten())+[mean(LAM[fixed_focal_clade,:,:]),std(LAM[fixed_focal_clade,:,:])] +list(TauA) +[hypRA[0]]
