@@ -79,6 +79,24 @@ def update_parameter_normal_2d_freq(oldL,d,f=.65,m=-2,M=2):
 	s[s>M]=M-(s[s>M]-M)
 	s[s<m]=(m-s[s<m])+m
 	return s
+	
+def multiplier_normal_proposal_pos_neg_vec(oldL,d1 = 0.3,d2 = 1.2,f=.65):
+	S=shape(oldL)
+	ff=np.rint(np.random.uniform(0,f,S))
+	if np.random.random()<.5:
+		ii=np.random.normal(0,d1,S)
+		s= oldL + ii*ff
+		U = 0.
+	else:
+		d=1.2
+		u = np.random.uniform(0,1,S) #*np.rint(np.random.uniform(0,f,S))
+		l = 2*log(d2)
+		m = exp(l*(u-.5))
+		m[ff==0] = 1.
+	 	ii = oldL * m
+		U=sum(log(m))
+		return ii, U
+	return s, U
 
 def multiplier_proposal_pos_neg_vec(i,d):
 	S=shape(i)
