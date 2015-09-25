@@ -56,7 +56,7 @@ constr=args.m
 single_focal_clade = True
 if args.c==0: fixed_focal_clade=0
 else: fixed_focal_clade = args.c-1
-clade_name = "_c%s" % (args.c)
+clade_name = "_c%s" % (fixed_focal_clade) #args.c)
 
 Be_shape_beta = args.b
 beta_value = "_hsp"
@@ -152,7 +152,8 @@ GarrayA=init_Garray(n_clades) # 3d array so:
 			         # Garray[0,0,:] is G_lambda, Garray[0,1,:] is G_mu for clade 0
 GarrayA[fixed_focal_clade,:,:] += np.random.normal(0,1,np.shape(GarrayA[fixed_focal_clade,:,:]))
 
-LAM=init_Garray(n_clades)+1.
+LAM=init_Garray(n_clades)
+LAM[fixed_focal_clade,:,:] = 1.
 Constr_matrix=make_constraint_matrix(n_clades, constr)
 
 l0A,m0A=init_BD(n_clades),init_BD(n_clades)
@@ -302,7 +303,7 @@ for iteration in range(n_iterations):
 		#hypRA=hypR
 	
 	if iteration % print_freq ==0: 
-		k= 1./(1+Tau**2 * LAM[fixed_focal_clade,:,:]**2) # Carvalho 2010 Biometrika, p. 471
+		k= 1./(1+TauA**2 * LAM[fixed_focal_clade,:,:]**2) # Carvalho 2010 Biometrika, p. 471
 		loc_shrinkage = (1-k) # if loc_shrinkage > 0.5 is signal, otherwise it's noise (cf. Carvalho 2010 Biometrika, p. 474)
 		print iteration, array([postA]), TauA, mean(LAM[fixed_focal_clade,:,:]), len(loc_shrinkage[loc_shrinkage>0]) #, sum(likA),sum(lik),prior, hasting
 		#print likA
@@ -313,7 +314,7 @@ for iteration in range(n_iterations):
 		#print "Gr:", GarrayA.flatten()
 		#print "Hmu:", TauA, 1./hypRA[0] #,1./hypRA[1],hypRA[2]
 	if iteration % sampling_freq ==0:
-		k= 1./(1+Tau**2 * LAM[fixed_focal_clade,:,:]**2) # Carvalho 2010 Biometrika, p. 471
+		k= 1./(1+TauA**2 * LAM[fixed_focal_clade,:,:]**2) # Carvalho 2010 Biometrika, p. 471
 		loc_shrinkage = (1-k) # so if loc_shrinkage > 0 is signal, otherwise it's noise (cf. Carvalho 2010 Biometrika, p. 474)
 		#loc_shrinkage =LAM[fixed_focal_clade,:,:]**2
 		log_state=[iteration,postA,sum(likA)]+[priorA]+[l0A[fixed_focal_clade]]+[m0A[fixed_focal_clade]]+list(actualGarray.flatten())+list(loc_shrinkage.flatten())+[mean(LAM[fixed_focal_clade,:,:]),std(LAM[fixed_focal_clade,:,:])] +list(TauA) +[hypRA[0]]
