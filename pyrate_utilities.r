@@ -45,6 +45,7 @@ splist <- unique(dat[,c(1,2)])[order(unique(dat[,c(1,2)][,1])),]
 
 
 if (any(is.element(splist$Species[splist$Status == "extant"], splist$Species[splist$Status == "extinct"]))){
+	print(intersect(splist$Species[splist$Status == "extant"], splist$Species[splist$Status == "extinct"]))
 	stop("at least one species is listed as both extinct and extant\n")
 }
 
@@ -52,14 +53,12 @@ cat("#!/usr/bin/env python", "from numpy import * ", "",  file=outfile, sep="\n"
 
 for (j in 1:replicates){
 	times <- list()
-
-	for (i in 1:length(dat[,1])){
-		if (dat$min_age[i] == 0){
-			dat$min_age[i] <- dat$min_age[i] + 0.001
-		}
-	}
+	cat ("\nreplicate", j)
+	
+	dat[dat$min_age == 0,3] <- 0.001
 	
 	if (any(dat[,4] < dat[,3])){
+		cat ("\nlines:",1+as.numeric(which(dat[,4] < dat[,3])),sep=" ")
 		stop("the min age is older than the max age for at least one record\n")
 	}
 	
