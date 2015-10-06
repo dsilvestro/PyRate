@@ -427,6 +427,7 @@ def get_gamma_rates(a):
 def init_ts_te(FA,LO):
 	ts=FA+np.random.exponential(.75, len(FA)) # exponential random starting point
 	tt=np.random.beta(2.5, 1, len(LO)) # beta random starting point
+	ts=FA+(.025*FA) #IMPROVE INIT
 	te=LO-(.025*LO) #IMPROVE INIT
 	#te=LO*tt
 	if frac1==0: ts, te= FA,LO
@@ -1132,7 +1133,7 @@ def MCMC(all_arg):
 			lik_alter=sum(lik_fossil) + sum(likBDtemp)*temperature
 		Post=lik_alter+prior
 		if it==0: PostA=Post
-		#print Post, PostA, alphasA #, lik, likA
+		#print Post, PostA, alphasA, sum(lik_fossil), sum(likBDtemp),  prior
 		if Post>-inf and Post<inf:
 			if Post*tempMC3-PostA*tempMC3 + hasting >= log(rand.random()) or stop_update==inf: # or it==0:
 				likBDtempA=likBDtemp
