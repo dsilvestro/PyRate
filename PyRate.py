@@ -20,7 +20,7 @@ Revisiting the origin and diversification of vascular plants through a
 comprehensive Bayesian analysis of the fossil record. New Phytologist,
 doi:10.1111/nph.13247. 
 """
-print """
+print("""
                        %s
                        %s
 
@@ -30,7 +30,7 @@ print """
                Daniele Silvestro, Jan Schnitzler et al.
                         pyrate.help@gmail.com
 
-\n""" % (version, build)
+\n""" % (version, build))
 # check python version
 V=list(sys.version_info[0:3])
 if V[0]>2: sys.exit("""\nPyRate currently runs only under python 2. Python 3.X is currently not supported.
@@ -76,7 +76,7 @@ try:
 	use_seq_lik=False
 	if platform.system() == "Windows" or platform.system() == "Microsoft": use_seq_lik=True
 except(ImportError): 
-	print "\nWarning: library multiprocessing not found.\nPyRate will use (slower) sequential likelihood calculation. \n"
+	print("\nWarning: library multiprocessing not found.\nPyRate will use (slower) sequential likelihood calculation. \n")
 	use_seq_lik=True
 
 if platform.system() == "Windows" or platform.system() == "Microsoft": use_seq_lik=True
@@ -112,17 +112,17 @@ def check_burnin(b,I):
 	if b<1: burnin=int(b*I)
 	else: burnin=int(b)
 	if burnin>=(I-10):
-		print "Warning: burnin too high! Excluding 10% instead."
+		print("Warning: burnin too high! Excluding 10% instead.")
 		burnin=int(0.1*I)
 	return burnin
 
 def calc_model_probabilities(f,burnin):
-	print "parsing log file...\n"
+	print("parsing log file...\n")
 	t=loadtxt(f, skiprows=1)
 	num_it=shape(t)[0]
 	if num_it<10: sys.exit("\nNot enough samples in the log file!\n")
 	burnin=check_burnin(burnin, num_it)
-	print "First %s samples excluded as burnin.\n" % (burnin)
+	print("First %s samples excluded as burnin.\n" % (burnin))
 	file1=file(f, 'U')
 	L=file1.readlines()
 	head= L[0].split()
@@ -131,13 +131,13 @@ def calc_model_probabilities(f,burnin):
 	z1=t[burnin:,k_ind[0]]  # list of shifts (lambda)
 	z2=t[burnin:,k_ind[1]]  # list of shifts (mu)
 	y1= max(max(z1),max(z2))
-	print "Model           Probability"
-	print "          Speciation  Extinction"
+	print("Model           Probability")
+	print("          Speciation  Extinction")
 	for i in range(1,int(y1)+1):
 		k_l=float(len(z1[z1==i]))/len(z1)
 		k_m=float(len(z2[z2==i]))/len(z2)
-		print "%s-rate    %s      %s" % (i,round(k_l,4),round(k_m,4)) 
-	print "\n"
+		print("%s-rate    %s      %s" % (i,round(k_l,4),round(k_m,4)))
+	print("\n")
 	quit()
 
 def calc_ts_te(f, burnin):
@@ -185,17 +185,17 @@ def calc_BF(f1, f2):
 	else: support="very strong"	
 	if BF>0: best=0
 	else: best=1	
-	print "\nModel A: %s\nModelB: %s" % (input_file_raw[best],input_file_raw[abs(best-1)])
-	print "\nModel A received %s support against Model B\nBayes Factor: %s\n\n" % (support, round(abs(BF), 4))
+	print("\nModel A: %s\nModelB: %s" % (input_file_raw[best],input_file_raw[abs(best-1)]))
+	print("\nModel A received %s support against Model B\nBayes Factor: %s\n\n" % (support, round(abs(BF), 4)))
 
 
 ########################## PLOT RTT ##############################
 def plot_RTT(infile,burnin, file_stem=""):
 	burnin = int(burnin)
 	if burnin<=1:
-		print "Burnin must be provided in terms of number of samples to be excluded."
-		print "E.g. '-b 100' will remove the first 100 samples."
-		print "Assuming burnin = 1.\n"
+		print("Burnin must be provided in terms of number of samples to be excluded.")
+		print("E.g. '-b 100' will remove the first 100 samples.")
+		print("Assuming burnin = 1.\n")
 	def print_R_vec(name,v):
 		new_v=[]
 		for j in range(0,len(v)): 
@@ -212,7 +212,7 @@ def plot_RTT(infile,burnin, file_stem=""):
 	path_dir = infile
 	sys.path.append(infile)
 	plot_title = file_stem.split('_')[0]
-	print "FILE STEM:",file_stem, plot_title
+	print("FILE STEM:",file_stem, plot_title)
 	if file_stem=="": direct="%s/*_marginal_rates.log" % infile
 	else: direct="%s/*%s*marginal_rates.log" % (infile,file_stem)
 	files=glob.glob(direct)
@@ -221,15 +221,15 @@ def plot_RTT(infile,burnin, file_stem=""):
 	name_file = os.path.splitext(os.path.basename(stem_file))[0]
 
 	wd = "%s" % os.path.dirname(stem_file)
-	print name_file, wd	
-	print "found", len(files), "log files...\n"
+	print(name_file, wd)
+	print("found", len(files), "log files...\n")
 
 	########################################################
 	######           DETERMINE MIN ROOT AGE           ######
 	########################################################
 
 	min_age=np.inf
-	print "determining min age...",
+	print("determining min age...",)
 	for f in files:
 		file_name =  os.path.splitext(os.path.basename(f))[0]
 		sys.stdout.write(".")
@@ -238,13 +238,13 @@ def plot_RTT(infile,burnin, file_stem=""):
 		sp_ind= [head.index(s) for s in head if "l_" in s]
 		min_age=min(min_age,len(sp_ind))
 
-	print "Min root age:", min_age
+	print("Min root age:", min_age)
 	max_ind=min_age-1
 
 	########################################################
 	######            COMBINE ALL LOG FILES           ######
 	########################################################
-	print "\ncombining all files...",
+	print("\ncombining all files...",)
 	file_n=0
 	for f in files:
 		file_name =  os.path.splitext(os.path.basename(f))[0]
@@ -271,13 +271,13 @@ def plot_RTT(infile,burnin, file_stem=""):
 				M_tbl=np.concatenate((M_tbl,t[:,m_ind]),axis=0)
 				R_tbl=np.concatenate((R_tbl,t[:,r_ind]),axis=0)
 		except: 
-			print "skipping file:", f
-	print shape(R_tbl)
+			print("skipping file:", f)
+	print(shape(R_tbl))
 
 	########################################################
 	######               CALCULATE HPDs               ######
 	########################################################
-	print "\ncalculating HPDs...",
+	print("\ncalculating HPDs...",)
 	def get_HPD(threshold=.95):
 		L_hpd_m,L_hpd_M=[],[]
 		M_hpd_m,M_hpd_M=[],[]
@@ -339,12 +339,12 @@ def plot_RTT(infile,burnin, file_stem=""):
 	mean_rates[:,NA_ind] = np.nan
 	
 
-	print np.shape(np.array(hpds50)	), np.shape(L_tbl_mean)
+	print(np.shape(np.array(hpds50)	), np.shape(L_tbl_mean))
 
 	########################################################
 	######                  PLOT RTTs                 ######
 	########################################################
-	print "\ngenerating R file...",
+	print("\ngenerating R file...",)
 	out="%s/%s_RTT.r" % (wd,name_file)
 	newfile = open(out, "wb") 
 	Rfile="# %s files combined:\n" % (len(files))
@@ -409,13 +409,13 @@ def plot_RTT(infile,burnin, file_stem=""):
 	Rfile += "\nn <- dev.off()"
 	newfile.writelines(Rfile)
 	newfile.close()
-	print "\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, wd)
+	print("\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, wd))
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
 		cmd="cd %s; Rscript %s\%s_RTT.r" % (wd,wd,name_file)
 	else: 
 		cmd="cd %s; Rscript %s/%s_RTT.r" % (wd,wd,name_file)
 	os.system(cmd)
-	print "done\n"
+	print("done\n")
 	
 ########################## INITIALIZE MCMC ##############################
 def get_gamma_rates(a):
@@ -906,7 +906,7 @@ def Alg_3_1(arg):
 def MCMC(all_arg):
 	[it,n_proc, I,sample_freq, print_freq, temperatures, burnin, marginal_frames, arg]=all_arg
 	if it==0: # initialize chain
-		print "initializing chain..."
+		print("initializing chain...")
 		tsA, teA = init_ts_te(FA,LO)
 		if global_stop_update is True: tsA, teA = globalTS, globalTE
 		timesLA, timesMA = init_times(max(tsA),time_framesL,time_framesM, min(teA))
@@ -1156,19 +1156,19 @@ def MCMC(all_arg):
 				% (it, l[0], l[1], round(sum(lik_fossilA), 2), round(sum(likBDtempA), 2),l[2], l[3])
 				if TDI==1: print_out+=" beta: %s" % (round(temperature,4))
 				if TDI==2: print_out+=" k: %s" % (len(LA)+len(MA))
-				print print_out
+				print(print_out)
 				#if TDI==1: print "\tpower posteriors:", marginal_lik[0:10], "..."
 
-				print "\tt.frames:", timesLA[0:-1],round(min(teA),3), "(sp.)"
-				print "\tt.frames:", timesMA[0:-1],round(min(teA),3), "(ex.)"
-				print "\tsp.rates:", LA, "\n\tex.rates:", MA
+				print("\tt.frames: {0} {1} (sp.)".format(timesLA[0:-1], round(min(teA),3)))
+				print("\tt.frames: {0} {1} (ex.)".format(timesMA[0:-1], round(min(teA),3)))
+				print("\tsp.rates: {0} \n\tex.rates: {1}".format(LA, MA))
 				
 				if model_cov>=1: print "\tcov. (sp/ex/q):", cov_parA
- 				print "\tq.rate:", round(alphasA[1], 3), "\tGamma.prm:", round(alphasA[0], 3)
-				print "\tts:", tsA[0:5], "..."
-				print "\tte:", teA[0:5], "..."
-			if it<=burnin and n_proc==0: print "\n%s*\tpost: %s lik: %s prior: %s tot length %s" \
-			% (it, l[0], l[1], l[2], l[3])
+ 				print("\tq.rate: {0} \tGamma.prm: {1}".format(round(alphasA[1], 3), round(alphasA[0], 3)))
+				print("\tts: {} ...".format(tsA[0:5]))
+				print("\tte: {} ...".format(teA[0:5]))
+			if it<=burnin and n_proc==0: print("\n%s*\tpost: %s lik: %s prior: %s tot length %s" \
+			% (it, l[0], l[1], l[2], l[3]))
 
 		if n_proc != 0: pass
 		elif it % sample_freq ==0 and it>=burnin or it==0 and it>=burnin:
@@ -1225,7 +1225,7 @@ def marginal_rates(it, margL,margM, marginal_file, run):
 def marginal_likelihood(marginal_file, l, t):
 	mL=0
 	for i in range(len(l)-1): mL+=((l[i]+l[i+1])/2.)*(t[i]-t[i+1]) # Beerli and Palczewski 2010
-	print "\n Marginal likelihood:", mL
+	print("\n Marginal likelihood:", mL)
 	o= "\n Marginal likelihood: %s\n\nlogL: %s\nbeta: %s" % (mL,l,t)
 	marginal_file.writelines(o)
 	marginal_file.close()
@@ -1324,7 +1324,7 @@ argsHPP=args.mHPP
 TDI=args.A                  # 0: parameter estimation, 1: thermodynamic integration, 2: BD-MCMC
 if constrain_time_frames is True or args.fixShift != "":
 	if TDI==2:
-		print "\nWarning: constrained shift times (-mC,-fixShift) cannot be used with BDMCMC alorithm. Using standard MCMC instead.\n"
+		print("\nWarning: constrained shift times (-mC,-fixShift) cannot be used with BDMCMC alorithm. Using standard MCMC instead.\n")
 		TDI = 0
 mcmc_gen=args.n             # no. total mcmc generations
 sample_freq=args.s
@@ -1377,7 +1377,7 @@ else:
 # BDMCMC & MCMC SETTINGS
 runs=args.r              # no. parallel MCMCs (MC3)
 if runs>1 and TDI>0: 
-	print "\nWarning: MC3 algorithm is not available for TI and BDMCMC. Using a single chain instead.\n"
+	print("\nWarning: MC3 algorithm is not available for TI and BDMCMC. Using a single chain instead.\n")
 	runs,TDI=1,0
 num_proc = runs          # processors MC3
 temp_pr=args.t           # temperature MC3
@@ -1452,7 +1452,7 @@ j=max(args.j-1,0)
 try: fossil_complete=input_data_module.get_data(j)
 except(IndexError): 
 	fossil_complete=input_data_module.get_data(0)
-	print "Warning: data set number %s not found. Using the first data set instead." % (args.j)
+	print("Warning: data set number %s not found. Using the first data set instead." % (args.j))
 	j=0
 fossil=list()
 have_record=list()
@@ -1518,7 +1518,7 @@ if model_cov>=1:
 	sdGAUS = std_err
 	regression_trait= "\n\nEstimated linear trend trait-value: \nslope=%s; sd. error= %s (intercept= %s; R2= %s; P-value= %s)" \
 	% (round(slope,2), round(std_err,2), round(intercept,2), round(r_value,2), round(p_value,2))
-	print regression_trait
+	print(regression_trait)
 	
 	#print trait_values
 	parGAUS=scipy.stats.norm.fit(trait_values[np.isfinite(trait_values)]) # fit normal distribution
@@ -1532,13 +1532,13 @@ if model_cov>=1:
 # define hyper-prior function for BD rates
 if tot_extant==-1 or TDI ==3:
 	if fix_Shift is True and TDI < 3: 
-		print "Using Cauchy priors on the birth-death rates.\n"
+		print("Using Cauchy priors on the birth-death rates.\n")
 		get_hyper_priorBD = HPBD1 # cauchy with hyper-priors
 	else: 
-		print "Using Gamma priors on the birth-death rates.\n"
+		print("Using Gamma priors on the birth-death rates.\n")
 		get_hyper_priorBD = HPBD2 # gamma
 else: 
-	print "Priors on the birth-death rates based on extant diversity.\n"
+	print("Priors on the birth-death rates based on extant diversity.\n")
 	get_hyper_priorBD = HPBD3 # based on no. extant
 
 
@@ -1637,7 +1637,7 @@ if burnin<1 and burnin>0:
 
 def start_MCMC(run):
 	t1 = time.clock()
-	print "started at:", time.ctime()
+	print("started at: {}".format(time.ctime()))
 	# marginal_file is either for rates or for lik
 	return MCMC([0,run, IT, sample_freq, print_freq, temperatures, burnin, marginal_frames, list()]) 
 
@@ -1677,10 +1677,10 @@ if use_seq_lik is False and runs>1:
 		#	for i in range(runs): print "chain", i, "post:", res[i][2], sum(res[i][5]-res[i][6])
 			
 else: 
-	if runs>1: print "\nWarning: MC3 algorithm requires multi-threading.\nUsing standard (BD)MCMC algorithm instead.\n"
+	if runs>1: print("\nWarning: MC3 algorithm requires multi-threading.\nUsing standard (BD)MCMC algorithm instead.\n")
 	res=start_MCMC(0)
 t1 = time.clock()
-print "\nfinished at:", time.ctime(),"\n"
+print("\nfinished at:", time.ctime(),"\n")
 logfile.close()
 marginal_file.close()
 
