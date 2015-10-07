@@ -3,8 +3,8 @@
 import argparse, os,sys, platform, time, csv, glob
 import random as rand
 import warnings
-version= "      PyRate 0.581       "
-build  = "        20150722         "
+version= "      PyRate 0.582       "
+build  = "        20151107         "
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
@@ -212,7 +212,7 @@ def plot_RTT(infile,burnin, file_stem=""):
 	path_dir = infile
 	sys.path.append(infile)
 	plot_title = file_stem.split('_')[0]
-	print("FILE STEM:",file_stem, plot_title)
+	print "FILE STEM:",file_stem, plot_title
 	if file_stem=="": direct="%s/*_marginal_rates.log" % infile
 	else: direct="%s/*%s*marginal_rates.log" % (infile,file_stem)
 	files=glob.glob(direct)
@@ -222,14 +222,14 @@ def plot_RTT(infile,burnin, file_stem=""):
 
 	wd = "%s" % os.path.dirname(stem_file)
 	print(name_file, wd)
-	print("found", len(files), "log files...\n")
+	print "found", len(files), "log files...\n"
 
 	########################################################
 	######           DETERMINE MIN ROOT AGE           ######
 	########################################################
 
 	min_age=np.inf
-	print("determining min age...",)
+	print "determining min age...",
 	for f in files:
 		file_name =  os.path.splitext(os.path.basename(f))[0]
 		sys.stdout.write(".")
@@ -238,13 +238,13 @@ def plot_RTT(infile,burnin, file_stem=""):
 		sp_ind= [head.index(s) for s in head if "l_" in s]
 		min_age=min(min_age,len(sp_ind))
 
-	print("Min root age:", min_age)
+	print "Min root age:", min_age
 	max_ind=min_age-1
 
 	########################################################
 	######            COMBINE ALL LOG FILES           ######
 	########################################################
-	print("\ncombining all files...",)
+	print "\ncombining all files...",
 	file_n=0
 	for f in files:
 		file_name =  os.path.splitext(os.path.basename(f))[0]
@@ -271,13 +271,13 @@ def plot_RTT(infile,burnin, file_stem=""):
 				M_tbl=np.concatenate((M_tbl,t[:,m_ind]),axis=0)
 				R_tbl=np.concatenate((R_tbl,t[:,r_ind]),axis=0)
 		except: 
-			print("skipping file:", f)
+			print "skipping file:", f
 	print(shape(R_tbl))
 
 	########################################################
 	######               CALCULATE HPDs               ######
 	########################################################
-	print("\ncalculating HPDs...",)
+	print "\ncalculating HPDs...",
 	def get_HPD(threshold=.95):
 		L_hpd_m,L_hpd_M=[],[]
 		M_hpd_m,M_hpd_M=[],[]
@@ -344,7 +344,7 @@ def plot_RTT(infile,burnin, file_stem=""):
 	########################################################
 	######                  PLOT RTTs                 ######
 	########################################################
-	print("\ngenerating R file...",)
+	print "\ngenerating R file...",
 	out="%s/%s_RTT.r" % (wd,name_file)
 	newfile = open(out, "wb") 
 	Rfile="# %s files combined:\n" % (len(files))
@@ -409,13 +409,13 @@ def plot_RTT(infile,burnin, file_stem=""):
 	Rfile += "\nn <- dev.off()"
 	newfile.writelines(Rfile)
 	newfile.close()
-	print("\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, wd))
+	print "\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, wd)
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
 		cmd="cd %s; Rscript %s\%s_RTT.r" % (wd,wd,name_file)
 	else: 
 		cmd="cd %s; Rscript %s/%s_RTT.r" % (wd,wd,name_file)
 	os.system(cmd)
-	print("done\n")
+	print "done\n"
 	
 ########################## INITIALIZE MCMC ##############################
 def get_gamma_rates(a):
@@ -1420,10 +1420,19 @@ if path_dir_log_files != "":
 		direct="%s/*marginal_rates.log" % path_dir_log_files
 		files=glob.glob(direct)
 		files=sort(files)
-		for f in files:
-			name_file = os.path.splitext(os.path.basename(f))[0]
-			name_file = name_file.split("marginal_rates")[0]
-			plot_RTT(path_dir_log_files, burnin, name_file)
+		
+		if len(files)==0:
+			try:
+				name_file = os.path.splitext(os.path.basename(str(path_dir_log_files)))[0]
+				path_dir_log_files = os.path.dirname(str(path_dir_log_files))
+				name_file = name_file.split("marginal_rates")[0]
+				plot_RTT(path_dir_log_files, burnin, name_file)
+			except: sys.exit("\nFile or directory not recognized.\n")
+		else:
+			for f in files:
+				name_file = os.path.splitext(os.path.basename(f))[0]
+				name_file = name_file.split("marginal_rates")[0]
+				plot_RTT(path_dir_log_files, burnin, name_file)
 	else:
 		plot_RTT(path_dir_log_files, burnin, file_stem)
 	quit()
