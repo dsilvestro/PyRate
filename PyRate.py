@@ -221,7 +221,7 @@ def plot_RTT(infile,burnin, file_stem=""):
 	name_file = os.path.splitext(os.path.basename(stem_file))[0]
 
 	wd = "%s" % os.path.dirname(stem_file)
-	print(name_file, wd)
+	#print(name_file, wd)
 	print "found", len(files), "log files...\n"
 
 	########################################################
@@ -611,6 +611,28 @@ def HPBD3(timesL,timesM,L,M,T,s):
 	Mn=insert(M,sL,M[sL-1]) # m rates for all_t_frames
 
 	return pNtvar([all_t_frames,Ln,Mn,tot_extant])
+
+
+def BD_lik_vec_times(arg):
+	[ts,te,time_frames,L,M]=arg
+	BD_lik = 0
+	
+	B = sort(time_frames)+0.000001 # add small number to avoid counting extant species as extinct
+	ss1 = np.histogram(ts,bins=B)[0][::-1]
+	ee2 = np.histogram(te,bins=B)[0][::-1]
+	
+	for i in range(len(time_frames)-1):
+		up, lo = time_frames[i], time_frames[i+1]	
+		len_sp_events=ss1[i]
+		len_ex_events=ee2[i]
+		inTS = np.fmin(ts,up)
+		inTE = np.fmax(te,lo)
+		S    = inTS-inTE
+		lik1 = -(L[i]+M[i])*S[S>0] # S < 0 when species outside up-lo range
+		lik2 = log(L[i])*len_sp_events
+		lik3 = log(M[i])*len_ex_events
+		BD_lik += lik2+lik3+sum(lik1)
+	return BD_lik
 
 		
 def BD_partial_lik(arg):
@@ -1054,28 +1076,33 @@ def MCMC(all_arg):
 		# Birth-Death Lik: construct 2D array (args partial likelihood)
 		# parameters of each partial likelihood and prior (l)
 		if stop_update != inf:
-			args=list()
-			for temp_l in range(len(timesL)-1):
-				up, lo = timesL[temp_l], timesL[temp_l+1]
-				l = L[temp_l]
-				args.append([ts, te, up, lo, l, L_lam_r,L_lam_m,lam_s, 'l', cov_par[0],alphas[1],M[len(M)-1]])			
-			# parameters of each partial likelihood and prior (m)
-			for temp_m in range(len(timesM)-1):
-				up, lo = timesM[temp_m], timesM[temp_m+1]
-				m = M[temp_m]
-				args.append([ts, te, up, lo, m, M_lam_r,M_lam_m,lam_s, 'm', cov_par[1],alphas[1],M[len(M)-1]])
+			if fix_Shift == True:
+				likBDtemp = BD_lik_vec_times([ts,te,timesL,L,M])
+			else:	
+				args=list()
+				for temp_l in range(len(timesL)-1):
+					up, lo = timesL[temp_l], timesL[temp_l+1]
+					l = L[temp_l]
+					args.append([ts, te, up, lo, l, L_lam_r,L_lam_m,lam_s, 'l', cov_par[0],alphas[1],M[len(M)-1]])			
+				# parameters of each partial likelihood and prior (m)
+				for temp_m in range(len(timesM)-1):
+					up, lo = timesM[temp_m], timesM[temp_m+1]
+					m = M[temp_m]
+					args.append([ts, te, up, lo, m, M_lam_r,M_lam_m,lam_s, 'm', cov_par[1],alphas[1],M[len(M)-1]])
 	
 			
-			if num_processes==0:
-				likBDtemp=np.zeros(len(args))
-				i=0
-				for i in range(len(args)):
-					likBDtemp[i]=BD_partial_lik(args[i])
-					i+=1
-			# multi-thread computation of lik and prior (rates)
-			else: likBDtemp = array(pool_lik.map(BD_partial_lik, args))
+				if num_processes==0:
+					likBDtemp=np.zeros(len(args))
+					i=0
+					for i in range(len(args)):
+						likBDtemp[i]=BD_partial_lik(args[i])
+						i+=1
+				# multi-thread computation of lik and prior (rates)
+				else: likBDtemp = array(pool_lik.map(BD_partial_lik, args))
+				likBDtemp = sum(likBDtemp)
+				#print likBDtemp - BD_lik_vec_times([ts,te,timesL,L,M])
 
-			lik= sum(lik_fossil) + sum(likBDtemp)
+			lik= sum(lik_fossil) + likBDtemp
 
 		else: # run BD algorithm (Alg. 3.1)
 			sys.stderr = NO_WARN
@@ -1690,7 +1717,7 @@ else:
 	if runs>1: print("\nWarning: MC3 algorithm requires multi-threading.\nUsing standard (BD)MCMC algorithm instead.\n")
 	res=start_MCMC(0)
 t1 = time.clock()
-print("\nfinished at:", time.ctime(),"\n")
+print "\nfinished at:", time.ctime(),"\n"
 logfile.close()
 marginal_file.close()
 
