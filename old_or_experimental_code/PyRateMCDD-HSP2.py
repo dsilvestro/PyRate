@@ -60,7 +60,7 @@ else: fixed_focal_clade = args.c-1
 clade_name = "_c%s" % (fixed_focal_clade)
 
 Be_shape_beta = args.b
-beta_value = "_hsp_corr"
+beta_value = "_hsp"
 
 all_events=sort(np.concatenate((ts,te),axis=0))[::-1] # events are speciation/extinction that change the diversity trajectory
 n_clades,n_events=max(clade_ID)+1,len(all_events)
@@ -130,6 +130,7 @@ def sample_lam_mod(lam,beta,tau):
 	mu =beta/tau
 	u =np.random.uniform(0, 1./(1+eta), len(eta))
 	truncate = (1-u)/u
+	# 2/(mu**2) = scale parameter
 	new_eta = np.random.exponential( 2/(mu**2), len(mu)  )
 	new_lam = np.zeros(len(lam))+lam
 	new_lam[new_eta<truncate]= sqrt(1./new_eta[new_eta<truncate])
@@ -137,12 +138,12 @@ def sample_lam_mod(lam,beta,tau):
 
 def sample_tau_mod(lam,beta,tau):
 	eta=1./(tau**2)
-	mu =beta/lam
 	u =np.random.uniform(0, 1./(1+eta))
 	truncate = (1-u)/u
 	theta = (beta/lam)
 	a = (len(lam.flatten())+1)/2.
 	b = sum((theta**2)/2)
+	# 1./b = scale parameter = 2/sum(theta**2) || cf. 2/(mu**2) = scale parameter above
 	new_eta = np.random.gamma( a, 1./b, len(tau)  )
 	new_tau = np.zeros(len(tau))+tau
 	new_tau[new_eta<truncate]= sqrt(1./new_eta[new_eta<truncate])
@@ -161,10 +162,26 @@ def sample_tau_mod(lam,beta,tau):
 #Tau = 1/sqrt(eta)
 
 #####
+scaling =2
 
-scale_factor = 1./np.max(Dtraj)
-MAX_G = np.inf #0.30/scale_factor # loc_shrinkage
-MAX_G = 0.30/scale_factor
+if scaling==0:	
+	scale_factor = 1.
+	MAX_G = np.inf #0.30/scale_factor # loc_shrinkage
+	trasfRate_general = trasfMultiRateND
+elif scaling == 1:
+	scale_factor = 1./np.max(Dtraj)
+	MAX_G = 0.30/scale_factor
+	trasfRate_general = trasfMultiRate
+elif scaling ==2:
+	scale_factor = 1. #1./np.max(Dtraj, axis=0)
+	MAX_G = 10.
+	trasfRate_general = trasfMultiRateCladeScaling
+
+print scale_factor
+
+
+
+
 
 GarrayA=init_Garray(n_clades) # 3d array so:
                                  # Garray[i,:,:] is the 2d G for one clade
@@ -227,8 +244,8 @@ for iteration in range(n_iterations):
 		prior_r=0
 		#for i in range(n_clades):
 		i = fixed_focal_clade
-		l_at_events=trasfMultiRate(l0[i],-Garray_temp[i,0,:],Dtraj)
-		m_at_events=trasfMultiRate(m0[i],Garray_temp[i,1,:],Dtraj)
+		l_at_events=trasfRate_general(l0[i],-Garray_temp[i,0,:],Dtraj)
+		m_at_events=trasfRate_general(m0[i],Garray_temp[i,1,:],Dtraj)
 		l_s1a=l_at_events[idx_s[i]]
 		m_e1a=m_at_events[idx_e[i]]
 		lik[i] = (sum(log(l_s1a))-sum(abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(Dtraj[:,i][1:len(l_at_events)])) \
@@ -281,8 +298,8 @@ for iteration in range(n_iterations):
 		
 		Garray_temp=Garray
 		i=focal_clade 
-		l_at_events=trasfMultiRate(l0[i],-Garray_temp[i,0,:],Dtraj)
-		m_at_events=trasfMultiRate(m0[i], Garray_temp[i,1,:],Dtraj)
+		l_at_events=trasfRate_general(l0[i],-Garray_temp[i,0,:],Dtraj)
+		m_at_events=trasfRate_general(m0[i], Garray_temp[i,1,:],Dtraj)
 		### calc likelihood - clade i ###
 		l_s1a=l_at_events[idx_s[i]]
 		m_e1a=m_at_events[idx_e[i]]

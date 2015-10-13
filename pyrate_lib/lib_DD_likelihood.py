@@ -51,15 +51,21 @@ def trasfRate(r0,n,K,m,G):    # transforms a baseline rate r0 based on n taxa
 	rate=r0+r0*(n*K)+r0*(m*G)  # and a correlation parameter K
 	return np.amax(np.array((rate,zeros(len(rate))+.0001)),axis=0)
 
-def trasfMultiRate(r0,Garray_clade,Dtraj):    # transforms a baseline rate r0 based on n taxa
-	#mDtraj = Dtraj/np.mean(Dtraj, axis=0) #np.max(Dtraj, axis=0)# 
+def trasfMultiRate(r0,Garray_clade,Dtraj):     # transforms a baseline rate r0 based number of taxa scaled by max diversity over all clades
+	#mDtraj = Dtraj/np.mean(Dtraj, axis=0) # thus g is competition per species
 	mDtraj = Dtraj/np.max(Dtraj)
 	#mDtraj=(Dtraj-np.min(Dtraj, axis=0))/(np.max(Dtraj, axis=0)-np.min(Dtraj, axis=0))
 	r_rate=r0 + np.sum(r0 * Garray_clade * mDtraj,axis=1)
 	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+.0001)),axis=0)
 	return r_rate
 
-def trasfMultiRateND(r0,Garray_clade,mDtraj):    # transforms a baseline rate r0 based on n taxa
+def trasfMultiRateCladeScaling(r0,Garray_clade,Dtraj):    # transforms a baseline rate r0 based number of taxa scaled by max diversity for each clade
+	mDtraj = Dtraj/np.max(Dtraj, axis=0)              # thus g is competition per clade
+	r_rate=r0 + np.sum(r0 * Garray_clade * mDtraj,axis=1)
+	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+.0001)),axis=0)
+	return r_rate
+
+def trasfMultiRateND(r0,Garray_clade,mDtraj):    # transforms a baseline rate r0 based on n taxa ()
 	#mDtraj=(Dtraj-np.min(Dtraj, axis=0))/(np.max(Dtraj, axis=0)-np.min(Dtraj, axis=0))
 	r_rate=r0 + np.sum(r0 * Garray_clade * mDtraj,axis=1)
 	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+.0001)),axis=0)
