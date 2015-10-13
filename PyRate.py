@@ -3,7 +3,7 @@
 import argparse, os,sys, platform, time, csv, glob
 import random as rand
 import warnings
-version= "      PyRate 0.582       "
+version= "      PyRate 0.600       "
 build  = "        20151107         "
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
@@ -57,6 +57,7 @@ try:
 	from scipy.special import gdtr, gdtrix
 	from scipy.special import betainc
 	import scipy.stats
+	from scipy.optimize import fmin_powell as Fopt1 
 except(ImportError): 
 	sys.exit("\nError: scipy library not found.\nYou can download scipy at: http://sourceforge.net/projects/scipy/files/ \n")
 
@@ -190,7 +191,7 @@ def calc_BF(f1, f2):
 
 
 ########################## PLOT RTT ##############################
-def plot_RTT(infile,burnin, file_stem=""):
+def plot_RTT(infile,burnin, file_stem="",one_file=False):
 	burnin = int(burnin)
 	if burnin<=1:
 		print("Burnin must be provided in terms of number of samples to be excluded.")
@@ -217,6 +218,8 @@ def plot_RTT(infile,burnin, file_stem=""):
 	else: direct="%s/*%s*marginal_rates.log" % (infile,file_stem)
 	files=glob.glob(direct)
 	files=sort(files)
+	if one_file==True: files=["%s/%smarginal_rates.log" % (infile,file_stem)]
+	
 	stem_file=files[0]
 	name_file = os.path.splitext(os.path.basename(stem_file))[0]
 
@@ -516,6 +519,16 @@ def update_ts_te(ts, te, d1):
 def seed_missing(x,m,s): # assigns random normally distributed trait values to missing data
 	return np.isnan(x)*np.random.normal(m,s)+np.nan_to_num(x)
 
+def cond_alpha_proposal(hp_gamma_shape,hp_gamma_rate,current_alpha,k,n):
+	z = [current_alpha + 1.0, float(n)]
+	f = np.random.dirichlet(z,1)[0]
+	eta = f[0]	
+	u = np.random.uniform(0,1,1)[0]
+	x = (hp_gamma_shape + k - 1.0) / ((hp_gamma_rate - np.log(eta)) * n)
+	if (u / (1.0-u)) < x: new_alpha = np.random.gamma( (hp_gamma_shape+k), (1./(hp_gamma_rate-np.log(eta))) )
+	else: new_alpha = np.random.gamma( (hp_gamma_shape+k-1.), 1./(hp_gamma_rate-np.log(eta)) )
+	return new_alpha
+
 ########################## PRIORS #######################################
 try: 
 	scipy.stats.gamma.logpdf(1, 1, scale=1./1,loc=0) 
@@ -770,7 +783,7 @@ def NHPPgamma(arg):
 	else: lik=NHPP_lik(arg)
 	return lik
 
-
+###### BEGIN FUNCTIONS for BDMCMC ########
 
 def born_prm(times, R, ind, tse):
 	#B=max(1./times[0], np.random.beta(1,(len(R)+1))) # avoid time frames < 1 My
@@ -920,6 +933,130 @@ def Alg_3_1(arg):
 	#	return arg[1],arg[4], arg[5],arg[6], arg[7],cov_par
 	return likBDtemp, L,M, timesL, timesM, cov_par
 		
+######	END FUNCTIONS for BDMCMC ######
+
+
+####### BEGIN FUNCTIONS for DIRICHLET PROCESS PRIOR #######
+
+def random_choice_P(vector):
+	probDeath=np.cumsum(vector/sum(vector)) # cumulative prob (used to randomly sample one 
+	r=rand.random()                          # parameter based on its deathRate)
+	probDeath=sort(append(probDeath, r))
+	ind=np.where(probDeath==r)[0][0] # just in case r==1
+	return [vector[ind], ind]
+
+def calc_rel_prob(log_lik):
+	rel_prob=exp(log_lik-max(log_lik))
+	return rel_prob/sum(rel_prob)
+	
+def G0(alpha=2,beta=3,n=1):
+	#return np.array([np.random.random()])
+	#return np.random.gamma(shape=alpha,scale=1./beta,size=n)
+	return init_BD(n)
+
+def BD_partial_lik_vec(arg): # calculates BD_partial_lik for a vector of rates
+	[ts,te,up,lo,rate, par]=arg
+	# indexes of the species within time frame
+	if par=="l": i_events=np.intersect1d((ts <= up).nonzero()[0], (ts > lo).nonzero()[0])
+	else: i_events=np.intersect1d((te <= up).nonzero()[0], (te > lo).nonzero()[0])
+		
+	# index species present in time frame
+	n_all_inframe = np.intersect1d((ts >= lo).nonzero()[0], (te <= up).nonzero()[0])
+	
+	# tot br length within time frame
+	n_t_ts,n_t_te=np.zeros(len(ts)),np.zeros(len(ts))
+	
+	n_t_ts[n_all_inframe]= ts[n_all_inframe]   # speciation events before time frame
+	n_t_ts[(n_t_ts>up).nonzero()]=up           # for which length is accounted only from $up$ rather than from $ts$
+	
+	n_t_te[n_all_inframe]= te[n_all_inframe]   # extinction events in time frame
+	n_t_te[np.intersect1d((n_t_te<lo).nonzero()[0], n_all_inframe)]=lo     # for which length is accounted only until $lo$ rather than to $te$
+	
+	# vector of br lengths within time frame 
+	n_S=sum((n_t_ts[n_all_inframe]-n_t_te[n_all_inframe]))
+	
+	# constant rate model
+	lik= log(rate)*len(i_events) -rate*n_S
+	return lik
+
+def DDP_gibbs_sampler(arg): # rate_type = "l" or "m" (for speciation/extinction respectively)
+	[ts,te,parA,ind,time_frames,alpha_par_Dir,rate_type]=arg
+	# par: parameters for each category
+	n_data=len(ind)
+	# GIBBS SAMPLER for NUMBER OF CATEGORIES - Algorithm 4. (Neal 2000)
+	par=parA # parameters for each category
+	eta = np.array([len(ind[ind==j]) for j in range(len(par))]) # number of elements in each category
+	u1 = np.random.uniform(0,1,n_data) # init random numbers
+	new_lik_vec=np.zeros(n_data) # store new sampled likelihoods
+	new_alpha_par_Dir = 0 + cond_alpha_proposal(hp_gamma_shape,hp_gamma_rate,alpha_par_Dir,len(par),n_data)
+	for i in range(0,n_data):
+		up=time_frames[i]
+		lo=time_frames[i+1]
+		k1 = len(par)
+
+		if len(ind[ind==ind[i]])==1: # is singleton
+			k1 = k1 - 1
+			par_k1 = par			
+			if u1[i]<= k1/(k1+1.): pass
+			else: ind[i] = k1 + 1 # this way n_ic for singleton is not 0
+		else: # is not singleton
+			par_k1 = np.concatenate((par,G0()), axis=0)
+		
+		# construct prob vector FAST!
+		lik_vec=BD_partial_lik_vec([ts,te,up,lo,par_k1,rate_type])
+		rel_lik = calc_rel_prob(lik_vec)
+		if len(par_k1)>len(eta): # par_k1 add one element only when i is not singleton
+			eta[ind[i]] -= 1
+			eta_temp=np.append(eta,new_alpha_par_Dir/(k1+1.))
+		else: eta_temp = eta
+		P=eta_temp*rel_lik
+	
+		# randomly sample a new value for indicator ind[i]
+		IND = random_choice_P(P)[1] 
+		ind[i] = IND # update ind vector
+		if IND==(len(par_k1)-1): par = par_k1 # add category
+
+
+		# Change the state to contain only those par are now associated with an observation
+		# create vector of number of elements per category
+		eta = np.array([len(ind[ind==j]) for j in range(len(par))])
+		# remove parameters for which there are no elements
+		par = par[eta>0]
+		# rescale indexes
+		ind_rm = (eta==0).nonzero()[0] # which category has no elements
+		if len(ind_rm)>0: ind[ind>=ind_rm] = ind[ind>=ind_rm]-1
+		# update eta
+		eta = np.delete(eta,ind_rm)
+
+		# Update lik vec
+		new_lik_vec[i]=lik_vec[IND]
+		
+
+	likA = sum(new_lik_vec)
+	parA = par
+	return likA,parA, ind,new_alpha_par_Dir
+
+
+def get_rate_HP(n,target_k,hp_gamma_shape):
+	def estK(alpha,N): 
+		return sum([alpha/(alpha+i-1) for i in range(1,int(N+1))])
+	
+	def opt_gamma_rate(a):
+		a= abs(a[0])
+		ea =estK(a,n)
+		return exp(abs( ea-target_k ))
+	# from scipy.optimize import fmin_powell as Fopt1 
+	opt = Fopt1(opt_gamma_rate, [np.array(0.001)], full_output=1, disp=0)
+	expected_cp=abs(opt[0])
+	hp_gamma_rate = expected_cp/hp_gamma_shape 
+	return hp_gamma_rate
+
+
+####### END FUNCTIONS for DIRICHLET PROCESS PRIOR #######
+
+
+
+
 
 
 
@@ -930,12 +1067,21 @@ def MCMC(all_arg):
 	[it,n_proc, I,sample_freq, print_freq, temperatures, burnin, marginal_frames, arg]=all_arg
 	if it==0: # initialize chain
 		print("initializing chain...")
-		tsA, teA = init_ts_te(FA,LO)
-		if global_stop_update is True: tsA, teA = globalTS, globalTE
+		if fix_SE is True: tsA, teA = fixed_ts, fixed_te
+		else: tsA, teA = init_ts_te(FA,LO)
 		timesLA, timesMA = init_times(max(tsA),time_framesL,time_framesM, min(teA))
 		if len(fixed_times_of_shift)>0: timesLA[1:-1],timesMA[1:-1]=fixed_times_of_shift,fixed_times_of_shift
-		LA = init_BD(len(timesLA))
-		MA = init_BD(len(timesMA))
+		if TDI<3:
+			LA = init_BD(len(timesLA))
+			MA = init_BD(len(timesMA))
+		else : ### DPP
+			LA = init_BD(1) # init 1 rate
+			MA = init_BD(1) # init 1 rate
+			indDPP_L = np.zeros(len(timesLA)-1).astype(int) # init category indexes
+			indDPP_M = np.zeros(len(timesLA)-1).astype(int) # init category indexes
+			alpha_par_Dir_L = np.random.uniform(0,1) # init concentration parameters
+			alpha_par_Dir_M = np.random.uniform(0,1) # init concentration parameters
+		
 		alphasA,cov_parA = init_alphas() # use 1 for symmetric PERT
 		hyperPA=np.ones(2)
 		if argsG is False: alphasA[0]=1
@@ -944,7 +1090,6 @@ def MCMC(all_arg):
 	else: # restore values
 		[itt, n_proc_,PostA, likA, priorA,tsA,teA,timesLA,timesMA,LA,MA,alphasA, cov_parA, lik_fossilA,likBDtempA]=arg
 		SA=sum(tsA-teA)
-
 	# start threads
 	if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
 	if frac1>=0 and num_processes_ts>0: pool_ts = multiprocessing.Pool(num_processes_ts) # update ts, te
@@ -971,10 +1116,10 @@ def MCMC(all_arg):
 			global con_trait
 			con_trait=seed_missing(trait_values,meanGAUS,sdGAUS)
 			
-		if global_stop_update is True: 
+		if fix_SE is True: 
 			rr=random.uniform(f_update_q,1)
 			stop_update=0
-			tsA, teA= globalTS, globalTE
+			tsA, teA= fixed_ts, fixed_te
 			lik_fossilA=np.zeros(1)
 		else:
 			rr=random.uniform(0,1) #random.uniform(.8501, 1)
@@ -984,6 +1129,9 @@ def MCMC(all_arg):
 			stop_update=inf
 			rr=1.5 # no updates
 			
+		if rand.random() < 1./freq_dpp and TDI==3 and it > 1000: ### DPP
+			stop_update=inf
+			rr=1.5 # no updates
 
 		alphas=zeros(2)
 		cov_par=zeros(3)
@@ -1013,10 +1161,13 @@ def MCMC(all_arg):
 				timesL=update_times(timesLA, max(ts),mod_d4)
 				timesM=update_times(timesMA, max(ts),mod_d4)
 			else: 
-				if rand.random()<.95 or fix_Shift is False:
-					L,M=update_rates(LA,MA,3,mod_d3)
-				else:
-					hyperP,hasting = update_multiplier_proposal(hyperPA,1.2)
+				if TDI<2: # 
+					if rand.random()<.95 or fix_Shift is False:
+						L,M=update_rates(LA,MA,3,mod_d3)
+					else:
+						hyperP,hasting = update_multiplier_proposal(hyperPA,1.2)
+				else: # DPP or BDMCMC
+						L,M=update_rates(LA,MA,3,mod_d3)
 
 		elif rr<f_update_cov: # cov
 			rcov=rand.random()
@@ -1037,84 +1188,15 @@ def MCMC(all_arg):
 				
 		# NHPP Lik: multi-thread computation (ts, te)
 		# generate args lik (ts, te)
-		ind1=range(0,len(fossil))
-		ind2=[]
-		if it>0 and rr<f_update_se: # recalculate likelihood only for ts, te that were updated
-			ind1=(ts-te != tsA-teA).nonzero()[0]
-			ind2=(ts-te == tsA-teA).nonzero()[0]
-		lik_fossil=zeros(len(fossil))
+		if fix_SE is False:
+			ind1=range(0,len(fossil))
+			ind2=[]
+			if it>0 and rr<f_update_se: # recalculate likelihood only for ts, te that were updated
+				ind1=(ts-te != tsA-teA).nonzero()[0]
+				ind2=(ts-te == tsA-teA).nonzero()[0]
+			lik_fossil=zeros(len(fossil))
 
-		if len(ind1)>0 and it<stop_update and global_stop_update is False:
-			# generate args lik (ts, te)
-			z=zeros(len(fossil)*7).reshape(len(fossil),7)
-			z[:,0]=te
-			z[:,1]=ts
-			z[:,2]=alphas[0]   # shape prm Gamma
-			z[:,3]=alphas[1]   # baseline foss rate (q)
-			z[:,4]=range(len(fossil))
-			z[:,5]=cov_par[2]  # covariance baseline foss rate
-			z[:,6]=M[len(M)-1] # ex rate
-			args=list(z[ind1])
-			if num_processes_ts==0:
-				for j in range(len(ind1)):
-					i=ind1[j] # which species' lik
-					if argsHPP is True or  frac1==0: lik_fossil[i] = HOMPP_lik(args[j])
-					elif argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
-					else: lik_fossil[i] = NHPP_lik(args[j])
-			else:
-				if argsHPP is True or  frac1==0: lik_fossil[ind1] = array(pool_ts.map(HOMPP_lik, args))
-				elif argsG is True: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args)) 
-				else: lik_fossil[ind1] = array(pool_ts.map(NHPP_lik, args))
-
-		
-		if it>0: lik_fossil[ind2] = lik_fossilA[ind2]
-		if it>=stop_update or stop_update==inf: lik_fossil = lik_fossilA
-
-		# pert_prior defines gamma prior on alphas[1] - fossilization rate
-		prior = prior_gamma(alphas[1],pert_prior[0],pert_prior[1]) + prior_uniform(alphas[0],0,20)
-
-		# Birth-Death Lik: construct 2D array (args partial likelihood)
-		# parameters of each partial likelihood and prior (l)
-		if stop_update != inf:
-			if fix_Shift == True:
-				likBDtemp = BD_lik_vec_times([ts,te,timesL,L,M])
-			else:	
-				args=list()
-				for temp_l in range(len(timesL)-1):
-					up, lo = timesL[temp_l], timesL[temp_l+1]
-					l = L[temp_l]
-					args.append([ts, te, up, lo, l, L_lam_r,L_lam_m,lam_s, 'l', cov_par[0],alphas[1],M[len(M)-1]])			
-				# parameters of each partial likelihood and prior (m)
-				for temp_m in range(len(timesM)-1):
-					up, lo = timesM[temp_m], timesM[temp_m+1]
-					m = M[temp_m]
-					args.append([ts, te, up, lo, m, M_lam_r,M_lam_m,lam_s, 'm', cov_par[1],alphas[1],M[len(M)-1]])
-	
-			
-				if num_processes==0:
-					likBDtemp=np.zeros(len(args))
-					i=0
-					for i in range(len(args)):
-						likBDtemp[i]=BD_partial_lik(args[i])
-						i+=1
-				# multi-thread computation of lik and prior (rates)
-				else: likBDtemp = array(pool_lik.map(BD_partial_lik, args))
-				likBDtemp = sum(likBDtemp)
-				#print likBDtemp - BD_lik_vec_times([ts,te,timesL,L,M])
-
-			lik= sum(lik_fossil) + likBDtemp
-
-		else: # run BD algorithm (Alg. 3.1)
-			sys.stderr = NO_WARN
-			args=[it, likBDtempA,tsA, teA, LA,MA, timesLA, timesMA, cov_parA,alphasA[1],M[len(M)-1]]
-			likBDtemp, L,M, timesL, timesM, cov_par = Alg_3_1(args)
-			
-			# NHPP Lik: needs to be recalculated after Alg 3.1
-			if global_stop_update is False:
-				# NHPP calculated only if not -fixSE
-				# generate args lik (ts, te)
-				ind1=range(0,len(fossil))
-				lik_fossil=zeros(len(fossil))
+			if len(ind1)>0 and it<stop_update and fix_SE is False:
 				# generate args lik (ts, te)
 				z=zeros(len(fossil)*7).reshape(len(fossil),7)
 				z[:,0]=te
@@ -1132,17 +1214,113 @@ def MCMC(all_arg):
 						elif argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
 						else: lik_fossil[i] = NHPP_lik(args[j])
 				else:
-					if argsHPP is True or frac1==0: lik_fossil[ind1] = array(pool_ts.map(HOMPP_lik, args))
-					elif argsG is True: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args))
+					if argsHPP is True or  frac1==0: lik_fossil[ind1] = array(pool_ts.map(HOMPP_lik, args))
+					elif argsG is True: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args)) 
 					else: lik_fossil[ind1] = array(pool_ts.map(NHPP_lik, args))
-			
-			sys.stderr = original_stderr
-			
+
+		
+			if it>0: lik_fossil[ind2] = lik_fossilA[ind2]
+
+
+
+		else: lik_fossil=zeros(1)
+
+		if it>=stop_update or stop_update==inf: lik_fossil = lik_fossilA
+
+		# pert_prior defines gamma prior on alphas[1] - fossilization rate
+		prior = prior_gamma(alphas[1],pert_prior[0],pert_prior[1]) + prior_uniform(alphas[0],0,20)
+
+
+		### DPP begin
+		if TDI==3:
+			likBDtemp=0
+			if stop_update != inf: # standard MCMC
+				likBDtemp = BD_lik_vec_times([ts,te,timesL,L[indDPP_L],M[indDPP_M]])
+				#n_data=len(indDPP_L) 
+				#for time_frame_i in range(n_data): 
+				#	up=timesL[time_frame_i]
+				#	lo=timesL[time_frame_i+1]
+				#	likBDtemp+= BD_partial_lik_vec([ts,te,up,lo,L[indDPP_L[time_frame_i]], "l"])
+				#	likBDtemp+= BD_partial_lik_vec([ts,te,up,lo,M[indDPP_M[time_frame_i]], "m"])
+			else: ### RUN DPP GIBBS SAMPLER
+				lik1, L, indDPP_L, alpha_par_Dir_L = DDP_gibbs_sampler([ts,te,L,indDPP_L,timesL,alpha_par_Dir_L,"l"])
+				lik2, M, indDPP_M, alpha_par_Dir_M = DDP_gibbs_sampler([ts,te,M,indDPP_M,timesL,alpha_par_Dir_M,"m"])
+				likBDtemp = lik1+lik2
+				
 			lik= sum(lik_fossil) + sum(likBDtemp)
+		### DPP end
+		
+		else:
+			# Birth-Death Lik: construct 2D array (args partial likelihood)
+			# parameters of each partial likelihood and prior (l)
+			if stop_update != inf:
+				if fix_Shift == True:
+					likBDtemp = BD_lik_vec_times([ts,te,timesL,L,M])
+				else:	
+					args=list()
+					for temp_l in range(len(timesL)-1):
+						up, lo = timesL[temp_l], timesL[temp_l+1]
+						l = L[temp_l]
+						args.append([ts, te, up, lo, l, L_lam_r,L_lam_m,lam_s, 'l', cov_par[0],alphas[1],M[len(M)-1]])			
+					# parameters of each partial likelihood and prior (m)
+					for temp_m in range(len(timesM)-1):
+						up, lo = timesM[temp_m], timesM[temp_m+1]
+						m = M[temp_m]
+						args.append([ts, te, up, lo, m, M_lam_r,M_lam_m,lam_s, 'm', cov_par[1],alphas[1],M[len(M)-1]])
+	
+			
+					if num_processes==0:
+						likBDtemp=np.zeros(len(args))
+						i=0
+						for i in range(len(args)):
+							likBDtemp[i]=BD_partial_lik(args[i])
+							i+=1
+					# multi-thread computation of lik and prior (rates)
+					else: likBDtemp = array(pool_lik.map(BD_partial_lik, args))
+					likBDtemp = likBDtemp
+					#print likBDtemp - BD_lik_vec_times([ts,te,timesL,L,M])
+
+				lik= sum(lik_fossil) + sum(likBDtemp)
+
+			else: # run BD algorithm (Alg. 3.1)
+				sys.stderr = NO_WARN
+				args=[it, likBDtempA,tsA, teA, LA,MA, timesLA, timesMA, cov_parA,alphasA[1],M[len(M)-1]]
+				likBDtemp, L,M, timesL, timesM, cov_par = Alg_3_1(args)
+			
+				# NHPP Lik: needs to be recalculated after Alg 3.1
+				if fix_SE is False:
+					# NHPP calculated only if not -fixSE
+					# generate args lik (ts, te)
+					ind1=range(0,len(fossil))
+					lik_fossil=zeros(len(fossil))
+					# generate args lik (ts, te)
+					z=zeros(len(fossil)*7).reshape(len(fossil),7)
+					z[:,0]=te
+					z[:,1]=ts
+					z[:,2]=alphas[0]   # shape prm Gamma
+					z[:,3]=alphas[1]   # baseline foss rate (q)
+					z[:,4]=range(len(fossil))
+					z[:,5]=cov_par[2]  # covariance baseline foss rate
+					z[:,6]=M[len(M)-1] # ex rate
+					args=list(z[ind1])
+					if num_processes_ts==0:
+						for j in range(len(ind1)):
+							i=ind1[j] # which species' lik
+							if argsHPP is True or  frac1==0: lik_fossil[i] = HOMPP_lik(args[j])
+							elif argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
+							else: lik_fossil[i] = NHPP_lik(args[j])
+					else:
+						if argsHPP is True or frac1==0: lik_fossil[ind1] = array(pool_ts.map(HOMPP_lik, args))
+						elif argsG is True: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args))
+						else: lik_fossil[ind1] = array(pool_ts.map(NHPP_lik, args))
+			
+				sys.stderr = original_stderr			
+				lik= sum(lik_fossil) + sum(likBDtemp)
 
 		T= max(ts)
-		prior += sum(prior_times_frames(timesL, max(ts),min(te), lam_s))
-		prior += sum(prior_times_frames(timesM, max(ts),min(te), lam_s))
+		if TDI<3:
+			prior += sum(prior_times_frames(timesL, max(ts),min(te), lam_s))
+			prior += sum(prior_times_frames(timesM, max(ts),min(te), lam_s))
 
 		priorBD= get_hyper_priorBD(timesL,timesM,L,M,T,hyperP)
 		prior += priorBD
@@ -1183,43 +1361,58 @@ def MCMC(all_arg):
 				print_out= "\n%s\tpost: %s lik: %s (%s, %s) prior: %s tot.l: %s" \
 				% (it, l[0], l[1], round(sum(lik_fossilA), 2), round(sum(likBDtempA), 2),l[2], l[3])
 				if TDI==1: print_out+=" beta: %s" % (round(temperature,4))
-				if TDI==2: print_out+=" k: %s" % (len(LA)+len(MA))
+				if TDI==2 or TDI==3: print_out+=" k: %s" % (len(LA)+len(MA))
 				print(print_out)
 				#if TDI==1: print "\tpower posteriors:", marginal_lik[0:10], "..."
-
-				print("\tt.frames: {0} {1} (sp.)".format(timesLA[0:-1], round(min(teA),3)))
-				print("\tt.frames: {0} {1} (ex.)".format(timesMA[0:-1], round(min(teA),3)))
-				print("\tsp.rates: {0} \n\tex.rates: {1}".format(LA, MA))
+				if TDI==3:
+					print "\tind L", indDPP_L
+					print "\tind M", indDPP_M
+				else:
+					print "\tt.frames:", timesLA, "(sp.)"
+					print "\tt.frames:", timesMA, "(ex.)"
+				print "\tsp.rates:", LA, "\n\tex.rates:", MA
 				
 				if model_cov>=1: print "\tcov. (sp/ex/q):", cov_parA
- 				print("\tq.rate: {0} \tGamma.prm: {1}".format(round(alphasA[1], 3), round(alphasA[0], 3)))
-				print("\tts: {} ...".format(tsA[0:5]))
-				print("\tte: {} ...".format(teA[0:5]))
+ 				print "\tq.rate:", round(alphasA[1], 3), "\tGamma.prm:", round(alphasA[0], 3)
+				print "\tts:", tsA[0:5], "..."
+				print "\tte:", teA[0:5], "..."
 			if it<=burnin and n_proc==0: print("\n%s*\tpost: %s lik: %s prior: %s tot length %s" \
 			% (it, l[0], l[1], l[2], l[3]))
 
 		if n_proc != 0: pass
 		elif it % sample_freq ==0 and it>=burnin or it==0 and it>=burnin:
 			s_max=max(tsA)
+			if fix_SE ==False:
+				log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), alphasA[1], alphasA[0]]
+			else:
+				log_state= [it,PostA, priorA, likA-sum(lik_fossilA)]
+
+			if model_cov>=1: log_state += cov_parA[0], cov_parA[1],cov_parA[2]
+
 			if TDI<2: # normal MCMC or MCMC-TI
-				log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), alphasA[1], alphasA[0], cov_parA[0], cov_parA[1],cov_parA[2], temperature, s_max,min(teA)]
+				log_state += s_max,min(teA)
+				if TDI==1: log_state += [temperature]
 				if fix_Shift is True: log_state += list(hyperPA)
 				log_state += list(LA)
 				log_state += list(MA)
-				log_state += list(timesLA[1:-1])
-				log_state += list(timesMA[1:-1])
-			else: # BD-MCMC
-				log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), alphasA[1], alphasA[0], cov_parA[0], cov_parA[1],cov_parA[2], len(LA), len(MA), s_max,min(teA)]
-                
+				if fix_Shift== False:
+					log_state += list(timesLA[1:-1])
+					log_state += list(timesMA[1:-1])
+			elif TDI==2: # BD-MCMC
+				log_state+= [len(LA), len(MA), s_max,min(teA)]
+			else: # DPP
+				log_state+= [len(LA), len(MA), alpha_par_Dir_L,alpha_par_Dir_M, s_max,min(teA)]
+			 					
 			log_state += [SA]
-			log_state += list(tsA)
-			log_state += list(teA)
+			if fix_SE ==False:
+				log_state += list(tsA)
+				log_state += list(teA)
 			wlog.writerow(log_state)
 			logfile.flush()
 			os.fsync(logfile)
 
 			lik_tmp += sum(likBDtempA)
-			if TDI !=1 and n_proc==0:
+			if TDI !=1 and n_proc==0 and TDI<3:
 				margL=zeros(len(marginal_frames))
 				margM=zeros(len(marginal_frames))
 				for i in range(len(timesLA)-1): # indexes of the 1My bins within each timeframe
@@ -1231,6 +1424,16 @@ def MCMC(all_arg):
 					j=array(ind)
 					margM[j]=MA[i]
 				marginal_rates(it, margL, margM, marginal_file, n_proc)
+			if n_proc==0 and TDI==3: # marg rates DPP | times of shift are fixed and equal for L and M
+				margL=zeros(len(marginal_frames))
+				margM=zeros(len(marginal_frames))
+				for i in range(len(timesLA)-1): # indexes of the 1My bins within each timeframe
+					ind=np.intersect1d(marginal_frames[marginal_frames<=timesLA[i]],marginal_frames[marginal_frames>=timesLA[i+1]])
+					j=array(ind)
+					margL[j]=LA[indDPP_L[i]]
+					margM[j]=MA[indDPP_M[i]]
+				marginal_rates(it, margL, margM, marginal_file, n_proc)
+			
 		it += 1
 	if TDI==1 and n_proc==0: marginal_likelihood(marginal_file, marginal_lik, temperatures)
 	if use_seq_lik is False:
@@ -1253,7 +1456,7 @@ def marginal_rates(it, margL,margM, marginal_file, run):
 def marginal_likelihood(marginal_file, l, t):
 	mL=0
 	for i in range(len(l)-1): mL+=((l[i]+l[i+1])/2.)*(t[i]-t[i+1]) # Beerli and Palczewski 2010
-	print("\n Marginal likelihood:", mL)
+	print "\n Marginal likelihood:", mL
 	o= "\n Marginal likelihood: %s\n\nlogL: %s\nbeta: %s" % (mL,l,t)
 	marginal_file.writelines(o)
 	marginal_file.close()
@@ -1276,6 +1479,7 @@ p.add_argument('-plot',      metavar='<input file>', type=str,help="Path to 'mar
 p.add_argument('-tag',       metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted",default="")
 p.add_argument('-mProb',     type=str,help="Input 'mcmc.log file",default="")
 p.add_argument('-BF',        type=str,help="Input 'marginal_likelihood.txt files",metavar='<2 input files>',nargs='+',default=[])
+p.add_argument('-d',         type=str,help="Load SE table",metavar='<1 input file>',default="")
 
 # MCMC SETTINGS
 p.add_argument('-n',      type=int, help='mcmc generations',default=10000000, metavar=10000000)
@@ -1295,6 +1499,11 @@ p.add_argument('-T',   type=float, help='BDMCMC - time of model update', default
 p.add_argument('-S',   type=int,   help='BDMCMC - start model update', default=1000, metavar=1000)
 p.add_argument('-k',   type=int,   help='TI - no. scaling factors', default=10, metavar=10)
 p.add_argument('-a',   type=float, help='TI - shape beta distribution', default=.3, metavar=.3)
+p.add_argument('-dpp_f',  type=float, help='DPP - frequency ', default=500, metavar=500)
+p.add_argument('-dpp_hp', type=float, help='DPP - shape of gamma HP on concentration parameter', default=2., metavar=2.)
+p.add_argument('-dpp_eK', type=float, help='DPP - expected number of rate categories', default=2., metavar=2.)
+#p.add_argument('-dpp_max_grid', type=float, help='DPP - max age of time frames',default=1400., metavar=1400.)
+p.add_argument('-dpp_grid'    , type=float, help='DPP - size of time frames',default=1.5, metavar=1.5)
 
 # PRIORS
 p.add_argument('-pL',  type=float, help='Prior - speciation rate (Gamma <shape, rate>)', default=[1.1, 1.1], metavar=1.1, nargs=2)
@@ -1304,15 +1513,15 @@ p.add_argument('-pS',  type=float, help='Prior - time frames (Dirichlet <shape>)
 p.add_argument('-pC',  type=float, help='Prior - covariance parameters (Normal <standard deviation>)', default=1, metavar=1)
 
 # MODEL
-p.add_argument("-mHPP",  help='Model - Homogeneous Poisson process of preservation', action='store_true', default=False)
-p.add_argument('-mL',    type=int, help='Model - no. (starting) time frames (speciation)', default=1, metavar=1)
-p.add_argument('-mM',    type=int, help='Model - no. (starting) time frames (extinction)', default=1, metavar=1)
-p.add_argument('-mC',    help='Model - constrain time frames (l,m)', action='store_true', default=False)
-p.add_argument('-mCov',  type=int, help='COVAR model: 1) speciation, 2) extinction, 3) speciation & extinction, 4) preservation, 5) speciation & extinction & preservation', default=0, metavar=0)
-p.add_argument("-mG",    help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
-p.add_argument("-ncat",  type=int, help='Model - Number of categories for Gamma heterogeneity', default=4, metavar=4)
+p.add_argument("-mHPP",    help='Model - Homogeneous Poisson process of preservation', action='store_true', default=False)
+p.add_argument('-mL',      type=int, help='Model - no. (starting) time frames (speciation)', default=1, metavar=1)
+p.add_argument('-mM',      type=int, help='Model - no. (starting) time frames (extinction)', default=1, metavar=1)
+p.add_argument('-mC',      help='Model - constrain time frames (l,m)', action='store_true', default=False)
+p.add_argument('-mCov',    type=int, help='COVAR model: 1) speciation, 2) extinction, 3) speciation & extinction, 4) preservation, 5) speciation & extinction & preservation', default=0, metavar=0)
+p.add_argument("-mG",      help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
+p.add_argument("-ncat",    type=int, help='Model - Number of categories for Gamma heterogeneity', default=4, metavar=4)
 p.add_argument('-fixShift',metavar='<input file>', type=str,help="Input tab-delimited file",default="")
-p.add_argument('-fixSE',metavar='<input file>', type=str,help="Input mcmc.log file",default="")
+p.add_argument('-fixSE',   metavar='<input file>', type=str,help="Input mcmc.log file",default="")
 
 # TUNING
 p.add_argument('-tT', type=float, help='Tuning - window size (ts, te)', default=1., metavar=1.)
@@ -1326,6 +1535,7 @@ p.add_argument('-tC', type=float, help='Tuning -window sizes cov parameters (l,m
 p.add_argument('-fU', type=float, help='Tuning - update freq. (q/alpha,l/m,cov)', default=[.02, .18, .08], nargs=3)
 
 args = p.parse_args()
+t1=time.time()
 
 if args.cite is True:
 	sys.exit(citation)
@@ -1387,7 +1597,7 @@ if model_cov==3: f_cov_par= [.5 ,1  ,0 ]
 if model_cov==4: f_cov_par= [0  ,0  ,1 ]
 if model_cov==5: f_cov_par= [.33,.66,1 ]
 
-if args.fixShift != "":          # fix times of rate shift
+if args.fixShift != "" or TDI==3:     # fix times of rate shift or DPP
 	try: 
 		fixed_times_of_shift=sort(np.loadtxt(args.fixShift))[::-1]
 		f_shift=0
@@ -1396,8 +1606,17 @@ if args.fixShift != "":          # fix times of rate shift
 		min_allowed_t=0
 		fix_Shift = True
 	except: 
-		msg = "\nError in the input file %s.\n" % (args.fixShift)
-		sys.exit(msg)
+		if TDI==3:
+			fixed_times_of_shift=np.arange(0,10000,args.dpp_grid)[::-1] # run fixed_times_of_shift[fixed_times_of_shift<max(FA)] below 
+			fixed_times_of_shift=fixed_times_of_shift[:-1]              # after loading input file
+			f_shift=0
+			time_framesL=len(fixed_times_of_shift)+1
+			time_framesM=len(fixed_times_of_shift)+1
+			min_allowed_t=0
+			fix_Shift = True
+		else:
+			msg = "\nError in the input file %s.\n" % (args.fixShift)
+			sys.exit(msg)
 else: 
 	fixed_times_of_shift=[]
 	fix_Shift = False
@@ -1434,7 +1653,10 @@ else:
 	list_d3=[d3]
 	list_d4=[d4]
 
-
+# ARGS DPP
+freq_dpp       = args.dpp_f
+hp_gamma_shape = args.dpp_hp
+target_k       = args.dpp_eK
 
 ############### PLOT RTT
 path_dir_log_files=sort(args.plot)
@@ -1453,7 +1675,7 @@ if path_dir_log_files != "":
 				name_file = os.path.splitext(os.path.basename(str(path_dir_log_files)))[0]
 				path_dir_log_files = os.path.dirname(str(path_dir_log_files))
 				name_file = name_file.split("marginal_rates")[0]
-				plot_RTT(path_dir_log_files, burnin, name_file)
+				plot_RTT(path_dir_log_files, burnin, name_file, one_file=True)
 			except: sys.exit("\nFile or directory not recognized.\n")
 		else:
 			for f in files:
@@ -1468,65 +1690,96 @@ elif len(list_files_BF):
 	if len(list_files_BF)<2: sys.exit("\n2 '*marginal_likelihood.txt' files required.\n")
 	calc_BF(list_files_BF[0],list_files_BF[1])
 	quit()
-elif len(args.input_data)==0: sys.exit("\nInput file required. Use '-h' for command list.\n")
+elif len(args.input_data)==0 and args.d == "": sys.exit("\nInput file required. Use '-h' for command list.\n")
 
-
+use_se_tbl = False
+if args.d != "":
+	use_se_tbl = True
+	se_tbl_file  = args.d
 ############################ LOAD INPUT DATA ############################
-import imp
-input_file_raw = os.path.basename(args.input_data[0])
-input_file = os.path.splitext(input_file_raw)[0]  # file name without extension
+if use_se_tbl==False:
+	import imp
+	input_file_raw = os.path.basename(args.input_data[0])
+	input_file = os.path.splitext(input_file_raw)[0]  # file name without extension
 
-if args.wd=="": 
-	output_wd = os.path.dirname(args.input_data[0])
-	if output_wd=="": output_wd= self_path
-else: output_wd=args.wd
+	if args.wd=="": 
+		output_wd = os.path.dirname(args.input_data[0])
+		if output_wd=="": output_wd= self_path
+	else: output_wd=args.wd
 
-#print "\n",input_file, args.input_data, "\n"
-try: input_data_module = imp.load_source(input_file, args.input_data[0])
-except(IOError): sys.exit("\nInput file required. Use '-h' for command list.\n")
+	#print "\n",input_file, args.input_data, "\n"
+	try: input_data_module = imp.load_source(input_file, args.input_data[0])
+	except(IOError): sys.exit("\nInput file required. Use '-h' for command list.\n")
 
-j=max(args.j-1,0)
-try: fossil_complete=input_data_module.get_data(j)
-except(IndexError): 
-	fossil_complete=input_data_module.get_data(0)
-	print("Warning: data set number %s not found. Using the first data set instead." % (args.j))
-	j=0
-fossil=list()
-have_record=list()
-for i in range(len(fossil_complete)):
-	if len(fossil_complete[i])==1 and fossil_complete[i][0]==0: pass
-	else: 
-		have_record.append(i) # some (extant) species may have trait value but no fosil record
-		fossil.append(fossil_complete[i])
+	j=max(args.j-1,0)
+	try: fossil_complete=input_data_module.get_data(j)
+	except(IndexError): 
+		fossil_complete=input_data_module.get_data(0)
+		print("Warning: data set number %s not found. Using the first data set instead." % (args.j))
+		j=0
+	fossil=list()
+	have_record=list()
+	for i in range(len(fossil_complete)):
+		if len(fossil_complete[i])==1 and fossil_complete[i][0]==0: pass
+		else: 
+			have_record.append(i) # some (extant) species may have trait value but no fosil record
+			fossil.append(fossil_complete[i])
 		
-out_name=input_data_module.get_out_name(j) +args.out
+	out_name=input_data_module.get_out_name(j) +args.out
 
-try: taxa_names=input_data_module.get_taxa_names()
-except(AttributeError): 
-	taxa_names=list()
-	for i in range(len(fossil)): taxa_names.append("taxon_%s" % (i))
+	try: taxa_names=input_data_module.get_taxa_names()
+	except(AttributeError): 
+		taxa_names=list()
+		for i in range(len(fossil)): taxa_names.append("taxon_%s" % (i))
+
+
+	FA,LO,N=np.zeros(len(fossil)),np.zeros(len(fossil)),np.zeros(len(fossil))
+	for i in range(len(fossil)):	
+		FA[i]=max(fossil[i])
+		LO[i]=min(fossil[i])
+		N[i]=len(fossil[i])
+
+else:
+	print se_tbl_file
+	t_file=np.loadtxt(se_tbl_file, skiprows=1)
+	print np.shape(t_file)
+	j=max(args.j-1,0)
+	print j
+	FA=t_file[:,2+2*j]
+	LO=t_file[:,3+2*j]
+	#N = np.repeat(2., len(FA))
+	fix_SE=True
+	fixed_ts, fixed_te=FA, LO
+	
+	output_wd = os.path.dirname(se_tbl_file)
+	if output_wd=="": output_wd= self_path
+
+	out_name="%s_%s_%s"  % (os.path.splitext(os.path.basename(se_tbl_file))[0],j,args.out)
+	
+	
+	
+	
 
 if argsG is True: out_name += "_G"
-	
+
 # Number of extant taxa (user specified)
 if args.N>-1: tot_extant=args.N
 else: tot_extant = -1	
 
-FA,LO,N=np.zeros(len(fossil)),np.zeros(len(fossil)),np.zeros(len(fossil))
-for i in range(len(fossil)):	
-	FA[i]=max(fossil[i])
-	LO[i]=min(fossil[i])
-	N[i]=len(fossil[i])
 
 if len(fixed_times_of_shift)>0: 
 	fixed_times_of_shift=fixed_times_of_shift[fixed_times_of_shift<max(FA)]
 	time_framesL=len(fixed_times_of_shift)+1
 	time_framesM=len(fixed_times_of_shift)+1
+	# estimate DPP hyperprior
+	hp_gamma_rate  = get_rate_HP(time_framesL,target_k,hp_gamma_shape)
 
-if args.fixSE != "":          # fix TS, TE
-	global_stop_update=True
-	globalTS, globalTE= calc_ts_te(args.fixSE, burnin=args.b)
-else: global_stop_update=False
+if args.fixSE != "" or use_se_tbl==True:          # fix TS, TE
+	if use_se_tbl==True: pass
+	else:
+		fix_SE=True
+		fixed_ts, fixed_te= calc_ts_te(args.fixSE, burnin=args.b)
+else: fix_SE=False
 
 # Get trait values (Cov model)
 if model_cov>=1:
@@ -1590,14 +1843,20 @@ except(OSError): pass
 
 suff_out=out_name
 if TDI==1: suff_out+= "_TI"
+if TDI==3: suff_out+= "_dpp"
 
 # OUTPUT 0 SUMMARY AND SETTINGS
 o0 = "\n%s build %s\n" % (version, build)
 o1 = "\ninput: %s output: %s/%s" % (args.input_data, path_dir, out_name)
 o2 = "\n\nPyRate was called as follows:\n%s\n" % (args)
 if model_cov>=1: o2 += regression_trait
+if TDI==3: o2 += "\n\nHyper-prior on concentration parameter (Gamma shape, rate): %s, %s\n" % (hp_gamma_shape, hp_gamma_rate)
+if len(fixed_times_of_shift)>0:
+	o2 += "\nUsing the following fixed time frames: "
+	for i in fixed_times_of_shift: o2 += "%s " % (i)
 version_notes="""\n
 Please cite: \n%s\n
+Feedback and support: pyrate.help@gmail.com
 OS: %s %s
 Python version: %s\n
 Numpy version: %s
@@ -1613,19 +1872,32 @@ sumfile.close()
 # OUTPUT 1 LOG MCMC
 out_log = "%s/%s_mcmc.log" % (path_dir, suff_out) #(path_dir, output_file, out_run)
 logfile = open(out_log , "w",0) 
+if fix_SE == False:
+	head="it\tposterior\tprior\tPP_lik\tBD_lik\tq_rate\talpha\t"
+else: 
+	head="it\tposterior\tprior\tBD_lik\t"
+	
+if model_cov>=1: head += "cov_sp\tcov_ex\tcov_q\t"
 if TDI<2:
-	head="it\tposterior\tprior\tPP_lik\tBD_lik\tq_rate\talpha\tcov_sp\tcov_ex\tcov_q\tbeta\troot_age\tdeath_age\t"
+	head += "root_age\tdeath_age\t"
+	if TDI==1: head += "beta\t"
 	if fix_Shift is True: 
 		head += "hypL\thypM\t"
 	for i in range(time_framesL): head += "lambda_%s\t" % (i)
 	for i in range(time_framesM): head += "mu_%s\t" % (i)
-	for i in range(1,time_framesL): head += "shift_sp_%s\t" % (i)
-	for i in range(1,time_framesM): head += "shift_ex_%s\t" % (i)
-else: head="it\tposterior\tprior\tPP_lik\tBD_lik\tq_rate\talpha\tcov_sp\tcov_ex\tcov_q\tk_birth\tk_death\troot_age\tdeath_age\t"
+	if fix_Shift== False:
+		for i in range(1,time_framesL): head += "shift_sp_%s\t" % (i)
+		for i in range(1,time_framesM): head += "shift_ex_%s\t" % (i)
+elif TDI==2: head+="k_birth\tk_death\troot_age\tdeath_age\t"
+else:        head+="k_birth\tk_death\tDPP_alpha_L\tDPP_alpha_M\troot_age\tdeath_age\t"
+
+
 head += "tot_length"
 head=head.split('\t')
-for i in taxa_names: head.append("%s_TS" % (i))
-for i in taxa_names: head.append("%s_TE" % (i))
+
+if fix_SE == False:
+	for i in taxa_names: head.append("%s_TS" % (i))
+	for i in taxa_names: head.append("%s_TE" % (i))
 wlog=csv.writer(logfile, delimiter='\t')
 wlog.writerow(head)
 
@@ -1717,7 +1989,7 @@ else:
 	if runs>1: print("\nWarning: MC3 algorithm requires multi-threading.\nUsing standard (BD)MCMC algorithm instead.\n")
 	res=start_MCMC(0)
 t1 = time.clock()
-print "\nfinished at:", time.ctime(),"\n"
+print "\nfinished at:", time.ctime(), "\nelapsed time:", time.time()-t1, "\n"
 logfile.close()
 marginal_file.close()
 
