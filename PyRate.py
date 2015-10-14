@@ -477,7 +477,7 @@ def update_multiplier_proposal(i,d):
  	ii = i * m
 	return ii, sum(log(m))
 
-def update_rates(L,M,tot_L,mod_d3):
+def update_rates_sliding_win(L,M,tot_L,mod_d3):
 	Ln=zeros(len(L))
 	Mn=zeros(len(M))
 	#if random.random()>.5:
@@ -485,7 +485,35 @@ def update_rates(L,M,tot_L,mod_d3):
 	#else:
 	for i in range(len(M)): Mn[i]=update_parameter(M[i],0, inf, mod_d3, f_rate)
 	#Ln,Mn=Ln * scale_factor/tot_L , Mn * scale_factor/tot_L
-	return Ln,Mn
+	return Ln,Mn, 1
+
+
+def update_rates_multiplier(L,M,tot_L,mod_d3):
+	# UPDATE LAMBDA
+	S=np.shape(L)
+	#print L, S
+	ff=np.random.binomial(1,f_rate,S)
+	#print ff
+	d=1.2
+	u = np.random.uniform(0,1,S)
+	l = 2*log(mod_d3)
+	m = exp(l*(u-.5))
+	m[ff==0] = 1.
+ 	newL = L * m
+	U=sum(log(m))
+
+	# UPDATE MU
+	S=np.shape(M)
+	ff=np.random.binomial(1,f_rate,S)
+	d=1.2
+	u = np.random.uniform(0,1,S) #*np.rint(np.random.uniform(0,f,S))
+	l = 2*log(mod_d3)
+	m = exp(l*(u-.5))
+	m[ff==0] = 1.
+ 	newM = M * m
+	U+=sum(log(m))
+	return newL,newM,U
+	
 
 def update_times(times, root, mod_d4):
 	rS= zeros(len(times))
@@ -1163,11 +1191,11 @@ def MCMC(all_arg):
 			else: 
 				if TDI<2: # 
 					if rand.random()<.95 or fix_Shift is False:
-						L,M=update_rates(LA,MA,3,mod_d3)
+						L,M,hasting=update_rates(LA,MA,3,mod_d3)
 					else:
 						hyperP,hasting = update_multiplier_proposal(hyperPA,1.2)
 				else: # DPP or BDMCMC
-						L,M=update_rates(LA,MA,3,mod_d3)
+						L,M,hasting=update_rates(LA,MA,3,mod_d3)
 
 		elif rr<f_update_cov: # cov
 			rcov=rand.random()
@@ -1524,15 +1552,16 @@ p.add_argument('-fixShift',metavar='<input file>', type=str,help="Input tab-deli
 p.add_argument('-fixSE',   metavar='<input file>', type=str,help="Input mcmc.log file",default="")
 
 # TUNING
-p.add_argument('-tT', type=float, help='Tuning - window size (ts, te)', default=1., metavar=1.)
-p.add_argument('-nT', type=int,   help='Tuning - max number updated values (ts, te)', default=5, metavar=5)
-p.add_argument('-tQ', type=float, help='Tuning - window sizes (q/alpha)', default=[1.2,1.2], nargs=2)
-p.add_argument('-tR', type=float, help='Tuning - window size (rates)', default=.05, metavar=.05)
-p.add_argument('-tS', type=float, help='Tuning - window size (time of shift)', default=1., metavar=1.)
-p.add_argument('-fR', type=float, help='Tuning - fraction of updated values (rates)', default=1., metavar=1.)
-p.add_argument('-fS', type=float, help='Tuning - fraction of updated values (shifts)', default=.7, metavar=.7)
-p.add_argument('-tC', type=float, help='Tuning -window sizes cov parameters (l,m,q)', default=[.025, .025, .15], nargs=3)
-p.add_argument('-fU', type=float, help='Tuning - update freq. (q/alpha,l/m,cov)', default=[.02, .18, .08], nargs=3)
+p.add_argument('-tT',     type=float, help='Tuning - window size (ts, te)', default=1., metavar=1.)
+p.add_argument('-nT',     type=int,   help='Tuning - max number updated values (ts, te)', default=5, metavar=5)
+p.add_argument('-tQ',     type=float, help='Tuning - window sizes (q/alpha)', default=[1.2,1.2], nargs=2)
+p.add_argument('-tR',     type=float, help='Tuning - window size (rates)', default=1.2, metavar=1.2)
+p.add_argument('-tS',     type=float, help='Tuning - window size (time of shift)', default=1., metavar=1.)
+p.add_argument('-fR',     type=float, help='Tuning - fraction of updated values (rates)', default=1., metavar=1.)
+p.add_argument('-fS',     type=float, help='Tuning - fraction of updated values (shifts)', default=.7, metavar=.7)
+p.add_argument('-tC',     type=float, help='Tuning -window sizes cov parameters (l,m,q)', default=[.025, .025, .15], nargs=3)
+p.add_argument('-fU',     type=float, help='Tuning - update freq. (q/alpha,l/m,cov)', default=[.02, .18, .08], nargs=3)
+p.add_argument('-multiR', type=int,   help='Tuning - Proposals for l/m: 0) sliding win 1) muliplier ', default=1)
 
 args = p.parse_args()
 t1=time.time()
@@ -1588,6 +1617,16 @@ if model_cov==0: freq_list[2]=0
 f_update_se=1-sum(freq_list)
 if frac1==0: f_update_se=0
 [f_update_q,f_update_lm,f_update_cov]=f_update_se+np.cumsum(array(freq_list))
+
+multiR = args.multiR
+if multiR==0:
+	update_rates =  update_rates_sliding_win
+else:
+	update_rates = update_rates_multiplier
+	d3 = max(args.tR,1.05) # avoid win size < 1
+
+
+
 
 # freq update CovPar
 if model_cov==0: f_cov_par= [0  ,0  ,0 ]
@@ -1646,7 +1685,10 @@ if TDI==1:                # Xie et al. 2011; Baele et al. 2012
 	temperatures=list(beta**(1./alpha))
 	temperatures[0]+= small_number # avoid exactly 0 temp
 	temperatures.reverse()
-	list_d3=sort(exp(temperatures))**2.5*d3+(exp(1-array(temperatures))-1)*d3
+	if multiR==0: # tune win sizes only if sliding win proposals
+		list_d3=sort(exp(temperatures))**2.5*d3+(exp(1-array(temperatures))-1)*d3
+	else: 
+		list_d3=np.repeat(d3,len(temperatures))
 	list_d4=sort(exp(temperatures))**1.5*d4+exp(1-array(temperatures))-1
 else:
 	temperatures=[1]
