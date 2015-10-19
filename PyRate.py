@@ -634,14 +634,15 @@ def HPBD3(timesL,timesM,L,M,T,s):
 
 	### HYPER-PRIOR BD ###
 	n0=1
-	timesM[1:len(timesM)-1] = timesM[1:len(timesM)-1] +0.0001
+	timesMtemp = np.zeros(len(timesM)) + timesM
+	timesMtemp[1:len(timesM)-1] = timesMtemp[1:len(timesM)-1] +0.0001
 	#if len(timesM)>2: 
-	all_t_frames=sort(np.append(timesL, timesM[1:len(timesM)-1] ))[::-1] # merge time frames		
+	all_t_frames=sort(np.append(timesL, timesMtemp[1:len(timesMtemp)-1] ))[::-1] # merge time frames		
 
 	#all_t_frames=sort(np.append(timesL, timesM[1:-1]+.001 ))[::-1] # merge time frames
 	#else: all_t_frames=sort(np.append(timesL, timesM[1:-1] ))[::-1] # merge time frames
 	sL=(np.in1d(all_t_frames,timesL[1:-1])+0).nonzero()[0] # indexes within 'all_t_frames' of shifts of L
-	sM=(np.in1d(all_t_frames,timesM[1:-1])+0).nonzero()[0] # indexes within 'all_t_frames' of shifts of M
+	sM=(np.in1d(all_t_frames,timesMtemp[1:-1])+0).nonzero()[0] # indexes within 'all_t_frames' of shifts of M
 	sL[(sL-1>len(M)-1).nonzero()]=len(M)
 	sM[(sM-1>len(L)-1).nonzero()]=len(L)
 
