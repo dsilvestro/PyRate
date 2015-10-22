@@ -725,7 +725,7 @@ def HOMPP_lik(arg):
 	if argsG is True:
 		YangGamma=get_gamma_rates(shapeGamma)
 		qGamma= YangGamma*q
-		lik1= -qGamma*(M-m) + log(qGamma)*k
+		lik1= -qGamma*(M-m) + log(qGamma)*k  -log(1-exp(-qGamma*(M-m)))
 		lik2= lik1-max(lik1)
 		lik=log(sum(exp(lik2)*(1./args.ncat)))+max(lik1)
 		return lik
