@@ -4,7 +4,7 @@ import argparse, os,sys, platform, time, csv, glob
 import random as rand
 import warnings
 version= "      PyRate 0.600       "
-build  = "        20151107         "
+build  = "        20151024         "
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
@@ -148,8 +148,6 @@ def calc_ts_te(f, burnin):
 		shape_f=list(shape(t_file))
 		if len(shape_f)==1: sys.exit("\nNot enough samples in the log file!\n")
 		if shape_f[1]<10: sys.exit("\nNot enough samples in the log file!\n")
-		#ind_ts0=np.where(t_file[0]=="Aceratherium_incisivum_TS")[0][0]
-		#ind_te0=np.where(t_file[0]=="Aceratherium_incisivum_TE")[0][0]
 		
 		ind_start=np.where(t_file[0]=="tot_length")[0][0]
 		indexes= np.array([ind_start+1, ind_start+(shape_f[1]-ind_start)/2])
@@ -1402,9 +1400,10 @@ def MCMC(all_arg):
 				print "\tsp.rates:", LA, "\n\tex.rates:", MA
 				
 				if model_cov>=1: print "\tcov. (sp/ex/q):", cov_parA
- 				print "\tq.rate:", round(alphasA[1], 3), "\tGamma.prm:", round(alphasA[0], 3)
-				print "\tts:", tsA[0:5], "..."
-				print "\tte:", teA[0:5], "..."
+ 				if fix_SE ==False: 
+					print "\tq.rate:", round(alphasA[1], 3), "\tGamma.prm:", round(alphasA[0], 3)
+					print "\tts:", tsA[0:5], "..."
+					print "\tte:", teA[0:5], "..."
 			if it<=burnin and n_proc==0: print("\n%s*\tpost: %s lik: %s prior: %s tot length %s" \
 			% (it, l[0], l[1], l[2], l[3]))
 
