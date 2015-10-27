@@ -35,6 +35,7 @@ p.add_argument('-p', type=int,   help='print freq.', default=5000000, metavar=50
 p.add_argument('-j', type=int,   help='replicate', default=0, metavar=0)
 p.add_argument('-c', type=int, help='clade', default=0, metavar=0)
 p.add_argument('-b', type=float, help='shape parameter (beta) of Be hyper=prior pn indicators', default=1, metavar=1)
+p.add_argument('-T', type=float, help='Max time slice', default=np.inf, metavar=np.inf)
 
 
 args = p.parse_args()
@@ -87,6 +88,9 @@ for i in range(n_clades):
 s_or_e_array= np.array(s_or_e_list)
 unsorted_events= np.array(unsorted_events)
 s_or_e_array[unsorted_events==0] = 3
+s_or_e_array[unsorted_events>args.T] = 4
+unsorted_events[unsorted_events>args.T] = args.T
+
 """ so now: s_or_e_array = 1 (s events), s_or_e_array = 2 (e events), s_or_e_array = 3 (e=0 events)"""
 
 
