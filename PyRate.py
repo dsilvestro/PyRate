@@ -1561,7 +1561,7 @@ p.add_argument('-fR',     type=float, help='Tuning - fraction of updated values 
 p.add_argument('-fS',     type=float, help='Tuning - fraction of updated values (shifts)', default=.7, metavar=.7)
 p.add_argument('-tC',     type=float, help='Tuning -window sizes cov parameters (l,m,q)', default=[.025, .025, .15], nargs=3)
 p.add_argument('-fU',     type=float, help='Tuning - update freq. (q/alpha,l/m,cov)', default=[.02, .18, .08], nargs=3)
-p.add_argument('-multiR', type=int,   help='Tuning - Proposals for l/m: 0) sliding win 1) muliplier ', default=1)
+p.add_argument('-multiR', type=int,   help='Tuning - Proposals for l/m: 0) sliding win 1) muliplier ', default=1, metavar=1)
 
 args = p.parse_args()
 t1=time.time()
