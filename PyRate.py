@@ -823,15 +823,17 @@ def born_prm(times, R, ind, tse):
 	Q2=times[0]+cumsum(Q1)
 	Q3=insert(Q2,0,times[0])
 	Q3[len(Q3)-1]=0
-	#n_R= insert(R, ind, init_BD(1))
 	#n_R= insert(R, ind, R[max(ind-1,0)]) # R[np.random.randint(0,len(R))]
 	#print "old", R, n_R,
 	
 	# better proposals for birth events
 	#if len(R)>1: R_init=mean(R)
 	#else: R_init=R
-	R_init = R[max(ind-1,0)]
-	n_R= insert(R, ind,update_parameter(R_init,0,5,.05,1))
+	if np.random.random()>.5:
+		n_R= insert(R, ind, init_BD(1))
+	else:
+		R_init = R[max(ind-1,0)]
+		n_R= insert(R, ind,update_parameter(R_init,0,5,.05,1))
 	
 	
 	#print "new", n_R
