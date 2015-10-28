@@ -166,7 +166,7 @@ def sample_tau_mod(lam,beta,tau):
 #Tau = 1/sqrt(eta)
 
 #####
-scaling =2
+scaling =1
 
 if scaling==0:	
 	scale_factor = 1.
