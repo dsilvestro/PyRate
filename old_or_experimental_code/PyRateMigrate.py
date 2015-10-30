@@ -32,8 +32,8 @@ except(AttributeError): # for older versions of scipy
 		return -log(np.pi*s * (1+ (x/s)**2))
 
 def PP_lik_global(n_events,n_lineages,rates): # calculates BD_partial_lik for a vector of rates
-	# vector of br lengths within time frame 
-	n_S= grid_size * n_lineages
+	# number of lineages
+	n_S= n_lineages #*grid_size
 	# likelihood
 	lik= log(rates)*n_events -rates*n_S
 	return sum(lik)
@@ -69,8 +69,8 @@ def G0(alpha=2,beta=3,n=1):
 	return init_BD(n)
 
 def PP_partial_lik_vec(i_events,i_n_lineages,rate): # calculates BD_partial_lik for a vector of rates
-	# vector of br lengths within time frame 
-	n_S= grid_size * i_n_lineages
+	# number of lineages
+	n_S= i_n_lineages #*grid_size
 	# likelihood
 	lik= log(rate)*i_events -rate*n_S
 	return lik
@@ -225,36 +225,54 @@ def get_mt_numbers(migration_times,grid_size):
 
 
 # MCMC PARAMETERS
-grid_size = 2.
-IT = 10000
-print_freq =1000
-sample_freq =10
-target_k = 5
+p = argparse.ArgumentParser() #description='<input file>') 
+
+p.add_argument('-v',         action='version', version='%(prog)s')
+p.add_argument('-n',         type=int,   help='MCMC iterations', default=10000, metavar=10000)
+p.add_argument("-g",         type=float, help='grid size', default=2., metavar=2.) 
+p.add_argument('-M',         type=int,   help='no. migration events', default=50, metavar=50)
+p.add_argument('-L',         type=int,   help='no. lineages', default=100, metavar=100)
+p.add_argument('-p',         type=int,   help='print freq', default=1000, metavar=1000)
+p.add_argument('-s',         type=int,   help='sample freq.', default=10, metavar=10)
+p.add_argument('-k',         type=int,   help='target K', default=2, metavar=2)
+
+args = p.parse_args()
+
+grid_size      = args.g
+IT             = args.n
+print_freq     = args.p
+sample_freq    = args.s
+target_k       = args.k
+N_migr_events  = args.M
+N_lineages     = args.L
 hp_gamma_shape = 2.
 
 # DATA
-### make up some migration data
-poi1 = np.random.poisson(2.5*5,20)
-poi2 = np.random.poisson(0.5*5,20)
-migration_times=[]
-for i in range(1,20):
-	if i <10 or i > 16: migration_times += list(np.random.uniform(i-1,i,poi1[i]))
-	else: migration_times += list(np.random.uniform(i-1,i,poi2[i]))
-		
-migration_times = np.array(migration_times)
-#migration_times = np.random.exponential(5,500)
+# ### make up some migration data
+# poi1 = np.random.poisson(2.5*5,20)
+# poi2 = np.random.poisson(2.5*5,20)
+# migration_times=[]
+# for i in range(1,20):
+# 	if i <10 or i > 16: migration_times += list(np.random.uniform(i-1,i,poi1[i]))
+# 	else: migration_times += list(np.random.uniform(i-1,i,poi2[i]))
+# 	
+# migration_times = np.array(migration_times)
+# #migration_times = np.random.exponential(5,500)
+
+migration_times = np.linspace(0,19,N_migr_events)
 
 migration_times=np.sort(migration_times)[::-1]
 mt_numbers,fixed_times_of_shift = get_mt_numbers(migration_times,grid_size)
-n_lineages = np.ones(len(mt_numbers)) # number of lineages per grid cell (if 1 -> standard Poi process)
+
+lineages_times = np.linspace(0,19,N_lineages)
+n_lineages,temp = get_mt_numbers(lineages_times,grid_size)
+#n_lineages = np.ones(100)*10 # number of lineages per grid cell (if 1 -> standard Poi process)
 #n_lineages = np.sort(np.random.geometric(0.1,len(mt_numbers)))
 
-
-print mt_numbers
-print n_lineages 
-print fixed_times_of_shift
-
-
+#print mt_numbers
+#print n_lineages 
+#print fixed_times_of_shift
+#print sum(mt_numbers), sum(n_lineages)
 
 # OUPUT FILES
 out_log = "migration_mcmc.log" 
@@ -270,7 +288,9 @@ marginal_frames= array([int(fabs(i-int(max(fixed_times_of_shift)))) for i in ran
 print marginal_frames
 
 
+t1 = time.time()
 
 MCMC(mt_numbers,n_lineages)
 
+print "\nelapsed time:", np.round(time.time()-t1,2), "\n"
 
