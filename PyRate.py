@@ -189,7 +189,7 @@ def calc_BF(f1, f2):
 
 
 ########################## PLOT RTT ##############################
-def plot_RTT(infile,burnin, file_stem="",one_file=False):
+def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0):
 	burnin = int(burnin)
 	if burnin<=1:
 		print("Burnin must be provided in terms of number of samples to be excluded.")
@@ -228,20 +228,22 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False):
 	########################################################
 	######           DETERMINE MIN ROOT AGE           ######
 	########################################################
+	if root_plot==0:
+		min_age=np.inf
+		print "determining min age...",
+		for f in files:
+			file_name =  os.path.splitext(os.path.basename(f))[0]
+			sys.stdout.write(".")
+			sys.stdout.flush()
+			head = next(open(f)).split() # should be faster
+			sp_ind= [head.index(s) for s in head if "l_" in s]
+			min_age=min(min_age,len(sp_ind))
 
-	min_age=np.inf
-	print "determining min age...",
-	for f in files:
-		file_name =  os.path.splitext(os.path.basename(f))[0]
-		sys.stdout.write(".")
-		sys.stdout.flush()
-		head = next(open(f)).split() # should be faster
-		sp_ind= [head.index(s) for s in head if "l_" in s]
-		min_age=min(min_age,len(sp_ind))
-
-	print "Min root age:", min_age
-	max_ind=min_age-1
-
+		print "Min root age:", min_age
+		max_ind=min_age-1
+	else: max_ind = int(root_plot-1)
+	
+	print max_ind, root_plot
 	########################################################
 	######            COMBINE ALL LOG FILES           ######
 	########################################################
@@ -1506,6 +1508,9 @@ p.add_argument("-N",         type=float, help='number of exant species')
 p.add_argument("-wd",        type=str, help='path to working directory', default="")
 p.add_argument("-out",       type=str, help='output tag', default="")
 p.add_argument('-plot',      metavar='<input file>', type=str,help="Path to 'marginal_rates.log files",default="")
+p.add_argument('-root_plot', type=float, help='Root age plot', default=0, metavar=0)
+
+
 p.add_argument('-tag',       metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted",default="")
 p.add_argument('-mProb',     type=str,help="Input 'mcmc.log file",default="")
 p.add_argument('-BF',        type=str,help="Input 'marginal_likelihood.txt files",metavar='<2 input files>',nargs='+',default=[])
@@ -1703,31 +1708,35 @@ hp_gamma_shape = args.dpp_hp
 target_k       = args.dpp_eK
 
 ############### PLOT RTT
-path_dir_log_files=sort(args.plot)
+path_dir_log_files=args.plot
 list_files_BF=sort(args.BF)
 file_stem=args.tag
+root_plot=args.root_plot
 if path_dir_log_files != "":
-	
+	path_dir_log_files=sort(path_dir_log_files)
 	# plot each file separately
+	print root_plot 
 	if file_stem == "":
 		direct="%s/*marginal_rates.log" % path_dir_log_files
 		files=glob.glob(direct)
-		files=sort(files)
-		
+		files=sort(files)		
 		if len(files)==0:
 			try:
 				name_file = os.path.splitext(os.path.basename(str(path_dir_log_files)))[0]
 				path_dir_log_files = os.path.dirname(str(path_dir_log_files))
 				name_file = name_file.split("marginal_rates")[0]
-				plot_RTT(path_dir_log_files, burnin, name_file, one_file=True)
+				one_file=True
+				plot_RTT(path_dir_log_files, burnin, name_file,one_file,root_plot)
 			except: sys.exit("\nFile or directory not recognized.\n")
 		else:
 			for f in files:
 				name_file = os.path.splitext(os.path.basename(f))[0]
 				name_file = name_file.split("marginal_rates")[0]
-				plot_RTT(path_dir_log_files, burnin, name_file)
+				one_file =False
+				plot_RTT(path_dir_log_files, burnin, name_file,one_file,root_plot)
 	else:
-		plot_RTT(path_dir_log_files, burnin, file_stem)
+		one_file =False
+		plot_RTT(path_dir_log_files, burnin, file_stem,one_file,root_plot)
 	quit()
 elif args.mProb != "": calc_model_probabilities(args.mProb,burnin)
 elif len(list_files_BF):
