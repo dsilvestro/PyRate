@@ -713,6 +713,39 @@ def BD_partial_lik(arg):
 		lik= sum(log(r)) + sum(-rate*n_S)
 	return lik
 
+def PoiD_partial_lik(arg):
+	[ts,te,up,lo,rate,lam_r,lam_m,lam_s, par, cov_par,q,m0]=arg
+	# no. spec./ext. events
+	# ts_inframe = np.intersect1d(ts[ts <= up], ts[ts > lo])
+	# te_inframe = np.intersect1d(te[te <= up], te[te > lo])
+	
+	# indexes of the species within time frame
+	if par=="l": 
+		i_events=np.intersect1d((ts <= up).nonzero()[0], (ts > lo).nonzero()[0])
+		n_i_events = len(i_events)
+		lik = log(rate)*n_i_events - (rate * (up-lo)) - sum(log(np.arange(1,n_i_events+1)))
+	else: 
+		i_events=np.intersect1d((te <= up).nonzero()[0], (te > lo).nonzero()[0])
+		# index species present in time frame
+		n_i_events = len(i_events)
+		n_all_inframe = np.intersect1d((ts >= lo).nonzero()[0], (te <= up).nonzero()[0])
+
+		# tot br length within time frame
+		n_t_ts,n_t_te=zeros(len(ts)),zeros(len(ts))
+
+		n_t_ts[n_all_inframe]= ts[n_all_inframe]   # speciation events before time frame
+		n_t_ts[(n_t_ts>up).nonzero()]=up           # for which length is accounted only from $up$ rather than from $ts$
+	
+		n_t_te[n_all_inframe]= te[n_all_inframe]   # extinction events in time frame
+		n_t_te[np.intersect1d((n_t_te<lo).nonzero()[0], n_all_inframe)]=lo     # for which length is accounted only until $lo$ rather than to $te$
+
+		# vector of br lengths within time frame  #(scaled by rho)
+		n_S=((n_t_ts[n_all_inframe]-n_t_te[n_all_inframe])) #*rhos[n_all_inframe])
+
+		lik= log(rate)*n_i_events + sum(-rate*n_S)
+	return lik
+
+
 def HOMPP_lik(arg):
 	[m,M,shapeGamma,q_rate,i,cov_par, ex_rate]=arg
 	i=int(i)
@@ -725,11 +758,11 @@ def HOMPP_lik(arg):
 	if argsG is True:
 		YangGamma=get_gamma_rates(shapeGamma)
 		qGamma= YangGamma*q
-		lik1= -qGamma*(M-m) + log(qGamma)*k  -log(1-exp(-qGamma*(M-m)))
+		lik1= -qGamma*(M-m) + log(qGamma)*k - sum(log(np.arange(1,k+1)))  -log(1-exp(-qGamma*(M-m)))
 		lik2= lik1-max(lik1)
 		lik=log(sum(exp(lik2)*(1./args.ncat)))+max(lik1)
 		return lik
-	else: 	return -q*(M-m) + log(q)*k - log(1-exp(-q*(M-m)))
+	else: 	return -q*(M-m) + log(q)*k - sum(log(np.arange(1,k+1))) - log(1-exp(-q*(M-m)))
 
 def NHPP_lik(arg):
 	[m,M,nothing,q_rate,i,cov_par, ex_rate]=arg
@@ -888,7 +921,7 @@ def estimate_delta(likBDtemp, R,par,times, ts, te, cov_par, ind,deathRate,n_likB
 			l = n_rates[temp1]
 			#print up,lo,l,n_rates
 			args=[ts, te, up, lo, l, L_lam_r,L_lam_m,lam_s, par, cov_par_one,q,m0]
-			tempL+=BD_partial_lik(args)
+			tempL+=BPD_partial_lik(args)
 		#print "LIK", 	tempL, sum(likBDtemp[ind:ind+len(R)])
 		D=min(tempL-sum(likBDtemp[ind:ind+len(R)]), 100) # to avoid overflows
 		deathRate[temp_l]=exp(D)
@@ -945,12 +978,12 @@ def Alg_3_1(arg):
 				up, lo = timesL[temp_l], timesL[temp_l+1]
 				l = L[temp_l]
 				args=[ts, te, up, lo, l, L_lam_r,L_lam_m,lam_s, 'l', cov_par[0],q,M[len(M)-1]]
-				tempL[temp_l]=BD_partial_lik(args)
+				tempL[temp_l]=BPD_partial_lik(args)
 			for temp_m in range(len(timesM)-1):
 				up, lo = timesM[temp_m], timesM[temp_m+1]
 				m = M[temp_m]
 				args=[ts, te, up, lo, m, M_lam_r,M_lam_m,lam_s, 'm', cov_par[1],q,M[len(M)-1]]
-				tempL[len(timesL)-1+temp_m]=BD_partial_lik(args)
+				tempL[len(timesL)-1+temp_m]=BPD_partial_lik(args)
 			likBDtemp=tempL
 			
 			#priorBDnew= get_hyper_priorBD(timesL,timesM,L,M,T)-priorBD
@@ -985,7 +1018,7 @@ def G0(alpha=2,beta=3,n=1):
 	#return np.random.gamma(shape=alpha,scale=1./beta,size=n)
 	return init_BD(n)
 
-def BD_partial_lik_vec(arg): # calculates BD_partial_lik for a vector of rates
+def BPD_partial_lik_vec(arg): # calculates BPD_partial_lik for a vector of rates
 	[ts,te,up,lo,rate, par]=arg
 	# indexes of the species within time frame
 	if par=="l": i_events=np.intersect1d((ts <= up).nonzero()[0], (ts > lo).nonzero()[0])
@@ -1034,7 +1067,7 @@ def DDP_gibbs_sampler(arg): # rate_type = "l" or "m" (for speciation/extinction 
 			par_k1 = np.concatenate((par,G0()), axis=0)
 		
 		# construct prob vector FAST!
-		lik_vec=BD_partial_lik_vec([ts,te,up,lo,par_k1,rate_type])
+		lik_vec=BPD_partial_lik_vec([ts,te,up,lo,par_k1,rate_type])
 		rel_lik = calc_rel_prob(lik_vec)
 		if len(par_k1)>len(eta): # par_k1 add one element only when i is not singleton
 			eta[ind[i]] -= 1
@@ -1271,8 +1304,8 @@ def MCMC(all_arg):
 				#for time_frame_i in range(n_data): 
 				#	up=timesL[time_frame_i]
 				#	lo=timesL[time_frame_i+1]
-				#	likBDtemp+= BD_partial_lik_vec([ts,te,up,lo,L[indDPP_L[time_frame_i]], "l"])
-				#	likBDtemp+= BD_partial_lik_vec([ts,te,up,lo,M[indDPP_M[time_frame_i]], "m"])
+				#	likBDtemp+= BPD_partial_lik_vec([ts,te,up,lo,L[indDPP_L[time_frame_i]], "l"])
+				#	likBDtemp+= BPD_partial_lik_vec([ts,te,up,lo,M[indDPP_M[time_frame_i]], "m"])
 			else: ### RUN DPP GIBBS SAMPLER
 				lik1, L, indDPP_L, alpha_par_Dir_L = DDP_gibbs_sampler([ts,te,L,indDPP_L,timesL,alpha_par_Dir_L,"l"])
 				lik2, M, indDPP_M, alpha_par_Dir_M = DDP_gibbs_sampler([ts,te,M,indDPP_M,timesL,alpha_par_Dir_M,"m"])
@@ -1304,10 +1337,10 @@ def MCMC(all_arg):
 						likBDtemp=np.zeros(len(args))
 						i=0
 						for i in range(len(args)):
-							likBDtemp[i]=BD_partial_lik(args[i])
+							likBDtemp[i]=BPD_partial_lik(args[i])
 							i+=1
 					# multi-thread computation of lik and prior (rates)
-					else: likBDtemp = array(pool_lik.map(BD_partial_lik, args))
+					else: likBDtemp = array(pool_lik.map(BPD_partial_lik, args))
 					likBDtemp = likBDtemp
 					#print likBDtemp - BD_lik_vec_times([ts,te,timesL,L,M])
 
@@ -1554,6 +1587,7 @@ p.add_argument('-mM',      type=int, help='Model - no. (starting) time frames (e
 p.add_argument('-mC',      help='Model - constrain time frames (l,m)', action='store_true', default=False)
 p.add_argument('-mCov',    type=int, help='COVAR model: 1) speciation, 2) extinction, 3) speciation & extinction, 4) preservation, 5) speciation & extinction & preservation', default=0, metavar=0)
 p.add_argument("-mG",      help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
+p.add_argument('-mPoiD',   help='Poisson-death diversification model', action='store_true', default=False)
 p.add_argument("-ncat",    type=int, help='Model - Number of categories for Gamma heterogeneity', default=4, metavar=4)
 p.add_argument('-fixShift',metavar='<input file>', type=str,help="Input tab-delimited file",default="")
 p.add_argument('-fixSE',   metavar='<input file>', type=str,help="Input mcmc.log file",default="")
@@ -1870,10 +1904,14 @@ if model_cov>=1:
 	#print con_trait
 	out_name += "_COV"
 
-
+use_poiD=args.mPoiD
+if use_poiD is True:
+	BPD_partial_lik = PoiD_partial_lik
+else:
+	BPD_partial_lik = BD_partial_lik
 
 # define hyper-prior function for BD rates
-if tot_extant==-1 or TDI ==3:
+if tot_extant==-1 or TDI ==3 or use_poiD is True:
 	if fix_Shift is True and TDI < 3: 
 		print("Using Cauchy priors on the birth-death rates.\n")
 		get_hyper_priorBD = HPBD1 # cauchy with hyper-priors
@@ -1884,7 +1922,11 @@ else:
 	print("Priors on the birth-death rates based on extant diversity.\n")
 	get_hyper_priorBD = HPBD3 # based on no. extant
 
-
+if use_poiD is True:
+	if model_cov>=1: print "PoiD not available with trait correlation. Using BD instead."
+	if fix_SE==False: print "PoiD not available with SE estimation. Using BD instead."
+	if TDI==3: print "PoiD not available with HDPP algorithm. Using BD instead."
+	BPD_partial_lik = BD_partial_lik
 
 ############################ MCMC OUTPUT ############################
 try: os.mkdir(output_wd)
