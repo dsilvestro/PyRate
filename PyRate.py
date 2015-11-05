@@ -655,8 +655,7 @@ def HPBD3(timesL,timesM,L,M,T,s):
 
 	return pNtvar([all_t_frames,Ln,Mn,tot_extant])
 
-
-def BD_lik_vec_times(arg):
+def BPD_lik_vec_times(arg):
 	[ts,te,time_frames,L,M]=arg
 	BD_lik = 0
 	
@@ -671,11 +670,21 @@ def BD_lik_vec_times(arg):
 		inTS = np.fmin(ts,up)
 		inTE = np.fmax(te,lo)
 		S    = inTS-inTE
-		lik1 = -(L[i]+M[i])*S[S>0] # S < 0 when species outside up-lo range
-		lik2 = log(L[i])*len_sp_events
-		lik3 = log(M[i])*len_ex_events
-		BD_lik += lik2+lik3+sum(lik1)
+		# speciation
+		if use_poiD is False:
+			lik1 = log(L[i])*len_sp_events
+			lik0 = -sum(L[i]*S[S>0]) # S < 0 when species outside up-lo range		
+		else:
+			lik1 = log(L[i])*len_sp_events
+			lik0 = -sum(L[i]*(up-lo)) # S < 0 when species outside up-lo range		
+			
+		# extinction
+		lik2 = log(M[i])*len_ex_events
+		lik3 = -sum(M[i]*S[S>0]) # S < 0 when species outside up-lo range
+		BD_lik += lik0+lik1+lik2+lik3
 	return BD_lik
+
+
 
 def get_sp_in_frame_br_length(ts,te,up,lo):
 	# index species present in time frame
@@ -1255,7 +1264,7 @@ def MCMC(all_arg):
 		if TDI==3:
 			likBDtemp=0
 			if stop_update != inf: # standard MCMC
-				likBDtemp = BD_lik_vec_times([ts,te,timesL,L[indDPP_L],M[indDPP_M]])
+				likBDtemp = BPD_lik_vec_times([ts,te,timesL,L[indDPP_L],M[indDPP_M]])
 				#n_data=len(indDPP_L) 
 				#for time_frame_i in range(n_data): 
 				#	up=timesL[time_frame_i]
@@ -1273,7 +1282,7 @@ def MCMC(all_arg):
 			# parameters of each partial likelihood and prior (l)
 			if stop_update != inf:
 				if fix_Shift == True:
-					likBDtemp = BD_lik_vec_times([ts,te,timesL,L,M])
+					likBDtemp = BPD_lik_vec_times([ts,te,timesL,L,M])
 				else:	
 					args=list()
 					for temp_l in range(len(timesL)-1):
@@ -1994,6 +2003,7 @@ else:
 
 
 ########################## START MCMC ####################################
+t1 = time.time()
 if burnin<1 and burnin>0:
 	burnin = int(burnin*mcmc_gen)
 
@@ -2041,8 +2051,7 @@ if use_seq_lik is False and runs>1:
 else: 
 	if runs>1: print("\nWarning: MC3 algorithm requires multi-threading.\nUsing standard (BD)MCMC algorithm instead.\n")
 	res=start_MCMC(0)
-t1 = time.clock()
-print "\nfinished at:", time.ctime(), "\nelapsed time:", time.time()-t1, "\n"
+print "\nfinished at:", time.ctime(), "\nelapsed time:", round(time.time()-t1,2), "\n"
 logfile.close()
 marginal_file.close()
 
