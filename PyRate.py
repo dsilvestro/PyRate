@@ -187,6 +187,14 @@ def calc_BF(f1, f2):
 	print("\nModel A: %s\nModelB: %s" % (input_file_raw[best],input_file_raw[abs(best-1)]))
 	print("\nModel A received %s support against Model B\nBayes Factor: %s\n\n" % (support, round(abs(BF), 4)))
 
+def get_DT(T,s,e): # returns the Diversity Trajectory of s,e at times T (x10 faster)
+	B=np.sort(np.append(T,T[0]+1))+.000001 # the + .0001 prevents problems with identical ages
+	ss1 = np.histogram(s,bins=B)[0]
+	ee2 = np.histogram(e,bins=B)[0]
+	DD=(ss1-ee2)[::-1]
+	#return np.insert(np.cumsum(DD),0,0)[0:len(T)]
+	return np.cumsum(DD)[0:len(T)] 
+
 
 ########################## PLOT RTT ##############################
 def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0):
@@ -719,6 +727,27 @@ def BD_partial_lik(arg):
 		lik= sum(log(r[i_events])) + sum(-r[n_all_inframe]*n_S) #, cov_par
 	else:           # constant rate model
 		lik= log(rate)*len(i_events) -rate*sum(n_S) #log(rate)*len(i_events) +sum(-rate*n_S)
+	return lik
+
+def BDI_partial_lik(arg):
+	[ts,te,up,lo,rate,par, cov_par,n_frames_L]=arg
+	ind_in_time = np.intersect1d((all_events_array[0] <= up).nonzero()[0], (all_events_array[0] > lo).nonzero()[0])	
+	traj_T=div_trajectory[ind_in_time]
+	all_events_temp2_T=all_events_array[:,ind_in_time]
+	
+	L = np.zeros(len(traj_T))+rate * (1-model_BDI) # if model_BDI=0: BD, if model_BDI=1: ID
+	M = np.zeros(len(traj_T))+rate
+	I = np.zeros(len(traj_T))+rate * model_BDI
+	k=traj_T
+	event_at_state_k= all_events_temp2_T[1]-1 # events=0: speciation; =1: extinction 
+	Tk = dT_events[ind_in_time]
+	Uk = 1-event_at_state_k
+	Dk = event_at_state_k	
+	#print par, rate, Tk,Uk,Dk		
+	if par=="l":
+		lik = sum(log(L*k+I)*Uk - (L*k+I)*Tk)
+	else: 
+		lik = sum(log(M*k)*Dk -(M*k*Tk))
 	return lik
 
 def PoiD_partial_lik(arg):
@@ -1549,6 +1578,7 @@ p.add_argument('-mC',      help='Model - constrain time frames (l,m)', action='s
 p.add_argument('-mCov',    type=int, help='COVAR model: 1) speciation, 2) extinction, 3) speciation & extinction, 4) preservation, 5) speciation & extinction & preservation', default=0, metavar=0)
 p.add_argument("-mG",      help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
 p.add_argument('-mPoiD',   help='Poisson-death diversification model', action='store_true', default=False)
+p.add_argument("-mBDI",    type=int, help='BDI sub-model - 0) birth-death, 1) immigration-death', default=-1, metavar=-1)
 p.add_argument("-ncat",    type=int, help='Model - Number of categories for Gamma heterogeneity', default=4, metavar=4)
 p.add_argument('-fixShift',metavar='<input file>', type=str,help="Input tab-delimited file",default="")
 p.add_argument('-fixSE',   metavar='<input file>', type=str,help="Input mcmc.log file",default="")
@@ -1872,6 +1902,26 @@ if use_poiD is True:
 else:
 	BPD_partial_lik = BD_partial_lik
 	PoiD_const = 0
+
+# USE BDI subMODELS
+model_BDI=args.mBDI
+if model_BDI >=0:
+	try: ts,te = fixed_ts, fixed_te
+	except: sys.exit("\nYou must use options -fixSE or -d to run BDI submodels.")
+	z=np.zeros(len(te))+2
+	z[te==0] = 3
+	te_orig = te+0.
+	te= te[te>0]  # ignore extant
+	z = z[z==2]   # ignore extant
+	all_events_temp= np.array([np.concatenate((ts,te),axis=0),np.concatenate((np.zeros(len(ts))+1,z),axis=0)])
+	idx = np.argsort(all_events_temp[0])[::-1] # get indexes of sorted events
+	all_events_array=all_events_temp[:,idx] # sort by time of event
+	all_events = all_events_array[0,:]
+	dT_events= -(np.diff(np.append(all_events,0)))
+	div_trajectory =get_DT(np.append(all_events,0),ts,te_orig)
+	div_trajectory =div_trajectory[1:]
+	BPD_partial_lik = BDI_partial_lik
+
 
 # define hyper-prior function for BD rates
 if tot_extant==-1 or TDI ==3 or use_poiD is True:
