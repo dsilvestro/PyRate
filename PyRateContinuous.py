@@ -41,6 +41,7 @@ p.add_argument('-w',  type=float, help='window sizes (bd rates, G)',  default=[1
 p.add_argument('-ginput', type=str,help='generate input file from *mcmc.log', default="", metavar="<path_to_mcmc.log>")
 p.add_argument('-tag', metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted",default="")
 p.add_argument('-mL',  type=str, help='calculate marginal likelihood',  default="", metavar="<path_to_log_files>")
+p.add_argument("-DD",  help='Diversity Dependent Model', action='store_true', default=False)
 
 args = p.parse_args()
 
@@ -100,10 +101,17 @@ ts,te=ts[clade_ID==focus_clade],te[clade_ID==focus_clade]
 
 print len(ts),len(te[te>0]),sum(ts-te)
 
-tempfile=loadtxt(cov_file,skiprows=1)
-head_cov_file = next(open(cov_file)).split()
-times_of_T_change= tempfile[:,0] # array of times of Temp change
-Temp_values=       tempfile[:,1] # array of Temp values at times_of_T_change
+if args.DD is True:
+	head_cov_file = ["","DD"]
+	ts_te_vec = np.sort( np.concatenate((ts,te)) )[::-1]
+	Dtraj = getDT(ts_te_vec,ts,te)
+	times_of_T_change =  ts_te_vec
+	Temp_values = Dtraj
+else:
+	tempfile=loadtxt(cov_file,skiprows=1)
+	head_cov_file = next(open(cov_file)).split()
+	times_of_T_change= tempfile[:,0] # array of times of Temp change
+	Temp_values=       tempfile[:,1] # array of Temp values at times_of_T_change
 
 Temp_values= (Temp_values-Temp_values[0]) # so l0 and m0 are rates at the present
 if rescale_factor > 0: Temp_values = Temp_values*rescale_factor
