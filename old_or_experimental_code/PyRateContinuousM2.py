@@ -43,6 +43,7 @@ p.add_argument('-tag', metavar='<*tag*.log>', type=str,help="Tag identifying fil
 p.add_argument('-mL',  type=str, help='calculate marginal likelihood',  default="", metavar="<path_to_log_files>")
 p.add_argument('-stimes',  type=float, help='shift times',  default=[], metavar=0, nargs='+') 
 p.add_argument('-extract_mcmc', type=int, help='Extract "cold" chain in separate log file', default=1, metavar=1)
+p.add_argument("-DD",  help='Diversity Dependent Model', action='store_true', default=False)
 
 
 
@@ -105,10 +106,17 @@ ts,te=ts[clade_ID==focus_clade],te[clade_ID==focus_clade]
 
 print len(ts),len(te[te>0]),sum(ts-te)
 
-tempfile=loadtxt(cov_file,skiprows=1)
-head_cov_file = next(open(cov_file)).split()
-times_of_T_change= tempfile[:,0] # array of times of Temp change
-Temp_values=       tempfile[:,1] # array of Temp values at times_of_T_change
+if args.DD is True:
+	head_cov_file = ["","DD"]
+	ts_te_vec = np.sort( np.concatenate((ts,te)) )[::-1]
+	Dtraj = getDT(ts_te_vec,ts,te)
+	times_of_T_change =  ts_te_vec
+	Temp_values = Dtraj
+else:
+	tempfile=loadtxt(cov_file,skiprows=1)
+	head_cov_file = next(open(cov_file)).split()
+	times_of_T_change= tempfile[:,0] # array of times of Temp change
+	Temp_values=       tempfile[:,1] # array of Temp values at times_of_T_change
 
 # Temp_values= (Temp_values-Temp_values[0]) # so l0 and m0 are rates at the present
 if rescale_factor > 0: Temp_values = Temp_values*rescale_factor
@@ -198,9 +206,9 @@ if len(s_times)>0: s_times_str = "s_" + '_'.join(s_times.astype("str"))
 else: s_times_str=""
 
 
-if args.m== -1: out_file_name="%s/%s_%s_%s_%s_const.log"  % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str)
-if args.m==  0: out_file_name="%s/%s_%s_%s_%s_exp.log"    % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str)
-if args.m==  1: out_file_name="%s/%s_%s_%s_%s_linear.log" % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str)
+if args.m== -1: out_file_name="%s/%s_%s_%s_%sconst.log"  % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str)
+if args.m==  0: out_file_name="%s/%s_%s_%s_%sexp.log"    % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str)
+if args.m==  1: out_file_name="%s/%s_%s_%s_%slinear.log" % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str)
 
 
 
