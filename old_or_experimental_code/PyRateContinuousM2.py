@@ -109,9 +109,12 @@ print len(ts),len(te[te>0]),sum(ts-te)
 if args.DD is True:
 	head_cov_file = ["","DD"]
 	ts_te_vec = np.sort( np.concatenate((ts,te)) )[::-1]
-	Dtraj = getDT(ts_te_vec,ts,te)
+	Dtraj = getDT(ts_te_vec,ts,te) + np.zeros(len(ts_te_vec))
 	times_of_T_change =  ts_te_vec
 	Temp_values = Dtraj
+	for i in range(len(Temp_values)):
+		print "%s\t%s" % (times_of_T_change[i],Temp_values[i])
+	
 else:
 	tempfile=loadtxt(cov_file,skiprows=1)
 	head_cov_file = next(open(cov_file)).split()
@@ -124,6 +127,10 @@ else:
 	denom = (max(Temp_values)-min(Temp_values))
 	if denom==0: denom=1.
 	Temp_values = Temp_values/denom
+
+
+#for i in range(len(Temp_values)):
+#	print "%s\t%s" % (times_of_T_change[i],Temp_values[i])
 
 #print "BRL" , sum(ts-te)
 #print "range:", max(Temp_values)-min(Temp_values)
@@ -154,18 +161,7 @@ Dtraj[:,0]=getDT(all_events,ts,te)
 
 #print "TIME", max(times_of_T_change), max(ts),Temp_values[-1]
 
-def get_Temp_at_time(all_Times,Temp_values):
-	temperatures,ind=list(),list()
-	for t in all_Times:
-		if t in times_of_T_change: # t is a time of change i.e. not ts,te
-			ind=np.where(times_of_T_change-t==0)[0]
-			temperatures.append(mean(Temp_values[ind]))
-		elif max(ts) > max(times_of_T_change): temperatures.append(Temp_values[-1]) # if root older than oldest temp take first temp
-		else: temperatures.append(mean(Temp_values[ind]))
-	return array(temperatures)
-
-
-Temp_at_events= get_Temp_at_time(times_of_T_change_tste,Temp_values)
+Temp_at_events= get_VarValue_at_time(times_of_T_change_tste,Temp_values,times_of_T_change_indexes,times_of_T_change,max(ts))
 #_print ind_s[3566:]
 #print Temp_at_events[150:]
 #_print "HERE",len(ind_s),len(ind_e)
@@ -190,8 +186,9 @@ for i in range(len(np.unique(shift_ind))):
 
 Temp_at_events=scaled_temp
 #print Temp_at_events[150:]
-#for i in range(len(all_events)):
-#	print all_events[i],Temp_at_events[i]
+#for i in range(len(all_events)): #range(600,650):
+#	print "%s\t%s" % (round(all_events[i],2),round(Temp_at_events[i],2))
+#quit()
 
 ### INIT PARAMS
 n_time_bins=len(np.unique(shift_ind))
@@ -216,7 +213,8 @@ logfile = open(out_file_name , "wb")
 wlog=csv.writer(logfile, delimiter='\t')
 
 head="it\tposterior\tlikelihood\tprior" 
-for i in range(n_time_bins): head+="\tlik_%s" % (i)
+for i in range(n_time_bins): head+="\tlik_L_%s" % (i)
+for i in range(n_time_bins): head+="\tlik_M_%s" % (i)
 for i in range(n_time_bins): head+="\tl0_t%s" % (i)
 for i in range(n_time_bins): head+="\tm0_t%s" % (i)
 for j in range(n_time_bins): 
@@ -324,14 +322,19 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 	#__       +sum(log(m_e1a))-sum( abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(Dtraj[:,0][1:len(l_at_events)])) 
 
 	# partial likelihoods
-	lik_p=np.zeros(n_time_bins)
+	lik_p=np.zeros(n_time_bins*2)
 	for i in range(n_time_bins):
 		v_1 = V1[i]
 		v_2 = V2[i]
 		l_s1a=l_at_events[V3[i]]
+		lik_p[i] = sum(log(l_s1a)) -sum( abs_diff[v_1] * l_at_events[v_1] * (Dtraj[v_2,0])) 
+
+	for i in range(n_time_bins):
+		v_1 = V1[i]
+		v_2 = V2[i]
 		m_e1a=m_at_events[V4[i]]
-		lik_p[i] = sum(log(l_s1a)) -sum( abs_diff[v_1] * l_at_events[v_1] * (Dtraj[v_2,0])) \
-		           +sum(log(m_e1a)) -sum( abs_diff[v_1] * m_at_events[v_1] * (Dtraj[v_2,0])) 
+		lik_p[i+n_time_bins] = sum(log(m_e1a)) -sum( abs_diff[v_1] * m_at_events[v_1] * (Dtraj[v_2,0])) 
+		           
 	
 	# Check likelihoods  
 	#__ if iteration % 100 ==0:

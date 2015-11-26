@@ -97,8 +97,8 @@ def calc_marginal_likelihood(infile,burnin,extract_mcmc=1):
 	newfile =open(out_file,'wb')
 	tbl_header = "file_name\treplicate\tmodel"
 	for f in files:
-		#try: 
-		if 2>1:
+		try: 
+		#if 2>1:
 			t=loadtxt(f, skiprows=max(1,burnin))
 			input_file = os.path.basename(f)
 			name_file = os.path.splitext(input_file)[0]
@@ -164,7 +164,7 @@ def calc_marginal_likelihood(infile,burnin,extract_mcmc=1):
 			
 			sys.stdout.write(".")
 			sys.stdout.flush()
-		#except:
-		#	print "\n WARNING: cannot read file:", f, "\n\n"
+		except:
+			print "\n WARNING: cannot read file:", f, "\n\n"
 
 	newfile.close()

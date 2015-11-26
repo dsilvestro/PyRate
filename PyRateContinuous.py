@@ -146,18 +146,7 @@ Dtraj[:,0]=getDT(all_events,ts,te)
 
 #print "TIME", max(times_of_T_change), max(ts),Temp_values[-1]
 
-def get_Temp_at_time(all_Times,Temp_values):
-	temperatures,ind=list(),list()
-	for t in all_Times:
-		if t in times_of_T_change: # t is a time of change i.e. not ts,te
-			ind=np.where(times_of_T_change-t==0)[0]
-			temperatures.append(mean(Temp_values[ind]))
-		elif max(ts) > max(times_of_T_change): temperatures.append(Temp_values[-1]) # if root older than oldest temp take first temp
-		else: temperatures.append(mean(Temp_values[ind]))
-	return array(temperatures)
-
-
-Temp_at_events= get_Temp_at_time(times_of_T_change_tste,Temp_values)
+Temp_at_events= get_VarValue_at_time(times_of_T_change_tste,Temp_values,times_of_T_change_indexes,times_of_T_change,max(ts))
 #_print ind_s[3566:]
 #_print Temp_at_events[1000:1010]
 #_print "HERE",len(ind_s),len(ind_e)
