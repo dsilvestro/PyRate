@@ -35,7 +35,8 @@ p.add_argument('-p', type=int,   help='print freq.', default=5000000, metavar=50
 p.add_argument('-j', type=int,   help='replicate', default=0, metavar=0)
 p.add_argument('-c', type=int, help='clade', default=0, metavar=0)
 p.add_argument('-b', type=float, help='shape parameter (beta) of Be hyper=prior pn indicators', default=1, metavar=1)
-p.add_argument('-T', type=float, help='Max time slice', default=np.inf, metavar=np.inf)
+p.add_argument('-r', type=float, help='rescale values (0 to scale in [0,1], 0.1 to reduce range 10x, 1 to leave unchanged)', default=0, metavar=0)
+#p.add_argument('-T', type=float, help='Max time slice', default=np.inf, metavar=np.inf)
 
 
 args = p.parse_args()
@@ -69,8 +70,7 @@ print len(ts),len(te)
 # first is empty because it's were the Dtraj goes
 list_files = ["","angio_ind","arid_ind","boreal_ind","CO2","cold_index","gymno_ind","magm_ind","mountain_ind","oxygen_ind","Scatter_ind","temperate_ind","temperature","WetHot_ind"]
 
-
-for i in range(1,len(list_files)): # adddata from curves
+for i in range(1,len(list_files)): # add data from curves
 	temp_tbl = np.loadtxt(list_files[i],skiprows=1)
 	time_var = temp_tbl[:,0] # time
 	#var_val  = temp_tbl[:,1] # var value
@@ -100,8 +100,13 @@ for i in range(n_clades):
 	s_list.append(ts[clade_ID==i])
 	e_list.append(te[clade_ID==i])
 	"used for lik calculation"
-	s_or_e_list += list(np.repeat(1,len(ts[clade_ID==i]))) # index 1 for s events
-	s_or_e_list += list(np.repeat(2,len(te[clade_ID==i]))) # index 2 for e events
+	if i==0: # diversity traj
+		s_or_e_list += list(np.repeat(1,len(ts[clade_ID==i]))) # index 1 for s events
+		s_or_e_list += list(np.repeat(2,len(te[clade_ID==i]))) # index 2 for e events
+	else: # additional curves
+		s_or_e_list += list(np.repeat(0,len(ts[clade_ID==i]))) # index 0 for events of continuous variable change
+		s_or_e_list += list(np.repeat(0,len(te[clade_ID==i]))) # index 0 for events of continuous variable change
+		
 	clade_inx_list += list(np.repeat(i,2*len(te[clade_ID==i])))
 	unsorted_events += list(ts[clade_ID==i])
 	unsorted_events += list(te[clade_ID==i])
@@ -109,10 +114,11 @@ for i in range(n_clades):
 s_or_e_array= np.array(s_or_e_list)
 unsorted_events= np.array(unsorted_events)
 s_or_e_array[unsorted_events==0] = 3
-s_or_e_array[unsorted_events>args.T] = 4
-unsorted_events[unsorted_events>args.T] = args.T
+# max T disabled for now
+#s_or_e_array[unsorted_events>args.T] = 4
+#unsorted_events[unsorted_events>args.T] = args.T
 
-""" so now: s_or_e_array = 1 (s events), s_or_e_array = 2 (e events), s_or_e_array = 3 (e=0 events)"""
+""" so now: s_or_e_array = 0 (cont variable change), s_or_e_array = 1 (s events), s_or_e_array = 2 (e events), s_or_e_array = 3 (e=0 events)"""
 
 
 """ concatenate everything:
@@ -126,27 +132,46 @@ all_events_temp2=all_events_temp[:,idx] # sort by time of event
 all_time_eve=all_events_temp2[0]
 
 
-Dtraj_new=Dtraj
 idx_s = []
 idx_e = []
 for i in range(n_clades): # make trajectory curves for each clade
 	if i==0:
-		dt_temp=getDT(all_events_temp2[0],s_list[i],e_list[i])
-		Dtraj_new[:,i] = dt_temp/max(dt_temp)
+		dd_focus_clade=getDT(all_events_temp2[0],s_list[i],e_list[i]) + np.zeros(len(all_events_temp2[0]))
+		# dd_focus_clade: raw diversity trajectory (not rescaled 0 to 1) is used in the likelihood calculation
+		Dtraj[:,i] = dd_focus_clade/np.max(dd_focus_clade)
 		ind_clade_i = np.arange(len(all_events_temp2[0]))[all_events_temp2[2]==i]
 		ind_sp = np.arange(len(all_events_temp2[0]))[all_events_temp2[1]==1]
 		ind_ex = np.arange(len(all_events_temp2[0]))[all_events_temp2[1]==2]
 		idx_s.append(np.intersect1d(ind_clade_i,ind_sp))
 		idx_e.append(np.intersect1d(ind_clade_i,ind_ex))
 	else:
+		print list_files[i]
 		temp_tbl = np.loadtxt(list_files[i],skiprows=1)
 		time_var = temp_tbl[:,0] # time
 		var_val  = temp_tbl[:,1] # var value
-		#print "\n\n\n\n\nso far..."
-		Var_at_all_times = get_VarValue_at_time(all_events_temp2[0],var_val,time_var,root_age)
-		Dtraj_new[:,i]=Var_at_all_times
+		
+		# REQUIRED ARGS:
+		all_Times = all_events_temp2[0]
+		Var_values = var_val
+		times_of_T_change_indexes = all_events_temp2[1] # all curves; times_of_T_change_indexes==0 curve change
+		times_of_T_change = time_var
+		root_age = max(ts)
+		clade_indexes = all_events_temp2[2]
+		curve_index = i
+		# get curve values
+		Dtraj[:,i] = get_VarValue_at_timeMCDD(all_Times,Var_values,times_of_T_change_indexes,times_of_T_change,root_age,clade_indexes,curve_index )
+		v = get_VarValue_at_timeMCDD(all_Times,Var_values,times_of_T_change_indexes,times_of_T_change,root_age,clade_indexes,curve_index )
+		
+		# CHECK
+		#__     print "\n\n\n\n\n\n"
+		#__     for j in range(len(all_Times)):
+		#__     	print "%s\t%s\t%s" % (all_Times[j],v[j],dd[j])
+		#__     
+		#__     print "\n\n\n\n\n\n"
+		#__     sys.exit()
+		##print "\n\n\n\n\nso far..."
 
-print Dtraj_new
+print Dtraj
 
 
 ##### HORSESHOE PRIOR FUNCTIONS
@@ -197,7 +222,7 @@ def sample_tau_mod(lam,beta,tau):
 #Tau = 1/sqrt(eta)
 
 #####
-scaling =2 # transforms a baseline rate r0 based number of taxa scaled by max diversity for each clade thus g is competition per clade
+scaling =0
 
 if scaling==0:	
 	scale_factor = 1.
@@ -208,11 +233,11 @@ elif scaling == 1:
 	MAX_G = 0.30/scale_factor
 	trasfRate_general = trasfMultiRate
 elif scaling ==2:
-	scale_factor = 1. #1./np.max(Dtraj, axis=0)
+	scale_factor = 1./np.max(Dtraj, axis=0)
 	MAX_G = 10.
 	trasfRate_general = trasfMultiRateCladeScaling
 
-print scale_factor
+print scale_factor, np.max(Dtraj)
 
 
 
@@ -279,12 +304,12 @@ for iteration in range(n_iterations):
 		prior_r=0
 		#for i in range(n_clades):
 		i = fixed_focal_clade
-		l_at_events=trasfRate_general(l0[i],-Garray_temp[i,0,:],Dtraj)
+		l_at_events=trasfRate_general(l0[i],Garray_temp[i,0,:],Dtraj)
 		m_at_events=trasfRate_general(m0[i],Garray_temp[i,1,:],Dtraj)
 		l_s1a=l_at_events[idx_s[i]]
 		m_e1a=m_at_events[idx_e[i]]
-		lik[i] = (sum(log(l_s1a))-sum(abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(Dtraj[:,i][1:len(l_at_events)])) \
-		         +sum(log(m_e1a))-sum(abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(Dtraj[:,i][1:len(l_at_events)])) )
+		lik[i] = (sum(log(l_s1a))-sum(abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(dd_focus_clade[1:len(l_at_events)])) \
+		         +sum(log(m_e1a))-sum(abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(dd_focus_clade[1:len(l_at_events)])) )
 		likA=lik
 
 	else:	
@@ -323,8 +348,8 @@ for iteration in range(n_iterations):
 			rate=G_hp_beta+sum(l0A)+sum(m0A)
 			hypRA = np.random.gamma(shape= g_shape, scale= 1./rate, size=1)
 		else: # update Garray (effect size) 
-			Garray_temp= update_parameter_normal_2d_freq((GarrayA[focal_clade,:,:]),.35,m=-MAX_G,M=MAX_G)
-			#Garray_temp,hasting= multiplier_normal_proposal_pos_neg_vec((GarrayA[focal_clade,:,:]),d1=.3,d2=1.2,f=.65)
+			#Garray_temp= update_parameter_normal_2d_freq((GarrayA[focal_clade,:,:]),.35,m=-MAX_G,M=MAX_G)
+			Garray_temp,hasting= multiplier_normal_proposal_pos_neg_vec((GarrayA[focal_clade,:,:]),d1=.35,d2=1.4,f=.65)
 			
 			Garray=np.zeros(n_clades*n_clades*2).reshape(n_clades,2,n_clades)+GarrayA
 			Garray[focal_clade,:,:]=Garray_temp
@@ -333,13 +358,13 @@ for iteration in range(n_iterations):
 		
 		Garray_temp=Garray
 		i=focal_clade 
-		l_at_events=trasfRate_general(l0[i],-Garray_temp[i,0,:],Dtraj)
+		l_at_events=trasfRate_general(l0[i], Garray_temp[i,0,:],Dtraj)
 		m_at_events=trasfRate_general(m0[i], Garray_temp[i,1,:],Dtraj)
 		### calc likelihood - clade i ###
 		l_s1a=l_at_events[idx_s[i]]
 		m_e1a=m_at_events[idx_e[i]]
-		lik_clade = (sum(log(l_s1a))-sum(abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(Dtraj[:,i][1:len(l_at_events)])) \
-		         +sum(log(m_e1a))-sum(abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(Dtraj[:,i][1:len(l_at_events)])) )
+		lik_clade = (sum(log(l_s1a))-sum(abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(dd_focus_clade[1:len(l_at_events)])) \
+		            +sum(log(m_e1a))-sum(abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(dd_focus_clade[1:len(l_at_events)])) )
 		ind_focal=np.ones(n_clades)
 		ind_focal[focal_clade]=0
 		lik = likA*ind_focal
