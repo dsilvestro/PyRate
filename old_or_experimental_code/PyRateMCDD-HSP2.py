@@ -104,11 +104,10 @@ all_events_temp2=all_events_temp[:,idx] # sort by time of event
 #print shape(all_events_temp2),len(all_events)
 all_time_eve=all_events_temp2[0]
 
-Dtraj_new=Dtraj
 idx_s = []
 idx_e = []
 for i in range(n_clades): # make trajectory curves for each clade
-	Dtraj_new[:,i]=getDT(all_events_temp2[0],s_list[i],e_list[i])
+	Dtraj[:,i]=getDT(all_events_temp2[0],s_list[i],e_list[i])
 	ind_clade_i = np.arange(len(all_events_temp2[0]))[all_events_temp2[2]==i]
 	ind_sp = np.arange(len(all_events_temp2[0]))[all_events_temp2[1]==1]
 	ind_ex = np.arange(len(all_events_temp2[0]))[all_events_temp2[1]==2]
