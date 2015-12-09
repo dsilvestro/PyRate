@@ -64,6 +64,29 @@ def get_VarValue_at_time(all_Times,Var_values,times_of_T_change_indexes,times_of
 	return array(variable)
 
 
+def get_VarValue_at_timeMCDD(all_Times,Var_values,times_of_T_change_indexes,times_of_T_change,root_age,Curve_indexes,Focus_Curve_index):
+	# times_of_T_change_indexes index 0 for times of T change	
+	variable,ind=list(),list()	
+	j =0
+	Var_values = Var_values[::-1]
+	
+	for i in range(len(all_Times)):
+		time_t = all_Times[i]
+
+		if times_of_T_change_indexes[i]==0 and Curve_indexes[i]==Focus_Curve_index:
+			 variable.append(Var_values[j])
+			 j+=1
+		elif time_t > max(times_of_T_change):
+			 variable.append(Var_values[0])
+		else: variable.append(Var_values[j])
+	return array(variable)
+
+
+
+
+
+
+
 
 
 def trasfRate(r0,n,K,m,G):    # transforms a baseline rate r0 based on n taxa
