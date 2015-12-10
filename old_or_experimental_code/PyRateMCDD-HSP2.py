@@ -36,6 +36,8 @@ p.add_argument('-j', type=int,   help='replicate', default=0, metavar=0)
 p.add_argument('-c', type=int, help='clade', default=0, metavar=0)
 p.add_argument('-b', type=float, help='shape parameter (beta) of Be hyper=prior pn indicators', default=1, metavar=1)
 p.add_argument('-T', type=float, help='Max time slice', default=np.inf, metavar=np.inf)
+p.add_argument('-plot', type=str, help='Summary files (generated using the sum_MCDD.py function)', default="", metavar="", nargs=2)
+p.add_argument('-bR',  type=float, help='Baseline speciation/extinction rates', default=[1., 1.], metavar=1., nargs=2)
 
 
 args = p.parse_args()
@@ -66,6 +68,23 @@ beta_value = "_hsp"
 all_events=sort(np.concatenate((ts,te),axis=0))[::-1] # events are speciation/extinction that change the diversity trajectory
 n_clades,n_events=max(clade_ID)+1,len(all_events)
 Dtraj=init_Dtraj(n_clades,n_events)
+
+##### RTT PLOTS
+summary_file = args.plot
+if summary_file != "": 
+	plot_RTT = True
+	estimated_Gl = np.loadtxt(summary_file[0], skiprows=1)
+	estimated_Gm = np.loadtxt(summary_file[1], skiprows=1)
+	
+	Gl_focal_clade = estimated_Gl[estimated_Gl[:,1]==(fixed_focal_clade+1),:][:,2] # in tbl clade indexes start from 1, not 0 | index 2 takes mean estimate
+	Gm_focal_clade = estimated_Gm[estimated_Gm[:,1]==(fixed_focal_clade+1),:][:,2] # in tbl clade indexes start from 1, not 0 | index 2 takes mean estimate
+	
+	baseline_L = args.bR[0]
+	baseline_M = args.bR[1]
+else: plot_RTT = False
+
+
+
 
 
 ##### get indexes
@@ -189,7 +208,12 @@ print scale_factor
 GarrayA=init_Garray(n_clades) # 3d array so:
                                  # Garray[i,:,:] is the 2d G for one clade
 			         # Garray[0,0,:] is G_lambda, Garray[0,1,:] is G_mu for clade 0
-GarrayA[fixed_focal_clade,:,:] += np.random.normal(0,1,np.shape(GarrayA[fixed_focal_clade,:,:]))
+if plot_RTT is True: 
+	# G estimates are given per species but Dtraj are rescaled when:  scaling > 0 (default: scaling = 1)
+	GarrayA[fixed_focal_clade,0,:] += Gl_focal_clade/scale_factor 
+	GarrayA[fixed_focal_clade,1,:] += Gm_focal_clade/scale_factor 
+else:
+	GarrayA[fixed_focal_clade,:,:] += np.random.normal(0,1,np.shape(GarrayA[fixed_focal_clade,:,:]))
 
 LAM=init_Garray(n_clades)
 LAM[fixed_focal_clade,:,:] = 1.
@@ -224,6 +248,17 @@ logfile.flush()
 TauA=np.array([.5]) # np.ones(1) # P(G==0)
 hypRA=np.ones(1)
 Tau=TauA
+
+if plot_RTT is True: 
+	l_at_events=trasfRate_general(baseline_L,-GarrayA[fixed_focal_clade,0,:],Dtraj)
+	m_at_events=trasfRate_general(baseline_M, GarrayA[fixed_focal_clade,1,:],Dtraj)
+	#print GarrayA[fixed_focal_clade,:,:]
+	
+	for i in range(len(all_events)): 
+		pass
+		#print "%s\t%s\t%s" % (round(all_events[i],3),round(l_at_events[i],3),round(m_at_events[i],3))
+	sys.exit("\n")
+
 
 t1=time.time()
 for iteration in range(n_iterations):	
@@ -307,7 +342,7 @@ for iteration in range(n_iterations):
 		l_s1a=l_at_events[idx_s[i]]
 		m_e1a=m_at_events[idx_e[i]]
 		lik_clade = (sum(log(l_s1a))-sum(abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(Dtraj[:,i][1:len(l_at_events)])) \
-		         +sum(log(m_e1a))-sum(abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(Dtraj[:,i][1:len(l_at_events)])) )
+		            +sum(log(m_e1a))-sum(abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(Dtraj[:,i][1:len(l_at_events)])) )
 		ind_focal=np.ones(n_clades)
 		ind_focal[focal_clade]=0
 		lik = likA*ind_focal
