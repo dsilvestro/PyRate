@@ -71,10 +71,11 @@ def update_parameter_normal_2d(L, d):
 	ii = np.random.normal(L.flatten(),d,size(L)).reshape(shape(L))
 	return ii
 
-def update_parameter_normal_2d_freq(oldL,d,f=.65,m=-2,M=2):
+def update_parameter_normal_2d_freq(oldL,d,f=.25,m=-2,M=2):
 	S=shape(oldL)
-	ii=np.random.normal(0,d,S)
-	ff=np.rint(np.random.uniform(0,f,S))
+	dV = np.random.uniform(0.5*d,2*d,S)
+	ii=np.random.normal(0,dV,S)
+	ff = np.random.binomial(1,f,S)
 	s= oldL + ii*ff	
 	s[s>M]=M-(s[s>M]-M)
 	s[s<m]=(m-s[s<m])+m
