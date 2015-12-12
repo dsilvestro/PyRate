@@ -168,3 +168,47 @@ def calc_marginal_likelihood(infile,burnin,extract_mcmc=1):
 			print "\n WARNING: cannot read file:", f, "\n\n"
 
 	newfile.close()
+
+
+
+def print_R_vec(name,v):
+	new_v=[]
+	for j in range(0,len(v)): 
+		value=v[j]
+		if isnan(v[j]): value="NA"
+		new_v.append(value)
+
+	vec="%s=c(%s, " % (name,new_v[0])
+	for j in range(1,len(v)-1): vec += "%s," % (new_v[j])
+	vec += "%s)"  % (new_v[j+1])
+	return vec
+
+
+def parse_hsp_logfile(logfile,burnin=100):
+	t=np.loadtxt(logfile, skiprows=max(1,burnin))
+	head = next(open(logfile)).split()
+	
+	baseline_L = mean(t[:,4])
+	baseline_M = mean(t[:,5])
+		
+	l_indexL = [head.index(i) for i in head if "Gl" in i]
+	l_indexM = [head.index(i) for i in head if "Gm" in i]
+	
+	C = list(head[4])
+	fixed_focal_clade = ""
+	for i in range(1,len(C)):
+		fixed_focal_clade+=C[i]
+	
+	fixed_focal_clade = int(fixed_focal_clade) 
+	k_indexL = [head.index(i) for i in head if "kl" in i]
+	k_indexM = [head.index(i) for i in head if "km" in i]
+	
+	gl,gm,kl,km = list(),list(),list(),list()
+	for i in range(len(l_indexL)):
+		gl.append(mean(t[:,l_indexL[i]]))
+		kl.append(mean(t[:,k_indexL[i]]))
+		gm.append(mean(t[:,l_indexM[i]]))
+		km.append(mean(t[:,k_indexM[i]]))
+	
+	return(fixed_focal_clade,baseline_L,baseline_M,np.array(gl),np.array(gm),np.array(kl),np.array(km))
+	

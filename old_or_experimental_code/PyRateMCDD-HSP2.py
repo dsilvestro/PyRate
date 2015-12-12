@@ -20,6 +20,7 @@ import thread
 import imp
 lib_updates_priors = imp.load_source("lib_updates_priors", "pyrate_lib/lib_updates_priors.py")
 lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "pyrate_lib/lib_DD_likelihood.py")
+lib_utilities = imp.load_source("lib_utilities", "pyrate_lib/lib_utilities.py")
 from lib_updates_priors import *
 from lib_DD_likelihood  import *
 
@@ -36,7 +37,7 @@ p.add_argument('-j', type=int,   help='replicate', default=0, metavar=0)
 p.add_argument('-c', type=int, help='clade', default=0, metavar=0)
 p.add_argument('-b', type=float, help='shape parameter (beta) of Be hyper=prior pn indicators', default=1, metavar=1)
 p.add_argument('-T', type=float, help='Max time slice', default=np.inf, metavar=np.inf)
-p.add_argument('-plot', type=str, help='Summary files (generated using the sum_MCDD.py function)', default="", metavar="", nargs=2)
+p.add_argument('-plot', type=str, help='Summary files (generated using the sum_MCDD.py function)', default="", metavar="", nargs='+')
 p.add_argument('-bR',  type=float, help='Baseline speciation/extinction rates', default=[1., 1.], metavar=1., nargs=2)
 
 
@@ -49,6 +50,11 @@ sampling_freq=args.s
 print_freq = args.p
 #t_file=np.genfromtxt(dataset, names=True, delimiter='\t', dtype=float)
 t_file=np.loadtxt(dataset, skiprows=1)
+
+name_file = os.path.splitext(os.path.basename(dataset))[0]
+wd = "%s" % os.path.dirname(dataset)
+
+
 
 clade_ID=t_file[:,0]
 clade_ID=clade_ID.astype(int)
@@ -71,16 +77,22 @@ Dtraj=init_Dtraj(n_clades,n_events)
 
 ##### RTT PLOTS
 summary_file = args.plot
-if summary_file != "": 
+if summary_file != "":
 	plot_RTT = True
-	estimated_Gl = np.loadtxt(summary_file[0], skiprows=1)
-	estimated_Gm = np.loadtxt(summary_file[1], skiprows=1)
+	if len(summary_file)==2: # use pre computed tables with G values
+		estimated_Gl = np.loadtxt(summary_file[0], skiprows=1)
+		estimated_Gm = np.loadtxt(summary_file[1], skiprows=1)
 	
-	Gl_focal_clade = estimated_Gl[estimated_Gl[:,1]==(fixed_focal_clade+1),:][:,2] # in tbl clade indexes start from 1, not 0 | index 2 takes mean estimate
-	Gm_focal_clade = estimated_Gm[estimated_Gm[:,1]==(fixed_focal_clade+1),:][:,2] # in tbl clade indexes start from 1, not 0 | index 2 takes mean estimate
+		Gl_focal_clade = estimated_Gl[estimated_Gl[:,1]==(fixed_focal_clade+1),:][:,2] # in tbl clade indexes start from 1, not 0 | index 2 takes mean estimate
+		Gm_focal_clade = estimated_Gm[estimated_Gm[:,1]==(fixed_focal_clade+1),:][:,2] # in tbl clade indexes start from 1, not 0 | index 2 takes mean estimate
 	
-	baseline_L = args.bR[0]
-	baseline_M = args.bR[1]
+		baseline_L = args.bR[0]
+		baseline_M = args.bR[1]
+	elif len(summary_file)==1: # parse a log file to get baseline rates and G values
+		print "parsing log file:", summary_file[0]
+		fixed_focal_clade,baseline_L,baseline_M,Gl_focal_clade,Gm_focal_clade,est_kl,est_km = lib_utilities.parse_hsp_logfile(summary_file[0])
+	else: sys.exit("Unable to parse file.")
+		
 else: plot_RTT = False
 
 
@@ -214,50 +226,100 @@ if plot_RTT is True:
 	GarrayA[fixed_focal_clade,1,:] += Gm_focal_clade/scale_factor 
 else:
 	GarrayA[fixed_focal_clade,:,:] += np.random.normal(0,1,np.shape(GarrayA[fixed_focal_clade,:,:]))
+	# setup log file
+	out_file_name="%s_%s_m%s_MCDD%s%s.log" % (dataset,args.j,constr,clade_name,beta_value)
+	logfile = open(out_file_name , "wb") 
+	wlog=csv.writer(logfile, delimiter='\t')
+
+	lik_head=""
+	head="it\tposterior\tlikelihood\tprior"
+	head+="\tl%s" % (fixed_focal_clade)
+	head+="\tm%s" % (fixed_focal_clade)
+	for j in range(n_clades): 
+		head+="\tGl%s_%s" % (fixed_focal_clade,j)
+	for j in range(n_clades): 
+		head+="\tGm%s_%s" % (fixed_focal_clade,j)
+	for j in range(n_clades): 
+		head+="\tkl%s_%s" % (fixed_focal_clade,j)
+	for j in range(n_clades): 
+		head+="\tkm%s_%s" % (fixed_focal_clade,j)
+
+	head+="\tLAM_mu"		
+	head+="\tLAM_sd"		
+	head+="\tTau"		
+	head+="\thypR"
+	wlog.writerow(head.split('\t'))
+	logfile.flush()
 
 LAM=init_Garray(n_clades)
 LAM[fixed_focal_clade,:,:] = 1.
 Constr_matrix=make_constraint_matrix(n_clades, constr)
-
 l0A,m0A=init_BD(n_clades),init_BD(n_clades)
-
-out_file_name="%s_%s_m%s_MCDD%s%s.log" % (dataset,args.j,constr,clade_name,beta_value)
-logfile = open(out_file_name , "wb") 
-wlog=csv.writer(logfile, delimiter='\t')
-
-lik_head=""
-head="it\tposterior\tlikelihood\tprior"
-head+="\tl%s" % (fixed_focal_clade)
-head+="\tm%s" % (fixed_focal_clade)
-for j in range(n_clades): 
-	head+="\tGl%s_%s" % (fixed_focal_clade,j)
-for j in range(n_clades): 
-	head+="\tGm%s_%s" % (fixed_focal_clade,j)
-for j in range(n_clades): 
-	head+="\tkl%s_%s" % (fixed_focal_clade,j)
-for j in range(n_clades): 
-	head+="\tkm%s_%s" % (fixed_focal_clade,j)
-
-head+="\tLAM_mu"		
-head+="\tLAM_sd"		
-head+="\tTau"		
-head+="\thypR"
-wlog.writerow(head.split('\t'))
-logfile.flush()
 
 TauA=np.array([.5]) # np.ones(1) # P(G==0)
 hypRA=np.ones(1)
 Tau=TauA
 
+
+########################## PLOT RTT ##############################
 if plot_RTT is True: 
+	print "\ngenerating R file...",
+	out="%s/%s_c%s_RTT.r" % (wd,name_file,fixed_focal_clade+1)
+	newfile = open(out, "wb") 
+	
+	if platform.system() == "Windows" or platform.system() == "Microsoft":
+		r_script= "\n\npdf(file='%s\%s_c%s_RTT.pdf',width=0.6*20, height=0.6*10)\n" % (wd,name_file,fixed_focal_clade+1)
+	else: 
+		r_script= "\n\npdf(file='%s/%s_c%s_RTT.pdf',width=0.6*20, height=0.6*10)\n" % (wd,name_file,fixed_focal_clade+1)
+	
+	for i in range(n_clades):
+		r_script+=lib_utilities.print_R_vec("\nclade_%s", Dtraj[:,i]) % (i+1)
+	
 	l_at_events=trasfRate_general(baseline_L,-GarrayA[fixed_focal_clade,0,:],Dtraj)
 	m_at_events=trasfRate_general(baseline_M, GarrayA[fixed_focal_clade,1,:],Dtraj)
-	#print GarrayA[fixed_focal_clade,:,:]
 	
-	for i in range(len(all_events)): 
-		pass
-		#print "%s\t%s\t%s" % (round(all_events[i],3),round(l_at_events[i],3),round(m_at_events[i],3))
+	r_script += lib_utilities.print_R_vec("\n\ntime",all_events)
+	r_script += lib_utilities.print_R_vec("\nspeciation",l_at_events)
+	r_script += lib_utilities.print_R_vec("\nextinction",m_at_events)
+	
+	r_script += """
+	plot(speciation[clade_%s>0] ~ time[clade_%s>0],type="l",col="darkblue", lwd=3,main="Diversification of clade %s  - Joint effects", ylim = c(0,max(c(speciation,extinction))),xlab="Time",ylab="Speciation and extinction rates",xlim=c(0,max(time)))
+	lines(extinction[clade_%s>0] ~ time[clade_%s>0], col="darkred", lwd=3)
+	""" % (fixed_focal_clade+1,fixed_focal_clade+1,fixed_focal_clade+1,fixed_focal_clade+1,fixed_focal_clade+1)
+	
+	for i in range(n_clades):
+		G_temp = init_Garray(n_clades)
+		G_temp[fixed_focal_clade,:,i] += GarrayA[fixed_focal_clade,:,i]
+		#print "clade",i, G_temp
+		l_at_events=trasfRate_general(baseline_L,-G_temp[fixed_focal_clade,0,:],Dtraj)
+		m_at_events=trasfRate_general(baseline_M, G_temp[fixed_focal_clade,1,:],Dtraj)
+		r_script += lib_utilities.print_R_vec("\nspeciation",l_at_events)
+		r_script += lib_utilities.print_R_vec("\nextinction",m_at_events)
+	
+		r_script += """
+		par(mfrow=c(1,2))
+		plot(speciation[clade_%s>0] ~ time[clade_%s>0],type="l",col="darkblue", lwd=3,main="Effect of clade %s", ylim = c(0,max(c(speciation,extinction))),xlab="Time",ylab="Speciation and extinction rates",xlim=c(0,max(time)))
+		lines(extinction[clade_%s>0] ~ time[clade_%s>0], col="darkred", lwd=3)
+		plot(clade_%s[clade_%s>0] ~ time[clade_%s>0],type="l", main = "Diversity trajctory of clade %s",xlab="Time",ylab="Number of species",xlim=c(0,max(time)))
+		""" % (fixed_focal_clade+1,fixed_focal_clade+1,i+1,
+		       fixed_focal_clade+1,fixed_focal_clade+1,
+		       i+1,i+1,i+1,i+1)
+		
+	r_script+="n<-dev.off()"
+	newfile.writelines(r_script)
+	newfile.close()
+	print "\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, wd)
+	if platform.system() == "Windows" or platform.system() == "Microsoft":
+		cmd="cd %s; Rscript %s\%s_c%s_RTT.r" % (wd,wd,name_file,fixed_focal_clade+1)
+	else: 
+		cmd="cd %s; Rscript %s/%s_c%s_RTT.r" % (wd,wd,name_file,fixed_focal_clade+1)
+	os.system(cmd)
+	print "done\n"
+	
 	sys.exit("\n")
+
+##############################################################
+
 
 
 t1=time.time()
