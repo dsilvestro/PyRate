@@ -743,7 +743,7 @@ def BDI_partial_lik(arg):
 	Tk = dT_events[ind_in_time]
 	Uk = 1-event_at_state_k
 	Dk = event_at_state_k	
-	#print par, rate, Tk,Uk,Dk		
+
 	if par=="l":
 		lik = sum(log(L*k+I)*Uk - (L*k+I)*Tk)
 	else: 
@@ -1916,10 +1916,25 @@ if model_BDI >=0:
 	all_events_temp= np.array([np.concatenate((ts,te),axis=0),np.concatenate((np.zeros(len(ts))+1,z),axis=0)])
 	idx = np.argsort(all_events_temp[0])[::-1] # get indexes of sorted events
 	all_events_array=all_events_temp[:,idx] # sort by time of event
+	print all_events_array
 	all_events = all_events_array[0,:]
 	dT_events= -(np.diff(np.append(all_events,0)))
-	div_trajectory =get_DT(np.append(all_events,0),ts,te_orig)
-	div_trajectory =div_trajectory[1:]
+		
+	#div_trajectory =get_DT(np.append(all_events,0),ts,te_orig)
+	#div_trajectory =div_trajectory[1:]
+	div_traj = np.zeros(len(ts)+len(te))
+	current_div,j = 0,0
+	for i in all_events_array[1]:
+		if i == 1: current_div+=1
+		if i == 2: current_div-=1
+		div_traj[j] = current_div
+		j+=1
+	
+	#j=0
+	#for i in all_events_array[0]:
+	#	print i, "\t", div_trajectory[j],  "\t", div_traj[j], "\t",dT_events[j]
+	#	j+=1
+	div_trajectory=div_traj
 	BPD_partial_lik = BDI_partial_lik
 
 
