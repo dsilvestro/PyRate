@@ -1,5 +1,5 @@
 #!/usr/bin/env python 
-import argparse, os,sys
+import argparse, os,sys, platform
 from numpy import *
 import numpy as np
 import os, csv, glob
@@ -9,12 +9,22 @@ np.set_printoptions(suppress=True) # prints floats, no scientific notation
 np.set_printoptions(precision=3)   # rounds all array elements to 3rd digit
 import collections
 from scipy import stats
+import lib_DD_likelihood
+
+def print_R_vec(name,v):
+	new_v=[]
+	for j in range(0,len(v)): 
+		value=v[j]
+		if isnan(v[j]): value="NA"
+		new_v.append(value)
+
+	vec="%s=c(%s, " % (name,new_v[0])
+	for j in range(1,len(v)-1): vec += "%s," % (new_v[j])
+	vec += "%s)"  % (new_v[j+1])
+	return vec
 
 
-
-def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1):
-	# = infile
-	#sys.path.append(infile)
+def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 	direct="%s/*%s*mcmc.log" % (path_dir,tag)
 	files=glob.glob(direct)
 	files=sort(files)
@@ -38,6 +48,7 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1):
 			input_file = os.path.basename(f)
 			name_file = os.path.splitext(input_file)[0]
 			path_dir = "%s/" % os.path.dirname(f)
+			wd = "%s" % os.path.dirname(f)
 			shape_f=list(shape(t_file))
 			print "%s" % (name_file),
 		
@@ -60,8 +71,59 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1):
 				else: out_list.append(array([meanTS, meanTE]))
 		
 				#print i-ind_ts0, array([meanTS,meanTE])
-
+			
+			
 			out_list=array(out_list)
+			
+			if plot_ltt is True:				
+				### plot lineages and LTT
+				ts = out_list[:,2+count]
+				te = out_list[:,3+count]
+				print np.shape(ts)
+				title = name_file
+				time_events=sort(np.concatenate((ts,te),axis=0))[::-1]
+				div_trajectory = lib_DD_likelihood.get_DT(time_events,ts,te)
+
+				# R - plot lineages
+				out="%s/%s_LTT.r" % (wd,name_file)
+				r_file = open(out, "wb") 
+	
+				if platform.system() == "Windows" or platform.system() == "Microsoft":
+					r_script= "\n\npdf(file='%s\%s_LTT.pdf',width=0.6*20, height=0.6*10)\n" % (wd,name_file)
+				else: 
+					r_script= "\n\npdf(file='%s/%s_LTT.pdf',width=0.6*20, height=0.6*10)\n" % (wd,name_file)
+	
+				R_ts = print_R_vec("ts",ts)
+				R_te = print_R_vec("te",te)
+				R_div_trajectory = print_R_vec("div_traj",div_trajectory)
+				R_time_events    = print_R_vec("time_events",time_events)
+
+				r_script += """title = "%s"\n%s\n%s\n%s\n%s""" % (name_file,R_ts,R_te,R_div_trajectory,R_time_events)
+
+				r_script += """
+				par(mfrow=c(1,2))
+				L = length(ts)
+				plot(ts, 1:L , xlim=c(0,max(ts)+1), pch=20, type="n", main=title,xlab="Time (Ma)",ylab="Lineages")
+				for (i in 1:L){segments(x0=te[i],y0=i,x1=ts[i],y1=i)}	
+
+				plot(div_traj ~ time_events,type="s", main = "Diversity trajectory",xlab="Time (Ma)",ylab="Number of lineages",xlim=c(0,max(time_events)))
+				abline(v=c(65,200,251,367,445),lty=2,col="gray")
+				"""
+				
+				r_file.writelines(r_script)
+				r_file.close()
+				print "\nAn R script with the source for the LTT plot was saved as: %sLTT.r\n(in %s)" % (name_file, wd)
+				if platform.system() == "Windows" or platform.system() == "Microsoft":
+					cmd="cd %s; Rscript %s\%s_LTT.r" % (wd,wd,name_file)
+				else: 
+					cmd="cd %s; Rscript %s/%s_LTT.r" % (wd,wd,name_file)
+				os.system(cmd)
+				print "done\n"
+				
+				### end plot lineages and LTT
+				
+			
+			
 			if count==0: out_array=out_list
 			else: out_array=np.hstack((out_array, out_list))
 			count+=1
@@ -169,19 +231,6 @@ def calc_marginal_likelihood(infile,burnin,extract_mcmc=1):
 
 	newfile.close()
 
-
-
-def print_R_vec(name,v):
-	new_v=[]
-	for j in range(0,len(v)): 
-		value=v[j]
-		if isnan(v[j]): value="NA"
-		new_v.append(value)
-
-	vec="%s=c(%s, " % (name,new_v[0])
-	for j in range(1,len(v)-1): vec += "%s," % (new_v[j])
-	vec += "%s)"  % (new_v[j+1])
-	return vec
 
 
 def parse_hsp_logfile(logfile,burnin=100):
