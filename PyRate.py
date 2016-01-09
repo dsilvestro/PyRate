@@ -1532,6 +1532,7 @@ p.add_argument("-wd",        type=str, help='path to working directory', default
 p.add_argument("-out",       type=str, help='output tag', default="")
 p.add_argument('-plot',      metavar='<input file>', type=str,help="Path to 'marginal_rates.log files",default="")
 p.add_argument('-root_plot', type=float, help='Root age plot', default=0, metavar=0)
+p.add_argument('-singleton', type=float, help='Remove singletons (min life span)', default=0, metavar=0)
 
 
 p.add_argument('-tag',       metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted",default="")
@@ -1797,12 +1798,19 @@ if use_se_tbl==False:
 		j=0
 	fossil=list()
 	have_record=list()
+	singletons_excluded = 0
 	for i in range(len(fossil_complete)):
 		if len(fossil_complete[i])==1 and fossil_complete[i][0]==0: pass
+		if args.singleton > 0:
+			obs_life_span = max(fossil_complete[i])-min(fossil_complete[i])
+			if len(fossil_complete[i])==1 or obs_life_span<=args.singleton: singletons_excluded+=1
+			else:
+				have_record.append(i) # some (extant) species may have trait value but no fosil record
+				fossil.append(fossil_complete[i])
 		else: 
 			have_record.append(i) # some (extant) species may have trait value but no fosil record
 			fossil.append(fossil_complete[i])
-		
+	if singletons_excluded>0: print "%s species excluded as singletons (%s remaining)" % (singletons_excluded, len(fossil))	
 	out_name=input_data_module.get_out_name(j) +args.out
 
 	try: taxa_names=input_data_module.get_taxa_names()
