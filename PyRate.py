@@ -1799,6 +1799,7 @@ if use_se_tbl==False:
 	fossil=list()
 	have_record=list()
 	singletons_excluded = list()
+	taxa_included = list()
 	for i in range(len(fossil_complete)):
 		if len(fossil_complete[i])==1 and fossil_complete[i][0]==0: pass
 		if args.singleton > 0:
@@ -1807,9 +1808,11 @@ if use_se_tbl==False:
 			else:
 				have_record.append(i) # some (extant) species may have trait value but no fosil record
 				fossil.append(fossil_complete[i])
+				taxa_included.append(i)
 		else: 
 			have_record.append(i) # some (extant) species may have trait value but no fosil record
 			fossil.append(fossil_complete[i])
+			taxa_included.append(i)
 	if len(singletons_excluded)>0: print "%s species excluded as singletons (%s remaining)" % (len(singletons_excluded), len(fossil))	
 	out_name=input_data_module.get_out_name(j) +args.out
 
@@ -1819,9 +1822,9 @@ if use_se_tbl==False:
 		for i in range(len(fossil)): taxa_names.append("taxon_%s" % (i))
 	
 	print singletons_excluded
-	singletons_excluded = np.array(singletons_excluded)
+	taxa_included = np.array(taxa_included)
 	taxa_names = np.array(taxa_names)
-	taxa_names = taxa_names[singletons_excluded]
+	taxa_names = taxa_names[taxa_included]
 
 	FA,LO,N=np.zeros(len(fossil)),np.zeros(len(fossil)),np.zeros(len(fossil))
 	for i in range(len(fossil)):	
