@@ -1671,7 +1671,8 @@ if model_cov==5: f_cov_par= [.33,.66,1 ]
 
 if args.fixShift != "" or TDI==3:     # fix times of rate shift or DPP
 	try: 
-		fixed_times_of_shift=sort(np.loadtxt(args.fixShift))[::-1]
+		try: fixed_times_of_shift=sort(np.loadtxt(args.fixShift))[::-1]
+		except(IndexError): fixed_times_of_shift=np.array([np.loadtxt(args.fixShift)])
 		f_shift=0
 		time_framesL=len(fixed_times_of_shift)+1
 		time_framesM=len(fixed_times_of_shift)+1
