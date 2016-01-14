@@ -13,3 +13,7 @@ Silvestro D., Cascales-Minana B., Bacon C. D., Antonelli A. (2015) Revisiting th
 The MCDD model is described here: 
 
 Silvestro D., Antonelli A., Salamin N., Quental T. B. (2015) The role of clade competition in the diversification of North American canids. PNAS, 112, 8684-8689.
+
+The DES method is described in:
+
+Silvestro, D., Zizka A., Bacon C. D., Cascales-Minana B. and Salamin, N., Antonelli, A. (2016) Fossil Biogeography: A new model to infer dispersal, extinction and sampling from paleontological data. Phil Trans Roy Soc B, in press.
