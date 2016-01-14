@@ -1,0 +1,226 @@
+import os,csv
+import argparse, os,sys, time
+from numpy import *
+import numpy as np
+import scipy
+import scipy.linalg
+from des_model_lib import *
+from mcmc_lib import *
+linalg = scipy.linalg
+import scipy.stats
+import random as rand
+np.set_printoptions(suppress=True) # prints floats, no scientific notation
+np.set_printoptions(precision=3) # rounds all array elements to 3rd digit
+import math
+
+def update_positive_rate_vec(i, d):
+	I=np.random.choice(len(i))
+	z=np.zeros(len(i))+i
+	z[I]=fabs(z[I]+(np.random.uniform(0,1,1)-.5)*d)
+	return z, 0
+
+def update_normal(i, d):
+	I=np.random.choice(len(i))
+	z=np.zeros(len(i))+i
+	z[I]=fabs(z[I]+np.random.normal(0,d))
+	return z, 0
+
+
+def update_multiplier_proposal_(i,d):
+	I=np.random.choice(len(i))
+	z=np.zeros(len(i))+i
+	u = np.random.uniform(0,1)
+	l = 2*log(d)
+	m = exp(l*(u-.5))
+ 	z[I] = z[I] * m
+	U=log(m)
+	return z, U
+
+def update_multiplier_proposal(i,d):
+	S=shape(i)
+	u = np.random.uniform(0,1,S) #*np.rint(np.random.uniform(0,f,S))
+	l = 2*log(d)
+	m = exp(l*(u-.5))
+	#print "\n",u,m,"\n"
+ 	ii = i * m
+	U=sum(log(m))
+	return ii, U
+
+
+def update_scaling_vec_V(V):
+	I=np.random.choice(len(V),2,replace=False) # select 2 random time frames
+	D=V[I]
+	Dir=np.random.dirichlet([2,2])
+	D1 = ((D*Dir)/sum(D*Dir))*sum(D)
+	Z=np.zeros(len(V))+V
+	Z[I] = D1
+	return Z
+
+
+def update_parameter_uni_2d_freq(oldL,d,f=.65,m=0,M=1):
+	S=shape(oldL)
+	ii=(np.random.uniform(0,1,S)-.5)*d
+	ff=np.rint(np.random.uniform(0,f,S))
+	s= oldL + ii*ff	
+	s[s>M]=M-(s[s>M]-M)
+	s[s<m]=(m-s[s<m])+m
+	return s
+
+
+def prior_gamma(L,a,b): return sum(scipy.stats.gamma.logpdf(L, a, scale=1./b,loc=0))
+
+def prior_exp(L,rate): return sum(scipy.stats.expon.logpdf(L, scale=1./rate))
+
+def calc_likelihood_mQ_compr(args):
+	[delta_t,r_vec_list,Q_list,rho_at_present,r_vec_indexes,sign_list,sp_OrigTimeIndex,Q_index]=args
+	PvDes= rho_at_present
+	recursive = np.arange(sp_OrigTimeIndex,len(delta_t))[::-1]
+	
+	L = np.zeros((len(recursive)+1,4))
+	L[0,:]=PvDes
+	
+	def calc_lik_bin(j,L):
+		i = recursive[j]
+		Q = Q_list[Q_index[i]]
+		r_vec=r_vec_list[Q_index[i]]
+		t=delta_t[i] 
+		r_ind= r_vec_indexes[i]
+		sign=  sign_list[i]
+		rho_vec= np.prod(abs(sign-r_vec[r_ind]),axis=1)
+		# Pt = np.ones((4,4))
+		# Pt= linalg.expm(Q.T *(t))
+		w, vl = scipy.linalg.eig(Q,left=True, right=False)
+		# w = eigenvalues
+		# vl = eigenvectors
+		vl_inv = np.linalg.inv(vl)
+		
+		
+		d= exp(w*t) 
+		m1 = np.zeros((4,4))
+		np.fill_diagonal(m1,d)
+		Pt1 = np.dot(vl,m1)
+		Pt = np.dot(Pt1,vl_inv)
+		#print vl, m1, vl_inv
+		
+		PvDes_temp = L[j,:]
+		condLik_temp= np.dot(PvDes_temp,Pt)
+		PvDes= condLik_temp *rho_vec
+		L[j+1,:]= PvDes
+		
+	[calc_lik_bin(j,L) for j in range(len(recursive))]
+	
+	PvDes_final=L[-1,:]
+	return np.log(np.sum(PvDes_final))
+
+
+def get_eigen_list(Q_list):
+	L=len(Q_list)
+	w_list,vl_list,vl_inv_list = [],[],[]
+	for Q in Q_list:
+		w, vl = scipy.linalg.eig(Q,left=True, right=False) # w = eigenvalues; vl = eigenvectors
+		vl_inv = np.linalg.inv(vl)
+		w_list.append(w)
+		vl_list.append(vl)
+		vl_inv_list.append(vl_inv)
+	return w_list,vl_list,vl_inv_list
+
+
+def calc_likelihood_mQ_eigen(args):
+	[delta_t,r_vec_list,w_list,vl_list,vl_inv_list,rho_at_present,r_vec_indexes,sign_list,sp_OrigTimeIndex,Q_index]=args
+	PvDes= rho_at_present
+	recursive = np.arange(sp_OrigTimeIndex,len(delta_t))[::-1]
+	L = np.zeros((len(recursive)+1,4))
+	L[0,:]=PvDes
+	
+	def calc_lik_bin(j,L):
+		i = recursive[j]
+		ind_Q = Q_index[i]
+		r_vec=r_vec_list[Q_index[i]]
+		t=delta_t[i] 
+		r_ind= r_vec_indexes[i]
+		sign=  sign_list[i]
+		rho_vec= np.prod(abs(sign-r_vec[r_ind]),axis=1)
+		d= exp(w_list[ind_Q]*t) 
+		m1 = np.zeros((4,4))
+		np.fill_diagonal(m1,d)
+		Pt1 = np.dot(vl_list[ind_Q],m1)
+		Pt = np.dot(Pt1,vl_inv_list[ind_Q])
+		PvDes_temp = L[j,:]
+		condLik_temp= np.dot(PvDes_temp,Pt)
+		PvDes= condLik_temp *rho_vec
+		L[j+1,:]= PvDes
+		
+	[calc_lik_bin(j,L) for j in range(len(recursive))]	
+	PvDes_final=L[-1,:]
+	return np.log(np.sum(PvDes_final))
+
+
+
+def calc_likelihood_mQ(args):
+	[delta_t,r_vec_list,Q_list,rho_at_present,r_vec_indexes,sign_list,sp_OrigTimeIndex,Q_index]=args
+	PvDes= rho_at_present
+	#print rho_at_present
+	recursive = np.arange(sp_OrigTimeIndex,len(delta_t))[::-1]
+	for i in recursive:
+		#print "here",i, Q_index[i]
+		Q = Q_list[Q_index[i]]
+		r_vec=r_vec_list[Q_index[i]]
+		# get time span
+		t=delta_t[i] 
+		# get rho vector
+		r_ind= r_vec_indexes[i]
+		sign=  sign_list[i]
+		rho_vec= np.prod(abs(sign-r_vec[r_ind]),axis=1)
+		# prob of at least 1  1-exp(-rho_vec*t)
+		Pt= linalg.expm(Q.T *(t))
+		condLik_temp= np.dot(PvDes,Pt)
+		PvDes= condLik_temp *rho_vec
+		
+		#print "temp,",t,PvDes,log(condLik_temp),rho_vec
+	return np.log(np.sum(PvDes))
+
+
+
+
+
+
+def calc_likelihood(args):
+	[delta_t,r_vec,Q,rho_at_present,r_vec_indexes,sign_list,sp_OrigTimeIndex]=args
+	PvDes= rho_at_present
+	#print rho_at_present
+	recursive = np.arange(sp_OrigTimeIndex,len(delta_t))[::-1]
+	for i in recursive:
+		# get time span
+		t=delta_t[i] 
+		# get rho vector
+		r_ind= r_vec_indexes[i]
+		sign=  sign_list[i]
+		rho_vec= np.prod(abs(sign-r_vec[r_ind]),axis=1)
+		# prob of at least 1  1-exp(-rho_vec*t)
+		#print rho_vec,r_vec[r_ind]
+		#print obs_area_series[i],"\t",rho_vec				
+		Pt= linalg.expm(Q.T *(t))
+		condLik_temp= np.dot(PvDes,Pt)
+		PvDes= condLik_temp *rho_vec
+		
+		#print "temp,",t,PvDes,log(condLik_temp),rho_vec
+	return np.log(np.sum(PvDes))
+
+
+def gibbs_sampler_hp(x,hp_alpha,hp_beta):
+	g_shape=hp_alpha+len(x)
+	rate=hp_beta+sum(x)
+	lam = np.random.gamma(shape= g_shape, scale= 1./rate)
+	return lam
+
+
+def get_temp_TI(k=10,a=0.3):
+	K=k-1.        # K+1 categories
+	k=array(np.arange(int(K+1)))
+	beta=k/K
+	alpha=a            # categories are beta distributed
+	temperatures=beta**(1./alpha)
+	temperatures[0]+= small_number # avoid exactly 0 temp
+	temperatures=temperatures[::-1]
+	return temperatures
+
