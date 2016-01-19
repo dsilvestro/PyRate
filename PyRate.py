@@ -1952,6 +1952,12 @@ if model_BDI >=0:
 	#	j+=1
 	div_trajectory=div_traj
 	BPD_partial_lik = BDI_partial_lik
+	if model_BDI==0: out_name += "BD"
+	if model_BDI==1: out_name += "ID"
+	if TDI<2: out_name = "%s%s%s" % (out_name,time_framesL,time_framesM)
+		
+		
+		
 
 
 # define hyper-prior function for BD rates
