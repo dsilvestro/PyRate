@@ -31,6 +31,7 @@ p.add_argument('-d', type=str, help='data set', default="", metavar="<file>")
 p.add_argument('-c', type=str, help='covariate data set', default="", metavar="<file>")
 p.add_argument('-j', type=int, help='replicate', default=0, metavar=0)
 p.add_argument('-m', type=int, help='model: "-1" constant rate, "0" exponential, "1" linear', default=0, metavar=0)
+p.add_argument('-equal_G', type=int, help='model: "0" unconstrained G, "1" constrained G', default=0, metavar=0)
 p.add_argument('-n', type=int, help='mcmc generations',default=1050000, metavar=1050000)
 p.add_argument('-s', type=int, help='sample freq.', default=1000, metavar=1000)
 p.add_argument('-p', type=int, help='print freq.', default=1000, metavar=1000)
@@ -58,6 +59,7 @@ rescale_factor=args.r
 focus_clade=args.clade
 win_size=args.w
 s_times=np.sort(np.array(args.stimes))[::-1]
+equal_g = args.equal_G
 
 if args.ginput != "":
 	lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=focus_clade,burnin=args.b)
@@ -202,10 +204,12 @@ if output_wd=="": output_wd= self_path
 if len(s_times)>0: s_times_str = "s_" + '_'.join(s_times.astype("str"))
 else: s_times_str=""
 
+if equal_g==1: add_equal_g="EG"
+else: add_equal_g=""
 
-if args.m== -1: out_file_name="%s/%s_%s_%s_%sconst.log"  % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str)
-if args.m==  0: out_file_name="%s/%s_%s_%s_%sexp.log"    % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str)
-if args.m==  1: out_file_name="%s/%s_%s_%s_%slinear.log" % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str)
+if args.m== -1: out_file_name="%s/%s_%s_%s_%sconst%s.log"  % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str,add_equal_g)
+if args.m==  0: out_file_name="%s/%s_%s_%s_%sexp%s.log"    % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str,add_equal_g)
+if args.m==  1: out_file_name="%s/%s_%s_%s_%slinear%s.log" % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str,add_equal_g)
 
 
 
@@ -300,9 +304,15 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 			hypGA = 1./np.random.gamma(shape= g_shape, scale= 1./g_rate)
 		else:
 			if rr[2]>.5:
-				Garray[0]=update_parameter_normal_2d(Garray[0],list_d2[scal_fac_ind]) 
+				if equal_g==0:
+					Garray[0]=update_parameter_normal_2d(Garray[0],list_d2[scal_fac_ind]) 
+				else:
+					Garray[0,:]=update_parameter_normal(Garray[0,0],list_d2[scal_fac_ind])[0]
 			else:
-				Garray[1]=update_parameter_normal_2d(Garray[1],list_d2[scal_fac_ind]) 
+				if equal_g==0:
+					Garray[1]=update_parameter_normal_2d(Garray[1],list_d2[scal_fac_ind]) 
+				else:
+					Garray[1,:]=update_parameter_normal(Garray[0,0],list_d2[scal_fac_ind])[0]
 			
 	if args.m==0: 
 		l_at_events=trasfMultipleRateTemp(l0, Garray[0],Temp_at_events,shift_ind)
