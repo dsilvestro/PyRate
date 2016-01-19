@@ -1,4 +1,4 @@
-* PyRate is a Python program to estimate speciation, extinction, and preservation rates from fossil occurrence data using a Bayesian framework. The method was described here:
+# PyRate is a Python program to estimate speciation, extinction, and preservation rates from fossil occurrence data using a Bayesian framework. The method was described here:
 
 Silvestro D., Schnitzler J., Liow L.H., Antonelli A. and Salamin N. (2014) Bayesian Estimation of Speciation and Extinction from Incomplete Fossil Occurrence Data. Systematic Biology, 63, 349-367.
 
