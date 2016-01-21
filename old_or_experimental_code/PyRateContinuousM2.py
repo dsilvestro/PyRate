@@ -45,6 +45,7 @@ p.add_argument('-mL',  type=str, help='calculate marginal likelihood',  default=
 p.add_argument('-stimes',  type=float, help='shift times',  default=[], metavar=0, nargs='+') 
 p.add_argument('-extract_mcmc', type=int, help='Extract "cold" chain in separate log file', default=1, metavar=1)
 p.add_argument("-DD",  help='Diversity Dependent Model', action='store_true', default=False)
+p.add_argument('-plot', type=str, help='Log file', default="", metavar="")
 
 
 
@@ -187,7 +188,6 @@ for i in range(len(np.unique(shift_ind))):
 	scaled_temp[shift_ind==i]= Temp_values
 
 Temp_at_events=scaled_temp
-#print Temp_at_events[150:]
 #for i in range(len(all_events)): #range(600,650):
 #	print "%s\t%s" % (round(all_events[i],2),round(Temp_at_events[i],2))
 #quit()
@@ -197,6 +197,69 @@ n_time_bins=len(np.unique(shift_ind))
 GarrayA=np.zeros((2,n_time_bins)) # correlation parameters with Temp of lambda (GarrayA[0]) and mu (GarrayA[1])
 l0A,m0A= init_BD(n_time_bins),init_BD(n_time_bins)
 hypRA,hypGA= 1.,1.
+
+### PLOT RTT
+summary_file = args.plot
+if summary_file != "":
+	plot_RTT = True
+	root_age = max(ts)
+	print "parsing log file:", summary_file
+	t=np.loadtxt(summary_file, skiprows=max(1,args.b))
+	head = next(open(summary_file)).split()
+	
+	L0_index = [head.index(i) for i in head if "l0" in i]
+	M0_index = [head.index(i) for i in head if "m0" in i]	
+	Gl_index = [head.index(i) for i in head if "Gl" in i]
+	Gm_index = [head.index(i) for i in head if "Gm" in i]
+
+	L0,Gl,M0,Gm = list(),list(),list(),list()
+	for i in range(len(L0_index)):
+		L0.append(mean(t[:,L0_index[i]]))
+		Gl.append(mean(t[:,Gl_index[i]]))
+		M0.append(mean(t[:,M0_index[i]]))
+		Gm.append(mean(t[:,Gm_index[i]]))
+	
+	Garray=np.zeros((2,n_time_bins))
+	Garray[0] += np.array(Gl)
+	Garray[1] += np.array(Gm)
+	l0,m0 = np.array(L0),np.array(M0)
+	
+	#print "L0",l0
+	#print "M0", m0
+	#print "G", Garray
+	
+	if args.m==0: 
+		l_at_events=trasfMultipleRateTemp(l0, Garray[0],Temp_at_events,shift_ind)
+		m_at_events=trasfMultipleRateTemp(m0, Garray[1],Temp_at_events,shift_ind)
+	if args.m==1: 
+		l_at_events=trasfMultipleRateTempLinear(l0, Garray[0],Temp_at_events,shift_ind)
+		m_at_events=trasfMultipleRateTempLinear(m0, Garray[1],Temp_at_events,shift_ind)
+	#print m_at_events
+	#print all_events_temp2[0]
+	#print np.shape(all_events_temp2)
+	age_vec, l_vec, m_vec = list(),list(),list()
+	for i in range(len(Temp_at_events)):
+		age = all_events_temp2[0,i]
+		if age <= root_age:
+			age_vec.append(np.round(age,3))
+			l_vec.append(np.round(l_at_events[i],3))
+			m_vec.append(np.round(m_at_events[i],3))
+	
+	r_script = lib_utilities.print_R_vec("\n\ntime",    age_vec)
+	r_script += lib_utilities.print_R_vec("\nspeciation",l_vec)
+	r_script += lib_utilities.print_R_vec("\nextinction",m_vec)
+	
+	r_script += """
+	plot(speciation ~ time,type="l",col="darkblue", lwd=3,main="Diversification rates - Joint effects", ylim = c(0,max(c(speciation,extinction))),xlab="Time",ylab="Speciation and extinction rates",xlim=c(0,max(time)))
+	lines(extinction ~ time, col="darkred", lwd=3)
+	abline(v %s,lty=2,col="gray")
+	""" % (lib_utilities.print_R_vec("",s_times))
+	
+	print r_script
+	quit()
+
+
+
 
 output_wd = os.path.dirname(dataset)
 if output_wd=="": output_wd= self_path
