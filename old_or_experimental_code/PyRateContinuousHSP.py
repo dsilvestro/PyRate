@@ -383,7 +383,8 @@ if plot_RTT is True:
 
 
 t1=time.time()
-for iteration in range(n_iterations):	
+iteration=0
+while True:
 	hasting=0
 	gibbs_sampling=0
 	if iteration==0:
@@ -414,7 +415,7 @@ for iteration in range(n_iterations):
 
 	else:	
 		##### START FOCAL CLADE ONLY
-		sampling_freqs=[.10,.60]		
+		sampling_freqs=[.10,.40]		
 		if iteration<1000: rr = np.random.uniform(0,sampling_freqs[1])
 		else: rr = np.random.random()
 
@@ -424,10 +425,10 @@ for iteration in range(n_iterations):
 		
 		if rr<sampling_freqs[0]:
 			rr2 = np.random.random()
-			if rr2<.25: 
+			if rr2<.5: 
 				l0=np.zeros(n_clades)+l0A
 				l0[focal_clade],hasting=update_multiplier_proposal(l0A[focal_clade],1.2)
-			elif rr2<.5: 	
+			else: 	
 				m0=np.zeros(n_clades)+m0A
 				m0[focal_clade],hasting=update_multiplier_proposal(m0A[focal_clade],1.2)
 			#if iteration> 2000:
@@ -448,8 +449,8 @@ for iteration in range(n_iterations):
 			rate=G_hp_beta+sum(l0A)+sum(m0A)
 			hypRA = np.random.gamma(shape= g_shape, scale= 1./rate, size=1)
 		else: # update Garray (effect size) 
-			#Garray_temp= update_parameter_normal_2d_freq((GarrayA[focal_clade,:,:]),.35,m=-MAX_G,M=MAX_G)
-			Garray_temp,hasting= multiplier_normal_proposal_pos_neg_vec((GarrayA[focal_clade,:,:]),d1=.35,d2=1.4,f=.65)
+			Garray_temp= update_parameter_normal_2d_freq((GarrayA[focal_clade,:,:]),.5,m=-MAX_G,M=MAX_G)
+			#Garray_temp,hasting= multiplier_normal_proposal_pos_neg_vec((GarrayA[focal_clade,:,:]),d1=.35,d2=1.4,f=.65)
 			
 			Garray=np.zeros(n_clades*n_clades*2).reshape(n_clades,2,n_clades)+GarrayA
 			Garray[focal_clade,:,:]=Garray_temp
@@ -516,6 +517,9 @@ for iteration in range(n_iterations):
 		log_state=[iteration,postA,sum(likA)]+[priorA]+[l0A[fixed_focal_clade]]+[m0A[fixed_focal_clade]]+list(actualGarray.flatten())+list(loc_shrinkage.flatten())+[mean(LAM[fixed_focal_clade,:,:]),std(LAM[fixed_focal_clade,:,:])] +list(TauA) +[hypRA[0]]
 		wlog.writerow(log_state)
 		logfile.flush()
+
+	iteration+=1
+	if iteration ==n_iterations: break	
 
 print time.time()-t1
 quit()
