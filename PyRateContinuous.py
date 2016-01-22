@@ -78,27 +78,6 @@ clade_ID=t_file[:,0].astype(int)
 ts,te=ts[clade_ID==focus_clade],te[clade_ID==focus_clade]	
 
 
-###____ TMP
-#	r_times= np.load("rand_times.npy")
-#	add_rand_ts = r_times[:,0+2*args.j]
-#	add_rand_te = r_times[:,1+2*args.j]
-#	ind_singletons=(ts==te).nonzero()[0]
-#	for i in ind_singletons:
-#		M = max(add_rand_ts[i],add_rand_te[i])
-#		m = min(add_rand_ts[i],add_rand_te[i])
-#		add_rand_ts[i] = M
-#	        add_rand_te[i] = m
-#	
-#	add_rand_ts=add_rand_ts[0:len(ts)]
-#	add_rand_te=add_rand_te[0:len(te)]
-#	
-#	ts += add_rand_ts
-#	te[te>0] += add_rand_te[te>0]
-###____ TMP
-
-
-
-
 print len(ts),len(te[te>0]),sum(ts-te)
 
 if args.DD is True:
