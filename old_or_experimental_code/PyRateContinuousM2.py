@@ -22,6 +22,9 @@ lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "pyrate_lib/lib_DD_like
 lib_utilities = imp.load_source("lib_utilities", "pyrate_lib/lib_utilities.py")
 from lib_updates_priors import *
 from lib_DD_likelihood  import *
+from lib_utilities import calcHPD as calcHPD
+from lib_utilities import print_R_vec as print_R_vec
+
 self_path=os.getcwd()
 
 #### ARGS
@@ -85,29 +88,12 @@ ts =ts+z
 clade_ID=t_file[:,0].astype(int)
 ts,te=ts[clade_ID==focus_clade],te[clade_ID==focus_clade]	
 
-
-###____ TMP
-#	r_times= np.load("rand_times.npy")
-#	add_rand_ts = r_times[:,0+2*args.j]
-#	add_rand_te = r_times[:,1+2*args.j]
-#	ind_singletons=(ts==te).nonzero()[0]
-#	for i in ind_singletons:
-#		M = max(add_rand_ts[i],add_rand_te[i])
-#		m = min(add_rand_ts[i],add_rand_te[i])
-#		add_rand_ts[i] = M
-#	        add_rand_te[i] = m
-#	
-#	add_rand_ts=add_rand_ts[0:len(ts)]
-#	add_rand_te=add_rand_te[0:len(te)]
-#	
-#	ts += add_rand_ts
-#	te[te>0] += add_rand_te[te>0]
-###____ TMP
+output_wd = os.path.dirname(dataset)
+if output_wd=="": output_wd= self_path
+name_file = os.path.splitext(os.path.basename(dataset))[0]
 
 
-
-
-print len(ts),len(te[te>0]),sum(ts-te)
+#print len(ts),len(te[te>0]),sum(ts-te)
 
 if args.DD is True:
 	head_cov_file = ["","DD"]
@@ -199,44 +185,13 @@ l0A,m0A= init_BD(n_time_bins),init_BD(n_time_bins)
 hypRA,hypGA= 1.,1.
 
 ### PLOT RTT
-summary_file = args.plot
-if summary_file != "":
-	plot_RTT = True
-	root_age = max(ts)
-	print "parsing log file:", summary_file
-	t=np.loadtxt(summary_file, skiprows=max(1,args.b))
-	head = next(open(summary_file)).split()
-	
-	L0_index = [head.index(i) for i in head if "l0" in i]
-	M0_index = [head.index(i) for i in head if "m0" in i]	
-	Gl_index = [head.index(i) for i in head if "Gl" in i]
-	Gm_index = [head.index(i) for i in head if "Gm" in i]
-
-	L0,Gl,M0,Gm = list(),list(),list(),list()
-	for i in range(len(L0_index)):
-		L0.append(mean(t[:,L0_index[i]]))
-		Gl.append(mean(t[:,Gl_index[i]]))
-		M0.append(mean(t[:,M0_index[i]]))
-		Gm.append(mean(t[:,Gm_index[i]]))
-	
-	Garray=np.zeros((2,n_time_bins))
-	Garray[0] += np.array(Gl)
-	Garray[1] += np.array(Gm)
-	l0,m0 = np.array(L0),np.array(M0)
-	
-	#print "L0",l0
-	#print "M0", m0
-	#print "G", Garray
-	
-	if args.m==0: 
+def get_marginal_rates(model,l0,m0,Garray,Temp_at_events,shift_ind,root_age):
+	if model==0: 
 		l_at_events=trasfMultipleRateTemp(l0, Garray[0],Temp_at_events,shift_ind)
 		m_at_events=trasfMultipleRateTemp(m0, Garray[1],Temp_at_events,shift_ind)
-	if args.m==1: 
+	if model==1: 
 		l_at_events=trasfMultipleRateTempLinear(l0, Garray[0],Temp_at_events,shift_ind)
 		m_at_events=trasfMultipleRateTempLinear(m0, Garray[1],Temp_at_events,shift_ind)
-	#print m_at_events
-	#print all_events_temp2[0]
-	#print np.shape(all_events_temp2)
 	age_vec, l_vec, m_vec = list(),list(),list()
 	for i in range(len(Temp_at_events)):
 		age = all_events_temp2[0,i]
@@ -244,25 +199,96 @@ if summary_file != "":
 			age_vec.append(np.round(age,3))
 			l_vec.append(np.round(l_at_events[i],3))
 			m_vec.append(np.round(m_at_events[i],3))
+	return(age_vec,l_vec,m_vec)
 	
-	r_script = lib_utilities.print_R_vec("\n\ntime",    age_vec)
-	r_script += lib_utilities.print_R_vec("\nspeciation",l_vec)
-	r_script += lib_utilities.print_R_vec("\nextinction",m_vec)
+
+summary_file = args.plot
+if summary_file != "":
+	root_age = max(ts)
+	print "\nParsing log file:", summary_file
+	t=np.loadtxt(summary_file, skiprows=max(1,int(args.b)))
+	head = next(open(summary_file)).split()
+	
+	L0_index = [head.index(i) for i in head if "l0" in i]
+	M0_index = [head.index(i) for i in head if "m0" in i]	
+	Gl_index = [head.index(i) for i in head if "Gl" in i]
+	Gm_index = [head.index(i) for i in head if "Gm" in i]
+	n_rates = len(L0_index)
+
+	print "\nCalculating marginal rates..."
+	marginal_L= list()
+	marginal_M= list()
+	for j in range(shape(t)[0]):
+		L0,Gl,M0,Gm = np.zeros(n_rates),np.zeros(n_rates),np.zeros(n_rates),np.zeros(n_rates)
+		for i in range(n_rates):
+			L0[i] = t[j,L0_index[i]]
+			Gl[i] = t[j,Gl_index[i]]
+			M0[i] = t[j,M0_index[i]]
+			Gm[i] = t[j,Gm_index[i]]
+		
+		Garray = np.array([Gl,Gm])
+		age_vec,l_vec,m_vec = get_marginal_rates(args.m,L0,M0,Garray,Temp_at_events,shift_ind,root_age)
+		marginal_L.append(l_vec)
+		marginal_M.append(m_vec)
+	
+	marginal_L = np.array(marginal_L)
+	marginal_M = np.array(marginal_M)
+	
+	l_vec= np.zeros(np.shape(marginal_L)[1])
+	m_vec= np.zeros(np.shape(marginal_L)[1])
+	hpd_array_L= np.zeros((2,np.shape(marginal_L)[1]))
+	hpd_array_M= np.zeros((2,np.shape(marginal_L)[1]))
+	for i in range(np.shape(marginal_L)[1]):
+		l_vec[i] = np.mean(marginal_L[:,i])
+		m_vec[i] = np.mean(marginal_M[:,i])
+		hpd_array_L[:,i] = calcHPD(marginal_L[:,i])
+		hpd_array_M[:,i] = calcHPD(marginal_M[:,i])
+	print "done"	
+	# write R file
+	print "\ngenerating R file...",
+	out="%s/%s_RTT.r" % (output_wd,name_file)
+	newfile = open(out, "wb") 	
+	if platform.system() == "Windows" or platform.system() == "Microsoft":
+		r_script= "\n\npdf(file='%s\%s_RTT.pdf',width=0.6*20, height=0.6*20)\nlibrary(scales)\n" % (output_wd,name_file)
+	else: r_script= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*20, height=0.6*20)\nlibrary(scales)\n" % (output_wd,name_file)
+
+	r_script += print_R_vec("\n\nt",  age_vec)
+	r_script += "\ntime = -t"
+	r_script += print_R_vec("\nspeciation",l_vec)
+	r_script += print_R_vec("\nextinction",m_vec)
+	
+	r_script += print_R_vec('\nL_hpd_m',hpd_array_L[0,:])
+	r_script += print_R_vec('\nL_hpd_M',hpd_array_L[1,:])
+	r_script += print_R_vec('\nM_hpd_m',hpd_array_M[0,:])
+	r_script += print_R_vec('\nM_hpd_M',hpd_array_M[1,:])
+	
 	
 	r_script += """
-	plot(speciation ~ time,type="l",col="darkblue", lwd=3,main="Diversification rates - Joint effects", ylim = c(0,max(c(speciation,extinction))),xlab="Time",ylab="Speciation and extinction rates",xlim=c(0,max(time)))
-	lines(extinction ~ time, col="darkred", lwd=3)
+	par(mfrow=c(2,1))
+	plot(speciation ~ time,type="l",col="#4c4cec", lwd=3,main="Diversification rates - Joint effects", ylim = c(0,max(c(L_hpd_M,M_hpd_M))),xlab="Time",ylab="Speciation and extinction rates",xlim=c(min(time),0))
+	polygon(c(time, rev(time)), c(L_hpd_M, rev(L_hpd_m)), col = alpha("#4c4cec",0.3), border = NA)	
 	abline(v %s,lty=2,col="gray")
-	""" % (lib_utilities.print_R_vec("",s_times))
+
+	plot(extinction ~ time,type="l",col="#e34a33",  lwd=3,main="Diversification rates - Joint effects", ylim = c(0,max(c(L_hpd_M,M_hpd_M))),xlab="Time",ylab="Speciation and extinction rates",xlim=c(min(time),0))
+	polygon(c(time, rev(time)), c(M_hpd_M, rev(M_hpd_m)), col = alpha("#e34a33",0.3), border = NA)
+	abline(v %s,lty=2,col="gray")
+	""" % (lib_utilities.print_R_vec("",-s_times),lib_utilities.print_R_vec("",-s_times))
 	
-	print r_script
-	quit()
+	r_script+="n<-dev.off()"
+	newfile.writelines(r_script)
+	newfile.close()
+	print "\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, output_wd)
+	if platform.system() == "Windows" or platform.system() == "Microsoft":
+		cmd="cd %s; Rscript %s\%s_RTT.r" % (output_wd,output_wd,name_file)
+	else: 
+		cmd="cd %s; Rscript %s/%s_RTT.r" % (output_wd,output_wd,name_file)
+	os.system(cmd)
+	print "done\n"
+	
+	sys.exit("\n")
 
 
 
-
-output_wd = os.path.dirname(dataset)
-if output_wd=="": output_wd= self_path
 
 if len(s_times)>0: s_times_str = "s_" + '_'.join(s_times.astype("str"))
 else: s_times_str=""
