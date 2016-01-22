@@ -3,13 +3,30 @@ import argparse, os,sys, platform
 from numpy import *
 import numpy as np
 import os, csv, glob
-try: from biopy.bayesianStats import hpd as calcHPD
-except(ImportError): pass
 np.set_printoptions(suppress=True) # prints floats, no scientific notation
 np.set_printoptions(precision=3)   # rounds all array elements to 3rd digit
 import collections
 from scipy import stats
 import lib_DD_likelihood
+
+def calcHPD(data, level=0.95) :
+	assert (0 < level < 1)	
+	d = list(data)
+	d.sort()	
+	nData = len(data)
+	nIn = int(round(level * nData))
+	if nIn < 2 :
+		raise RuntimeError("not enough data")	
+	i = 0
+	r = d[i+nIn-1] - d[i]
+	for k in range(len(d) - (nIn - 1)) :
+		rk = d[k+nIn-1] - d[k]
+		if rk < r :
+			r = rk
+			i = k
+	assert 0 <= i <= i+nIn-1 < len(d)	
+	return np.array([d[i], d[i+nIn-1]])
+
 
 def print_R_vec(name,v):
 	new_v=[]
