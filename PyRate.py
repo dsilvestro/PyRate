@@ -1533,6 +1533,7 @@ p.add_argument("-out",       type=str, help='output tag', default="")
 p.add_argument('-plot',      metavar='<input file>', type=str,help="Path to 'marginal_rates.log files",default="")
 p.add_argument('-root_plot', type=float, help='Root age plot', default=0, metavar=0)
 p.add_argument('-singleton', type=float, help='Remove singletons (min life span)', default=0, metavar=0)
+p.add_argument("-data_info", help='Summary information about an input data', action='store_true', default=False)
 
 
 p.add_argument('-tag',       metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted",default="")
@@ -1807,14 +1808,14 @@ if use_se_tbl==False:
 			obs_life_span = max(fossil_complete[i])-min(fossil_complete[i])
 			if len(fossil_complete[i])==1 or obs_life_span<=args.singleton: singletons_excluded.append(i)
 			else:
-				have_record.append(i) # some (extant) species may have trait value but no fosil record
+				have_record.append(i) # some (extant) species may have trait value but no fossil record
 				fossil.append(fossil_complete[i])
 				taxa_included.append(i)
 		else: 
-			have_record.append(i) # some (extant) species may have trait value but no fosil record
+			have_record.append(i) # some (extant) species may have trait value but no fossil record
 			fossil.append(fossil_complete[i])
 			taxa_included.append(i)
-	if len(singletons_excluded)>0: print "%s species excluded as singletons (%s remaining)" % (len(singletons_excluded), len(fossil))	
+	if len(singletons_excluded)>0 and args.data_info is False: print "%s species excluded as singletons (%s remaining)" % (len(singletons_excluded), len(fossil))	
 	out_name=input_data_module.get_out_name(j) +args.out
 
 	try: taxa_names=input_data_module.get_taxa_names()
@@ -1822,7 +1823,7 @@ if use_se_tbl==False:
 		taxa_names=list()
 		for i in range(len(fossil)): taxa_names.append("taxon_%s" % (i))
 	
-	print singletons_excluded
+	#print singletons_excluded
 	taxa_included = np.array(taxa_included)
 	taxa_names = np.array(taxa_names)
 	taxa_names = taxa_names[taxa_included]
@@ -1981,6 +1982,21 @@ if use_poiD is True:
 		print "PoiD not available with SE estimation. Using BD instead."
 		BPD_partial_lik = BD_partial_lik
 		PoiD_const = 0
+
+# GET DATA SUMMARY INFO
+if args.data_info is True:
+	print "\nDATA SUMMARY\n"
+	if len(singletons_excluded)>0: print "%s species excluded as singletons (observed life span < %s Myr)" % (len(singletons_excluded), args.singleton)
+	print "%s species included in the data set" % (len(fossil))
+	one_occ_sp,all_occ,extant_sp  = 0,0,0
+	for i in fossil:
+		if len(i)==1: one_occ_sp+=1
+		all_occ += len(i)
+		if min(i)==0: extant_sp+=1
+	print "%s species have a single occurrence, %s species are extant" % (one_occ_sp,extant_sp)
+	print "%s fossil occurrences, ranging from %s to %s Ma" % (all_occ, max(FA), min(LO[LO>0]))
+	sys.exit("\n")
+	
 
 ############################ MCMC OUTPUT ############################
 try: os.mkdir(output_wd)
