@@ -1162,6 +1162,7 @@ def MCMC(all_arg):
 				if it<I-1:
 					tmp += 1
 					lik_tmp=0
+					PostA=-inf # when temperature changes always accept first iteration
 		temperature=temperatures[tmp]
 		
 		# update parameters
