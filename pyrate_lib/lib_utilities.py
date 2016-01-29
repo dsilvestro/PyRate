@@ -277,4 +277,80 @@ def parse_hsp_logfile(logfile,burnin=100):
 		km.append(mean(t[:,k_indexM[i]]))
 	
 	return(fixed_focal_clade,baseline_L,baseline_M,np.array(gl),np.array(gm),np.array(kl),np.array(km))
+ 
+
+
+def parse_hsp_logfile_HPD(logfile,burnin=100):
+	t=np.loadtxt(logfile, skiprows=max(1,burnin))
+	head = next(open(logfile)).split()
 	
+	# get col indexes
+	L0_index = 4
+	M0_index = 5
+	l_indexL = [head.index(i) for i in head if "Gl" in i]
+	l_indexM = [head.index(i) for i in head if "Gm" in i]
+	k_indexL = [head.index(i) for i in head if "kl" in i]
+	k_indexM = [head.index(i) for i in head if "km" in i]
+	
+	# get number of focal clade
+	C = list(head[L0_index])
+	fixed_focal_clade = ""
+	for i in range(1,len(C)):  # so if head[L0_index]== "l12": C=["l","1","2"] and fixed_focal_clade = "12"
+		fixed_focal_clade+=C[i]
+	
+	fixed_focal_clade = int(fixed_focal_clade) 
+	
+		
+	print "\nGetting posterior parameter values..."
+	# store l0,m0,gl,gm values for each MCMC iteration
+	L0_list,M0_list,gl_list,gm_list = list(),list(),list(),list()
+
+	for j in range(shape(t)[0]):
+		# baseline rates
+		L0 = t[j,L0_index]
+		M0 = t[j,M0_index]
+		# G parameters
+		gl = t[j,l_indexL]
+		gm = t[j,l_indexM]
+		
+		L0_list.append(L0)
+		M0_list.append(M0)
+		gl_list.append(gl)
+		gm_list.append(gm)
+
+	L0_list = np.array(L0_list)
+	M0_list = np.array(M0_list)
+	gl_list = np.array(gl_list)
+	gm_list = np.array(gm_list)
+	#print np.shape(gl_list)
+	
+	# get posterior estimate of k
+	kl,km = list(),list()
+	for i in range(len(l_indexL)):
+		kl.append(mean(t[:,k_indexL[i]]))
+		km.append(mean(t[:,k_indexM[i]]))
+	
+	gl,gm = list(),list()
+	for i in range(len(l_indexL)):
+		gl.append(mean(t[:,l_indexL[i]]))
+		gm.append(mean(t[:,l_indexM[i]]))
+	
+	return(fixed_focal_clade,L0_list,M0_list,gl_list,gm_list,np.array(kl),np.array(km))
+
+
+def get_mode(data):
+	# determine bins Freedman-Diaconis rule
+	iqr = np.subtract(*np.percentile(data,[75,25])) # interquantile range
+	h_temp = 2 * iqr * len(data) **(-1./3) # width
+	h = max(h_temp,0.0001)
+	n_bins= int((max(data)-min(data))/h)
+	hist=np.histogram(data,bins=n_bins)
+	return hist[1][np.argmax(hist[0])] # modal value
+
+
+
+
+
+
+
+

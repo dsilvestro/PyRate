@@ -23,7 +23,9 @@ lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "pyrate_lib/lib_DD_like
 lib_utilities = imp.load_source("lib_utilities", "pyrate_lib/lib_utilities.py")
 from lib_updates_priors import *
 from lib_DD_likelihood  import *
-
+from lib_utilities import calcHPD as calcHPD
+from lib_utilities import print_R_vec as print_R_vec
+from lib_utilities import get_mode as get_mode
 
 #### DATA ###
 
@@ -35,9 +37,10 @@ p.add_argument('-s', type=int,   help='sampling freq.', default=5000, metavar=50
 p.add_argument('-p', type=int,   help='print freq.', default=5000000, metavar=5000000)
 p.add_argument('-j', type=int,   help='replicate', default=0, metavar=0)
 p.add_argument('-c', type=int, help='clade', default=0, metavar=0)
-p.add_argument('-b', type=float, help='shape parameter (beta) of Be hyper=prior pn indicators', default=1, metavar=1)
+p.add_argument('-b', type=int, help='burnin (number of generations)', default=1, metavar=1)
 p.add_argument('-r', type=float, help='rescale values (0 to scale in [0,1], 0.1 to reduce range 10x, 1 to leave unchanged)', default=0, metavar=0)
 p.add_argument('-plot', type=str, help='Log file', default="", metavar="")
+p.add_argument('-plot2', type=str, help='Log file', default="", metavar="")
 p.add_argument('-var', type=str, help='Directory to continuous variables (takes all files)', default="", metavar="")
 
 
@@ -71,7 +74,7 @@ if args.c==0: fixed_focal_clade=0
 else: fixed_focal_clade = args.c-1
 clade_name = "_c%s" % (fixed_focal_clade)
 
-Be_shape_beta = args.b
+burnin = args.b
 beta_value = "_hspCS"
 
 #print len(ts),len(te)
@@ -81,10 +84,11 @@ all_files="%s/*" % (dir_to_files)
 list_files_temp=glob.glob(all_files)
 list_files = [""]+list_files_temp
 
+variable_names=[]
 for i in range(len(list_files)):
 	name_var_file = os.path.splitext(os.path.basename(list_files[i]))[0]
-	if i==0: variable_names= ["Diversity dependence"]
-	else: variable_names.append(name_var_file)
+	if i==0: name_var_file = "Diversity dependence"
+	variable_names.append(name_var_file)
 	print i, name_var_file
 
 # first item is empty because it's were the Dtraj goes
@@ -98,7 +102,7 @@ for i in range(1,len(list_files)): # add data from curves
 	ts=np.concatenate((ts,time_var),axis=0)
 	te=np.concatenate((te,np.zeros(len(index_curve))),axis=0)
 	
-print clade_ID, len(ts),len(te)
+#print clade_ID, len(ts),len(te)
 
 
 all_events=sort(np.concatenate((ts,te),axis=0))[::-1] # events are speciation/extinction that change the diversity trajectory
@@ -106,15 +110,25 @@ n_clades,n_events=max(clade_ID)+1,len(all_events)
 Dtraj=init_Dtraj(n_clades,n_events)
 
 ##### RTT PLOTS
+plot_RTT,plot_RTT2 = False,False
+
 summary_file = args.plot
 if summary_file != "":
-	plot_RTT = True
-	print "parsing log file:", summary_file
-	fixed_focal_clade,baseline_L,baseline_M,Gl_focal_clade,Gm_focal_clade,est_kl,est_km = lib_utilities.parse_hsp_logfile(summary_file)
+	plot_RTT  = True
+	print "Parsing log file:", summary_file
+	fixed_focal_clade,baseline_L,baseline_M,Gl_focal_clade,Gm_focal_clade,est_kl,est_km = lib_utilities.parse_hsp_logfile(summary_file,burnin)
+	#else: sys.exit("Unable to parse file.")
+
+# NEW FUNCTION 
+elif args.plot2 != "":
+	plot_RTT2 = True
+	summary_file = args.plot2
+	name_file = os.path.splitext(os.path.basename(summary_file))[0]
+	print "Parsing log file:", summary_file
+	fixed_focal_clade,baseline_L,baseline_M,Gl_focal_clade,Gm_focal_clade,est_kl,est_km = lib_utilities.parse_hsp_logfile(summary_file,burnin)
+	fixed_focal_clade,baseline_L_list,baseline_M_list,Gl_focal_clade_list,Gm_focal_clade_list,est_kl,est_km = lib_utilities.parse_hsp_logfile_HPD(summary_file,burnin)
 	#else: sys.exit("Unable to parse file.")
 		
-else: plot_RTT = False
-
 
 
 
@@ -174,7 +188,7 @@ for i in range(n_clades): # make trajectory curves for each clade
 		idx_s.append(np.intersect1d(ind_clade_i,ind_sp))
 		idx_e.append(np.intersect1d(ind_clade_i,ind_ex))
 	else:
-		print list_files[i]
+		# print list_files[i]
 		temp_tbl = np.loadtxt(list_files[i],skiprows=1)
 		time_var = temp_tbl[:,0] # time
 		var_val  = temp_tbl[:,1] # var value
@@ -200,7 +214,7 @@ for i in range(n_clades): # make trajectory curves for each clade
 		#__     sys.exit()
 		##print "\n\n\n\n\nso far..."
 
-print Dtraj
+# print Dtraj
 
 
 ##### HORSESHOE PRIOR FUNCTIONS
@@ -266,7 +280,7 @@ elif scaling ==2:
 	MAX_G = 10.
 	trasfRate_general = trasfMultiRateCladeScaling
 
-print scale_factor, np.max(Dtraj)
+# print scale_factor, np.max(Dtraj)
 
 
 
@@ -318,8 +332,135 @@ Tau=TauA
 
 
 ########################## PLOT RTT ##############################
-if plot_RTT is True: 
-	print "\ngenerating R file...",
+if plot_RTT2 is True: # NEW FUNCTION 2
+	out="%s/%s_RTT.r" % (wd,name_file)
+	newfile = open(out, "wb") 
+	
+	if platform.system() == "Windows" or platform.system() == "Microsoft":
+		r_script= "\n\npdf(file='%s\%s_RTT.pdf',width=0.6*20, height=0.6*10)\nlibrary(scales)\n" % (wd,name_file)
+	else: 
+		r_script= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*20, height=0.6*10)\nlibrary(scales)\n" % (wd,name_file)
+	
+	for i in range(n_clades):
+		r_script+=lib_utilities.print_R_vec("\nclade_%s", Dtraj[:,i]) % (i+1)
+	
+	
+	# get marginal rates
+	print "Getting marginal rates..."
+	
+	
+	for i in range(-1, n_clades):
+		marginal_L = list()
+		marginal_M = list()
+		Gl_temp,Gm_temp=0,0
+		for j in range(len(baseline_L_list)): # loop over MCMC samples
+			baseline_L = baseline_L_list[j]
+			baseline_M = baseline_M_list[j]
+			Gl_focal_clade = Gl_focal_clade_list[j,:]
+			Gm_focal_clade = Gm_focal_clade_list[j,:]
+			# G estimates are given per species but Dtraj are rescaled when:  scaling > 0 (default: scaling = 1)
+			GarrayA=init_Garray(n_clades)
+			GarrayA[fixed_focal_clade,0,:] += Gl_focal_clade/scale_factor 
+			GarrayA[fixed_focal_clade,1,:] += Gm_focal_clade/scale_factor 
+	
+			if i==-1:
+				G_temp = GarrayA+0
+				#if j==0: print GarrayA[fixed_focal_clade,0,:] 
+			else:
+				G_temp = init_Garray(n_clades)
+				G_temp[fixed_focal_clade,:,i] += GarrayA[fixed_focal_clade,:,i]
+				Gl_temp+=G_temp[fixed_focal_clade,0,i]
+				Gm_temp+=G_temp[fixed_focal_clade,1,i]
+				#if j==0: print G_temp[fixed_focal_clade,0,:] 
+					
+	
+			marginal_L.append(trasfRate_general(baseline_L, G_temp[fixed_focal_clade,0,:],Dtraj))
+			marginal_M.append(trasfRate_general(baseline_M, G_temp[fixed_focal_clade,1,:],Dtraj))
+
+
+		if i== -1: print "Calculating mean rates and HPDs..."			
+		else: print "Processing variable:", variable_names[i]
+		
+		marginal_L = np.array(marginal_L)
+		marginal_M = np.array(marginal_M)
+		#print np.shape(marginal_L)
+
+		l_vec= np.zeros(np.shape(marginal_L)[1])
+		m_vec= np.zeros(np.shape(marginal_L)[1])
+		hpd_array_L= np.zeros((2,np.shape(marginal_L)[1]))
+		hpd_array_M= np.zeros((2,np.shape(marginal_L)[1]))
+		hpd_array_L50= np.zeros((2,np.shape(marginal_L)[1]))
+		hpd_array_M50= np.zeros((2,np.shape(marginal_L)[1]))
+		for ii in range(np.shape(marginal_L)[1]): # loop over marginal rates
+			l_vec[ii] = np.mean(marginal_L[:,ii]) # get_mode
+			m_vec[ii] = np.mean(marginal_M[:,ii]) # get_mode
+			hpd_array_L[:,ii] = calcHPD(marginal_L[:,ii])
+			hpd_array_M[:,ii] = calcHPD(marginal_M[:,ii])
+			hpd_array_L50[:,ii] = calcHPD(marginal_L[:,ii],0.75)
+			hpd_array_M50[:,ii] = calcHPD(marginal_M[:,ii],0.75)
+
+		r_script += lib_utilities.print_R_vec("\n\nt",all_events)
+		r_script += "\ntime = -t"
+		r_script += lib_utilities.print_R_vec("\nspeciation",l_vec)
+		r_script += lib_utilities.print_R_vec("\nsp_hdp_m",hpd_array_L[0])
+		r_script += lib_utilities.print_R_vec("\nsp_hdp_M",hpd_array_L[1])
+		r_script += lib_utilities.print_R_vec("\nsp_hdp_m50",hpd_array_L50[0])
+		r_script += lib_utilities.print_R_vec("\nsp_hdp_M50",hpd_array_L50[1])
+		r_script += lib_utilities.print_R_vec("\nextinction",m_vec)
+		r_script += lib_utilities.print_R_vec("\nex_hdp_m",hpd_array_M[0])
+		r_script += lib_utilities.print_R_vec("\nex_hdp_M",hpd_array_M[1])
+		r_script += lib_utilities.print_R_vec("\nex_hdp_m50",hpd_array_M50[0])
+		r_script += lib_utilities.print_R_vec("\nex_hdp_M50",hpd_array_M50[1])
+		
+
+		if i==-1:
+			r_script += """
+par(mfrow=c(1,2))
+YLIM = c(0,max(c(sp_hdp_M,ex_hdp_M)))
+YLIMsmall = c(0,max(c(sp_hdp_M50,ex_hdp_M50)))
+XLIM = c(min(time[clade_1>0]),0)
+plot(speciation[clade_1>0] ~ time[clade_1>0],type="l",col="#4c4cec", lwd=3,main="Speciation rates - Joint effects", ylim = YLIM,xlab="Time (Ma)",ylab="Speciation rates",xlim=XLIM)
+polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(sp_hdp_M[clade_1>0], rev(sp_hdp_m[clade_1>0])), col = alpha("#4c4cec",0.1), border = NA)	
+polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(sp_hdp_M50[clade_1>0], rev(sp_hdp_m50[clade_1>0])), col = alpha("#4c4cec",0.3), border = NA)	
+abline(v=-c(65,200,251,367,445),lty=2,col="gray")
+plot(extinction[clade_1>0] ~ time[clade_1>0],type="l",col="#e34a33",  lwd=3,main="Extinction rates - Joint effects", ylim = YLIM,xlab="Time (Ma)",ylab="Extinction rates",xlim=XLIM)
+polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(ex_hdp_M[clade_1>0], rev(ex_hdp_m[clade_1>0])), col = alpha("#e34a33",0.1), border = NA)	
+polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(ex_hdp_M50[clade_1>0], rev(ex_hdp_m50[clade_1>0])), col = alpha("#e34a33",0.3), border = NA)	
+abline(v=-c(65,200,251,367,445),lty=2,col="gray")
+""" #% (fixed_focal_clade+1,fixed_focal_clade+1,fixed_focal_clade+1,fixed_focal_clade+1)
+		else:
+			r_script += """
+par(mfrow=c(1,2))
+XLIM = c(min(time[clade_1>0]),0)
+plot(speciation[clade_1>0] ~ time[clade_1>0],type="l",col="darkblue", lwd=3,main="Effect of: %s", ylim = YLIMsmall,xlab="Time (Ma)",ylab="Speciation and extinction rates",xlim=XLIM)
+#polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(sp_hdp_M[clade_1>0], rev(sp_hdp_m[clade_1>0])), col = alpha("#4c4cec",0.1), border = NA)	
+#polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(sp_hdp_M50[clade_1>0], rev(sp_hdp_m50[clade_1>0])), col = alpha("#4c4cec",0.3), border = NA)	
+mtext("Wl = %s, Wm = %s, Gl = %s, Gm = %s")
+lines(extinction[clade_1>0] ~ time[clade_1>0], col="darkred", lwd=3)
+#polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(ex_hdp_M[clade_1>0], rev(ex_hdp_m[clade_1>0])), col = alpha("#e34a33",0.1), border = NA)	
+#polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(ex_hdp_M50[clade_1>0], rev(ex_hdp_m50[clade_1>0])), col = alpha("#e34a33",0.3), border = NA)	
+	abline(v=-c(65,200,251,367,445),lty=2,col="gray")
+plot(clade_%s[clade_1>0] ~ time[clade_1>0],type="l", main = "Trajectory of variable: %s",xlab="Time (Ma)",ylab="Rescaled value",xlim=XLIM)
+abline(v=-c(65,200,251,367,445),lty=2,col="gray")
+""" % (variable_names[i],round(est_kl[i],2),round(est_km[i],2),round(Gl_temp/float(len(baseline_L_list)),2),round(Gm_temp/float(len(baseline_L_list)),2),i+1,variable_names[i])
+			       
+			
+
+	r_script+="n<-dev.off()"
+	newfile.writelines(r_script)
+	newfile.close()
+	print "\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, wd)
+	if platform.system() == "Windows" or platform.system() == "Microsoft":
+		cmd="cd %s; Rscript %s\%s_RTT.r" % (wd,wd,name_file)
+	else: 
+		cmd="cd %s; Rscript %s/%s_RTT.r" % (wd,wd,name_file)
+	os.system(cmd)
+	print "done\n"	
+	sys.exit("\n")
+
+
+if plot_RTT is True: # OLD FUNCTION 
+	print "\nGenerating R file...",
 	out="%s/%s_RTT.r" % (wd,name_file)
 	newfile = open(out, "wb") 
 	
@@ -334,14 +475,15 @@ if plot_RTT is True:
 	l_at_events=trasfRate_general(baseline_L, GarrayA[fixed_focal_clade,0,:],Dtraj)
 	m_at_events=trasfRate_general(baseline_M, GarrayA[fixed_focal_clade,1,:],Dtraj)
 	
-	r_script += lib_utilities.print_R_vec("\n\ntime",all_events)
+	r_script += lib_utilities.print_R_vec("\n\nt",all_events)
+	r_script += "\ntime = -t"
 	r_script += lib_utilities.print_R_vec("\nspeciation",l_at_events)
 	r_script += lib_utilities.print_R_vec("\nextinction",m_at_events)
 	
 	r_script += """
-	plot(speciation[clade_1>0] ~ time[clade_1>0],type="l",col="darkblue", lwd=3,main="Diversification rates - Joint effects", ylim = c(0,max(c(speciation,extinction))),xlab="Time",ylab="Speciation and extinction rates",xlim=c(0,max(time)))
+	plot(speciation[clade_1>0] ~ time[clade_1>0],type="l",col="darkblue", lwd=3,main="Diversification rates - Joint effects", ylim = c(0,max(c(speciation,extinction))),xlab="Time",ylab="Speciation and extinction rates",xlim=c(min(time),0))
 	lines(extinction[clade_1>0] ~ time[clade_1>0], col="darkred", lwd=3)
-	abline(v=c(65,200,251,367,445),lty=2,col="gray")
+	abline(v=-c(65,200,251,367,445),lty=2,col="gray")
 	""" #% (fixed_focal_clade+1,fixed_focal_clade+1,fixed_focal_clade+1,fixed_focal_clade+1)
 	
 	for i in range(n_clades):
@@ -355,11 +497,11 @@ if plot_RTT is True:
 	
 		r_script += """
 		par(mfrow=c(1,2))
-		plot(speciation[clade_1>0] ~ time[clade_1>0],type="l",col="darkblue", lwd=3,main="Effect of: %s (wL = %s, wM = %s)", ylim = c(0,max(c(speciation,extinction))),xlab="Time",ylab="Speciation and extinction rates",xlim=c(0,max(time)))
+		plot(speciation[clade_1>0] ~ time[clade_1>0],type="l",col="darkblue", lwd=3,main="Effect of: %s (wL = %s, wM = %s)", ylim = c(0,max(c(speciation,extinction))),xlab="Time",ylab="Speciation and extinction rates",xlim=c(min(time),0))
 		lines(extinction[clade_1>0] ~ time[clade_1>0], col="darkred", lwd=3)
-		abline(v=c(65,200,251,367,445),lty=2,col="gray")
-		plot(clade_%s[clade_1>0] ~ time[clade_1>0],type="l", main = "Trajectory of variable: %s",xlab="Time",ylab="Rescaled value",xlim=c(0,max(time)))
-		abline(v=c(65,200,251,367,445),lty=2,col="gray")
+		abline(v=-c(65,200,251,367,445),lty=2,col="gray")
+		plot(clade_%s[clade_1>0] ~ time[clade_1>0],type="l", main = "Trajectory of variable: %s",xlab="Time",ylab="Rescaled value",xlim=c(min(time),0))
+		abline(v=-c(65,200,251,367,445),lty=2,col="gray")
 		""" % (variable_names[i],round(est_kl[i],2),round(est_km[i],2),
 		       i+1,variable_names[i])
 		
@@ -372,8 +514,7 @@ if plot_RTT is True:
 	else: 
 		cmd="cd %s; Rscript %s/%s_RTT.r" % (wd,wd,name_file)
 	os.system(cmd)
-	print "done\n"
-	
+	print "done\n"	
 	sys.exit("\n")
 
 ##############################################################
