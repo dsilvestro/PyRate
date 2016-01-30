@@ -1221,7 +1221,7 @@ def MCMC(all_arg):
 				timesM=update_times(timesMA, max(ts),mod_d4)
 			else: 
 				if TDI<2: # 
-					if rand.random()<.95 or fix_Shift is False:
+					if rand.random()<.95 or use_cauchy is False:
 						L,M,hasting=update_rates(LA,MA,3,mod_d3)
 					else:
 						hyperP,hasting = update_multiplier_proposal(hyperPA,1.2)
@@ -1288,6 +1288,7 @@ def MCMC(all_arg):
 
 		# pert_prior defines gamma prior on alphas[1] - fossilization rate
 		prior = prior_gamma(alphas[1],pert_prior[0],pert_prior[1]) + prior_uniform(alphas[0],0,20)
+		if use_cauchy is True: prior += ( prior_uniform(hyperP[0],0,20)+prior_uniform(hyperP[1],0,20) )
 
 
 		### DPP begin
@@ -1448,7 +1449,7 @@ def MCMC(all_arg):
 			if TDI<2: # normal MCMC or MCMC-TI
 				log_state += s_max,min(teA)
 				if TDI==1: log_state += [temperature]
-				if fix_Shift is True: log_state += list(hyperPA)
+				if use_cauchy is True: log_state += list(hyperPA)
 				log_state += list(LA)
 				log_state += list(MA)
 				if fix_Shift== False:
@@ -1572,6 +1573,7 @@ p.add_argument('-pM',  type=float, help='Prior - extinction rate (Gamma <shape, 
 p.add_argument('-pP',  type=float, help='Prior - preservation rate (Gamma <shape, rate>)', default=[1.5, 1.1], metavar=1.5, nargs=2)
 p.add_argument('-pS',  type=float, help='Prior - time frames (Dirichlet <shape>)', default=2.5, metavar=2.5)
 p.add_argument('-pC',  type=float, help='Prior - covariance parameters (Normal <standard deviation>)', default=1, metavar=1)
+p.add_argument("-cauchy",          help='HyperPrior - use hyper priors on sp/ex rates', action='store_true', default=False)
 
 # MODEL
 p.add_argument("-mHPP",    help='Model - Homogeneous Poisson process of preservation', action='store_true', default=False)
@@ -1961,10 +1963,12 @@ if model_BDI >=0:
 		
 		
 
-
+use_cauchy = False
+if args.cauchy is True: use_cauchy = True
+if fix_Shift is True: use_cauchy = True
 # define hyper-prior function for BD rates
 if tot_extant==-1 or TDI ==3 or use_poiD is True:
-	if fix_Shift is True and TDI < 3: 
+	if fix_Shift is True and TDI < 3 or use_cauchy is True: 
 		print("Using Cauchy priors on the birth-death rates.\n")
 		get_hyper_priorBD = HPBD1 # cauchy with hyper-priors
 	else: 
@@ -2047,7 +2051,7 @@ if model_cov>=1: head += "cov_sp\tcov_ex\tcov_q\t"
 if TDI<2:
 	head += "root_age\tdeath_age\t"
 	if TDI==1: head += "beta\t"
-	if fix_Shift is True: 
+	if use_cauchy is True: 
 		head += "hypL\thypM\t"
 	for i in range(time_framesL): head += "lambda_%s\t" % (i)
 	for i in range(time_framesM): head += "mu_%s\t" % (i)
