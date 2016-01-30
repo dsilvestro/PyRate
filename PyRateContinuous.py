@@ -94,7 +94,7 @@ else:
 
 Temp_values= (Temp_values-Temp_values[0]) # so l0 and m0 are rates at the present
 if rescale_factor > 0: Temp_values = Temp_values*rescale_factor
-else: Temp_values = Temp_values/(max(Temp_values)-min(Temp_values))
+else: Temp_values = Temp_values/(float(max(Temp_values))-min(Temp_values))
 
 #print "BRL" , sum(ts-te)
 #print "range:", max(Temp_values)-min(Temp_values)
@@ -125,14 +125,27 @@ Dtraj[:,0]=getDT(all_events,ts,te)
 
 #print "TIME", max(times_of_T_change), max(ts),Temp_values[-1]
 
-Temp_at_events= get_VarValue_at_time(times_of_T_change_tste,Temp_values,times_of_T_change_indexes,times_of_T_change,max(ts))
+
 #_print ind_s[3566:]
 #_print Temp_at_events[1000:1010]
 #_print "HERE",len(ind_s),len(ind_e)
 
+#if args.DD is True: Temp_at_events = Dtraj[:,0]
+#else:
+Temp_at_events= get_VarValue_at_time(times_of_T_change_tste,Temp_values,times_of_T_change_indexes,times_of_T_change,max(ts))
 
-#for i in range(len(all_events)):
-#	print all_events[i],Temp_at_events[i]
+if args.DD is True:
+	Temp_at_events = Dtraj[:,0] + 0.	
+	Temp_at_events= (Temp_at_events-Temp_at_events[-1]) # so l0 and m0 are rates at the present
+	if rescale_factor > 0: Temp_at_events = Temp_at_events*rescale_factor
+	else: Temp_at_events = Temp_at_events/(float(max(Temp_at_events))-min(Temp_at_events))
+
+
+
+print len(all_events),len(Temp_at_events), len(Dtraj[:,0])
+
+for i in range(len(all_events)):
+	print all_events[i],Temp_at_events[i], Dtraj[i,0]
 
 GarrayA=np.zeros(2) # correlation parameters with Temp of lambda and mu, respectively
 

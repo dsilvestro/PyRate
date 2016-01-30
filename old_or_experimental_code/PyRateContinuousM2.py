@@ -101,8 +101,8 @@ if args.DD is True:
 	Dtraj = getDT(ts_te_vec,ts,te) + np.zeros(len(ts_te_vec))
 	times_of_T_change =  ts_te_vec
 	Temp_values = Dtraj
-	for i in range(len(Temp_values)):
-		print "%s\t%s" % (times_of_T_change[i],Temp_values[i])
+	#for i in range(len(Temp_values)):
+	#	print "%s\t%s" % (times_of_T_change[i],Temp_values[i])
 	
 else:
 	tempfile=loadtxt(cov_file,skiprows=1)
@@ -151,7 +151,17 @@ Dtraj[:,0]=getDT(all_events,ts,te)
 #print "TIME", max(times_of_T_change), max(ts),Temp_values[-1]
 
 Temp_at_events= get_VarValue_at_time(times_of_T_change_tste,Temp_values,times_of_T_change_indexes,times_of_T_change,max(ts))
-#_print ind_s[3566:]
+
+if args.DD is True:
+	Temp_at_events = Dtraj[:,0] + 0.
+	if rescale_factor > 0: Temp_at_events = Temp_at_events*rescale_factor
+	else: 
+		denom = (max(Temp_at_events)-min(Temp_at_events))
+		if denom==0: denom=1.
+		Temp_at_events = Temp_at_events/denom
+
+
+
 #print Temp_at_events[150:]
 #_print "HERE",len(ind_s),len(ind_e)
 
@@ -177,6 +187,12 @@ Temp_at_events=scaled_temp
 #for i in range(len(all_events)): #range(600,650):
 #	print "%s\t%s" % (round(all_events[i],2),round(Temp_at_events[i],2))
 #quit()
+
+
+
+for i in range(len(all_events)):
+	print all_events[i],Temp_at_events[i], Dtraj[i,0]
+
 
 ### INIT PARAMS
 n_time_bins=len(np.unique(shift_ind))
