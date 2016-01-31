@@ -66,6 +66,14 @@ clade_ID=clade_ID.astype(int)
 ts=t_file[:,2+2*args.j]
 te=t_file[:,3+2*args.j]
 
+#if args.plot2 != "":
+#	j = np.arange((np.shape(t_file)[1]-2)/2)
+#	ts_all=t_file[:,2+2*j]
+#	te_all=t_file[:,3+2*j]
+#	ts=np.mean(ts_all,axis=1)
+#	te=np.mean(te_all,axis=1)
+	
+
 constr=args.m
 root_age=max(ts)
 
@@ -270,7 +278,7 @@ scaling =0
 if scaling==0:	
 	scale_factor = 1.
 	MAX_G = np.inf #0.30/scale_factor # loc_shrinkage
-	trasfRate_general = trasfMultiRateND
+	trasfRate_general = trasfMultiRateND # trasfMultiRateND_exp
 elif scaling == 1:
 	scale_factor = 1./np.max(Dtraj)
 	MAX_G = 0.30/scale_factor
@@ -289,7 +297,7 @@ elif scaling ==2:
 GarrayA=init_Garray(n_clades) # 3d array so:
                                  # Garray[i,:,:] is the 2d G for one clade
 			         # Garray[0,0,:] is G_lambda, Garray[0,1,:] is G_mu for clade 0
-if plot_RTT is True: 
+if plot_RTT is True or plot_RTT2 is True: 
 	# G estimates are given per species but Dtraj are rescaled when:  scaling > 0 (default: scaling = 1)
 	GarrayA[fixed_focal_clade,0,:] += Gl_focal_clade/scale_factor 
 	GarrayA[fixed_focal_clade,1,:] += Gm_focal_clade/scale_factor 
