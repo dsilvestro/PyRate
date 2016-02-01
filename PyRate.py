@@ -1141,7 +1141,9 @@ def MCMC(all_arg):
 			alpha_par_Dir_M = np.random.uniform(0,1) # init concentration parameters
 		
 		alphasA,cov_parA = init_alphas() # use 1 for symmetric PERT
-		hyperPA=np.ones(2)
+		if fix_cauchy is False:	hyperPA=np.ones(2)
+		else: hyperPA = hypP_scale
+		
 		if argsG is False: alphasA[0]=1
 		SA=sum(tsA-teA)
 
@@ -1221,7 +1223,7 @@ def MCMC(all_arg):
 				timesM=update_times(timesMA, max(ts),mod_d4)
 			else: 
 				if TDI<2: # 
-					if rand.random()<.95 or use_cauchy is False:
+					if rand.random()<.95 or use_cauchy is False or fix_cauchy is True:
 						L,M,hasting=update_rates(LA,MA,3,mod_d3)
 					else:
 						hyperP,hasting = update_multiplier_proposal(hyperPA,1.2)
@@ -1573,7 +1575,7 @@ p.add_argument('-pM',  type=float, help='Prior - extinction rate (Gamma <shape, 
 p.add_argument('-pP',  type=float, help='Prior - preservation rate (Gamma <shape, rate>)', default=[1.5, 1.1], metavar=1.5, nargs=2)
 p.add_argument('-pS',  type=float, help='Prior - time frames (Dirichlet <shape>)', default=2.5, metavar=2.5)
 p.add_argument('-pC',  type=float, help='Prior - covariance parameters (Normal <standard deviation>)', default=1, metavar=1)
-p.add_argument("-cauchy",          help='HyperPrior - use hyper priors on sp/ex rates', action='store_true', default=False)
+p.add_argument("-cauchy", type=float, help='HyperPrior - use hyper priors on sp/ex rates (if 0 -> estimated)', default=[-1, -1], metavar=-1, nargs=2)
 
 # MODEL
 p.add_argument("-mHPP",    help='Model - Homogeneous Poisson process of preservation', action='store_true', default=False)
@@ -1964,7 +1966,13 @@ if model_BDI >=0:
 		
 
 use_cauchy = False
-if args.cauchy is True: use_cauchy = True
+fix_cauchy = False
+if sum(args.cauchy) >= 0:
+	use_cauchy = True
+	if sum(args.cauchy) > 0:
+		fix_cauchy = True
+		hypP_scale = np.array(args.cauchy)
+	
 if fix_Shift is True: use_cauchy = True
 # define hyper-prior function for BD rates
 if tot_extant==-1 or TDI ==3 or use_poiD is True:
