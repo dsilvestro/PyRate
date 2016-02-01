@@ -74,7 +74,11 @@ te=t_file[:,3+2*args.j]
 #	te=np.mean(te_all,axis=1)
 	
 
-constr=args.m
+corr_model=args.m
+if corr_model ==0: model_name = "lin"
+else: model_name = "exp"
+
+
 root_age=max(ts)
 
 single_focal_clade = True
@@ -278,7 +282,8 @@ scaling =0
 if scaling==0:	
 	scale_factor = 1.
 	MAX_G = np.inf #0.30/scale_factor # loc_shrinkage
-	trasfRate_general = trasfMultiRateND # trasfMultiRateND_exp
+	if corr_model==0: trasfRate_general = trasfMultiRateND 
+	elif corr_model==1: trasfRate_general = trasfMultiRateND_exp
 elif scaling == 1:
 	scale_factor = 1./np.max(Dtraj)
 	MAX_G = 0.30/scale_factor
@@ -303,7 +308,7 @@ if plot_RTT is True or plot_RTT2 is True:
 	GarrayA[fixed_focal_clade,1,:] += Gm_focal_clade/scale_factor 
 else:
 	GarrayA[fixed_focal_clade,:,:] += np.random.normal(0,1,np.shape(GarrayA[fixed_focal_clade,:,:]))
-	out_file_name="%s_%s_m%s_MCDD%s%s.log" % (dataset,args.j,constr,clade_name,beta_value)
+	out_file_name="%s_%s_%s_MCDD%s%s.log" % (dataset,args.j,model_name,clade_name,beta_value)
 	logfile = open(out_file_name , "wb") 
 	wlog=csv.writer(logfile, delimiter='\t')
 
@@ -330,7 +335,6 @@ else:
 
 LAM=init_Garray(n_clades)
 LAM[fixed_focal_clade,:,:] = 1.
-Constr_matrix=make_constraint_matrix(n_clades, constr)
 l0A,m0A=init_BD(n_clades),init_BD(n_clades)
 
 TauA=np.array([.5]) # np.ones(1) # P(G==0)

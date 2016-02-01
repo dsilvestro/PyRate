@@ -116,7 +116,7 @@ def trasfMultiRateND(r0,Garray_clade,mDtraj):    # curves not transformed
 def trasfMultiRateND_exp(r0,Garray_clade,mDtraj):    # curves not transformed
 	#mDtraj=(Dtraj-np.min(Dtraj, axis=0))/(np.max(Dtraj, axis=0)-np.min(Dtraj, axis=0))
 	#r_rate=r0 + np.sum(r0 * Garray_clade * mDtraj,axis=1)
-	r_rate=np.sum(r0* exp(Garray_clade*mDtraj),axis=1)
+	r_rate= r0* exp(np.sum(Garray_clade*mDtraj,axis=1)) 
 	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+.0001)),axis=0)
 	return r_rate
 
