@@ -5,7 +5,7 @@
 
 * Silvestro D., Salamin N., Schnitzler J. (2014) PyRate: A new program to estimate speciation and extinction rates from incomplete fossil record. Methods in Ecology and Evolution, 5, 1126-1131.
 
-#### An updated manual is available here: https://github.com/dsilvestro/PyRate/wiki. A PDF manual (no longer updated) and example files can be found here: https://sourceforge.net/projects/pyrate/.
+#### The program's manual is available here: https://github.com/dsilvestro/PyRate/wiki. 
 
 #### The model with fixed shift times and Cauchy hyper-priors on the birth-death rates is described here:
 
