@@ -428,8 +428,7 @@ if plot_RTT2 is True: # NEW FUNCTION 2
 		if i==-1:
 			r_script += """
 par(mfrow=c(1,2))
-YLIM = c(0,max(c(sp_hdp_M,ex_hdp_M)))
-YLIMsmall = c(0,max(c(sp_hdp_M50,ex_hdp_M50)))
+YLIM = c(0,max(c(sp_hdp_M[clade_1>0],ex_hdp_M[clade_1>0])))
 XLIM = c(min(time[clade_1>0]),0)
 plot(speciation[clade_1>0] ~ time[clade_1>0],type="l",col="#4c4cec", lwd=3,main="Speciation rates - Joint effects", ylim = YLIM,xlab="Time (Ma)",ylab="Speciation rates",xlim=XLIM)
 polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(sp_hdp_M[clade_1>0], rev(sp_hdp_m[clade_1>0])), col = alpha("#4c4cec",0.1), border = NA)	
@@ -444,6 +443,7 @@ abline(v=-c(65,200,251,367,445),lty=2,col="gray")
 			r_script += """
 par(mfrow=c(1,2))
 XLIM = c(min(time[clade_1>0]),0)
+YLIMsmall = c(0,max(c(sp_hdp_M50[clade_1>0],ex_hdp_M50[clade_1>0])))
 plot(speciation[clade_1>0] ~ time[clade_1>0],type="l",col="darkblue", lwd=3,main="Effect of: %s", ylim = YLIMsmall,xlab="Time (Ma)",ylab="Speciation and extinction rates",xlim=XLIM)
 #polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(sp_hdp_M[clade_1>0], rev(sp_hdp_m[clade_1>0])), col = alpha("#4c4cec",0.1), border = NA)	
 #polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(sp_hdp_M50[clade_1>0], rev(sp_hdp_m50[clade_1>0])), col = alpha("#4c4cec",0.3), border = NA)	
