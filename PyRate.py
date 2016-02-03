@@ -621,8 +621,8 @@ def logPERT4_density5(M,m,a,b,x): # relative LOG-PERT density: PERT4
 def HPBD1(timesL,timesM,L,M,T,s):	
 	return sum(prior_cauchy(L,s[0]))+sum(prior_cauchy(M,s[1]))
 
-def HPBD2(timesL,timesM,L,M,T,s):	
-	return sum(prior_gamma(L,L_lam_r,L_lam_m))+sum(prior_gamma(M,M_lam_r,M_lam_m))
+def HPBD2(timesL,timesM,L,M,T,s):
+	return sum(prior_gamma(L,L_lam_r,s[0])) + sum(prior_gamma(M,M_lam_r,s[1])) 
 
 def HPBD3(timesL,timesM,L,M,T,s):	
 	def pNtvar(arg):
@@ -1141,8 +1141,8 @@ def MCMC(all_arg):
 			alpha_par_Dir_M = np.random.uniform(0,1) # init concentration parameters
 		
 		alphasA,cov_parA = init_alphas() # use 1 for symmetric PERT
-		if fix_cauchy is False:	hyperPA=np.ones(2)
-		else: hyperPA = hypP_scale
+		#if fix_hyperP is False:	hyperPA=np.ones(2)
+		hyperPA = hypP_par
 		
 		if argsG is False: alphasA[0]=1
 		SA=sum(tsA-teA)
@@ -1223,7 +1223,7 @@ def MCMC(all_arg):
 				timesM=update_times(timesMA, max(ts),mod_d4)
 			else: 
 				if TDI<2: # 
-					if rand.random()<.95 or use_cauchy is False or fix_cauchy is True:
+					if rand.random()<.95 or est_hyperP is False or fix_hyperP is True:
 						L,M,hasting=update_rates(LA,MA,3,mod_d3)
 					else:
 						hyperP,hasting = update_multiplier_proposal(hyperPA,1.2)
@@ -1290,7 +1290,7 @@ def MCMC(all_arg):
 
 		# pert_prior defines gamma prior on alphas[1] - fossilization rate
 		prior = prior_gamma(alphas[1],pert_prior[0],pert_prior[1]) + prior_uniform(alphas[0],0,20)
-		if use_cauchy is True: prior += ( prior_uniform(hyperP[0],0,20)+prior_uniform(hyperP[1],0,20) )
+		if est_hyperP is True: prior += ( prior_uniform(hyperP[0],0,20)+prior_uniform(hyperP[1],0,20) )
 
 
 		### DPP begin
@@ -1396,6 +1396,8 @@ def MCMC(all_arg):
 			lik_alter=(sum(lik_fossil)+ PoiD_const) + (sum(likBDtemp)+ PoiD_const)*temperature
 		Post=lik_alter+prior
 		if it==0: PostA=Post
+		if TDI==1 and it<I-1: PostA=Post # when temperature changes always accept first iteration
+		
 		#print Post, PostA, alphasA, sum(lik_fossil), sum(likBDtemp),  prior
 		if Post>-inf and Post<inf:
 			if Post*tempMC3-PostA*tempMC3 + hasting >= log(rand.random()) or stop_update==inf: # or it==0:
@@ -1429,6 +1431,8 @@ def MCMC(all_arg):
 					print "\tt.frames:", timesLA, "(sp.)"
 					print "\tt.frames:", timesMA, "(ex.)"
 				print "\tsp.rates:", LA, "\n\tex.rates:", MA
+				if est_hyperP is True: print "\thyper.prior.par", hyperPA
+
 				
 				if model_cov>=1: print "\tcov. (sp/ex/q):", cov_parA
  				if fix_SE ==False: 
@@ -1451,7 +1455,7 @@ def MCMC(all_arg):
 			if TDI<2: # normal MCMC or MCMC-TI
 				log_state += s_max,min(teA)
 				if TDI==1: log_state += [temperature]
-				if use_cauchy is True: log_state += list(hyperPA)
+				if est_hyperP is True: log_state += list(hyperPA)
 				log_state += list(LA)
 				log_state += list(MA)
 				if fix_Shift== False:
@@ -1570,12 +1574,12 @@ p.add_argument('-dpp_eK', type=float, help='DPP - expected number of rate catego
 p.add_argument('-dpp_grid'    , type=float, help='DPP - size of time frames',default=1.5, metavar=1.5)
 
 # PRIORS
-p.add_argument('-pL',  type=float, help='Prior - speciation rate (Gamma <shape, rate>)', default=[1.1, 1.1], metavar=1.1, nargs=2)
-p.add_argument('-pM',  type=float, help='Prior - extinction rate (Gamma <shape, rate>)', default=[1.1, 1.1], metavar=1.1, nargs=2)
-p.add_argument('-pP',  type=float, help='Prior - preservation rate (Gamma <shape, rate>)', default=[1.5, 1.1], metavar=1.5, nargs=2)
-p.add_argument('-pS',  type=float, help='Prior - time frames (Dirichlet <shape>)', default=2.5, metavar=2.5)
-p.add_argument('-pC',  type=float, help='Prior - covariance parameters (Normal <standard deviation>)', default=1, metavar=1)
-p.add_argument("-cauchy", type=float, help='HyperPrior - use hyper priors on sp/ex rates (if 0 -> estimated)', default=[-1, -1], metavar=-1, nargs=2)
+p.add_argument('-pL',  type=float,    help='Prior - speciation rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.1, 1.1], metavar=1.1, nargs=2)
+p.add_argument('-pM',  type=float,    help='Prior - extinction rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.1, 1.1], metavar=1.1, nargs=2)
+p.add_argument('-pP',  type=float,    help='Prior - preservation rate (Gamma <shape, rate>)', default=[1.5, 1.1], metavar=1.5, nargs=2)
+p.add_argument('-pS',  type=float,    help='Prior - time frames (Dirichlet <shape>)', default=2.5, metavar=2.5)
+p.add_argument('-pC',  type=float,    help='Prior - covariance parameters (Normal <standard deviation>)', default=1, metavar=1)
+p.add_argument("-cauchy", type=float, help='Prior - use hyper priors on sp/ex rates (if 0 -> estimated)', default=[-1, -1], metavar=-1, nargs=2)
 
 # MODEL
 p.add_argument("-mHPP",    help='Model - Homogeneous Poisson process of preservation', action='store_true', default=False)
@@ -1965,15 +1969,24 @@ if model_BDI >=0:
 		
 		
 
+est_hyperP = False
 use_cauchy = False
-fix_cauchy = False
+fix_hyperP = False
 if sum(args.cauchy) >= 0:
+	hypP_par = np.ones(2)
 	use_cauchy = True
+	est_hyperP = True
 	if sum(args.cauchy) > 0:
-		fix_cauchy = True
-		hypP_scale = np.array(args.cauchy)
+		fix_hyperP = True
+		hypP_par = np.array(args.cauchy) # scale of Cauchy distribution
+else:
+	hypP_par = np.array([L_lam_m,M_lam_m]) # rate of Gamma distribution
+	if min([L_lam_m,M_lam_m])==0:
+		est_hyperP = True
+		hypP_par = np.ones(2)
 	
-if fix_Shift is True: use_cauchy = True
+
+if fix_Shift is True: est_hyperP = True
 # define hyper-prior function for BD rates
 if tot_extant==-1 or TDI ==3 or use_poiD is True:
 	if fix_Shift is True and TDI < 3 or use_cauchy is True: 
@@ -2059,7 +2072,7 @@ if model_cov>=1: head += "cov_sp\tcov_ex\tcov_q\t"
 if TDI<2:
 	head += "root_age\tdeath_age\t"
 	if TDI==1: head += "beta\t"
-	if use_cauchy is True: 
+	if est_hyperP is True: 
 		head += "hypL\thypM\t"
 	for i in range(time_framesL): head += "lambda_%s\t" % (i)
 	for i in range(time_framesM): head += "mu_%s\t" % (i)
