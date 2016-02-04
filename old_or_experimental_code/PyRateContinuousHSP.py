@@ -105,7 +105,8 @@ for i in range(len(list_files)):
 
 # first item is empty because it's were the Dtraj goes
 for i in range(1,len(list_files)): # add data from curves
-	temp_tbl = np.loadtxt(list_files[i],skiprows=1)
+	try: temp_tbl = np.loadtxt(list_files[i],skiprows=1)
+	except: sys.exit("Could not read file: %s" % (list_files[i]))
 	time_var = temp_tbl[:,0] # time
 	#var_val  = temp_tbl[:,1] # var value
 	index_curve = np.ones(len(time_var))*i
