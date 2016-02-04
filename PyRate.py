@@ -831,16 +831,22 @@ def NHPP_lik(arg):
 		X=np.append(x[x>0],[x[x>0]]*(len(quant)-1)).reshape(len(quant), k) # matrix of fossils of shape quant x no. fossils		
 		if len(quant)>1:
 			den = sum(G_density(-GM,1,l)) + small_number
-			lik_temp= sum(exp(-(int_q) + np.sum((logPERT4_density(MM,z[:,0:k],aa,bb,X)+log(q)), axis=1) ) \
-			* (G_density(-GM,1,l)/den) / (1-exp(-int_q))) / len(GM)			
-			if lik_temp>0: lik=log(lik_temp)
-			else: lik = -inf
+			#lik_temp= sum(exp(-(int_q) + np.sum((logPERT4_density(MM,z[:,0:k],aa,bb,X)+log(q)), axis=1) ) \
+			#* (G_density(-GM,1,l)/den) / (1-exp(-int_q))) / len(GM)			
+			#if lik_temp>0: lik=log(lik_temp)
+			#else: lik = -inf
+			# LOG TRANSF
+			log_lik_temp = (-(int_q) + np.sum((logPERT4_density(MM,z[:,0:k],aa,bb,X)+log(q)), axis=1) )  \
+			+ log(G_density(-GM,1,l)/den) - log(1-exp(-int_q))
+			log_lik_temp_scaled = log_lik_temp-max(log_lik_temp)
+			lik = log(sum(exp(log_lik_temp_scaled))/ len(GM))+max(log_lik_temp)
 		else: lik= sum(-(int_q) + np.sum((logPERT4_density(MM,z[:,0:k],aa,bb,X)+log(q)), axis=1))
 	else:
 		C=M-c*(M-m)
 		a = 1+ (4*(C-m))/(M-m)
 		b = 1+ (4*(-C+M))/(M-m)
 		lik = -q*(M-m) + sum(logPERT4_density(M,m,a,b,x)+log(q)) - log(1-exp(-q*(M-m)))
+	#if m==0: print i, lik, q, k, min(x),sum(exp(-(int_q)))
 	return lik
 
 def NHPPgamma(arg):
@@ -1417,7 +1423,7 @@ def MCMC(all_arg):
 			PostA=Post # when temperature changes always accept first iteration
 		
 		#print Post, PostA, alphasA, sum(lik_fossil), sum(likBDtemp),  prior
-		if Post>-inf and Post<inf or it==0:
+		if Post>-inf and Post<inf:
 			if Post*tempMC3-PostA*tempMC3 + hasting >= log(rand.random()) or stop_update==inf: # 
 				likBDtempA=likBDtemp
 				PostA=Post
