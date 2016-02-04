@@ -197,7 +197,7 @@ def get_DT(T,s,e): # returns the Diversity Trajectory of s,e at times T (x10 fas
 
 
 ########################## PLOT RTT ##############################
-def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0):
+def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0, plot_type=1):
 	burnin = int(burnin)
 	if burnin<=1:
 		print("Burnin must be provided in terms of number of samples to be excluded.")
@@ -346,11 +346,9 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0):
 	NA_ind = (nonzero_rate==0).nonzero()[0]
 	
 	hpds95[:,NA_ind] = np.nan
-	hpds50[:,NA_ind] = np.nan
+	#hpds50[:,NA_ind] = np.nan
 	mean_rates[:,NA_ind] = np.nan
-	
-
-	print(np.shape(np.array(hpds50)	), np.shape(L_tbl_mean))
+	#print(np.shape(np.array(hpds50)	), np.shape(L_tbl_mean))
 
 	########################################################
 	######                  PLOT RTTs                 ######
@@ -368,6 +366,18 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0):
 		Rfile+= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*9, height=0.6*21)\npar(mfrow=c(3,1))" % (wd,name_file) # 9
 
 	Rfile+= "\nlibrary(scales)"
+	
+	if plot_type==2: Rfile+= """\nplot_RTT <- function (age,hpd_M,hpd_m,mean_m,color){
+	N=100
+	beta=(1:(N-1))/N
+	alpha_shape=0.25
+	cat=1-(beta^(1./alpha_shape))
+	for (i in 1:(N-1)){
+		trans= 1/N + 2/N
+		polygon(c(age, rev(age)), c(hpd_M-((hpd_M-mean_m)*cat[i]), rev(hpd_m+((mean_m-hpd_m)*cat[i]))), col = alpha(color,trans), border = NA)
+	}
+	lines(rev(age), rev(mean_m), col = color, lwd=3)\n}
+	"""
 
 	def RTT_plot_in_R(args, alpha):
 		count=0
@@ -405,11 +415,17 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0):
 				plot_L += """\nlines(rev(age), rev(L_mean), col = "#4c4cec", lwd=3)""" 
 				plot_M += """\nlines(rev(age), rev(M_mean), col = "#e34a33", lwd=3)""" 
 				plot_R += """\nlines(rev(age), rev(R_mean), col = "#504A4B", lwd=3)""" 
-			else: 
-				plot_L += """\npolygon(c(age, rev(age)), c(L_hpd_M%s, rev(L_hpd_m%s)), col = alpha("#4c4cec",trans), border = NA)""" % (name[count],name[count])
-				plot_M += """\npolygon(c(age, rev(age)), c(M_hpd_M%s, rev(M_hpd_m%s)), col = alpha("#e34a33",trans), border = NA)""" % (name[count],name[count])
-				plot_R += """\npolygon(c(age, rev(age)), c(R_hpd_M%s, rev(R_hpd_m%s)), col = alpha("#504A4B",trans), border = NA)""" % (name[count],name[count])
+			else:
+				if plot_type==1:
+					plot_L += """\npolygon(c(age, rev(age)), c(L_hpd_M%s, rev(L_hpd_m%s)), col = alpha("#4c4cec",trans), border = NA)""" % (name[count],name[count])
+					plot_M += """\npolygon(c(age, rev(age)), c(M_hpd_M%s, rev(M_hpd_m%s)), col = alpha("#e34a33",trans), border = NA)""" % (name[count],name[count])
+					plot_R += """\npolygon(c(age, rev(age)), c(R_hpd_M%s, rev(R_hpd_m%s)), col = alpha("#504A4B",trans), border = NA)""" % (name[count],name[count])
+				elif plot_type==2:
+					plot_L += """\nplot_RTT(age,L_hpd_M95,L_hpd_m95,L_mean,"#4c4cec")"""
+					plot_M += """\nplot_RTT(age,M_hpd_M95,M_hpd_m95,M_mean,"#e34a33")"""
+					plot_R += """\nplot_RTT(age,R_hpd_M95,R_hpd_m95,R_mean,"#504A4B")"""
 				
+					
 		
 			count+=1
 		R_code=data+plot_L+plot_M+plot_R
@@ -1540,7 +1556,8 @@ p.add_argument('-logT',      type=int, help='Transform trait: 0) False, 1) Ln(x)
 p.add_argument("-N",         type=float, help='number of exant species') 
 p.add_argument("-wd",        type=str, help='path to working directory', default="")
 p.add_argument("-out",       type=str, help='output tag', default="")
-p.add_argument('-plot',      metavar='<input file>', type=str,help="Path to 'marginal_rates.log files",default="")
+p.add_argument('-plot',      metavar='<input file>', type=str,help="RTT plot (type 1): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
+p.add_argument('-plot2',     metavar='<input file>', type=str,help="RTT plot (type 2): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
 p.add_argument('-root_plot', type=float, help='Root age plot', default=0, metavar=0)
 p.add_argument('-singleton', type=float, help='Remove singletons (min life span)', default=0, metavar=0)
 p.add_argument("-data_info", help='Summary information about an input data', action='store_true', default=False)
@@ -1747,7 +1764,11 @@ hp_gamma_shape = args.dpp_hp
 target_k       = args.dpp_eK
 
 ############### PLOT RTT
-path_dir_log_files=args.plot
+path_dir_log_files=args.plot2
+plot_type=2
+if path_dir_log_files=="": 
+	path_dir_log_files=args.plot
+	plot_type=1
 list_files_BF=sort(args.BF)
 file_stem=args.tag
 root_plot=args.root_plot
@@ -1765,17 +1786,17 @@ if path_dir_log_files != "":
 				path_dir_log_files = os.path.dirname(str(path_dir_log_files))
 				name_file = name_file.split("marginal_rates")[0]
 				one_file=True
-				plot_RTT(path_dir_log_files, burnin, name_file,one_file,root_plot)
+				plot_RTT(path_dir_log_files, burnin, name_file,one_file,root_plot,plot_type)
 			except: sys.exit("\nFile or directory not recognized.\n")
 		else:
 			for f in files:
 				name_file = os.path.splitext(os.path.basename(f))[0]
 				name_file = name_file.split("marginal_rates")[0]
 				one_file =False
-				plot_RTT(path_dir_log_files, burnin, name_file,one_file,root_plot)
+				plot_RTT(path_dir_log_files, burnin, name_file,one_file,root_plot,plot_type)
 	else:
 		one_file =False
-		plot_RTT(path_dir_log_files, burnin, file_stem,one_file,root_plot)
+		plot_RTT(path_dir_log_files, burnin, file_stem,one_file,root_plot,plot_type)
 	quit()
 elif args.mProb != "": calc_model_probabilities(args.mProb,burnin)
 elif len(list_files_BF):
