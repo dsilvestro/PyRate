@@ -1417,8 +1417,8 @@ def MCMC(all_arg):
 			PostA=Post # when temperature changes always accept first iteration
 		
 		#print Post, PostA, alphasA, sum(lik_fossil), sum(likBDtemp),  prior
-		if Post>-inf and Post<inf:
-			if Post*tempMC3-PostA*tempMC3 + hasting >= log(rand.random()) or stop_update==inf: # or it==0:
+		if Post>-inf and Post<inf or it==0:
+			if Post*tempMC3-PostA*tempMC3 + hasting >= log(rand.random()) or stop_update==inf: # 
 				likBDtempA=likBDtemp
 				PostA=Post
 				priorA=prior
