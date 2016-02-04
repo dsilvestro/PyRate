@@ -1164,7 +1164,6 @@ def MCMC(all_arg):
 				if it<I-1:
 					tmp += 1
 					lik_tmp=0
-					PostA=-inf # when temperature changes always accept first iteration
 		temperature=temperatures[tmp]
 		
 		# update parameters
@@ -1193,6 +1192,8 @@ def MCMC(all_arg):
 		if rand.random() < 1./freq_dpp and TDI==3 and it > 1000: ### DPP
 			stop_update=inf
 			rr=1.5 # no updates
+
+		if it>0 and (it-burnin) % (I_effective/len(temperatures)) == 0 and it>burnin or it==I-1: rr=1.5 # no updates when changing temp
 
 		alphas=zeros(2)
 		cov_par=zeros(3)
@@ -1396,7 +1397,8 @@ def MCMC(all_arg):
 			lik_alter=(sum(lik_fossil)+ PoiD_const) + (sum(likBDtemp)+ PoiD_const)*temperature
 		Post=lik_alter+prior
 		if it==0: PostA=Post
-		if TDI==1 and it<I-1: PostA=Post # when temperature changes always accept first iteration
+		if it>0 and (it-burnin) % (I_effective/len(temperatures)) == 0 and it>burnin or it==I-1: 
+			PostA=Post # when temperature changes always accept first iteration
 		
 		#print Post, PostA, alphasA, sum(lik_fossil), sum(likBDtemp),  prior
 		if Post>-inf and Post<inf:
@@ -2138,7 +2140,7 @@ if burnin<1 and burnin>0:
 
 def start_MCMC(run):
 	t1 = time.clock()
-	print("started at: {}".format(time.ctime()))
+	print "started at: ",time.ctime()
 	# marginal_file is either for rates or for lik
 	return MCMC([0,run, IT, sample_freq, print_freq, temperatures, burnin, marginal_frames, list()]) 
 
