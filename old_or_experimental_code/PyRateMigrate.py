@@ -266,8 +266,10 @@ mt_numbers,fixed_times_of_shift = get_mt_numbers(migration_times,grid_size)
 
 lineages_times = np.linspace(0,19,N_lineages)
 n_lineages,temp = get_mt_numbers(lineages_times,grid_size)
-#n_lineages = np.ones(100)*10 # number of lineages per grid cell (if 1 -> standard Poi process)
+print n_lineages
+n_lineages = np.ones(len(mt_numbers)) # number of lineages per grid cell (if 1 -> standard Poi process)
 #n_lineages = np.sort(np.random.geometric(0.1,len(mt_numbers)))
+print n_lineages
 
 #print mt_numbers
 #print n_lineages 
@@ -285,7 +287,7 @@ wlog.writerow(head)
 logfile.flush()
 os.fsync(logfile)
 marginal_frames= array([int(fabs(i-int(max(fixed_times_of_shift)))) for i in range(int(max(fixed_times_of_shift))+1)])
-print marginal_frames
+#print marginal_frames
 
 
 t1 = time.time()
