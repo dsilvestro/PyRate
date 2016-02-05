@@ -66,12 +66,12 @@ clade_ID=clade_ID.astype(int)
 ts=t_file[:,2+2*args.j]
 te=t_file[:,3+2*args.j]
 
-#if args.plot2 != "":
-#	j = np.arange((np.shape(t_file)[1]-2)/2)
-#	ts_all=t_file[:,2+2*j]
-#	te_all=t_file[:,3+2*j]
-#	ts=np.mean(ts_all,axis=1)
-#	te=np.mean(te_all,axis=1)
+if args.plot2 != "":
+	j = np.arange((np.shape(t_file)[1]-2)/2)
+	ts_all=t_file[:,2+2*j]
+	te_all=t_file[:,3+2*j]
+	ts=np.mean(ts_all,axis=1)
+	te=np.mean(te_all,axis=1)
 	
 
 corr_model=args.m
