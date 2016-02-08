@@ -404,26 +404,33 @@ if plot_RTT2 is True: # NEW FUNCTION 2
 		hpd_array_M= np.zeros((2,np.shape(marginal_L)[1]))
 		hpd_array_L50= np.zeros((2,np.shape(marginal_L)[1]))
 		hpd_array_M50= np.zeros((2,np.shape(marginal_L)[1]))
-		for ii in range(np.shape(marginal_L)[1]): # loop over marginal rates
-			l_vec[ii] = np.mean(marginal_L[:,ii]) # get_mode
-			m_vec[ii] = np.mean(marginal_M[:,ii]) # get_mode
-			hpd_array_L[:,ii] = calcHPD(marginal_L[:,ii])
-			hpd_array_M[:,ii] = calcHPD(marginal_M[:,ii])
-			hpd_array_L50[:,ii] = calcHPD(marginal_L[:,ii],0.75)
-			hpd_array_M50[:,ii] = calcHPD(marginal_M[:,ii],0.75)
+		
+		if i>=0:
+			l_vec = np.mean(marginal_L, axis=0) # get_mode
+			m_vec = np.mean(marginal_M, axis=0) # get_mode
+		else:		
+			for ii in range(np.shape(marginal_L)[1]): # loop over marginal rates
+				l_vec[ii] = np.mean(marginal_L[:,ii]) # get_mode
+				m_vec[ii] = np.mean(marginal_M[:,ii]) # get_mode
+				hpd_array_L[:,ii] = calcHPD(marginal_L[:,ii])
+				hpd_array_M[:,ii] = calcHPD(marginal_M[:,ii])
+				hpd_array_L50[:,ii] = calcHPD(marginal_L[:,ii],0.75)
+				hpd_array_M50[:,ii] = calcHPD(marginal_M[:,ii],0.75)
 
 		r_script += lib_utilities.print_R_vec("\n\nt",all_events)
 		r_script += "\ntime = -t"
 		r_script += lib_utilities.print_R_vec("\nspeciation",l_vec)
-		r_script += lib_utilities.print_R_vec("\nsp_hdp_m",hpd_array_L[0])
-		r_script += lib_utilities.print_R_vec("\nsp_hdp_M",hpd_array_L[1])
-		r_script += lib_utilities.print_R_vec("\nsp_hdp_m50",hpd_array_L50[0])
-		r_script += lib_utilities.print_R_vec("\nsp_hdp_M50",hpd_array_L50[1])
+		if i==-1:
+			r_script += lib_utilities.print_R_vec("\nsp_hdp_m",hpd_array_L[0])
+			r_script += lib_utilities.print_R_vec("\nsp_hdp_M",hpd_array_L[1])
+			r_script += lib_utilities.print_R_vec("\nsp_hdp_m50",hpd_array_L50[0])
+			r_script += lib_utilities.print_R_vec("\nsp_hdp_M50",hpd_array_L50[1])
 		r_script += lib_utilities.print_R_vec("\nextinction",m_vec)
-		r_script += lib_utilities.print_R_vec("\nex_hdp_m",hpd_array_M[0])
-		r_script += lib_utilities.print_R_vec("\nex_hdp_M",hpd_array_M[1])
-		r_script += lib_utilities.print_R_vec("\nex_hdp_m50",hpd_array_M50[0])
-		r_script += lib_utilities.print_R_vec("\nex_hdp_M50",hpd_array_M50[1])
+		if i==-1:
+			r_script += lib_utilities.print_R_vec("\nex_hdp_m",hpd_array_M[0])
+			r_script += lib_utilities.print_R_vec("\nex_hdp_M",hpd_array_M[1])
+			r_script += lib_utilities.print_R_vec("\nex_hdp_m50",hpd_array_M50[0])
+			r_script += lib_utilities.print_R_vec("\nex_hdp_M50",hpd_array_M50[1])
 		
 
 		if i==-1:
@@ -431,6 +438,7 @@ if plot_RTT2 is True: # NEW FUNCTION 2
 par(mfrow=c(1,2))
 YLIM = c(0,max(c(sp_hdp_M[clade_1>0],ex_hdp_M[clade_1>0])))
 XLIM = c(min(time[clade_1>0]),0)
+YLIMsmall = c(0,max(c(sp_hdp_M50[clade_1>0],ex_hdp_M50[clade_1>0])))
 plot(speciation[clade_1>0] ~ time[clade_1>0],type="l",col="#4c4cec", lwd=3,main="Speciation rates - Joint effects", ylim = YLIM,xlab="Time (Ma)",ylab="Speciation rates",xlim=XLIM)
 polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(sp_hdp_M[clade_1>0], rev(sp_hdp_m[clade_1>0])), col = alpha("#4c4cec",0.1), border = NA)	
 polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(sp_hdp_M50[clade_1>0], rev(sp_hdp_m50[clade_1>0])), col = alpha("#4c4cec",0.3), border = NA)	
@@ -443,16 +451,10 @@ abline(v=-c(65,200,251,367,445),lty=2,col="gray")
 		else:
 			r_script += """
 par(mfrow=c(1,2))
-XLIM = c(min(time[clade_1>0]),0)
-YLIMsmall = c(0,max(c(sp_hdp_M50[clade_1>0],ex_hdp_M50[clade_1>0])))
 plot(speciation[clade_1>0] ~ time[clade_1>0],type="l",col="darkblue", lwd=3,main="Effect of: %s", ylim = YLIMsmall,xlab="Time (Ma)",ylab="Speciation and extinction rates",xlim=XLIM)
-#polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(sp_hdp_M[clade_1>0], rev(sp_hdp_m[clade_1>0])), col = alpha("#4c4cec",0.1), border = NA)	
-#polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(sp_hdp_M50[clade_1>0], rev(sp_hdp_m50[clade_1>0])), col = alpha("#4c4cec",0.3), border = NA)	
 mtext("Wl = %s, Wm = %s, Gl = %s, Gm = %s")
 lines(extinction[clade_1>0] ~ time[clade_1>0], col="darkred", lwd=3)
-#polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(ex_hdp_M[clade_1>0], rev(ex_hdp_m[clade_1>0])), col = alpha("#e34a33",0.1), border = NA)	
-#polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(ex_hdp_M50[clade_1>0], rev(ex_hdp_m50[clade_1>0])), col = alpha("#e34a33",0.3), border = NA)	
-	abline(v=-c(65,200,251,367,445),lty=2,col="gray")
+abline(v=-c(65,200,251,367,445),lty=2,col="gray")
 plot(clade_%s[clade_1>0] ~ time[clade_1>0],type="l", main = "Trajectory of variable: %s",xlab="Time (Ma)",ylab="Rescaled value",xlim=XLIM)
 abline(v=-c(65,200,251,367,445),lty=2,col="gray")
 """ % (variable_names[i],round(est_kl[i],2),round(est_km[i],2),round(Gl_temp/float(len(baseline_L_list)),2),round(Gm_temp/float(len(baseline_L_list)),2),i+1,variable_names[i])
