@@ -35,7 +35,7 @@ p.add_argument('-n', type=int, help='mcmc generations',default=1050000, metavar=
 p.add_argument('-s', type=int, help='sample freq.', default=1000, metavar=1000)
 p.add_argument('-p', type=int, help='print freq.', default=1000, metavar=1000)
 p.add_argument('-r', type=float, help='rescale values (0 to scale in [0,1], 0.1 to reduce range 10x, 1 to leave unchanged)', default=0, metavar=0)
-p.add_argument('-clade', type=int, help='clade analyzed', default=0, metavar=0)
+p.add_argument('-clade', type=int, help='clade analyzed (set to -1 to analyze all species)', default=-1, metavar=-1)
 p.add_argument('-b', type=float, help='burnin in *mcmc.log to generate input file', default=0.1, metavar=0.1)
 p.add_argument('-w',  type=float, help='window sizes (bd rates, G)',  default=[1.4, .05], metavar=1.4, nargs=2)
 p.add_argument('-ginput', type=str,help='generate input file from *mcmc.log', default="", metavar="<path_to_mcmc.log>")
@@ -75,7 +75,8 @@ z[ind_singletons] =0.1
 ts =ts+z
 # if more than one clade only one is analyzed (flag -clade)
 clade_ID=t_file[:,0].astype(int)
-ts,te=ts[clade_ID==focus_clade],te[clade_ID==focus_clade]	
+if focus_clade>=0:
+	ts,te=ts[clade_ID==focus_clade],te[clade_ID==focus_clade]	
 
 
 print len(ts),len(te[te>0]),sum(ts-te)
