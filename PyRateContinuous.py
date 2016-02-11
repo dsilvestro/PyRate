@@ -42,6 +42,7 @@ p.add_argument('-ginput', type=str,help='generate input file from *mcmc.log', de
 p.add_argument('-tag', metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted",default="")
 p.add_argument('-mL',  type=str, help='calculate marginal likelihood',  default="", metavar="<path_to_log_files>")
 p.add_argument("-DD",  help='Diversity Dependent Model', action='store_true', default=False)
+p.add_argument("-verbose",  help='Print curve trajectory', action='store_true', default=False)
 
 args = p.parse_args()
 
@@ -79,7 +80,7 @@ if focus_clade>=0:
 	ts,te=ts[clade_ID==focus_clade],te[clade_ID==focus_clade]	
 
 
-print len(ts),len(te[te>0]),sum(ts-te)
+#print len(ts),len(te[te>0]),sum(ts-te)
 
 if args.DD is True:
 	head_cov_file = ["","DD"]
@@ -97,8 +98,9 @@ Temp_values= (Temp_values-Temp_values[0]) # so l0 and m0 are rates at the presen
 if rescale_factor > 0: Temp_values = Temp_values*rescale_factor
 else: Temp_values = Temp_values/(float(max(Temp_values))-min(Temp_values))
 
-#print "BRL" , sum(ts-te)
-#print "range:", max(Temp_values)-min(Temp_values)
+if args.verbose is True:
+	print "BRL" , sum(ts-te)
+	print "range:", max(Temp_values)-min(Temp_values)
 
 # create matrix of all events sorted (1st row) with indexes 0: times_of_T_change, 1: ts, 2: te, 3: te=0
 z=np.zeros(len(te))+2
@@ -143,10 +145,11 @@ if args.DD is True:
 
 
 
-print len(all_events),len(Temp_at_events), len(Dtraj[:,0])
-
-for i in range(len(all_events)):
-	print all_events[i],Temp_at_events[i], Dtraj[i,0]
+#print len(all_events),len(Temp_at_events), len(Dtraj[:,0])
+if args.verbose is True:
+	print "time\tvar.value\tdiversity"
+	for i in range(len(all_events)):
+		print "%s\t%s\t%s" %  (all_events[i],Temp_at_events[i], Dtraj[i,0])
 
 GarrayA=np.zeros(2) # correlation parameters with Temp of lambda and mu, respectively
 
