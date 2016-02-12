@@ -92,7 +92,7 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 			
 			out_list=array(out_list)
 			
-			if plot_ltt is True:				
+			if plot_ltt is True and count==0:				
 				### plot lineages and LTT
 				ts = out_list[:,2+count]
 				te = out_list[:,3+count]
