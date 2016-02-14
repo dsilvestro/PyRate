@@ -8,6 +8,7 @@ np.set_printoptions(precision=3)   # rounds all array elements to 3rd digit
 import collections
 from scipy import stats
 import lib_DD_likelihood
+self_path=os.getcwd()
 
 def calcHPD(data, level=0.95) :
 	assert (0 < level < 1)	
@@ -42,9 +43,16 @@ def print_R_vec(name,v):
 
 
 def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
+	if clade== -1: clade=0 # clade set to -1 by default
+	
 	direct="%s/*%s*mcmc.log" % (path_dir,tag)
 	files=glob.glob(direct)
 	files=sort(files)
+	if len(files)==0:
+		files=[path_dir]
+		path_dir = os.path.dirname(path_dir)
+		if path_dir=="": path_dir= self_path
+		
 	print "found", len(files), "log files...\n"
 	count=0
 
@@ -120,16 +128,17 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 				r_script += """
 				par(mfrow=c(1,2))
 				L = length(ts)
-				plot(ts, 1:L , xlim=c(0,max(ts)+1), pch=20, type="n", main=title,xlab="Time (Ma)",ylab="Lineages")
-				for (i in 1:L){segments(x0=te[i],y0=i,x1=ts[i],y1=i)}	
-
-				plot(div_traj ~ time_events,type="s", main = "Diversity trajectory",xlab="Time (Ma)",ylab="Number of lineages",xlim=c(0,max(time_events)))
+				plot(ts, 1:L , xlim=c(-max(ts)-1,0), pch=20, type="n", main=title,xlab="Time (Ma)",ylab="Lineages")
+				for (i in 1:L){segments(x0=-te[i],y0=i,x1=-ts[i],y1=i)}	
+				t = -time_events
+				plot(div_traj ~ t,type="s", main = "Diversity trajectory",xlab="Time (Ma)",ylab="Number of lineages",xlim=c(-max(ts)-1,0))
 				abline(v=c(65,200,251,367,445),lty=2,col="gray")
 				"""
 				
 				r_file.writelines(r_script)
 				r_file.close()
-				print "\nAn R script with the source for the LTT plot was saved as: %sLTT.r\n(in %s)" % (name_file, wd)
+				print "\nAn LTT plot was saved as: %sLTT.pdf" % (name_file)
+				print "\nThe R script with the source for the LTT plot was saved as: %sLTT.r\n(in %s)" % (name_file, wd)
 				if platform.system() == "Windows" or platform.system() == "Microsoft":
 					cmd="cd %s; Rscript %s\%s_LTT.r" % (wd,wd,name_file)
 				else: 
