@@ -26,7 +26,7 @@ self_path=os.getcwd()
 
 #### ARGS
 p = argparse.ArgumentParser() #description='<input file>') 
-p.add_argument('-A', type=int, help='algorithm: "0" parameter estimation, "1" TI', default=0, metavar=0) # 0: par estimation, 1: TI
+p.add_argument('-A', type=int, help='algorithm: 0) parameter estimation, 1) marginal likelihood', default=0, metavar=0) 
 p.add_argument('-d', type=str, help='data set', default="", metavar="<file>")
 p.add_argument('-c', type=str, help='covariate data set', default="", metavar="<file>")
 p.add_argument('-j', type=int, help='replicate', default=0, metavar=0)
@@ -39,7 +39,7 @@ p.add_argument('-clade', type=int, help='clade analyzed (set to -1 to analyze al
 p.add_argument('-b', type=float, help='burnin in *mcmc.log to generate input file', default=0.1, metavar=0.1)
 p.add_argument('-w',  type=float, help='window sizes (bd rates, G)',  default=[1.4, .05], metavar=1.4, nargs=2)
 p.add_argument('-ginput', type=str,help='generate input file from *mcmc.log', default="", metavar="<path_to_mcmc.log>")
-p.add_argument('-tag', metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted",default="")
+p.add_argument('-tag', metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined when using '-ginput' function",default="")
 p.add_argument('-mL',  type=str, help='calculate marginal likelihood',  default="", metavar="<path_to_log_files>")
 p.add_argument("-DD",  help='Diversity Dependent Model', action='store_true', default=False)
 p.add_argument("-verbose",  help='Print curve trajectory', action='store_true', default=False)
