@@ -87,6 +87,7 @@ if args.DD is True:
 	ts_te_vec = np.sort( np.concatenate((ts,te)) )[::-1]
 	Dtraj = getDT(ts_te_vec,ts,te)
 	times_of_T_change =  ts_te_vec
+	tempfile = np.array([ts_te_vec, Dtraj]).T
 	Temp_values = Dtraj
 else:
 	tempfile=loadtxt(cov_file,skiprows=1)
@@ -97,10 +98,6 @@ else:
 Temp_values= (Temp_values-Temp_values[0]) # so l0 and m0 are rates at the present
 if rescale_factor > 0: Temp_values = Temp_values*rescale_factor
 else: Temp_values = Temp_values/(float(max(Temp_values))-min(Temp_values))
-
-if args.verbose is True:
-	print "BRL" , sum(ts-te)
-	print "range:", max(Temp_values)-min(Temp_values)
 
 # create matrix of all events sorted (1st row) with indexes 0: times_of_T_change, 1: ts, 2: te, 3: te=0
 z=np.zeros(len(te))+2
@@ -144,10 +141,15 @@ if args.DD is True:
 	else: Temp_at_events = Temp_at_events/(float(max(Temp_at_events))-min(Temp_at_events))
 
 
+curve_scale_factor = (max(tempfile[:,1])-min(tempfile[:,1])) / float(max(Temp_values)-min(Temp_values))
 
-#print len(all_events),len(Temp_at_events), len(Dtraj[:,0])
 if args.verbose is True:
-	print "time\tvar.value\tdiversity"
+	print "total branch length:" , sum(ts-te)
+	print"raw range: %s (%s-%s)"       % (max(tempfile[:,1])-min(tempfile[:,1]), max(tempfile[:,1]), min(tempfile[:,1]))
+	print "rescaled range: %s (%s-%s)" % (max(Temp_values)-min(Temp_values), max(Temp_values), min(Temp_values))
+	print "max diversity:", max(Dtraj)
+	print "rescaling factor:", curve_scale_factor
+	print "\ntime\tvar.value\tdiversity"
 	for i in range(len(all_events)):
 		print "%s\t%s\t%s" %  (all_events[i],Temp_at_events[i], Dtraj[i,0])
 
@@ -167,12 +169,7 @@ if args.m==  1: out_file_name="%s/%s_%s_%s_linear.log" % (output_wd,os.path.spli
 logfile = open(out_file_name , "wb") 
 wlog=csv.writer(logfile, delimiter='\t')
 
-head="it\tposterior\tlikelihood\tprior" 
-head+="\tl0" 
-head+="\tm0" 
-head+="\tGl"
-head+="\tGm"
-head+="\tbeta"
+head="it\tposterior\tlikelihood\tprior\tl0\tm0\tGl\tGm\tbeta"
 wlog.writerow(head.split('\t'))
 logfile.flush()
 
@@ -249,10 +246,13 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
                 m0A=m0
 		GarrayA=Garray
 	if iteration % print_freq ==0: 
-		print iteration, array([postA, likA,lik,prior]), hasting, scal_fac_TI[scal_fac_ind]
-		print "l:",l0A, "m:", m0A, "G:", GarrayA
+		print_out= "\n%s\tpost: %s lik: %s" % (iteration, round(postA, 2), round(likA,2))
+		if args.A==1: print_out+=" beta: %s" % (round(scal_fac_TI[scal_fac_ind],4))
+		print(print_out)
+		print "l:",l0A, "m:", m0A, "G:", GarrayA / curve_scale_factor
 	if iteration % sampling_freq ==0:
-		log_state=[iteration,postA,likA,priorA, l0A[0], m0A[0]] +list(GarrayA) + [scal_fac_TI[scal_fac_ind]]
+		perUnitGarray = GarrayA / curve_scale_factor
+		log_state=[iteration,postA,likA,priorA, l0A[0], m0A[0]] +list(perUnitGarray) + [scal_fac_TI[scal_fac_ind]]
 		wlog.writerow(log_state)
 		logfile.flush()
 
