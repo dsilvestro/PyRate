@@ -1779,7 +1779,7 @@ list_files_BF=sort(args.BF)
 file_stem=args.tag
 root_plot=args.root_plot
 if path_dir_log_files != "":
-	path_dir_log_files=sort(path_dir_log_files)
+	#path_dir_log_files=sort(path_dir_log_files)
 	# plot each file separately
 	print root_plot 
 	if file_stem == "":
