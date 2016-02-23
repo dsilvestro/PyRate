@@ -1625,7 +1625,7 @@ p.add_argument('-pL',  type=float,    help='Prior - speciation rate (Gamma <shap
 p.add_argument('-pM',  type=float,    help='Prior - extinction rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.1, 1.1], metavar=1.1, nargs=2)
 p.add_argument('-pP',  type=float,    help='Prior - preservation rate (Gamma <shape, rate>)', default=[1.5, 1.1], metavar=1.5, nargs=2)
 p.add_argument('-pS',  type=float,    help='Prior - time frames (Dirichlet <shape>)', default=2.5, metavar=2.5)
-p.add_argument('-pC',  type=float,    help='Prior - covariance parameters (Normal <standard deviation>)', default=1, metavar=1)
+p.add_argument('-pC',  type=float,    help='Prior - covariance parameters (Normal <standard deviation>) | (if pC=0 -> sd estimated)', default=1, metavar=1)
 p.add_argument("-cauchy", type=float, help='Prior - use hyper priors on sp/ex rates (if 0 -> estimated)', default=[-1, -1], metavar=-1, nargs=2)
 
 # MODEL
