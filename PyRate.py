@@ -3,8 +3,8 @@
 import argparse, os,sys, platform, time, csv, glob
 import random as rand
 import warnings
-version= "      PyRate 0.600       "
-build  = "        20151024         "
+version= "      PyRate 0.602       "
+build  = "        20160223         "
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
@@ -581,6 +581,15 @@ def cond_alpha_proposal(hp_gamma_shape,hp_gamma_rate,current_alpha,k,n):
 	if (u / (1.0-u)) < x: new_alpha = np.random.gamma( (hp_gamma_shape+k), (1./(hp_gamma_rate-np.log(eta))) )
 	else: new_alpha = np.random.gamma( (hp_gamma_shape+k-1.), 1./(hp_gamma_rate-np.log(eta)) )
 	return new_alpha
+
+
+def get_post_sd(N,HP_shape=2,HP_rate=2,mean_Norm=0): # get sd of Normal from sample N and hyperprior G(a,b)
+	n= len(N)
+	G_shape = HP_shape + n*.5
+	G_rate  = HP_rate  + sum((N-mean_Norm)**2)*.5
+	tau = np.random.gamma(shape=G_shape,scale=1./G_rate)
+	sd= sqrt(1./tau)
+	return(sd)
 
 ########################## PRIORS #######################################
 try: 
@@ -1163,6 +1172,12 @@ def MCMC(all_arg):
 			alpha_par_Dir_M = np.random.uniform(0,1) # init concentration parameters
 		
 		alphasA,cov_parA = init_alphas() # use 1 for symmetric PERT
+		if est_COVAR_prior is True: 
+			covar_prior = 1.
+			cov_parA = np.random.random(3)*f_cov_par # f_cov_par is 0 or >0 depending on COVAR model
+		else: covar_prior = covar_prior_fixed
+			
+			
 		#if fix_hyperP is False:	hyperPA=np.ones(2)
 		hyperPA = hypP_par
 		
@@ -1255,7 +1270,10 @@ def MCMC(all_arg):
 
 		elif rr<f_update_cov: # cov
 			rcov=rand.random()
-			if rcov < f_cov_par[0]: # cov lambda
+			if est_COVAR_prior is True and rcov<0.05: 
+				covar_prior = get_post_sd(cov_parA[cov_parA>0]) # est hyperprior only based on non-zero rates
+				stop_update=inf
+			elif rcov < f_cov_par[0]: # cov lambda
 				cov_par[0]=update_parameter_normal(cov_parA[0],-3,3,d5[0])
 			elif rcov < f_cov_par[1]: # cov mu
 				cov_par[1]=update_parameter_normal(cov_parA[1],-3,3,d5[1])
@@ -1458,7 +1476,9 @@ def MCMC(all_arg):
 				if est_hyperP is True: print "\thyper.prior.par", hyperPA
 
 				
-				if model_cov>=1: print "\tcov. (sp/ex/q):", cov_parA
+				if model_cov>=1: 
+					print "\tcov. (sp/ex/q):", cov_parA
+					if est_COVAR_prior is True: print "\tHP_covar:",round(covar_prior,3) 
  				if fix_SE ==False: 
 					print "\tq.rate:", round(alphasA[1], 3), "\tGamma.prm:", round(alphasA[0], 3)
 					print "\tts:", tsA[0:5], "..."
@@ -1474,7 +1494,9 @@ def MCMC(all_arg):
 			else:
 				log_state= [it,PostA, priorA, likA-sum(lik_fossilA)]
 
-			if model_cov>=1: log_state += cov_parA[0], cov_parA[1],cov_parA[2]
+			if model_cov>=1: 
+				log_state += cov_parA[0], cov_parA[1],cov_parA[2]
+				if est_COVAR_prior is True: log_state += [covar_prior]
 
 			if TDI<2: # normal MCMC or MCMC-TI
 				log_state += s_max,min(teA)
@@ -1642,7 +1664,7 @@ L_lam_r,L_lam_m = args.pL # shape and scale parameters of Gamma prior on sp rate
 M_lam_r,M_lam_m = args.pM # shape and scale parameters of Gamma prior on ex rates
 lam_s = args.pS                              # shape parameter dirichlet prior on time frames
 pert_prior = [args.pP[0],args.pP[1]] # gamma prior on foss. rate; beta on mode PERT distribution
-covar_prior=args.pC # std of normal prior on th covariance parameters
+covar_prior_fixed=args.pC # std of normal prior on th covariance parameters
 
 # MODEL
 time_framesL=args.mL          # no. (starting) time frames (lambda)
@@ -1703,6 +1725,9 @@ if model_cov==2: f_cov_par= [0  ,1  ,0 ]
 if model_cov==3: f_cov_par= [.5 ,1  ,0 ]
 if model_cov==4: f_cov_par= [0  ,0  ,1 ]
 if model_cov==5: f_cov_par= [.33,.66,1 ]
+
+if covar_prior_fixed==0: est_COVAR_prior = True
+else: est_COVAR_prior = False
 
 if args.fixShift != "" or TDI==3:     # fix times of rate shift or DPP
 	try: 
@@ -1948,7 +1973,8 @@ if model_cov>=1:
 	#global con_trait
 	con_trait=seed_missing(trait_values,meanGAUS,sdGAUS) # fill the gaps (missing data)
 	#print con_trait
-	out_name += "_COV"
+	if est_COVAR_prior is True: out_name += "_COVhp"
+	else: out_name += "_COV"
 
 use_poiD=args.mPoiD
 if use_poiD is True:
@@ -2097,7 +2123,9 @@ if fix_SE == False:
 else: 
 	head="it\tposterior\tprior\tBD_lik\t"
 	
-if model_cov>=1: head += "cov_sp\tcov_ex\tcov_q\t"
+if model_cov>=1: 
+	head += "cov_sp\tcov_ex\tcov_q\t"
+	if est_COVAR_prior is True: head+="cov_hp\t"
 if TDI<2:
 	head += "root_age\tdeath_age\t"
 	if TDI==1: head += "beta\t"
@@ -2158,7 +2186,6 @@ else:
 #	wmarg_t=csv.writer(marginal_file_time, delimiter='	')
 #	wmarg_t.writerow(head)
 #	marginal_file.flush()
-
 
 ########################## START MCMC ####################################
 t1 = time.time()
