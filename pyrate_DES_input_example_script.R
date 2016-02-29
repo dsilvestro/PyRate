@@ -1,6 +1,6 @@
 #by Alexander Zizka, 2016-01-30, bugs & questions to speciesgeocodeR@googlegroups.com
 
-setwd("working_directory")
+setwd("C:/Users/xzizal/Desktop/GitHub/PyRate")
 
 library(maps)
 source("pyrate_DES_utilities.R")
@@ -12,11 +12,11 @@ source("pyrate_DES_utilities.R")
 #bin.size = The size of the time bins, here 2 million years
 #reps = the number of replicates for the 
 
-exp1 <- DESin("Example_data/Example_1_minimum_data.txt", "Example_data/Example_1_recent_distributions.txt", 
+exp1 <- DESin("Example_1_minimum_data.txt", "Example_1_recent_distributions.txt", 
               bin.size = 2, reps = 3)
 
 #Write the input files for PyRates/the DES model; this will crete one file per replicate
-write.DES.in(exp1, file = "Example_data/Example1_DES_in")
+write.DES.in(exp1, file = "Example1_DES_in")
 
 #Explore data for quality control and bias estimation
 summary(exp1)
@@ -32,7 +32,7 @@ library(speciesgeocodeR)
 occ.thresh <- 0.1 #at least 10% occurrence in an area required
 
 #Assign the fossil coordinates to operational areas
-fos <- read.table("Example_data/Example_2_coordinates.txt", sep = "\t", header = T)
+fos <- read.table("Example_data/Example_2_coordinates_CEN.txt", sep = "\t", header = T)
 fos.class <- SpGeoCod("Example_data/Example_2_coordinates.txt", "Example_data/Example_regions.shp", areanames = "Region")
 foss <- data.frame(fos, higherGeography = fos.class$sample_table$homepolygon)
 foss <- foss[complete.cases(foss),]
