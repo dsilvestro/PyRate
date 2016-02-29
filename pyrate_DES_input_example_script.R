@@ -32,15 +32,15 @@ library(speciesgeocodeR)
 occ.thresh <- 0.1 #at least 10% occurrence in an area required
 
 #Assign the fossil coordinates to operational areas
-fos <- read.table("Example_data/Example_2_coordinates_CEN.txt", sep = "\t", header = T)
-fos.class <- SpGeoCod("Example_data/Example_2_coordinates.txt", "Example_data/Example_regions.shp", areanames = "Region")
+fos <- read.table("example_files/DES_input_data/Example_2_coordinates.txt", sep = "\t", header = T)
+fos.class <- SpGeoCod("example_files/DES_input_data/Example_2_coordinates.txt", "example_files/DES_input_data/Example_regions.shp", areanames = "Region")
 foss <- data.frame(fos, higherGeography = fos.class$sample_table$homepolygon)
 foss <- foss[complete.cases(foss),]
 
 #Assign the recent coordinates to operational areas, using the occurrence threshold
-rec <- read.table("Example_data/Example_2_recent_coordinates.txt", sep = "\t", header = T)
+rec <- read.table("example_files/DES_input_data/Example_2_recent_coordinates.txt", sep = "\t", header = T)
 
-rec.class <- SpGeoCod("Example_data/Example_2_recent_coordinates.txt", "Example_data/Example_regions.shp", 
+rec.class <- SpGeoCod("example_files/DES_input_data/Example_2_recent_coordinates.txt", "example_files/DES_input_data/Example_regions.shp", 
                       areanames = "Region")
 
 pres <- round(rec.class$spec_table[, 2:3] / rowSums(rec.class$spec_table[, 2:3]), 2)
