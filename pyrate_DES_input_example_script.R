@@ -1,6 +1,6 @@
 #by Alexander Zizka, 2016-01-30, bugs & questions to speciesgeocodeR@googlegroups.com
 
-setwd("C:/Users/xzizal/Dropbox (Antonelli Lab)/Arbeit/Gothenburg/Projects/ZDS_DES_model/Rfunctions+scripts")
+setwd("working_directory")
 
 library(maps)
 source("pyrate_DES_utilities.R")
