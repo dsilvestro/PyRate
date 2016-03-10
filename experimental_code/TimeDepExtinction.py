@@ -25,6 +25,7 @@ def BDlik (l, m):
 	sp_events = np.ones(len(s))  # define speciation events
 	ex_events = np.zeros(len(e)) # define extinction events
 	ex_events[e>0] = 1           # ex_events = 0 for extant taxa, ex_events=1 for extinct taxa
+	#OH# stoped here.. undestand below #OH#
 	birth_lik = log(l)*sp_events - l*(s-e) # vector likelihoods for each species
 	death_lik = log(m)*ex_events - m*(s-e)
 	species_lik = birth_lik + death_lik
