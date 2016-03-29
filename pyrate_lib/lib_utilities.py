@@ -68,7 +68,6 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 
 	for f in files:
 		if 2>1: #try:
-			print f
 			t_file=np.genfromtxt(f, delimiter='\t', dtype=None)
 			input_file = os.path.basename(f)
 			name_file = os.path.splitext(input_file)[0]
