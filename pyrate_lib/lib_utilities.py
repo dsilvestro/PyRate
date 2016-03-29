@@ -56,19 +56,19 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 	print "found", len(files), "log files...\n"
 	count=0
 
-	name_file = os.path.splitext(os.path.basename(files[0]))[0]
-	name_file = name_file.split("_mcmc")[0]
-	
-	outfile="%s/%s_se_est.txt" % (path_dir, name_file)
-	newfile = open(outfile, "wb") 
-	wlog=csv.writer(newfile, delimiter='\t')
-
-	head="clade\tspecies"+ ("\tts\tte"*len(files))
-	wlog.writerow(head.split('\t'))
-	newfile.flush()
+	if len(files)==1 or tag != "":
+		name_file = os.path.splitext(os.path.basename(files[0]))[0]
+		name_file = name_file.split("_mcmc")[0]	
+		outfile="%s/%s_se_est.txt" % (path_dir, name_file)
+		newfile = open(outfile, "wb") 
+		wlog=csv.writer(newfile, delimiter='\t')
+		head="clade\tspecies"+ ("\tts\tte"*len(files))
+		wlog.writerow(head.split('\t'))
+		newfile.flush()
 
 	for f in files:
-		try:
+		if 2>1: #try:
+			print f
 			t_file=np.genfromtxt(f, delimiter='\t', dtype=None)
 			input_file = os.path.basename(f)
 			name_file = os.path.splitext(input_file)[0]
@@ -76,7 +76,19 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 			wd = "%s" % os.path.dirname(f)
 			shape_f=list(shape(t_file))
 			print "%s" % (name_file),
-		
+			
+			
+			if len(files)>1 and tag=="":
+				name_file1 = name_file.split("_mcmc")[0]	
+				outfile="%s/%s_se_est.txt" % (path_dir, name_file1)
+				newfile = open(outfile, "wb") 
+				wlog=csv.writer(newfile, delimiter='\t')
+				head="clade\tspecies\tts\tte"
+				wlog.writerow(head.split('\t'))
+				newfile.flush()
+				
+			
+			
 			#if count==0:
 			head = next(open(f)).split()
 			w=[x for x in head if 'TS' in x]
@@ -149,22 +161,32 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 				### end plot lineages and LTT
 				
 			
-			
+				
 			if count==0: out_array=out_list
 			else: out_array=np.hstack((out_array, out_list))
-			count+=1
-		except: print "Could not read file:",name_file
+			
+			if len(files)>1 and tag=="":
+				print shape(out_array)
+				for i in range(len(out_array[:,0])):
+					log_state=list(out_array[i,:])
+					wlog.writerow(log_state)
+					newfile.flush()
+				print "\nFile saved as:", outfile
+				newfile.close()
+			else: count+=1
+			
+		#except: print "Could not read file:",name_file
 	#print shape(out_array)
 	#print out_array[1:5,:]
+	if len(files)==1 or tag != "":
+		for i in range(len(out_array[:,0])):
+			log_state=list(out_array[i,:])
+			wlog.writerow(log_state)
+			newfile.flush()
 
-	for i in range(len(out_array[:,0])):
-		log_state=list(out_array[i,:])
-		wlog.writerow(log_state)
-		newfile.flush()
 
-
-	newfile.close()
-	print "\nFile saved as:", outfile
+		newfile.close()
+		print "\nFile saved as:", outfile
 
 
 # import lib_utilities
