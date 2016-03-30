@@ -690,31 +690,40 @@ def HPBD3(timesL,timesM,L,M,T,s):
 
 def BPD_lik_vec_times(arg):
 	[ts,te,time_frames,L,M]=arg
-	BD_lik = 0
+	if fix_SE is False and fix_Shift is False:
+		BD_lik = 0
+		B = sort(time_frames)+0.000001 # add small number to avoid counting extant species as extinct
+		ss1 = np.histogram(ts,bins=B)[0][::-1]
+		ee2 = np.histogram(te,bins=B)[0][::-1]
 	
-	B = sort(time_frames)+0.000001 # add small number to avoid counting extant species as extinct
-	ss1 = np.histogram(ts,bins=B)[0][::-1]
-	ee2 = np.histogram(te,bins=B)[0][::-1]
-	
-	for i in range(len(time_frames)-1):
-		up, lo = time_frames[i], time_frames[i+1]	
-		len_sp_events=ss1[i]
-		len_ex_events=ee2[i]
-		inTS = np.fmin(ts,up)
-		inTE = np.fmax(te,lo)
-		S    = inTS-inTE
-		# speciation
-		if use_poiD is False:
-			lik1 = log(L[i])*len_sp_events
-			lik0 = -sum(L[i]*S[S>0]) # S < 0 when species outside up-lo range		
-		else:
-			lik1 = log(L[i])*len_sp_events
-			lik0 = -sum(L[i]*(up-lo)) # S < 0 when species outside up-lo range		
+		for i in range(len(time_frames)-1):
+			up, lo = time_frames[i], time_frames[i+1]	
+			len_sp_events=ss1[i]
+			len_ex_events=ee2[i]
+			inTS = np.fmin(ts,up)
+			inTE = np.fmax(te,lo)
+			S    = inTS-inTE
+			# speciation
+			if use_poiD is False:
+				lik1 = log(L[i])*len_sp_events
+				lik0 = -sum(L[i]*S[S>0]) # S < 0 when species outside up-lo range		
+			else:
+				lik1 = log(L[i])*len_sp_events
+				lik0 = -sum(L[i]*(up-lo)) # S < 0 when species outside up-lo range		
 			
-		# extinction
-		lik2 = log(M[i])*len_ex_events
-		lik3 = -sum(M[i]*S[S>0]) # S < 0 when species outside up-lo range
-		BD_lik += lik0+lik1+lik2+lik3
+			# extinction
+			lik2 = log(M[i])*len_ex_events
+			lik3 = -sum(M[i]*S[S>0]) # S < 0 when species outside up-lo range
+			BD_lik += lik0+lik1+lik2+lik3
+			#print "len",sum(S[S>0]),-sum(L[i]*S[S>0]), -L[i]*sum(S[S>0])
+	else:	
+		lik0 =  log(L)*len_SS1
+		lik1 = -(L* S_time_frame)
+		lik2 =  log(M)*len_EE1
+		lik3 = -(M* S_time_frame)
+		BD_lik = lik0+lik1+lik2+lik3
+	
+	
 	return BD_lik
 
 
@@ -1062,10 +1071,10 @@ def calc_rel_prob(log_lik):
 	rel_prob=exp(log_lik-max(log_lik))
 	return rel_prob/sum(rel_prob)
 	
-def G0(alpha=2,beta=3,n=1):
+def G0(alpha=1.5,beta=5,n=1):
 	#return np.array([np.random.random()])
-	#return np.random.gamma(shape=alpha,scale=1./beta,size=n)
-	return init_BD(n)
+	return np.random.gamma(shape=alpha,scale=1./beta,size=n)
+	#return init_BD(n)
 
 
 def DDP_gibbs_sampler(arg): # rate_type = "l" or "m" (for speciation/extinction respectively)
@@ -1589,7 +1598,7 @@ p.add_argument('-plot2',     metavar='<input file>', type=str,help="RTT plot (ty
 p.add_argument('-root_plot', type=float, help='Root age plot', default=0, metavar=0)
 p.add_argument('-singleton', type=float, help='Remove singletons (min life span)', default=0, metavar=0)
 p.add_argument("-data_info", help='Summary information about an input data', action='store_true', default=False)
-
+p.add_argument("-rescale",   type=float, help='Rescale data (e.g. -rescale 0.001: 1My -> 1Ky)', default=1, metavar=1)
 
 p.add_argument('-tag',       metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted",default="")
 p.add_argument('-mProb',     type=str,help="Input 'mcmc.log file",default="")
@@ -1876,7 +1885,7 @@ if use_se_tbl==False:
 				taxa_included.append(i)
 		else: 
 			have_record.append(i) # some (extant) species may have trait value but no fossil record
-			fossil.append(fossil_complete[i])
+			fossil.append(fossil_complete[i]*args.rescale)
 			taxa_included.append(i)
 	if len(singletons_excluded)>0 and args.data_info is False: print "%s species excluded as singletons (%s remaining)" % (len(singletons_excluded), len(fossil))	
 	out_name=input_data_module.get_out_name(j) +args.out
@@ -1903,8 +1912,8 @@ else:
 	print np.shape(t_file)
 	j=max(args.j-1,0)
 	print j
-	FA=t_file[:,2+2*j]
-	LO=t_file[:,3+2*j]
+	FA=t_file[:,2+2*j]*args.rescale
+	LO=t_file[:,3+2*j]*args.rescale
 	#N = np.repeat(2., len(FA))
 	fix_SE=True
 	fixed_ts, fixed_te=FA, LO
@@ -2186,6 +2195,26 @@ else:
 #	wmarg_t=csv.writer(marginal_file_time, delimiter='	')
 #	wmarg_t.writerow(head)
 #	marginal_file.flush()
+if fix_SE is True and fix_Shift is True:
+	time_frames  = sort(np.array(list(fixed_times_of_shift) + [0,max(fixed_ts)]))
+	B = sort(time_frames)+0.000001 # add small number to avoid counting extant species as extinct
+	ss1 = np.histogram(fixed_ts,bins=B)[0][::-1]
+	ee2 = np.histogram(fixed_te,bins=B)[0][::-1]
+	len_SS1,len_EE1 = list(),list()
+	S_time_frame =list()
+	time_frames = time_frames[::-1]
+	for i in range(len(time_frames)-1):
+		up, lo = time_frames[i], time_frames[i+1]	
+		len_SS1.append(ss1[i])
+		len_EE1.append(ee2[i])
+		inTS = np.fmin(fixed_ts,up)
+		inTE = np.fmax(fixed_te,lo)
+		temp_S = inTS-inTE
+		S_time_frame.append(sum(temp_S[temp_S>0]))
+
+	len_SS1 = np.array(len_SS1)
+	len_EE1 = np.array(len_EE1)
+	S_time_frame = np.array(S_time_frame)
 
 ########################## START MCMC ####################################
 t1 = time.time()
