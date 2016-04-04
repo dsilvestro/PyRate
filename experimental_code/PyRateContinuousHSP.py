@@ -348,7 +348,9 @@ Tau=TauA
 if plot_RTT2 is True: # NEW FUNCTION 2
 	out="%s/%s_RTT.r" % (wd,name_file)
 	newfile = open(out, "wb") 
-	
+	if model_name == "exp": model_type = "Exponential"
+	else: "Linear"
+		
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
 		r_script= "\n\npdf(file='%s\%s_RTT.pdf',width=0.6*20, height=0.6*10)\nlibrary(scales)\n" % (wd,name_file)
 	else: 
@@ -357,7 +359,8 @@ if plot_RTT2 is True: # NEW FUNCTION 2
 	for i in range(n_clades):
 		r_script+=lib_utilities.print_R_vec("\nclade_%s", Dtraj[:,i]) % (i+1)
 	
-	
+	newfile.writelines(r_script)
+	newfile.flush()
 	# get marginal rates
 	print "Getting marginal rates..."
 	
@@ -389,10 +392,12 @@ if plot_RTT2 is True: # NEW FUNCTION 2
 	
 			marginal_L.append(trasfRate_general(baseline_L, G_temp[fixed_focal_clade,0,:],Dtraj))
 			marginal_M.append(trasfRate_general(baseline_M, G_temp[fixed_focal_clade,1,:],Dtraj))
+			if j % 100 ==0: 
+				sys.stdout.write(".")
+				sys.stdout.flush()
 
-
-		if i== -1: print "Calculating mean rates and HPDs..."			
-		else: print "Processing variable:", variable_names[i]
+		if i== -1: print "\nCalculating mean rates and HPDs..."			
+		else: print "\nProcessing variable:", variable_names[i]
 		
 		marginal_L = np.array(marginal_L)
 		marginal_M = np.array(marginal_M)
@@ -417,7 +422,7 @@ if plot_RTT2 is True: # NEW FUNCTION 2
 				hpd_array_L50[:,ii] = calcHPD(marginal_L[:,ii],0.75)
 				hpd_array_M50[:,ii] = calcHPD(marginal_M[:,ii],0.75)
 
-		r_script += lib_utilities.print_R_vec("\n\nt",all_events)
+		r_script  = lib_utilities.print_R_vec("\n\nt",all_events)
 		r_script += "\ntime = -t"
 		r_script += lib_utilities.print_R_vec("\nspeciation",l_vec)
 		if i==-1:
@@ -440,28 +445,32 @@ YLIM = c(0,max(c(sp_hdp_M[clade_1>0],ex_hdp_M[clade_1>0])))
 XLIM = c(min(time[clade_1>0]),0)
 YLIMsmall = c(0,max(c(sp_hdp_M50[clade_1>0],ex_hdp_M50[clade_1>0])))
 plot(speciation[clade_1>0] ~ time[clade_1>0],type="l",col="#4c4cec", lwd=3,main="Speciation rates - Joint effects", ylim = YLIM,xlab="Time (Ma)",ylab="Speciation rates",xlim=XLIM)
+mtext("%s correlations")
 polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(sp_hdp_M[clade_1>0], rev(sp_hdp_m[clade_1>0])), col = alpha("#4c4cec",0.1), border = NA)	
 polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(sp_hdp_M50[clade_1>0], rev(sp_hdp_m50[clade_1>0])), col = alpha("#4c4cec",0.3), border = NA)	
 abline(v=-c(65,200,251,367,445),lty=2,col="gray")
 plot(extinction[clade_1>0] ~ time[clade_1>0],type="l",col="#e34a33",  lwd=3,main="Extinction rates - Joint effects", ylim = YLIM,xlab="Time (Ma)",ylab="Extinction rates",xlim=XLIM)
+mtext("%s correlations")
 polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(ex_hdp_M[clade_1>0], rev(ex_hdp_m[clade_1>0])), col = alpha("#e34a33",0.1), border = NA)	
 polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(ex_hdp_M50[clade_1>0], rev(ex_hdp_m50[clade_1>0])), col = alpha("#e34a33",0.3), border = NA)	
 abline(v=-c(65,200,251,367,445),lty=2,col="gray")
-""" #% (fixed_focal_clade+1,fixed_focal_clade+1,fixed_focal_clade+1,fixed_focal_clade+1)
+""" % (model_type,model_type)  #(fixed_focal_clade+1,fixed_focal_clade+1,fixed_focal_clade+1,fixed_focal_clade+1)
 		else:
 			r_script += """
 par(mfrow=c(1,2))
-plot(speciation[clade_1>0] ~ time[clade_1>0],type="l",col="darkblue", lwd=3,main="Effect of: %s", ylim = YLIMsmall,xlab="Time (Ma)",ylab="Speciation and extinction rates",xlim=XLIM)
+plot(speciation[clade_1>0] ~ time[clade_1>0],type="l",col="#4c4cec", lwd=3,main="Effect of: %s", ylim =  c(0,max(c(speciation,extinction))+0.05*max(c(speciation,extinction))),xlab="Time (Ma)",ylab="Speciation and extinction rates",xlim=XLIM)
 mtext("Wl = %s, Wm = %s, Gl = %s, Gm = %s")
-lines(extinction[clade_1>0] ~ time[clade_1>0], col="darkred", lwd=3)
+lines(extinction[clade_1>0] ~ time[clade_1>0], col="#e34a33", lwd=3)
 abline(v=-c(65,200,251,367,445),lty=2,col="gray")
 plot(clade_%s[clade_1>0] ~ time[clade_1>0],type="l", main = "Trajectory of variable: %s",xlab="Time (Ma)",ylab="Rescaled value",xlim=XLIM)
 abline(v=-c(65,200,251,367,445),lty=2,col="gray")
 """ % (variable_names[i],round(est_kl[i],2),round(est_km[i],2),round(Gl_temp/float(len(baseline_L_list)),2),round(Gm_temp/float(len(baseline_L_list)),2),i+1,variable_names[i])
 			       
+		newfile.writelines(r_script)
+		newfile.flush()
 			
 
-	r_script+="n<-dev.off()"
+	r_script = "n<-dev.off()"
 	newfile.writelines(r_script)
 	newfile.close()
 	print "\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, wd)
