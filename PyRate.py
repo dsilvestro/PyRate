@@ -139,6 +139,31 @@ def calc_model_probabilities(f,burnin):
 		k_m=float(len(z2[z2==i]))/len(z2)
 		print("%s-rate    %s      %s" % (i,round(k_l,4),round(k_m,4)))
 	print("\n")
+	
+	try:
+		import collections,os
+		d = collections.OrderedDict()
+
+		def count_BD_config_freq(A):
+			for a in A:
+				t = tuple(a)
+				if t in d: d[t] += 1
+				else: d[t] = 1
+		
+			result = []
+			for (key, value) in d.items(): result.append(list(key) + [value])
+			return result
+		
+		BD_config = t[burnin:,np.array(k_ind)]
+		B = np.asarray(count_BD_config_freq(BD_config))
+		B[:,2]=B[:,2]/sum(B[:,2])
+		B = B[B[:,2].argsort()[::-1]]
+		cum_prob = np.cumsum(B[:,2])
+		print "Best BD/ID configurations (rel.pr > 0.05)"
+		print "   B/I    D      Rel.pr"
+		print B[(B[:,2]>0.05).nonzero()[0],:]
+	
+	except: pass
 	quit()
 
 def calc_ts_te(f, burnin):
