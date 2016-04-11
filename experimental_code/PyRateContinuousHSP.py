@@ -653,7 +653,7 @@ while True:
 	prior +=sum(pdf_cauchy(Tau))	
 	prior += prior_exponential(l0,hypRA)+prior_exponential(m0,hypRA)
 	
-	if (sum(lik) + prior) - postA + hasting >= log(rand.random()) or iteration==0 or gibbs_sampling==1:
+	if (sum(lik) + prior) - postA + hasting >= log(np.random.random()) or iteration==0 or gibbs_sampling==1:
 		postA=sum(lik)+prior
 		likA=lik
 		priorA=prior
