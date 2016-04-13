@@ -107,10 +107,11 @@ while True:
 	
 	# calc lik
 	#OH# lik = BDlik(l, m)
-	lik = BDwelik
+	lik = BDwelik(l, shape, scale)
 	
 	# calc priors
-	prior = prior_gamma(l) + prior_gamma(m)
+	#OH# prior = prior_gamma(l) + prior_gamma(m)
+	prior = prior_gamma(l) + prior_gamma(shape) + prior_gamma(scale)
 		
 	if iteration ==0:  
 		likA = lik
