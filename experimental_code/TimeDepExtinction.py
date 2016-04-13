@@ -19,7 +19,7 @@ s = np.random.uniform(1, 25, 10) # random speciation times
 e = np.random.uniform(0, s,  10) # random extinction times
 
 
-#OH# leaving the function below as a ref. but changed the calls below to the "new" BDwelik ('w' stands for weibull and 'e' extinction)
+#OH# leaving the function below as a reference but changed the calls below to the "new" BDwelik ('w' stands for weibull and 'e' extinction)
 # BD likelihood (constant rate)
 def BDlik (l, m):
 	sp_events = np.ones(len(s))  # define speciation events
@@ -43,21 +43,14 @@ def wei_cdf(x,scale,shape):
 	return wei_cdf
 	
 
-# BDwe likelihood (constant speciation rate and age dependent weibull extinction)
+#OH# BDwe likelihood (constant speciation rate and age dependent weibull extinction)
 def BDwelik (l, m, shape, scale):
 	sp_events = np.ones(len(s))  # define speciation events
 	ex_events = np.zeros(len(e)) # define extinction events
 	ex_events[e>0] = 1           # ex_events = 0 for extant taxa, ex_events=1 for extinct taxa
 	birth_lik = log(l)*sp_events - l*(s-e) # vector likelihoods for each species
 	#OH# now following the log of PDF for Weibull, when x>=0, which is our case...
-	death_lik = log(m) + log_wei_pdf(e,scale,shape) - m*wei_cdf(s-e,scale,shape)
-	#OH# the above should be a already the sum of all species... given we take a plot of a prod log(pod(...) = sum(log(...)) see equation on tex file.
-	#OH# Daniele, I am not sure if I am doing this right... I am just guessing from what I studied from your code.... maybe there is
-	#also a way to do this without basic arithmetic operators? I am doing weibull first so that you can see if you think I did It
-	#correcly before I start changing much (p.s. I preserved the BDlik above)
-	#also I am not use of multipying the first part of the operation by the ex_events... I see the point of excluding this first part 
-	#for the extant taxa on the exponential case.. but here?
-	#sorry to bombard with comments, you can reply by e-mail. I am not sure if I am confusing PDF with CDF here too
+	death_lik = log(m)*ex_events + log_wei_pdf(e,scale,shape) - m*wei_cdf(s-e,scale,shape)
 	species_lik = birth_lik + death_lik
 	lik = sum(species_lik)
 	return lik
@@ -82,18 +75,9 @@ def update_multiplier_proposal(i,d=1.2,f=1):
 # create log file
 logfile = open("mcmc.log" , "wb") 
 wlog=csv.writer(logfile, delimiter='\t')
-
-#OH# head = ["it","post","lik","prior","l","m"]
-head = ["it", "post", "lik", "prior", "l", "m", "shape", "scale"]
+head = ["it","post","lik","prior","l","m","shape","scale"]
 wlog.writerow(head)
 logfile.flush()
-
-
-
-
-
-
-
 
 
 iteration =0
@@ -119,12 +103,10 @@ while True:
 	
 	
 	# calc lik
-	#OH# lik = BDlik(l, m)
 	lik = BDwelik(l, m, shape, scale)
 	
 	# calc priors
-	#OH# prior = prior_gamma(l) + prior_gamma(m)
-	prior = prior_gamma(l) + prior_gamma(shape) + prior_gamma(scale)
+	prior = prior_gamma(l) + prior_gamma(m) + prior_gamma(shape) + prior_gamma(scale)
 		
 	if iteration ==0:  
 		likA = lik
@@ -143,11 +125,9 @@ while True:
 		scaleA = scale
 	
 	if iteration % 100 ==0:
-		#OH# print likA, priorA, lA, mA
 		print likA, priorA, lA, mA, shapeA, scaleA
 		
 	if iteration % sampling_freq ==0:
-		#OH# log_state=[iteration,likA+priorA,likA,priorA,lA,mA]
 		log_state=[iteration,likA+priorA,likA,priorA,lA,mA,shapeA,scaleA]
 		wlog.writerow(log_state)
 		logfile.flush()
@@ -156,15 +136,4 @@ while True:
 	
 	iteration +=1
 	if iteration==10000: break
-	
-	
-	
-
-
-
-
-
-
-
-
 	
