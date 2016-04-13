@@ -31,14 +31,27 @@ def BDlik (l, m):
 	lik = sum(species_lik)
 	return lik
 
+#OH# Weibull log PDF and CDF functions
+def log_wei_pdf(x,scale,shape):
+	# Log of Weibull pdf
+	log_wei_pdf = log(shape/scale) + (k-1)*log(x/scale) - (x/scale)**shape
+	return log_wei_pdf
+
+def wei_cdf(x,scale,shape):
+	# Weibull cdf
+	log_wei_cdf = 1 - exp(-(x/scale)**shape)
+	return wei_cdf
+	
+
 # BDwe likelihood (constant speciation rate and age dependent weibull extinction)
-def BDwelik (l, shape, scale):
+def BDwelik (l, m, shape, scale):
 	sp_events = np.ones(len(s))  # define speciation events
 	ex_events = np.zeros(len(e)) # define extinction events
 	ex_events[e>0] = 1           # ex_events = 0 for extant taxa, ex_events=1 for extinct taxa
 	birth_lik = log(l)*sp_events - l*(s-e) # vector likelihoods for each species
 	#OH# now following the log of PDF for Weibull, when x>=0, which is our case...
-	death_lik = log((shape/scale)*(((s-e)/scale)**(shape-1)))*ex_events - (((s-e)/scale)**shape)
+	death_lik = log(m) + log_wei_pdf(e,scale,shape) - m*wei_cdf(s-e,scale,shape)
+	#OH# the above should be a already the sum of all species... given we take a plot of a prod log(pod(...) = sum(log(...)) see equation on tex file.
 	#OH# Daniele, I am not sure if I am doing this right... I am just guessing from what I studied from your code.... maybe there is
 	#also a way to do this without basic arithmetic operators? I am doing weibull first so that you can see if you think I did It
 	#correcly before I start changing much (p.s. I preserved the BDlik above)
