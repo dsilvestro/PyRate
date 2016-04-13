@@ -84,7 +84,7 @@ logfile = open("mcmc.log" , "wb")
 wlog=csv.writer(logfile, delimiter='\t')
 
 #OH# head = ["it","post","lik","prior","l","m"]
-head = ["it","post","lik","prior","l","shape", "scale"]
+head = ["it", "post", "lik", "prior", "l", "m", "shape", "scale"]
 wlog.writerow(head)
 logfile.flush()
 
@@ -100,7 +100,7 @@ iteration =0
 sampling_freq =10
 # init parameters
 lA = 0.5
-#OH# mA = 0.1
+mA = 0.1
 shapeA = 0.1 #OH# proposition of parameter, here starting with strong age-dependency, mainly high likelyhood for younger species
 scaleA = 0.1 #OH# proposition of parameter
 
@@ -108,11 +108,11 @@ while True:
 	# update parameters
 	if np.random.random() >0.5:
 		l, hastings = update_multiplier_proposal(lA)
-		#OH# m = mA
+		m = mA
 		shape = shapeA
 		scale = scaleA
 	else:
-		#OH# m, hastings = update_multiplier_proposal(mA)
+		m, hastings = update_multiplier_proposal(mA)
 		shape, hastings = update_multiplier_proposal(shapeA)
 		scale, hastings = update_multiplier_proposal(scaleA)
 		l = lA
@@ -120,7 +120,7 @@ while True:
 	
 	# calc lik
 	#OH# lik = BDlik(l, m)
-	lik = BDwelik(l, shape, scale)
+	lik = BDwelik(l, m, shape, scale)
 	
 	# calc priors
 	#OH# prior = prior_gamma(l) + prior_gamma(m)
@@ -138,17 +138,17 @@ while True:
 		likA = lik
 		priorA = prior
 		lA = l
-		#OH# mA = m
+		mA = m
 		shapeA = shape
 		scaleA = scale
 	
 	if iteration % 100 ==0:
 		#OH# print likA, priorA, lA, mA
-		print likA, priorA, lA, shapeA, scaleA
+		print likA, priorA, lA, mA, shapeA, scaleA
 		
 	if iteration % sampling_freq ==0:
 		#OH# log_state=[iteration,likA+priorA,likA,priorA,lA,mA]
-		log_state=[iteration,likA+priorA,likA,priorA,lA,shapeA,scaleA]
+		log_state=[iteration,likA+priorA,likA,priorA,lA,mA,shapeA,scaleA]
 		wlog.writerow(log_state)
 		logfile.flush()
 		
