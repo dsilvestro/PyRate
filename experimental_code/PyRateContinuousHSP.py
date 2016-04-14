@@ -31,7 +31,7 @@ from lib_utilities import get_mode as get_mode
 
 p = argparse.ArgumentParser() #description='<input file>') 
 p.add_argument('-d', type=str,   help='data set', default=0, metavar=0)
-p.add_argument('-m', type=int,   help='model', default=0, metavar=0)
+p.add_argument('-m', type=int,   help='model (0: linear (default), 1: exponential)', default=0, metavar=0)
 p.add_argument('-n', type=int,   help='MCMC iterations', default=5000000, metavar=5000000)
 p.add_argument('-s', type=int,   help='sampling freq.', default=5000, metavar=5000)
 p.add_argument('-p', type=int,   help='print freq.', default=5000000, metavar=5000000)
@@ -349,7 +349,7 @@ if plot_RTT2 is True: # NEW FUNCTION 2
 	out="%s/%s_RTT.r" % (wd,name_file)
 	newfile = open(out, "wb") 
 	if model_name == "exp": model_type = "Exponential"
-	else: "Linear"
+	else: model_type = "Linear"
 		
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
 		r_script= "\n\npdf(file='%s\%s_RTT.pdf',width=0.6*20, height=0.6*10)\nlibrary(scales)\n" % (wd,name_file)
