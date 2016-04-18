@@ -23,7 +23,7 @@ e = np.random.uniform(0, s,  10) # random extinction times
 #OH# Weibull log PDF and CDF functions
 def log_wei_pdf(x,W_scale,W_shape):
 	# Log of Weibull pdf
-	log_wei_pdf = log(W_shape/W_scale) + (k-1)*log(x/W_scale) - (x/W_scale)**W_shape
+	log_wei_pdf = log(W_shape/W_scale) + (W_shape-1)*log(x/W_scale) - (x/W_scale)**W_shape
 	return log_wei_pdf
 
 def wei_cdf(x,W_scale,W_shape):
