@@ -34,7 +34,7 @@ def wei_cdf(x,W_scale,W_shape):
 #OH# BDwe likelihood (constant speciation rate and age dependent weibull extinction)
 def BDwelik (l, m0, W_shape, W_scale):
 	d = s-e
-	birth_lik = len(s)*log(l)-sum(l*d) # log probability of speciation
+	birth_lik = len(s)*log(l)-l*sum(d) # log probability of speciation
 	death_lik_de = sum(log(m0)+log_pdf_Weibull(e[e>0], W_shape, W_scale)) # log probability of death event
 	dead_lik_wte = -sum(m0*wei_cdf(d,W_scale,W_shape)) # log probability of waiting time until death event
 	lik = birth_lik + death_lik_de + death_lik_wte
