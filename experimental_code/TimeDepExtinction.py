@@ -41,7 +41,6 @@ def BDwelik (l, m0, W_shape, W_scale):
 	return lik
 
 # prior
-#OH# should this also be changed?
 def prior_gamma(L,a=2,b=2): return sum(scipy.stats.gamma.logpdf(L, a, scale=1./b,loc=0))
 
 
