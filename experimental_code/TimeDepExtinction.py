@@ -18,7 +18,7 @@ self_path=os.getcwd()
 #s = np.random.uniform(1, 25, 10) # random speciation times
 #e = np.random.uniform(0, s,  10) # random extinction times
 
-#import simulated data that is TAB separated
+#import simulated TAB separated data
 relative_dropbox_folder=r"C:\Users\oskar\Documents\Dropbox" #Oskar  #this is mine, create yours and comment mine while testing...
 # relative_dropbox_folder='HERE YOUR REL PATH'
 tbl = np.loadtxt(fname=relative_dropbox_folder+r"\PyRate_Age-Dependency_and_Beyond\Toy_Datasets_TreeSimGM\Output_ToyTrees2\age10rexp1rweibull0.5,1.txt", skiprows=1)
