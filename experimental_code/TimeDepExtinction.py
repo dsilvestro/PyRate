@@ -32,9 +32,9 @@ def log_wei_pdf(x,W_scale,W_shape):
 	log_wei_pdf = log(W_shape/W_scale) + (W_shape-1)*log(x/W_scale) - (x/W_scale)**W_shape
 	return log_wei_pdf
 
-def wei_cdf(x,W_scale,W_shape):
+def cdf_Weibull(x,W_scale,W_shape):
 	# Weibull cdf
-	log_wei_cdf = 1 - exp(-(x/W_scale)**W_shape)
+	wei_cdf = 1 - exp(-(x/W_scale)**W_shape)
 	return wei_cdf
 	
 #OH# BDwe likelihood (constant speciation rate and age dependent weibull extinction)
@@ -42,7 +42,7 @@ def BDwelik (l, m0, W_shape, W_scale):
 	d = s-e
 	birth_lik = len(s)*log(l)-l*sum(d) # log probability of speciation
 	death_lik_de = sum(log(m0)+log_pdf_Weibull(e[e>0], W_shape, W_scale)) # log probability of death event
-	dead_lik_wte = -sum(m0*wei_cdf(d,W_scale,W_shape)) # log probability of waiting time until death event
+	death_lik_wte = -sum(m0*cdf_Weibull(d,W_scale,W_shape)) # log probability of waiting time until death event
 	lik = birth_lik + death_lik_de + death_lik_wte
 	return lik
 
@@ -72,6 +72,7 @@ logfile.flush()
 
 iteration =0
 sampling_freq =10
+n_iterations = 1000
 # init parameters
 lA = 0.5
 mA = 0.1
@@ -125,5 +126,5 @@ while True:
 		
 	
 	iteration +=1
-	if iteration==10000: break
+	if iteration==n_iterations: break
 	
