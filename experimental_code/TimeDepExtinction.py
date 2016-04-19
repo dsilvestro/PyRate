@@ -23,7 +23,7 @@ relative_dropbox_folder=r"C:\Users\oskar\Documents\Dropbox" #Oskar  #this is min
 # relative_dropbox_folder='HERE YOUR REL PATH'
 tbl = np.loadtxt(fname=relative_dropbox_folder+r"\PyRate_Age-Dependency_and_Beyond\Toy_Datasets_TreeSimGM\Output_ToyTrees2\age10rexp1rweibull0.5,1.txt", skiprows=1)
 s = tbl[:,2]
-s = tbl[:,3]
+e = tbl[:,3]
 
 
 #OH# Weibull log PDF and CDF functions
