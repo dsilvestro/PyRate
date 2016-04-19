@@ -93,7 +93,7 @@ beta_value = "_hspCS"
 #### ADD DATA FROM FILES
 dir_to_files = args.var
 all_files="%s/*" % (dir_to_files)
-list_files_temp=glob.glob(all_files)
+list_files_temp=list(sort(glob.glob(all_files)))
 list_files = [""]+list_files_temp
 
 variable_names=[]
