@@ -468,7 +468,97 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0, plot_type=
 		cmd="cd %s; Rscript %s/%s_RTT.r" % (wd,wd,name_file)
 	os.system(cmd)
 	print "done\n"
+
+########################## PLOT TS/TE STAT ##############################
+def plot_tste_stats(tste_file, EXT_RATE, step=10):
+	# read data
+	tbl = np.loadtxt(tste_file,skiprows=1)
+	j_max=(np.shape(tbl)[1]-1)/2
+	j=np.arange(j_max)
+	ts = tbl[:,2+2*j]
+	te = tbl[:,3+2*j]
+	wd = "%s" % os.path.dirname(tste_file)
+	# create out file
+	out_file_name = os.path.splitext(os.path.basename(tste_file))[0]
+	out_file="%s/%s" % (wd,out_file_name+"_stats.txt")
+	out_file=open(out_file, "wb")
+	out_file.writelines("time\tdiversity\tm_div\tM_div\tmedian_genus_age\tm_age\tM_age\tturnover\tm_turnover\tM_turnover\tlife_exp\tm_life_exp\tM_life_exp\t")
 	
+	root = int(np.max(ts)+1)
+	def draw_extinction_time(te,EXT_RATE):
+		te_mod = np.zeros(np.shape(te))
+		ind_extant = (te[:,0]==0).nonzero()[0]
+		te_mod[ind_extant,:] = -np.random.exponential(1/EXT_RATE,(len(ind_extant),len(te[0]))) # sim future extinction
+		te_mod += te
+		return te_mod 
+	
+	def calc_median(arg):
+		if len(arg)>=1: return np.median(arg)
+		else: return np.nan
+	
+	extant_at_time_t_previous = [0]
+	for i in range(0,root+1,step):
+		time_t = root-i
+		up = time_t+step
+		lo = time_t
+		extant_at_time_t = [np.intersect1d((ts[:,rep] >= lo).nonzero()[0], (te[:,rep] <= up).nonzero()[0]) for rep in j]
+		extinct_in_time_t =[np.intersect1d((te[:,rep] >= lo).nonzero()[0], (te[:,rep] <= up).nonzero()[0]) for rep in j]
+		diversity = [len(extant_at_time_t[rep]) for rep in j]
+		try: 
+			turnover = [1-len(np.intersect1d(extant_at_time_t_previous[rep],extant_at_time_t[rep]))/float(len(extant_at_time_t[rep])) for rep in j] 
+		except: 
+			turnover = [1 for rep in j]
+		
+		ext_age = [calc_median(ts[extinct_in_time_t[rep],rep]-te[extinct_in_time_t[rep],rep]) for rep in j]
+		age_current_taxa = [calc_median(ts[extant_at_time_t[rep],rep]-time_t) for rep in j]	
+		# EMPIRICAL/PREDICTED LIFE EXPECTANCY
+		life_exp=list()
+		for sim in range(100):
+			te_mod = draw_extinction_time(te,EXT_RATE)
+			te_t = [te_mod[extant_at_time_t[rep],:] for rep in j]
+			life_exp.append([median(time_t-te_t[rep]) for rep in j])
+		
+		life_exp= np.array(life_exp)
+		STR= "\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" \
+		% (time_t, calc_median(diversity),min(diversity),max(diversity), 
+		calc_median(age_current_taxa),min(age_current_taxa),max(age_current_taxa),
+		calc_median(turnover),min(turnover),max(turnover),
+		calc_median(life_exp),np.min(life_exp),np.max(life_exp))
+		extant_at_time_t_previous = extant_at_time_t
+		STR = STR.replace("nan","NA")
+		sys.stdout.write(".")
+		sys.stdout.flush()
+		out_file.writelines(STR)	
+	out_file.close()
+
+	###### R SCRIPT
+	R_file_name="%s/%s" % (wd,out_file_name+"_stats.R")
+	R_file=open(R_file_name, "wb")
+	R_script = """
+	setwd("%s")
+	tbl = read.table(file = "%s_stats.txt",header = T)
+	pdf(file='f%s_stats.pdf',width=12, height=9)
+	time = -tbl$time
+	par(mfrow=c(2,2))
+	library(scales)
+	plot(time,tbl$diversity, type="l",lwd = 2, ylab= "Number of lineages", xlab="Time (Ma)", main="Diversity through time", ylim=c(0,max(tbl$M_div,na.rm =T)+1),xlim=c(min(time),0))
+	polygon(c(time, rev(time)), c(tbl$M_div, rev(tbl$m_div)), col = alpha("#504A4B",0.5), border = NA)
+	plot(time,tbl$median_genus_age, type="l",lwd = 2, ylab = "Median age", xlab="Time (Ma)", main= "Taxon age", ylim=c(0,max(tbl$M_age,na.rm =T)+1),xlim=c(min(time),0))
+	polygon(c(time, rev(time)), c(tbl$M_age, rev(tbl$m_age)), col = alpha("#504A4B",0.5), border = NA)
+	plot(time,tbl$turnover, type="l",lwd = 2, ylab = "Fraction of new taxa", xlab="Time (Ma)", main= "Turnover", ylim=c(0,max(tbl$M_turnover,na.rm =T)+.1),xlim=c(min(time),0))
+	polygon(c(time, rev(time)), c(tbl$M_turnover, rev(tbl$m_turnover)), col = alpha("#504A4B",0.5), border = NA)
+	plot(time,tbl$life_exp, type="l",lwd = 2, ylab = "Median longevity", xlab="Time (Ma)", main= "Taxon (estimated) longevity", ylim=c(0,max(tbl$M_life_exp,na.rm =T)+1),xlim=c(min(time),0))
+	polygon(c(time, rev(time)), c(tbl$M_life_exp, rev(tbl$m_life_exp)), col = alpha("#504A4B",0.5), border = NA)
+	n<-dev.off()
+	""" % (wd, out_file_name,out_file_name)
+	R_file.writelines(R_script)
+	R_file.close()
+	print "\nAn R script with the source for the stat plot was saved as: \n%s" % (R_file_name)
+	cmd="cd %s; Rscript %s" % (wd,out_file_name+"_stats.R")
+	os.system(cmd)
+	print "done\n"
+
+
 ########################## INITIALIZE MCMC ##############################
 def get_gamma_rates(a):
 	b=a
