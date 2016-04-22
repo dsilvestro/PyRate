@@ -21,7 +21,7 @@ self_path=os.getcwd()
 #import simulated TAB separated data
 relative_dropbox_folder=r"C:\Users\oskar\Documents\Dropbox" #Oskar  #this is mine, create yours and comment mine while testing...
 # relative_dropbox_folder='HERE YOUR REL PATH'
-tbl = np.loadtxt(fname=relative_dropbox_folder+r"\PyRate_Age-Dependency_and_Beyond\Toy_Datasets_TreeSimGM\Output_ToyTrees2\age10rexp1rweibull0.5,1.txt", skiprows=1)
+tbl = np.loadtxt(fname=relative_dropbox_folder+r"\PyRate_Age-Dependency_and_Beyond\Toy_Datasets_TreeSimGM\Output_ToyTrees2\age10rexp1rweibull0.5_1.txt", skiprows=1)
 s = tbl[:,2]
 e = tbl[:,3]
 
