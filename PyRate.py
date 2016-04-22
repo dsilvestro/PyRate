@@ -1718,11 +1718,12 @@ p.add_argument('-d',         type=str,help="Load SE table",metavar='<1 input fil
 p.add_argument('-plot',      metavar='<input file>', type=str,help="RTT plot (type 1): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
 p.add_argument('-plot2',     metavar='<input file>', type=str,help="RTT plot (type 2): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
 p.add_argument('-root_plot', type=float, help='User define root age for RTT plots', default=0, metavar=0)
-p.add_argument('-tag',       metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted",default="")
+p.add_argument('-tag',       metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted (-plot) or summarized in SE table (-ginput)",default="")
 p.add_argument('-mProb',     type=str,help="Input 'mcmc.log file",default="")
 p.add_argument('-BF',        type=str,help="Input 'marginal_likelihood.txt files",metavar='<2 input files>',nargs='+',default=[])
 p.add_argument("-data_info", help='Summary information about an input data', action='store_true', default=False)
 p.add_argument('-SE_stats',  type=float,help="Calculate and plot stats from SE table:",metavar='<extinction_rate bin_size #_simulations>',nargs='+',default=[])
+p.add_argument('-ginput',    type=str,help='generate SE table from *mcmc.log files', default="", metavar="<path_to_mcmc.log>")
 
 # MCMC SETTINGS
 p.add_argument('-n',      type=int, help='mcmc generations',default=10000000, metavar=10000000)
@@ -1844,6 +1845,15 @@ else:
 	d3 = max(args.tR,1.05) # avoid win size < 1
 
 
+if args.ginput != "":
+	try:
+		import imp
+		lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "pyrate_lib/lib_DD_likelihood.py")
+		lib_utilities = imp.load_source("lib_utilities", "pyrate_lib/lib_utilities.py")
+	except: sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
+	You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
+	lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=-1,burnin=int(burnin)+1)
+	quit()
 
 
 # freq update CovPar
