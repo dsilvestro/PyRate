@@ -23,35 +23,36 @@ e = tbl[:,3]
 
 
 # Aged dependet rate leading to a Weibull waiting time
-def wr(t,W_scale,W_shape):
+def wr(t,W_shape,W_scale):
 	# rate
 	wr=(W_shape/W_scale)*(t/W_scale)**(W_shape-1)
 	return wr
 
 
 # Log of aged dependet rate leading to a Weibull waiting time
-def log_wr(t,W_scale,W_shape):
+def log_wr(t,W_shape,W_scale):
 	# rate
 	log_wr=log(W_shape/W_scale)+(W_shape-1)*log(t/W_scale)
 	return log_wr
 	
 # Integral of  wr	
-def wr_int(startingx, endingx, numberofRectangles):
+def wr_int(startingx, endingx, W_shape, W_scale, numberofRectangles):
 	width = (float(endingx)-float(startingx))/numberofRectangles
 	runningSum = 0
 	for i in range(numberofRectangles):
-		height = wr(startingx + i*width)
+		height = wr(startingx + i*width, W_shape, W_scale)
 		area = height * width
 		runningSum += area
 	return runningSum
 	
 	
-#OH# BDwe likelihood (constant speciation rate and age dependent with weibull waiting time until extinction)
-def BDwelik (l, m0, W_shape, W_scale):
+# BDwwte likelihood (constant speciation rate and age dependent with weibull waiting time until extinction)
+def BDwwte (l, m0, W_shape, W_scale):
 	d = s-e
+	de = s[e>0]-e[e>0] #takes only the extinct species times
 	birth_lik = len(s)*log(l)-l*sum(d) # log probability of speciation
-	death_lik_de = sum(log(m0)+log_pdf_Weibull(e[e>0], W_shape, W_scale)) # log probability of death event
-	death_lik_wte = -sum(m0*cdf_Weibull(d,W_scale,W_shape)) # log probability of waiting time until death event
+	death_lik_de = sum(log(m0)+log_wr(de, W_shape, W_scale)) # log probability of death event
+	death_lik_wte = sum(-m0*wr_int(0,d,W_shape,W_scale,numberofRectangles)) # log probability of waiting time until death event
 	lik = birth_lik + death_lik_de + death_lik_wte
 	return lik
 
@@ -103,7 +104,7 @@ while True:
 	
 	
 	# calc lik
-	lik = BDwelik(l, m, W_shape, W_scale)
+	lik = BDwwte(l, m, W_shape, W_scale)
 	
 	# calc priors
 	prior = prior_gamma(l) + prior_gamma(m) + prior_gamma(W_shape) + prior_gamma(W_scale)
