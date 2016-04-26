@@ -28,6 +28,23 @@ def wr(t,W_scale,W_shape):
 	wr=(W_shape/W_scale)*(t/W_scale)**(W_shape-1)
 	return wr
 
+
+# Log of aged dependet rate leading to a Weibull waiting time
+def log_wr(t,W_scale,W_shape):
+	# rate
+	log_wr=log(W_shape/W_scale)+(W_shape-1)*log(t/W_scale)
+	return log_wr
+	
+# Integral of  wr	
+def wr_int(startingx, endingx, numberofRectangles):
+	width = (float(endingx)-float(startingx))/numberofRectangles
+	runningSum = 0
+	for i in range(numberofRectangles):
+		height = wr(startingx + i*width)
+		area = height * width
+		runningSum += area
+	return runningSum
+	
 	
 #OH# BDwe likelihood (constant speciation rate and age dependent with weibull waiting time until extinction)
 def BDwelik (l, m0, W_shape, W_scale):
