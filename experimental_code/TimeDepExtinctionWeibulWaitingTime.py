@@ -63,10 +63,10 @@ def pdf_WR(arg,x):
 	W_scale = arg[1]
 	return (W_shape/W_scale)*(x/W_scale)**(W_shape-1)
 
-def int_function(function, arg_function, starting_x, ending_x, n_bins=10000.):
+def int_function(function, arg_function, starting_x, ending_x, n_bins=1000.):
 	INT = np.zeros(len(ending_x))
 	for i in range(len(ending_x)):
-		v= np.linspace(starting_x,ending_x[i],10000)
+		v= np.linspace(starting_x,ending_x[i],n_bins)
 		INT[i] = sum(pdf_WR(arg_function,v))*(v[1]-v[0])
 	#V = np.repeat(v,len(ending_x)).reshape(len(v),len(ending_x))
 	return INT
@@ -90,7 +90,7 @@ def prior_gamma(L,a=2,b=2): return sum(scipy.stats.gamma.logpdf(L, a, scale=1./b
 
 
 # function to update parameters
-def update_multiplier_proposal(i,d=1.2,f=1):
+def update_multiplier_proposal(i,d=1.1,f=1):
 	S=shape(i)
 	u = np.random.uniform(0,1,S)
 	l = 2*log(d)
@@ -102,7 +102,9 @@ def update_multiplier_proposal(i,d=1.2,f=1):
 
 
 # create log file
-log_file_name = "%s/mcmc.log" % (output_wd)
+input_file_raw = os.path.basename(args.d)
+input_file = os.path.splitext(input_file_raw)[0]  # file name without extension
+log_file_name = "%s/%s_mcmc.log" % (output_wd,input_file)
 logfile = open(log_file_name , "wb") 
 wlog=csv.writer(logfile, delimiter='\t')
 head = ["it","post","lik","prior","l","m","shape","scale"]
@@ -112,10 +114,10 @@ logfile.flush()
 
 iteration =0
 sampling_freq =10
-n_iterations = 1000
+n_iterations = 10000
 # init parameters
 lA = 0.5
-mA = 0.1
+mA = 1
 W_shapeA = 1.5 #OH# proposition of parameter, here starting with strong age-dependency, mainly high likelyhood for younger species
 W_scaleA = 1.5 #OH# proposition of parameter
 
@@ -127,7 +129,8 @@ while True:
 		W_shape = W_shapeA
 		W_scale = W_scaleA
 	else:
-		m, hastings = update_multiplier_proposal(mA)
+		#m, hastings = update_multiplier_proposal(mA)
+		m = mA
 		W_shape, hastings = update_multiplier_proposal(W_shapeA)
 		W_scale, hastings = update_multiplier_proposal(W_scaleA)
 		l = lA
