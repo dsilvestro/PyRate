@@ -71,6 +71,12 @@ def int_function(function, arg_function, starting_x, ending_x, n_bins=1000.):
 	#V = np.repeat(v,len(ending_x)).reshape(len(v),len(ending_x))
 	return INT
 
+### Integration using Trapezoidal rule | incorporate in the code!
+def int_trapez_function(func, arg_function, starting_x, ending_x, n_bins=10):
+	v= np.linspace(starting_x,ending_x,n_bins)
+	y= func(arg_function,v)
+	d= v[1]-v[0]
+	return sum((np.diff(y)*d)/2. + (y[0:-1]*d) )
 
 	
 # BDwwte likelihood (constant speciation rate and age dependent with weibull waiting time until extinction)
