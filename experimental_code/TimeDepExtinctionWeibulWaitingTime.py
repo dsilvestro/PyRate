@@ -46,8 +46,8 @@ def log_wr(t,W_shape,W_scale):
 	return log_wr
 	
 # Integral of  wr	
-def wr_int(startingx, endingx, W_shape, W_scale, numberofRectangles):
-	width = (float(endingx)-float(startingx))/numberofRectangles
+def wr_int(startingx, endingx, W_shape, W_scale, numberofRectangles=1000):
+	width = (endingx-startingx)/numberofRectangles
 	runningSum = 0
 	for i in range(numberofRectangles):
 		height = wr(startingx + i*width, W_shape, W_scale)
@@ -61,7 +61,7 @@ def pdf_WR(arg,x):
 	W_scale = arg[1]
 	return (W_shape/W_scale)*(x/W_scale)**(W_shape-1)
 
-def int_function(function, arg_function, starting_x, ending_x, n_bins=10000):
+def int_function(function, arg_function, starting_x, ending_x, n_bins=10000.):
 	v= np.linspace(starting_x,ending_x,10000)
 	return sum(function(arg_function,v))*(v[1]-v[0])
 
@@ -73,8 +73,8 @@ def BDwwte (l, m0, W_shape, W_scale):
 	de = d[e>0] #takes only the extinct species times
 	birth_lik = len(s)*log(l)-l*sum(d) # log probability of speciation
 	death_lik_de = sum(log(m0)+log_wr(de, W_shape, W_scale)) # log probability of death event
-	#death_lik_wte = sum(-m0*wr_int(0,d,W_shape,W_scale,numberofRectangles)) # log probability of waiting time until death event
-	death_lik_wte = sum(-m0*int_function(pdf_WR, [W_shape,W_scale], 0, d) # log probability of waiting time until death event
+	death_lik_wte = sum(-m0*wr_int(0,d,W_shape,W_scale)) # log probability of waiting time until death event
+	#death_lik_wte = sum(-m0*int_function(pdf_WR, [W_shape,W_scale], 0, d)) # log probability of waiting time until death event
 	lik = birth_lik + death_lik_de + death_lik_wte
 	return lik
 
