@@ -60,10 +60,11 @@ def int_function(function, arg_function, starting_x, ending_x, n_bins=10000):
 # BDwwte likelihood (constant speciation rate and age dependent with weibull waiting time until extinction)
 def BDwwte (l, m0, W_shape, W_scale):
 	d = s-e
-	de = s[e>0]-e[e>0] #takes only the extinct species times
+	de = d[e>0] #takes only the extinct species times
 	birth_lik = len(s)*log(l)-l*sum(d) # log probability of speciation
 	death_lik_de = sum(log(m0)+log_wr(de, W_shape, W_scale)) # log probability of death event
-	death_lik_wte = sum(-m0*wr_int(0,d,W_shape,W_scale,numberofRectangles)) # log probability of waiting time until death event
+	#death_lik_wte = sum(-m0*wr_int(0,d,W_shape,W_scale,numberofRectangles)) # log probability of waiting time until death event
+	death_lik_wte = sum(-m0*int_function(pdf_WR, [W_shape,W_scale], 0, d) # log probability of waiting time until death event
 	lik = birth_lik + death_lik_de + death_lik_wte
 	return lik
 
