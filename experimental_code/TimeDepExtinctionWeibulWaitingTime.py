@@ -44,7 +44,18 @@ def wr_int(startingx, endingx, W_shape, W_scale, numberofRectangles):
 		area = height * width
 		runningSum += area
 	return runningSum
-	
+
+# Integrating wr without for loop	
+def pdf_WR(arg,x):
+	W_shape = arg[0]
+	W_scale = arg[1]
+	return (W_shape/W_scale)*(x/W_scale)**(W_shape-1)
+
+def int_function(function, arg_function, starting_x, ending_x, n_bins=10000):
+	v= np.linspace(starting_x,ending_x,10000)
+	return sum(function(arg_function,v))*(v[1]-v[0])
+
+
 	
 # BDwwte likelihood (constant speciation rate and age dependent with weibull waiting time until extinction)
 def BDwwte (l, m0, W_shape, W_scale):
