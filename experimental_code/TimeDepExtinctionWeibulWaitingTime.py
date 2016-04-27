@@ -13,11 +13,21 @@ np.set_printoptions(suppress=True)
 np.set_printoptions(precision=3)  
 self_path=os.getcwd()
 
+self_path=os.getcwd()
+p = argparse.ArgumentParser() #description='<input file>') 
+
+p.add_argument('-v',         action='version', version='%(prog)s')
+p.add_argument('-d',         type=str,help="Load SE table",metavar='<1 input file>',default="")
+
+args = p.parse_args()
+
+output_wd = os.path.dirname(args.d)
+if output_wd=="": output_wd= self_path
 
 #import simulated TAB separated data
-relative_dropbox_folder=r"C:\Users\oskar\Documents\Dropbox" #Oskar  #this is mine, create yours and comment mine while testing...
+#relative_dropbox_folder=r"C:\Users\oskar\Documents\Dropbox" #Oskar  #this is mine, create yours and comment mine while testing...
 # relative_dropbox_folder='HERE YOUR REL PATH'
-tbl = np.loadtxt(fname=relative_dropbox_folder+r"\PyRate_Age-Dependency_and_Beyond\Toy_Datasets_TreeSimGM\Output_ToyTrees2\age10rexp1rweibull0.5_1.txt", skiprows=1)
+tbl = np.loadtxt(fname=args.d, skiprows=1)
 s = tbl[:,2]
 e = tbl[:,3]
 
@@ -85,7 +95,8 @@ def update_multiplier_proposal(i,d=1.2,f=1):
 
 
 # create log file
-logfile = open("mcmc.log" , "wb") 
+log_file_name = "%s/mcmc.log" % (output_wd)
+logfile = open(log_file_name , "wb") 
 wlog=csv.writer(logfile, delimiter='\t')
 head = ["it","post","lik","prior","l","m","shape","scale"]
 wlog.writerow(head)
@@ -149,3 +160,7 @@ while True:
 	
 	iteration +=1
 	if iteration==n_iterations: break
+
+
+
+
