@@ -47,7 +47,9 @@ def log_wr(t,W_shape,W_scale):
 	
 # Integral of  wr	
 def wr_int(startingx, endingx, W_shape, W_scale, numberofRectangles=1000):
-	width = (endingx-startingx)/numberofRectangles
+	print startingx,endingx,W_shape,W_scale
+	quit()
+	width = (endingx-startingx)/float(numberofRectangles)
 	runningSum = 0
 	for i in range(numberofRectangles):
 		height = wr(startingx + i*width, W_shape, W_scale)
@@ -62,8 +64,12 @@ def pdf_WR(arg,x):
 	return (W_shape/W_scale)*(x/W_scale)**(W_shape-1)
 
 def int_function(function, arg_function, starting_x, ending_x, n_bins=10000.):
-	v= np.linspace(starting_x,ending_x,10000)
-	return sum(function(arg_function,v))*(v[1]-v[0])
+	INT = np.zeros(len(ending_x))
+	for i in range(len(ending_x)):
+		v= np.linspace(starting_x,ending_x[i],10000)
+		INT[i] = sum(pdf_WR(arg_function,v))*(v[1]-v[0])
+	#V = np.repeat(v,len(ending_x)).reshape(len(v),len(ending_x))
+	return INT
 
 
 	
@@ -73,8 +79,9 @@ def BDwwte (l, m0, W_shape, W_scale):
 	de = d[e>0] #takes only the extinct species times
 	birth_lik = len(s)*log(l)-l*sum(d) # log probability of speciation
 	death_lik_de = sum(log(m0)+log_wr(de, W_shape, W_scale)) # log probability of death event
-	death_lik_wte = sum(-m0*wr_int(0,d,W_shape,W_scale)) # log probability of waiting time until death event
-	#death_lik_wte = sum(-m0*int_function(pdf_WR, [W_shape,W_scale], 0, d)) # log probability of waiting time until death event
+	#death_lik_wte = sum(-m0*wr_int(0,d,W_shape,W_scale)) # log probability of waiting time until death event
+	#print len(s)*log(l)-l*sum(d), log(m0)+log_wr(de, W_shape, W_scale), -m0*wr_int(0,d,W_shape,W_scale)
+	death_lik_wte = sum(-m0*int_function(pdf_WR, [W_shape,W_scale], 0, d)) # log probability of waiting time until death event
 	lik = birth_lik + death_lik_de + death_lik_wte
 	return lik
 
@@ -109,8 +116,8 @@ n_iterations = 1000
 # init parameters
 lA = 0.5
 mA = 0.1
-W_shapeA = 0.1 #OH# proposition of parameter, here starting with strong age-dependency, mainly high likelyhood for younger species
-W_scaleA = 0.1 #OH# proposition of parameter
+W_shapeA = 1.5 #OH# proposition of parameter, here starting with strong age-dependency, mainly high likelyhood for younger species
+W_scaleA = 1.5 #OH# proposition of parameter
 
 while True:
 	# update parameters
