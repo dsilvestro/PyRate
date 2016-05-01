@@ -487,6 +487,7 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time):
 	out_file.writelines("time\tdiversity\tm_div\tM_div\tmedian_genus_age\tm_age\tM_age\tturnover\tm_turnover\tM_turnover\tlife_exp\tm_life_exp\tM_life_exp\t")
 	
 	root = int(np.max(ts)+1)
+	no_sim_ex_time = int(no_sim_ex_time)
 	def draw_extinction_time(te,EXT_RATE):
 		te_mod = np.zeros(np.shape(te))
 		ind_extant = (te[:,0]==0).nonzero()[0]
@@ -499,7 +500,7 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time):
 		else: return np.nan
 	
 	extant_at_time_t_previous = [0]
-	for i in range(0,root+1,step_size):
+	for i in range(0,root+1,int(step_size)):
 		time_t = root-i
 		up = time_t+step_size
 		lo = time_t
@@ -507,7 +508,8 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time):
 		extinct_in_time_t =[np.intersect1d((te[:,rep] >= lo).nonzero()[0], (te[:,rep] <= up).nonzero()[0]) for rep in j]
 		diversity = [len(extant_at_time_t[rep]) for rep in j]
 		try: 
-			turnover = [1-len(np.intersect1d(extant_at_time_t_previous[rep],extant_at_time_t[rep]))/float(len(extant_at_time_t[rep])) for rep in j] 
+			#turnover = [1-len(np.intersect1d(extant_at_time_t_previous[rep],extant_at_time_t[rep]))/float(len(extant_at_time_t[rep])) for rep in j] 
+			turnover = [(len(extant_at_time_t[rep])-len(np.intersect1d(extant_at_time_t_previous[rep],extant_at_time_t[rep])))/float(len(extant_at_time_t[rep])) for rep in j] 
 		except: 
 			turnover = [1 for rep in j]
 		
