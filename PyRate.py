@@ -1714,7 +1714,8 @@ p.add_argument("-wd",        type=str, help='path to working directory', default
 p.add_argument("-out",       type=str, help='output tag', default="")
 p.add_argument('-singleton', type=float, help='Remove singletons (min life span)', default=0, metavar=0)
 p.add_argument("-rescale",   type=float, help='Rescale data (e.g. -rescale 0.001: 1My -> 1Ky)', default=1, metavar=1)
-p.add_argument('-d',         type=str,help="Load SE table",metavar='<1 input file>',default="")
+p.add_argument('-d',         type=str,help="Load SE table",metavar='<input file>',default="")
+p.add_argument('-trait_file',type=str,help="Load trait table",metavar='<input file>',default="")
 
 # PLOTS AND OUTPUT
 p.add_argument('-plot',      metavar='<input file>', type=str,help="RTT plot (type 1): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
@@ -2095,26 +2096,52 @@ else: fix_SE=False
 # Get trait values (Cov model)
 if model_cov>=1:
 	try:
-		trait_values=input_data_module.get_continuous(max(args.trait-1,0))
+		if args.trait_file != "": # Use trait file
+			traitfile=file(args.trait_file, 'U')
+			
+			L=traitfile.readlines()
+			head= L[0].split()
+			
+			if len(head)==2: col=1
+			elif len(head)==3: col=2
+			else: sys.exit("\nNo trait data found.")
+			
+			trait_val=[l.split()[col] for l in L][1:]
+			trait_values = np.zeros(len(trait_val))
+			trait_count = 0 
+			for i in range(len(trait_val)): 
+				try: 
+					trait_values[i] = float(trait_val[i])
+					trait_count+=1
+				except: trait_values[i] = np.nan
+			
+			if trait_count==0: sys.exit("\nNo trait data found.") 
+		else:             # Trait data from .py file
+			trait_values=input_data_module.get_continuous(max(args.trait-1,0))
 		if args.logT==0: pass
 		elif args.logT==1: trait_values = log(trait_values)
 		else: trait_values = np.log10(trait_values)		
 	except: sys.exit("\nTrait data not found! Check input file.\n")
-			
-	MidPoints=np.zeros(len(fossil_complete))
-	for i in range(len(fossil_complete)):
-		MidPoints[i]=np.mean([max(fossil_complete[i]),min(fossil_complete[i])])
+	
+	# Mid point age of each lineage
+	if use_se_tbl==True: MidPoints = (fixed_ts+fixed_te)/2.
+	else:
+		MidPoints=np.zeros(len(fossil_complete))
+		for i in range(len(fossil_complete)):
+			MidPoints[i]=np.mean([max(fossil_complete[i]),min(fossil_complete[i])])
 	
 	# fit linear regression (for species with trait value - even if without fossil data)
 	slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(MidPoints[np.isfinite(trait_values)],trait_values[np.isfinite(trait_values)])
 	
 	# 
 	ind_nan_trait= (np.isfinite(trait_values)==False).nonzero()
-	meanGAUScomplete=np.zeros(len(fossil_complete))
+	meanGAUScomplete=np.zeros(len(MidPoints))
 	meanGAUScomplete[ind_nan_trait] = slope*MidPoints[ind_nan_trait] + intercept
 	
-	trait_values= trait_values[np.array(have_record)]
-	meanGAUS= meanGAUScomplete[np.array(have_record)]
+	if use_se_tbl==True: meanGAUS= meanGAUScomplete
+	else:
+		trait_values= trait_values[np.array(have_record)]
+		meanGAUS= meanGAUScomplete[np.array(have_record)]
 	
 	sdGAUS = std_err
 	regression_trait= "\n\nEstimated linear trend trait-value: \nslope=%s; sd. error= %s (intercept= %s; R2= %s; P-value= %s)" \
