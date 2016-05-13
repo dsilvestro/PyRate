@@ -87,7 +87,7 @@ def BDwwte (l, m0, W_shape, W_scale):
 	death_lik_de = sum(log(m0)+log_wr(de, W_shape, W_scale)) # log probability of death event
 	#death_lik_wte = sum(-m0*wr_int(0,d,W_shape,W_scale)) # log probability of waiting time until death event
 	#print len(s)*log(l)-l*sum(d), log(m0)+log_wr(de, W_shape, W_scale), -m0*wr_int(0,d,W_shape,W_scale)
-	death_lik_wte = sum(-m0*int_function(pdf_WR, [W_shape,W_scale], 0, d)) # log probability of waiting time until death event
+	death_lik_wte = sum(-m0*int_function(pdf_WR, [W_shape,W_scale], 0.001, d)) # log probability of waiting time until death event
 	lik = birth_lik + death_lik_de + death_lik_wte
 	return lik
 
@@ -124,7 +124,7 @@ n_iterations = 10000
 # init parameters
 lA = 0.5
 mA = 1
-W_shapeA = 1.5 #OH# proposition of parameter, here starting with strong age-dependency, mainly high likelyhood for younger species
+W_shapeA = 0.5 #OH# proposition of parameter, here starting with strong age-dependency, mainly high likelyhood for younger species
 W_scaleA = 1.5 #OH# proposition of parameter
 
 while True:
