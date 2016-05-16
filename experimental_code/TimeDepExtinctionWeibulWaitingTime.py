@@ -63,20 +63,24 @@ def pdf_WR(arg,x):
 	W_scale = arg[1]
 	return (W_shape/W_scale)*(x/W_scale)**(W_shape-1)
 
-def int_function(function, arg_function, starting_x, ending_x, n_bins=1000.):
-	INT = np.zeros(len(ending_x))
-	for i in range(len(ending_x)):
-		v= np.linspace(starting_x,ending_x[i],n_bins)
-		INT[i] = sum(pdf_WR(arg_function,v))*(v[1]-v[0])
-	#V = np.repeat(v,len(ending_x)).reshape(len(v),len(ending_x))
-	return INT
+#commented since function pluged....
+#def int_function(function, arg_function, starting_x, ending_x, n_bins=1000):
+#	INT = np.zeros(len(ending_x))
+#	for i in range(len(ending_x)):
+#		v= np.linspace(starting_x,ending_x[i],n_bins)
+#		INT[i] = sum(pdf_WR(arg_function,v))*(v[1]-v[0])
+#	#V = np.repeat(v,len(ending_x)).reshape(len(v),len(ending_x))
+#	return INT
 
 ### Integration using Trapezoidal rule | incorporate in the code!
 def int_trapez_function(func, arg_function, starting_x, ending_x, n_bins=10):
-	v= np.linspace(starting_x,ending_x,n_bins)
-	y= func(arg_function,v)
-	d= v[1]-v[0]
-	return sum((np.diff(y)*d)/2. + (y[0:-1]*d) )
+    INT = np.zeros(len(ending_x))
+    for i in range(len(ending_x)):
+	    v= np.linspace(starting_x,ending_x[i],n_bins)
+	    y= func(arg_function,v)
+	    d= v[1]-v[0]
+	    INT[i] = sum((np.diff(y)*d)/2. + (y[0:-1]*d))
+    return INT
 
 	
 # BDwwte likelihood (constant speciation rate and age dependent with weibull waiting time until extinction)
@@ -120,7 +124,7 @@ logfile.flush()
 
 iteration =0
 sampling_freq =10
-n_iterations = 5000
+n_iterations = 25000
 # init parameters
 lA = 0.5
 mA = 1
@@ -146,7 +150,7 @@ while True:
 	lik = BDwwte(l, m, W_shape, W_scale)
 	
 	# calc priors
-	prior = prior_gamma(l) + prior_gamma(m) + prior_gamma(W_shape) + prior_gamma(W_scale)
+	prior = 1 #prior_gamma(l) + prior_gamma(m) + prior_gamma(W_shape) + prior_gamma(W_scale)
 		
 	if iteration ==0:  
 		likA = lik
@@ -176,7 +180,3 @@ while True:
 	
 	iteration +=1
 	if iteration==n_iterations: break
-
-
-
-
