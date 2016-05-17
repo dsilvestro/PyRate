@@ -124,7 +124,7 @@ logfile.flush()
 
 iteration =0
 sampling_freq =10
-n_iterations = 10000
+n_iterations = 5000
 # init parameters
 lA = 0.5
 mA = 1
