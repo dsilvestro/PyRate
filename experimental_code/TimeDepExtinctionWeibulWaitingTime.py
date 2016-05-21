@@ -82,7 +82,9 @@ def int_trapez_function(func, arg_function, starting_x, ending_x, n_bins=10):
 	    INT[i] = sum((np.diff(y)*d)/2. + (y[0:-1]*d))
     return INT
 
-	
+def cdf_WR(W_shape,W_scale,x):
+	return (x/W_scale)**(W_shape)
+	   
 # BDwwte likelihood (constant speciation rate and age dependent with weibull waiting time until extinction)
 def BDwwte (l, m0, W_shape, W_scale):
 	d = s-e
@@ -91,7 +93,10 @@ def BDwwte (l, m0, W_shape, W_scale):
 	death_lik_de = sum(log(m0)+log_wr(de, W_shape, W_scale)) # log probability of death event
 	#death_lik_wte = sum(-m0*wr_int(0,d,W_shape,W_scale)) # log probability of waiting time until death event
 	#print len(s)*log(l)-l*sum(d), log(m0)+log_wr(de, W_shape, W_scale), -m0*wr_int(0,d,W_shape,W_scale)
-	death_lik_wte = sum(-m0*int_trapez_function(pdf_WR, [W_shape,W_scale], 0.001, d)) # log probability of waiting time until death event
+	# numerical integration
+	#death_lik_wte = sum(-m0*int_trapez_function(pdf_WR, [W_shape,W_scale], 0.001, d)) # log probability of waiting time until death event
+	# analytical integration
+	death_lik_wte = sum(-m0*cdfWR(W_shape,W_scale, d)) # log probability of waiting time until death event
 	lik = birth_lik + death_lik_de + death_lik_wte
 	return lik
 
