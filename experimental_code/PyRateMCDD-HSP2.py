@@ -40,9 +40,8 @@ p.add_argument('-j', type=int,   help='replicate', default=0, metavar=0)
 p.add_argument('-c', type=int, help='clade', default=0, metavar=0)
 p.add_argument('-b', type=int, help='burnin (number of generations)', default=1, metavar=1)
 p.add_argument('-T', type=float, help='Max time slice', default=np.inf, metavar=np.inf)
-p.add_argument('-plot', type=str, help='Summary files (generated using the sum_MCDD.py function)', default="", metavar="", nargs='+')
-p.add_argument('-plot2', type=str, help='Log file', default="", metavar="")
-p.add_argument('-bR',  type=float, help='Baseline speciation/extinction rates', default=[1., 1.], metavar=1., nargs=2)
+p.add_argument('-plot', type=str, help='Log file', default="", metavar="")
+#p.add_argument('-bR',  type=float, help='Baseline speciation/extinction rates', default=[1., 1.], metavar=1., nargs=2)
 
 
 args = p.parse_args()
@@ -69,8 +68,6 @@ constr=args.m
 
 single_focal_clade = True
 fixed_focal_clade = args.c
-if args.c==0: fixed_focal_clade=0
-else: fixed_focal_clade = args.c-1
 clade_name = "_c%s" % (fixed_focal_clade)
 
 burnin = args.b
@@ -85,9 +82,9 @@ summary_file = args.plot
 if summary_file != "":
 	plot_RTT = True
 	# parse a log file to get baseline rates and G values
-	print "parsing log file:", summary_file[0]
+	print "parsing log file:", summary_file
 	#fixed_focal_clade,baseline_L,baseline_M,Gl_focal_clade,Gm_focal_clade,est_kl,est_km = lib_utilities.parse_hsp_logfile(summary_file[0])
-	try: fixed_focal_clade,baseline_L_list,baseline_M_list,Gl_focal_clade_list,Gm_focal_clade_list,est_kl,est_km = lib_utilities.parse_hsp_logfile_HPD(summary_file[0],burnin)
+	try: fixed_focal_clade,baseline_L_list,baseline_M_list,Gl_focal_clade_list,Gm_focal_clade_list,est_kl,est_km = lib_utilities.parse_hsp_logfile_HPD(summary_file,burnin)
 	except: sys.exit("Unable to parse file.")
 		
 else: plot_RTT = False
