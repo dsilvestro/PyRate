@@ -40,17 +40,16 @@ def resample_simulation(TS,TE, beta_par=3,q=1,rho=1,minFO=0,verbose=1):
 	
 	for i in range(len(n)): 
 		
-		if TE[i]==0: 
-			m=-np.random.exponential(1./M[len(M)-1]) ##DANIELE, here we generate a neg number based on the number of fossils?
-			n_DA=(TS[i]-m) ##DANIELE, we then here subtract the value, i.e. SUM it again since m is negative....
-			N[i]=np.random.poisson(q*n_DA) ##DANIELE, I can not follow this up...
-						
-			if q==0: N[i] =np.random.poisson(3*n_DA)
-			samples= TS[i] - np.random.beta(beta_par,beta_par,N[i])*n_DA # + m
-			samples=samples[samples>0] # avoid negative
-			samples=np.concatenate((samples,array([0])), axis=1)
-				
-		elif N[i]>0:
+		#if TE[i]==0: 
+			## setting extinctiom of extant taxa as getting extinct at the present
+			#m=-np.random.exponential(1./M[len(M)-1]) ##DANIELE, here we generate a neg number based on the number of fossils?
+			#n_DA=(TS[i]-m) ##DANIELE, we then here subtract the value, i.e. SUM it again since m is negative....
+			#N[i]=np.random.poisson(q*n_DA) ##DANIELE, I can not follow this up...		
+			#if q==0: N[i] =np.random.poisson(3*n_DA)
+			#samples= TS[i] - np.random.beta(beta_par,beta_par,N[i])*n_DA # + m
+			#samples=samples[samples>0] # avoid negative
+			#samples=np.concatenate((samples,array([0])), axis=1)
+		if N[i]>0:
 			samples=np.random.beta(beta_par,beta_par,N[i]) *n[i] +TE[i]
 		else: samples=[] # no record
 
