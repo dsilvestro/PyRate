@@ -17,9 +17,6 @@ output = "F"+filename
 ##  'q_rate' IS THE PRESERVATION RATE, WE SHOULD TEST WITH VALUES OF E.G. 0.25, 0.5, 1, 3
 q_rate = 1.
 
-
-
-
 ## SIMULAITON FUNCTIONS
 def write_to_file(f, o):
 	sumfile = open(f , "wb") 
@@ -28,8 +25,8 @@ def write_to_file(f, o):
 
 def resample_simulation(TS,TE, beta_par=3,q=1,rho=1,minFO=0,verbose=1):
 	# uniform sample
-	n=TS-TE
-	N =np.random.poisson(q*n)
+	n = TS-TE
+	N = np.random.poisson(q*n)
 	if q==0: N =np.random.poisson(3*n)
 	if minFO>0: N=N+1
 	
