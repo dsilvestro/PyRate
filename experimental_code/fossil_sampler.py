@@ -3,7 +3,7 @@ import numpy as np
 import os
 
 # fossilSampler
-os.chdir(´C:\Users\oskar\Documents\Dropbox\PyRate_Age-Dependency_and_Beyond\Toy_Datasets_TreeSimGM\BAT_simulator\BAT4_smallertreeSshape_0.1-1.5_scale_0.5-3´)
+os.chdir(r'C:\Users\oskar\Documents\Dropbox\PyRate_Age-Dependency_and_Beyond\Toy_Datasets_TreeSimGM\BAT_simulator\BAT4_smallertreeSshape_0.1-1.5_scale_0.5-3')
 
 filename="sim1_1_0.926_0.746.txt"
 # reading simulated file
