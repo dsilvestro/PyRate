@@ -597,8 +597,8 @@ def init_alphas(): # p=1 for alpha1=alpha2
 ########################## UPDATES ######################################
 def update_parameter(i, m, M, d, f): 
 	#d=fabs(np.random.normal(d,d/2.)) # variable tuning prm
-	if i>0 and rand.random()<=f:
-		ii = i+(rand.random()-.5)*d
+	if i>0 and np.random.random()<=f:
+		ii = i+(np.random.random()-.5)*d
 		if ii<m: ii=(ii-m)+m
 		if ii>M: ii=(M-(ii-M))
 		if ii<m: ii=i
@@ -807,6 +807,7 @@ def HPBD3(timesL,timesM,L,M,T,s):
 
 	return pNtvar([all_t_frames,Ln,Mn,tot_extant])
 
+# BIRTH-DEATH MODELS
 def BPD_lik_vec_times(arg):
 	[ts,te,time_frames,L,M]=arg
 	if fix_SE is False and fix_Shift is False:
@@ -842,9 +843,7 @@ def BPD_lik_vec_times(arg):
 		lik3 = -(M* S_time_frame)
 		BD_lik = lik0+lik1+lik2+lik3
 	
-	
 	return BD_lik
-
 
 
 def get_sp_in_frame_br_length(ts,te,up,lo):
@@ -882,6 +881,53 @@ def BD_partial_lik(arg):
 		lik= log(rate)*len(i_events) -rate*sum(n_S) #log(rate)*len(i_events) +sum(-rate*n_S)
 	return lik
 
+# WORK IN PROGRESS
+def cdf_WR(W_shape,W_scale,x):
+	return (x/W_scale)**(W_shape)
+
+def log_wr(t,W_shape,W_scale):
+	return log(W_shape/W_scale)+(W_shape-1)*log(t/W_scale)
+
+def BD_age_partial_lik(arg): 
+	[ts,te,up,lo,rate,par, cov_par,W_shape]=arg
+	if par=="l": lik = BD_partial_lik(arg)
+	else:
+		W_scale = rate
+		ind_ex_events=np.intersect1d((te <= up).nonzero()[0], (te >= lo).nonzero()[0])
+		d = ts[ind_ex_events]-te[ind_ex_events]
+		de = d[te>0] #takes only the extinct species times
+		death_lik_de = sum(log_wr(de, W_shape, W_scale)) # log probability of death event
+		death_lik_wte = sum(-cdf_WR(W_shape,W_scale, d)) 
+		lik = death_lik_de + death_lik_wte
+	return lik	
+
+def BD_age_lik_vec_times(arg): pass
+	#__ [ts,te,time_frames,L,M]=arg
+	#__ BD_lik = 0
+	#__ B = sort(time_frames)+0.000001 # add small number to avoid counting extant species as extinct
+	#__ ss1 = np.histogram(ts,bins=B)[0][::-1]
+	#__ ee2 = np.histogram(te,bins=B)[0][::-1]
+        #__ 
+	#__ for i in range(len(time_frames)-1):
+	#__ 	up, lo = time_frames[i], time_frames[i+1]	
+	#__ 	len_sp_events=ss1[i]
+	#__ 	len_ex_events=ee2[i]
+	#__ 	inTS = np.fmin(ts,up)
+	#__ 	inTE = np.fmax(te,lo)
+	#__ 	S    = inTS-inTE
+	#__ 	# speciation
+	#__ 	lik1 = log(L[i])*len_sp_events
+	#__ 	lik0 = -sum(L[i]*S[S>0]) # S < 0 when species outside up-lo range		
+	#__ 	# extinction
+	#__ 	lik2 = log(M[i])*len_ex_events
+	#__ 	lik3 = -sum(M[i]*S[S>0]) # S < 0 when species outside up-lo range
+	#__ 	BD_lik += lik0+lik1+lik2+lik3
+	#__ 	#print "len",sum(S[S>0]),-sum(L[i]*S[S>0]), -L[i]*sum(S[S>0])
+	#__ quit()
+	#__ return BD_lik
+	
+
+
 def BDI_partial_lik(arg):
 	[ts,te,up,lo,rate,par, cov_par,n_frames_L]=arg
 	ind_in_time = np.intersect1d((all_events_array[0] <= up).nonzero()[0], (all_events_array[0] > lo).nonzero()[0])	
@@ -908,7 +954,7 @@ def PoiD_partial_lik(arg):
 	if par=="l": 
 		i_events=np.intersect1d((ts <= up).nonzero()[0], (ts > lo).nonzero()[0])
 		n_i_events = len(i_events)
-		lik = log(rate)*n_i_events - (rate * (up-lo)) #- (sum(log(np.arange(1,len(ts)+1)))/n_frames_L)
+		lik = log(rate)*n_i_events - (rate * (up-lo))
 	else: 
 		i_events=np.intersect1d((te <= up).nonzero()[0], (te > lo).nonzero()[0])
 		n_i_events = len(i_events)
@@ -916,7 +962,7 @@ def PoiD_partial_lik(arg):
 		lik= log(rate)*n_i_events  -rate*sum(n_S)
 	return lik
 
-
+# PRESERVATION 
 def HOMPP_lik(arg):
 	[m,M,shapeGamma,q_rate,i,cov_par, ex_rate]=arg
 	i=int(i)
@@ -1130,9 +1176,9 @@ def Alg_3_1(arg):
 			Pr_death= 1-Pr_birth
 			#IND=-1
 			#print sum(likBDtemp), Pr_birth, Pr_death, deathRate
-			if rand.random()<Pr_birth or len(L)+len(M)==2: # ADD PARAMETER
+			if np.random.random()<Pr_birth or len(L)+len(M)==2: # ADD PARAMETER
 				LL=len(L)+len(M)
-				if rand.random()>.5:
+				if np.random.random()>.5:
 					ind=np.random.random_integers(0,len(L))
 					timesL, L = born_prm(timesL, L, ind, ts)
 					IND=ind
@@ -1143,7 +1189,7 @@ def Alg_3_1(arg):
 				if LL == len(L)+len(M): IND=-1
 			else: # REMOVE PARAMETER
 				probDeath=np.cumsum(deathRate/deltaRate) # cumulative prob (used to randomly sample one 
-				r=rand.random()                          # parameter based on its deathRate)
+				r=np.random.random()                          # parameter based on its deathRate)
 				probDeath=sort(append(probDeath, r))
 				ind=np.where(probDeath==r)[0][0] # just in case r==1
 				if ind < len(L): timesL, L = kill_prm(timesL, L, ind)
@@ -1168,7 +1214,7 @@ def Alg_3_1(arg):
 			#if IND > -1: likBDtemp[IND] += priorBDnew
 			
 
-	#if priorBDnew-priorBD >= log(rand.random()):
+	#if priorBDnew-priorBD >= log(np.random.random()):
 	#	return likBDtemp, L,M, timesL, timesM, cov_par
 	#else:
 	#	return arg[1],arg[4], arg[5],arg[6], arg[7],cov_par
@@ -1181,7 +1227,7 @@ def Alg_3_1(arg):
 
 def random_choice_P(vector):
 	probDeath=np.cumsum(vector/sum(vector)) # cumulative prob (used to randomly sample one 
-	r=rand.random()                          # parameter based on its deathRate)
+	r=np.random.random()                          # parameter based on its deathRate)
 	probDeath=sort(append(probDeath, r))
 	ind=np.where(probDeath==r)[0][0] # just in case r==1
 	return [vector[ind], ind]
@@ -1311,6 +1357,7 @@ def MCMC(all_arg):
 		
 		if argsG is False: alphasA[0]=1
 		SA=sum(tsA-teA)
+		W_shapeA=1.
 
 	else: # restore values
 		[itt, n_proc_,PostA, likA, priorA,tsA,teA,timesLA,timesMA,LA,MA,alphasA, cov_parA, lik_fossilA,likBDtempA]=arg
@@ -1335,6 +1382,7 @@ def MCMC(all_arg):
 		ts,te=tsA, teA
 		timesL,timesM=timesLA,timesMA
 		hyperP=hyperPA
+		W_shape=W_shapeA
 		
 		# GLOBALLY CHANGE TRAIT VALUE
 		if model_cov >0:
@@ -1350,11 +1398,11 @@ def MCMC(all_arg):
 			rr=random.uniform(0,1) #random.uniform(.8501, 1)
 			stop_update=I+1
 
-		if rand.random() < 1./freq_Alg_3_1 and it>start_Alg_3_1 and TDI==2:
+		if np.random.random() < 1./freq_Alg_3_1 and it>start_Alg_3_1 and TDI==2:
 			stop_update=inf
 			rr=1.5 # no updates
 			
-		if rand.random() < 1./freq_dpp and TDI==3 and it > 1000: ### DPP
+		if np.random.random() < 1./freq_dpp and TDI==3 and it > 1000: ### DPP
 			stop_update=inf
 			rr=1.5 # no updates
 
@@ -1378,26 +1426,29 @@ def MCMC(all_arg):
 			tot_L=sum(ts-te)
 		elif rr<f_update_q: # q/alpha
 			alphas=np.zeros(2)+alphasA
-			if rand.random()>.5 and  argsG is True: 
+			if np.random.random()>.5 and  argsG is True: 
 				alphas[0], hasting=update_multiplier_proposal(alphasA[0],d2[0]) # shape prm Gamma
 			else:
 				alphas[1], hasting=update_multiplier_proposal(alphasA[1],d2[1]) #  preservation rate (q)
 
 		elif rr < f_update_lm: # l/m
-			if rand.random()<f_shift and len(LA)+len(MA)>2: 
+			if np.random.random()<f_shift and len(LA)+len(MA)>2: 
 				timesL=update_times(timesLA, max(ts),mod_d4)
 				timesM=update_times(timesMA, max(ts),mod_d4)
 			else: 
 				if TDI<2: # 
-					if rand.random()<.95 or est_hyperP is False or fix_hyperP is True:
+					if np.random.random()<.95 or est_hyperP is False or fix_hyperP is True:
 						L,M,hasting=update_rates(LA,MA,3,mod_d3)
+						if use_ADE_model is True: 
+							W_shape, hasting2 = update_multiplier_proposal(W_shapeA,1.1)
+							hasting+=hasting2
 					else:
 						hyperP,hasting = update_multiplier_proposal(hyperPA,1.2)
 				else: # DPP or BDMCMC
 						L,M,hasting=update_rates(LA,MA,3,mod_d3)
 
 		elif rr<f_update_cov: # cov
-			rcov=rand.random()
+			rcov=np.random.random()
 			if est_COVAR_prior is True and rcov<0.05: 
 				covar_prior = get_post_sd(cov_parA[cov_parA>0]) # est hyperprior only based on non-zero rates
 				stop_update=inf
@@ -1490,12 +1541,15 @@ def MCMC(all_arg):
 					for temp_l in range(len(timesL)-1):
 						up, lo = timesL[temp_l], timesL[temp_l+1]
 						l = L[temp_l]
-						args.append([ts, te, up, lo, l, 'l', cov_par[0],len(L)])
+						args.append([ts, te, up, lo, l, 'l', cov_par[0],1])
 					# parameters of each partial likelihood and prior (m)
 					for temp_m in range(len(timesM)-1):
 						up, lo = timesM[temp_m], timesM[temp_m+1]
 						m = M[temp_m]
-						args.append([ts, te, up, lo, m, 'm', cov_par[1],len(L)])
+						if use_ADE_model is False:
+							args.append([ts, te, up, lo, m, 'm', cov_par[1],1])
+						elif use_ADE_model is True:
+							args.append([ts, te, up, lo, m, 'm', cov_par[1],W_shape])
 			
 					if num_processes==0:
 						likBDtemp=np.zeros(len(args))
@@ -1570,7 +1624,7 @@ def MCMC(all_arg):
 		
 		#print Post, PostA, alphasA, sum(lik_fossil), sum(likBDtemp),  prior
 		if Post>-inf and Post<inf:
-			if Post*tempMC3-PostA*tempMC3 + hasting >= log(rand.random()) or stop_update==inf: # 
+			if Post*tempMC3-PostA*tempMC3 + hasting >= log(np.random.random()) or stop_update==inf: # 
 				likBDtempA=likBDtemp
 				PostA=Post
 				priorA=prior
@@ -1584,6 +1638,7 @@ def MCMC(all_arg):
 				alphasA=alphas
 				lik_fossilA=lik_fossil
 				cov_parA=cov_par
+				W_shapeA=W_shape
 			
 		if it % print_freq ==0 or it==burnin:
 			l=[round(y, 2) for y in [PostA, likA, priorA, SA]]
@@ -1601,6 +1656,7 @@ def MCMC(all_arg):
 					print "\tt.frames:", timesLA, "(sp.)"
 					print "\tt.frames:", timesMA, "(ex.)"
 				print "\tsp.rates:", LA, "\n\tex.rates:", MA
+				if use_ADE_model is True: print "\tWeibull.shape:", round(W_shapeA,3)
 				if est_hyperP is True: print "\thyper.prior.par", hyperPA
 
 				
@@ -1631,6 +1687,7 @@ def MCMC(all_arg):
 				if TDI==1: log_state += [temperature]
 				if est_hyperP is True: log_state += list(hyperPA)
 				log_state += list(LA)
+				if use_ADE_model is True: log_state+= [W_shapeA]
 				log_state += list(MA)
 				if fix_Shift== False:
 					log_state += list(timesLA[1:-1])
@@ -1772,6 +1829,7 @@ p.add_argument("-mBDI",    type=int, help='BDI sub-model - 0) birth-death, 1) im
 p.add_argument("-ncat",    type=int, help='Model - Number of categories for Gamma heterogeneity', default=4, metavar=4)
 p.add_argument('-fixShift',metavar='<input file>', type=str,help="Input tab-delimited file",default="")
 p.add_argument('-fixSE',   metavar='<input file>', type=str,help="Input mcmc.log file",default="")
+p.add_argument('-ADE',    type=int, help='ADE model: 0) no age dependence 1) estimated age dep', default=0, metavar=0)
 
 # TUNING
 p.add_argument('-tT',     type=float, help='Tuning - window size (ts, te)', default=1., metavar=1.)
@@ -1995,6 +2053,7 @@ if len(args.SE_stats)>0:
 		quit()
 
 ############################ LOAD INPUT DATA ############################
+match_taxa_trait = False
 if use_se_tbl==False:
 	import imp
 	input_file_raw = os.path.basename(args.input_data[0])
@@ -2035,7 +2094,9 @@ if use_se_tbl==False:
 	if len(singletons_excluded)>0 and args.data_info is False: print "%s species excluded as singletons (%s remaining)" % (len(singletons_excluded), len(fossil))	
 	out_name=input_data_module.get_out_name(j) +args.out
 
-	try: taxa_names=input_data_module.get_taxa_names()
+	try: 
+		taxa_names=input_data_module.get_taxa_names()
+		match_taxa_trait = True
 	except(AttributeError): 
 		taxa_names=list()
 		for i in range(len(fossil)): taxa_names.append("taxon_%s" % (i))
@@ -2116,6 +2177,23 @@ if model_cov>=1:
 				except: trait_values[i] = np.nan
 			
 			if trait_count==0: sys.exit("\nNo trait data found.") 
+			
+			if match_taxa_trait is True:
+				trait_taxa=np.array([l.split()[0] for l in L][1:])
+				#print taxa_names
+				#print sort(trait_taxa)
+				matched_trait_values = []
+				for i in range(len(taxa_names)):
+					taxa_name=taxa_names[i]
+					matched_val = trait_values[trait_taxa==taxa_name]
+					if len(matched_val)>0: 
+						matched_trait_values.append(matched_val[0])
+						print "matched taxon:", taxa_name
+					else: 
+						matched_trait_values.append(np.nan)
+				trait_values= np.array(matched_trait_values)
+			
+			
 		else:             # Trait data from .py file
 			trait_values=input_data_module.get_continuous(max(args.trait-1,0))
 		if args.logT==0: pass
@@ -2144,8 +2222,8 @@ if model_cov>=1:
 		meanGAUS= meanGAUScomplete[np.array(have_record)]
 	
 	sdGAUS = std_err
-	regression_trait= "\n\nEstimated linear trend trait-value: \nslope=%s; sd. error= %s (intercept= %s; R2= %s; P-value= %s)" \
-	% (round(slope,2), round(std_err,2), round(intercept,2), round(r_value,2), round(p_value,2))
+	regression_trait= "\n\nEstimated linear trend trait-value: \nslope=%s; sd. error= %s (intercept= %s; R2= %s; P-value= %s\nTrait data for %s of %s taxa)" \
+	% (round(slope,2), round(std_err,2), round(intercept,2), round(r_value,2), round(p_value,2), len(trait_values)-len(ind_nan_trait[0]), len(trait_values))
 	print(regression_trait)
 	
 	#print trait_values
@@ -2244,6 +2322,12 @@ if use_poiD is True:
 		BPD_partial_lik = BD_partial_lik
 		PoiD_const = 0
 
+# SET UO AGE DEP. EXTINCTION MODEL
+use_ADE_model = False
+if args.ADE == 1:
+	use_ADE_model = True
+	BPD_partial_lik = BD_age_partial_lik
+
 # GET DATA SUMMARY INFO
 if args.data_info is True:
 	print "\nDATA SUMMARY\n"
@@ -2312,7 +2396,13 @@ if TDI<2:
 	if est_hyperP is True: 
 		head += "hypL\thypM\t"
 	for i in range(time_framesL): head += "lambda_%s\t" % (i)
-	for i in range(time_framesM): head += "mu_%s\t" % (i)
+	
+	if use_ADE_model is False: 
+		for i in range(time_framesM): head += "mu_%s\t" % (i)
+	else: 
+		head+="w_shape\t"
+		for i in range(time_framesM): head += "w_scale_%s\t" % (i)
+	
 	if fix_Shift== False:
 		for i in range(1,time_framesL): head += "shift_sp_%s\t" % (i)
 		for i in range(1,time_framesM): head += "shift_ex_%s\t" % (i)
