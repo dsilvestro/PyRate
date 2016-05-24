@@ -5,9 +5,9 @@ import os
 # fossilSampler
 os.chdir(r'C:\Users\oskar\Documents\Dropbox\PyRate_Age-Dependency_and_Beyond\Toy_Datasets_TreeSimGM\BAT_simulator\BAT4_smallertreeSshape_0.1-1.5_scale_0.5-3')
 
-filename="sim1_1_0.926_0.746.txt"
+filename="sim1_1_0.926_0.746"
 # reading simulated file
-simi = np.loadtxt(fname=filename, skiprows=1)
+simi = np.loadtxt(fname=filename+".txt", skiprows=1)
 TS=simi[:,2]
 TE=simi[:,3]
 
