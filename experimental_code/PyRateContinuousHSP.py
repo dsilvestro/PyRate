@@ -82,8 +82,7 @@ else: model_name = "exp"
 root_age=max(ts)
 
 single_focal_clade = True
-if args.c==0: fixed_focal_clade=0
-else: fixed_focal_clade = args.c-1
+fixed_focal_clade = args.c
 clade_name = "_c%s" % (fixed_focal_clade)
 
 burnin = args.b
