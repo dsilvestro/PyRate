@@ -32,8 +32,8 @@ p.add_argument('-n', type=int,   help='MCMC iterations', default=1000000, metava
 p.add_argument('-s', type=int,   help='sampling freq.', default=1000, metavar=1000)
 p.add_argument('-p', type=int,   help='print freq.', default=5000, metavar=5000)
 p.add_argument('-j', type=int,   help='replicate', default=0, metavar=0)
-p.add_argument('-c', type=int, help='clade', default=0, metavar=0)
-p.add_argument('-b', type=float, help='shape parameter (beta) of Be hyper=prior pn indicators', default=1, metavar=1)
+p.add_argument('-c', type=int, help='clade (if -1 joint analysis of all clades; first clade is number 0)', default=-1, metavar=-1)
+p.add_argument('-beta', type=float, help='shape parameter (beta) of Be hyper=prior pn indicators', default=1, metavar=1)
 
 
 args = p.parse_args()
@@ -53,16 +53,16 @@ te=t_file[:,3+2*args.j]
 
 constr=args.m
 
-if args.c==0:
+if args.c==-1:
 	single_focal_clade = False
 	clade_name = ""
 else:
 	single_focal_clade = True
-	fixed_focal_clade = args.c-1
+	fixed_focal_clade = args.c
 	clade_name = "_c%s" % (fixed_focal_clade)
 
-Be_shape_beta = args.b
-if Be_shape_beta>1: beta_value = "_B%s" % (args.b)	
+Be_shape_beta = args.beta
+if Be_shape_beta>1: beta_value = "_B%s" % (args.beta)	
 else: beta_value = ""
 
 all_events=sort(np.concatenate((ts,te),axis=0))[::-1] # events are speciation/extinction that change the diversity trajectory
