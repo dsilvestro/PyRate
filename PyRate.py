@@ -2375,13 +2375,13 @@ Scipy version: %s
 
 o=''.join([o0,o1,o2,version_notes])
 out_sum = "%s/%s_sum.txt" % (path_dir,suff_out)
-sumfile = open(out_sum , "w",0) 
+sumfile = open(out_sum , "wb",0) 
 sumfile.writelines(o)
 sumfile.close()
 
 # OUTPUT 1 LOG MCMC
 out_log = "%s/%s_mcmc.log" % (path_dir, suff_out) #(path_dir, output_file, out_run)
-logfile = open(out_log , "w",0) 
+logfile = open(out_log , "wb",0) 
 if fix_SE == False:
 	head="it\tposterior\tprior\tPP_lik\tBD_lik\tq_rate\talpha\t"
 else: 
@@ -2426,7 +2426,7 @@ os.fsync(logfile)
 # OUTPUT 2 MARGINAL RATES
 if TDI!=1: # (path_dir, output_file, out_run)
 	out_log_marginal = "%s/%s_marginal_rates.log" % (path_dir, suff_out) 
-	marginal_file = open(out_log_marginal , "w") 
+	marginal_file = open(out_log_marginal , "wb") 
 	head="it\t"
 	for i in range(int(max(FA))+1): head += "l_%s\t" % i #int(fabs(int(max(FA))))
 	for i in range(int(max(FA))+1): head += "m_%s\t" % i #int(fabs(int(max(FA))))
@@ -2441,7 +2441,7 @@ if TDI!=1: # (path_dir, output_file, out_run)
 # OUTPUT 3 MARGINAL LIKELIHOOD
 else: 
 	out_log_marginal_lik = "%s/%s_marginal_likelihood.txt" % (path_dir, suff_out) 
-	marginal_file = open(out_log_marginal_lik , "w") 
+	marginal_file = open(out_log_marginal_lik , "wb") 
 	marginal_file.writelines(o)
 	marginal_frames=0	
 
