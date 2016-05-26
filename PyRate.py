@@ -472,7 +472,8 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0, plot_type=
 
 
 ########################## PLOT TS/TE STAT ##############################
-def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time):
+def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin):
+	step_size=int(step_size)
 	# read data
 	tbl = np.loadtxt(tste_file,skiprows=1)
 	j_max=(np.shape(tbl)[1]-1)/2
@@ -500,7 +501,7 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time):
 		else: return np.nan
 	
 	extant_at_time_t_previous = [0]
-	for i in range(0,root+1,int(step_size)):
+	for i in range(0,root+1,step_size):
 		time_t = root-i
 		up = time_t+step_size
 		lo = time_t
@@ -517,8 +518,19 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time):
 		age_current_taxa = [calc_median(ts[extant_at_time_t[rep],rep]-time_t) for rep in j]	
 		# EMPIRICAL/PREDICTED LIFE EXPECTANCY
 		life_exp=list()
+		try: 
+			ex_rate = [float(EXT_RATE)]
+			r_ind = np.repeat(0,no_sim_ex_time)
+		except(ValueError):
+			t=loadtxt(EXT_RATE, skiprows=max(1,int(burnin)))
+			head = next(open(EXT_RATE)).split()
+			m_ind= [head.index(s) for s in head if "m_0" in s]
+			ex_rate= [mean(t[:,m_ind])]
+			r_ind = np.random.randint(0,len(ex_rate),no_sim_ex_time)
+		
 		for sim in range(no_sim_ex_time):
-			te_mod = draw_extinction_time(te,EXT_RATE)
+			#print ex_rate[r_ind[sim]]
+			te_mod = draw_extinction_time(te,ex_rate[r_ind[sim]])
 			te_t = [te_mod[extant_at_time_t[rep],:] for rep in j]
 			life_exp.append([median(time_t-te_t[rep]) for rep in j])
 		
@@ -1779,10 +1791,10 @@ p.add_argument('-plot',      metavar='<input file>', type=str,help="RTT plot (ty
 p.add_argument('-plot2',     metavar='<input file>', type=str,help="RTT plot (type 2): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
 p.add_argument('-root_plot', type=float, help='User define root age for RTT plots', default=0, metavar=0)
 p.add_argument('-tag',       metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted (-plot) or summarized in SE table (-ginput)",default="")
-p.add_argument('-mProb',     type=str,help="Input 'mcmc.log file",default="")
-p.add_argument('-BF',        type=str,help="Input 'marginal_likelihood.txt files",metavar='<2 input files>',nargs='+',default=[])
+p.add_argument('-mProb',     type=str,help="Input 'mcmc.log' file",default="")
+p.add_argument('-BF',        type=str,help="Input 'marginal_likelihood.txt' files",metavar='<2 input files>',nargs='+',default=[])
 p.add_argument("-data_info", help='Summary information about an input data', action='store_true', default=False)
-p.add_argument('-SE_stats',  type=float,help="Calculate and plot stats from SE table:",metavar='<extinction_rate bin_size #_simulations>',nargs='+',default=[])
+p.add_argument('-SE_stats',  type=str,help="Calculate and plot stats from SE table:",metavar='<marginal_rates.log file bin_size #_simulations>',nargs='+',default=[])
 p.add_argument('-ginput',    type=str,help='generate SE table from *mcmc.log files', default="", metavar="<path_to_mcmc.log>")
 
 # MCMC SETTINGS
@@ -2043,14 +2055,14 @@ if args.d != "":
 
 if len(args.SE_stats)>0:
 	if use_se_tbl is False: sys.exit("\nProvide an SE table using command -d\n")
-	if len(args.SE_stats)<1: sys.exit("\nAt least 1 argument required: Extinction rate at the present\n")
+	if len(args.SE_stats)<1: sys.exit("\nAt least 1 argument required: Extinction rate at the present or *marginal_rates.log file\n")
 	else:
 		EXT_RATE  = args.SE_stats[0]
 		if len(args.SE_stats)>1: step_size = args.SE_stats[1]
 		else: step_size = 5
 		if len(args.SE_stats)>2: no_sim_ex_time = args.SE_stats[2]
 		else: no_sim_ex_time = 100
-		plot_tste_stats(se_tbl_file, EXT_RATE, step_size,no_sim_ex_time)
+		plot_tste_stats(se_tbl_file, EXT_RATE, step_size,no_sim_ex_time,burnin)
 		quit()
 
 ############################ LOAD INPUT DATA ############################
