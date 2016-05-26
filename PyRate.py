@@ -1908,9 +1908,10 @@ else:
 
 if args.ginput != "":
 	try:
+		self_path= os.path.dirname(sys.argv[0])
 		import imp
-		lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "pyrate_lib/lib_DD_likelihood.py")
-		lib_utilities = imp.load_source("lib_utilities", "pyrate_lib/lib_utilities.py")
+		lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
+		lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
 	except: sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
 	You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
 	lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=-1,burnin=int(burnin)+1)

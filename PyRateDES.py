@@ -22,9 +22,10 @@ except(ImportError):
 self_path=os.getcwd()
 
 # DES libraries
+self_path= os.path.dirname(sys.argv[0])
 import imp
-des_model_lib = imp.load_source("des_model_lib", "pyrate_lib/des_model_lib.py")
-mcmc_lib = imp.load_source("mcmc_lib", "pyrate_lib/des_mcmc_lib.py")
+des_model_lib = imp.load_source("des_model_lib", "%s/pyrate_lib/des_model_lib.py" % (self_path))
+mcmc_lib = imp.load_source("mcmc_lib", "%s/pyrate_lib/des_mcmc_lib.py" % (self_path))
 from des_model_lib import *
 from mcmc_lib import *
 
