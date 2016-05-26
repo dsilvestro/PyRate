@@ -3,8 +3,8 @@
 import argparse, os,sys, platform, time, csv, glob
 import random as rand
 import warnings
-version= "      PyRate 0.602       "
-build  = "        20160223         "
+version= "      PyRate 0.603       "
+build  = "        20160526         "
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
@@ -475,6 +475,7 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0, plot_type=
 def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin):
 	step_size=int(step_size)
 	# read data
+	print "Processing data..."
 	tbl = np.loadtxt(tste_file,skiprows=1)
 	j_max=(np.shape(tbl)[1]-1)/2
 	j=np.arange(j_max)
@@ -497,7 +498,7 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin):
 		return te_mod 
 	
 	def calc_median(arg):
-		if len(arg)>=1: return np.median(arg)
+		if len(arg)>1: return np.median(arg)
 		else: return np.nan
 	
 	extant_at_time_t_previous = [0]
@@ -512,10 +513,14 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin):
 			#turnover = [1-len(np.intersect1d(extant_at_time_t_previous[rep],extant_at_time_t[rep]))/float(len(extant_at_time_t[rep])) for rep in j] 
 			turnover = [(len(extant_at_time_t[rep])-len(np.intersect1d(extant_at_time_t_previous[rep],extant_at_time_t[rep])))/float(len(extant_at_time_t[rep])) for rep in j] 
 		except: 
-			turnover = [1 for rep in j]
+			turnover = [np.nan for rep in j]
 		
-		ext_age = [calc_median(ts[extinct_in_time_t[rep],rep]-te[extinct_in_time_t[rep],rep]) for rep in j]
-		age_current_taxa = [calc_median(ts[extant_at_time_t[rep],rep]-time_t) for rep in j]	
+		if min(diversity)<=1:
+			age_current_taxa = [np.nan for rep in j]
+		else:
+			ext_age = [calc_median(ts[extinct_in_time_t[rep],rep]-te[extinct_in_time_t[rep],rep]) for rep in j]
+			age_current_taxa = [calc_median(ts[extant_at_time_t[rep],rep]-time_t) for rep in j]	
+
 		# EMPIRICAL/PREDICTED LIFE EXPECTANCY
 		life_exp=list()
 		try: 
@@ -528,11 +533,14 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin):
 			ex_rate= [mean(t[:,m_ind])]
 			r_ind = np.random.randint(0,len(ex_rate),no_sim_ex_time)
 		
-		for sim in range(no_sim_ex_time):
-			#print ex_rate[r_ind[sim]]
-			te_mod = draw_extinction_time(te,ex_rate[r_ind[sim]])
-			te_t = [te_mod[extant_at_time_t[rep],:] for rep in j]
-			life_exp.append([median(time_t-te_t[rep]) for rep in j])
+		if min(diversity)<=1: 
+			life_exp.append([np.nan for rep in j])
+		else: 	
+			for sim in range(no_sim_ex_time):
+				#print ex_rate[r_ind[sim]]
+				te_mod = draw_extinction_time(te,ex_rate[r_ind[sim]])
+				te_t = [te_mod[extant_at_time_t[rep],:] for rep in j]
+				life_exp.append([median(time_t-te_t[rep]) for rep in j])
 		
 		life_exp= np.array(life_exp)
 		STR= "\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" \
