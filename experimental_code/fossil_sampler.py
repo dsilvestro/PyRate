@@ -3,9 +3,9 @@ import numpy as np
 import os
 
 # fossilSampler
-os.chdir(r'C:\Users\oskar\Documents\Dropbox\PyRate_Age-Dependency_and_Beyond\Toy_Datasets_TreeSimGM\BAT_simulator\BAT4_smallertreeSshape_0.1-1.5_scale_0.5-3')
+os.chdir(r'C:\Users\oskar\Documents\Dropbox\PyRate_Age-Dependency_and_Beyond\Toy_Datasets_TreeSimGM\BAT_simulator\testingzone')
 
-filename="sim1_1_0.926_0.746"
+filename="sim2_1_0.937_1.114"
 # reading simulated file
 simi = np.loadtxt(fname=filename+".txt", skiprows=1)
 TS=simi[:,2]
