@@ -23,6 +23,8 @@ def write_to_file(f, o):
 	sumfile.writelines(o)
 	sumfile.close()
 
+# N=repeat(0,len(TS)) ## DANIELE im no sure about this....
+
 def resample_simulation(TS,TE, beta_par=3,q=1,rho=1,minFO=0,verbose=1):
 	# uniform sample
 	n = TS-TE
@@ -111,20 +113,21 @@ def resample_simulation(TS,TE, beta_par=3,q=1,rho=1,minFO=0,verbose=1):
 sim_data = resample_simulation(TS,TE,q=q_rate)
 all_records = sim_data[0]
 
-#TODO add size filter.....
-data="#!/usr/bin/env python\nfrom numpy import * \n\n"
-d="\nd=[sim_data]"
-names="\nnames=['%s']" % (output)
-data += "\nsim_data = %s"  % (all_records)
-taxa_names="\ntaxa_names=["
-for i in range(len(all_records)): 
-	taxa_names+= "'sp_%s'" % (i)
-	if i<len(all_records)-1: taxa_names +=","
-taxa_names += "]\ndef get_taxa_names(): return taxa_names\n"                     
-f="\ndef get_data(i): return d[i]\ndef get_out_name(i): return names[i]"
-all_d=data+d+names+taxa_names+f
- 
-write_to_file("%s.py" % output, all_d) 	
-write_to_file("%s_summary.txt" % output, sim_data[1]) 	
-
+#filtering sizes
+if len(all_records) >= 20 and len(all_records) <=200:
+	data="#!/usr/bin/env python\nfrom numpy import * \n\n"
+	d="\nd=[sim_data]"
+	names="\nnames=['%s']" % (output)
+	data += "\nsim_data = %s"  % (all_records)
+	taxa_names="\ntaxa_names=["
+	for i in range(len(all_records)): 
+		taxa_names+= "'sp_%s'" % (i)
+		if i<len(all_records)-1: taxa_names +=","
+	taxa_names += "]\ndef get_taxa_names(): return taxa_names\n"                     
+	f="\ndef get_data(i): return d[i]\ndef get_out_name(i): return names[i]"
+	all_d=data+d+names+taxa_names+f
+	write_to_file(r"\fossils\%s.py" % output, all_d) 	
+	write_to_file(r"\fossils\%s_summary.txt" % output, sim_data[1]) 	
+else:
+	print("Skipping "+ filename + " : too big or too small")
 quit()
