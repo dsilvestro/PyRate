@@ -44,9 +44,10 @@ def resample_simulation(TS,TE, beta_par=3,q=1,rho=1,minFO=0,verbose=1):
 			## setting extinctiom of extant taxa as getting extinct at the present
 			rW = np.random.weibull(float(filename.split("_")[2]),1)*float(filename.split("_")[3])
 			#with the following while we avoid extinction times that are before the present
-			while rW <= TE[i]: rW = np.random.weibull(float(filename.split("_")[2]),1)*float(filename.split("_")[3])
-			m=TE[i]-rW # m is equal to the future projected time to live....
-			n_DA=(TS[i]-m) ##DANIELE, we then here subtract the value, i.e. SUM it again since m is negative....
+			while rW <= TS[i]: rW = np.random.weibull(float(filename.split("_")[2]),1)*float(filename.split("_")[3])
+
+			m=TS[i]-rW # m is equal to the future projected time to live....
+			n_DA=(TS[i]-m)
 			N[i]=np.random.poisson(q*n_DA) ##DANIELE, I can not follow this up...		
 			if q==0: N[i] =np.random.poisson(3*n_DA)
 			samples= TS[i] - np.random.beta(beta_par,beta_par,N[i])*n_DA # + m
