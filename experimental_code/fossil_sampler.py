@@ -15,7 +15,7 @@ TE=simi[:,3]
 output = "F"+filename
 
 ##  'q_rate' IS THE PRESERVATION RATE, WE SHOULD TEST WITH VALUES OF E.G. 0.25, 0.5, 1, 3
-q_rate = 1.
+q_rate = 2.5
 
 ## SIMULAITON FUNCTIONS
 def write_to_file(f, o):
@@ -38,11 +38,14 @@ def resample_simulation(TS,TE, beta_par=3,q=1,rho=1,minFO=0,verbose=1):
 	FAbeta, LObeta=zeros(len(n)), zeros(len(n))
 	all_records=list()
 	
-	for i in range(len(n)): 
+	for i in range(len(n)): #looping over species
 		
 		if TE[i]==0: 
 			## setting extinctiom of extant taxa as getting extinct at the present
-			m=-np.random.exponential(1./M[len(M)-1]) ##DANIELE, here we generate a neg number based on the number of fossils?
+			rW = np.random.weibull(float(filename.split("_")[2]),1)*float(filename.split("_")[3])
+			#with the following while we avoid extinction times that are before the present
+			while rW <= TE[i]: rW = np.random.weibull(float(filename.split("_")[2]),1)*float(filename.split("_")[3])
+			m=TE[i]-rW # m is equal to the future projected time to live....
 			n_DA=(TS[i]-m) ##DANIELE, we then here subtract the value, i.e. SUM it again since m is negative....
 			N[i]=np.random.poisson(q*n_DA) ##DANIELE, I can not follow this up...		
 			if q==0: N[i] =np.random.poisson(3*n_DA)
@@ -107,6 +110,7 @@ def resample_simulation(TS,TE, beta_par=3,q=1,rho=1,minFO=0,verbose=1):
 sim_data = resample_simulation(TS,TE,q=q_rate)
 all_records = sim_data[0]
 
+#TODO add size filter.....
 data="#!/usr/bin/env python\nfrom numpy import * \n\n"
 d="\nd=[sim_data]"
 names="\nnames=['%s']" % (output)
