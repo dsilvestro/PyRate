@@ -2357,7 +2357,7 @@ if args.data_info is True:
 	one_occ_sp,all_occ,extant_sp  = 0,0,0
 	for i in fossil:
 		if len(i)==1: one_occ_sp+=1
-		all_occ += len(i)
+		all_occ += len(i[i>0])
 		if min(i)==0: extant_sp+=1
 	print "%s species have a single occurrence, %s species are extant" % (one_occ_sp,extant_sp)
 	j=0
