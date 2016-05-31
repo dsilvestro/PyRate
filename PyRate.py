@@ -1708,7 +1708,8 @@ def MCMC(all_arg):
 				if est_hyperP is True: log_state += list(hyperPA)
 				log_state += list(LA)
 				if use_ADE_model is True: log_state+= [W_shapeA]
-				log_state += list(MA)
+				log_state += list(MA) # This is W_scale in the case of ADE models
+				if use_ADE_model is True: log_state+= list(MA * gamma(1 + 1./W_shapeA))
 				if fix_Shift== False:
 					log_state += list(timesLA[1:-1])
 					log_state += list(timesMA[1:-1])
@@ -2348,6 +2349,7 @@ use_ADE_model = False
 if args.ADE == 1:
 	use_ADE_model = True
 	BPD_partial_lik = BD_age_partial_lik
+	out_name += "_ADE"
 
 # GET DATA SUMMARY INFO
 if args.data_info is True:
@@ -2437,6 +2439,7 @@ if TDI<2:
 	else: 
 		head+="w_shape\t"
 		for i in range(time_framesM): head += "w_scale_%s\t" % (i)
+		for i in range(time_framesM): head += "mean_longevity_%s\t" % (i)
 	
 	if fix_Shift== False:
 		for i in range(1,time_framesL): head += "shift_sp_%s\t" % (i)
