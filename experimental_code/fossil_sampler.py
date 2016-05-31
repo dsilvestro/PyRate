@@ -2,7 +2,7 @@ from numpy import *
 import numpy as np
 import os
 
-# fossilSampler
+# fossilSampler .
 os.chdir(r'C:\Users\oskar\Documents\Dropbox\PyRate_Age-Dependency_and_Beyond\Toy_Datasets_TreeSimGM\BAT_simulator\testingzone')
 
 filename="sim2_1_0.937_1.114"
