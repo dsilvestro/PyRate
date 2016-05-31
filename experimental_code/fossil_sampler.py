@@ -4,6 +4,7 @@ import os
 
 # fossilSampler .
 os.chdir(r'C:\Users\oskar\Documents\Dropbox\PyRate_Age-Dependency_and_Beyond\Toy_Datasets_TreeSimGM\BAT_simulator\testingzone')
+#os.chdir('/Users/daniele/Dropbox-personal/Dropbox/PyRate_Age-Dependency_and_Beyond/Toy_Datasets_TreeSimGM/BAT_simulator/testingzone')
 
 filename="sim2_1_0.937_1.114"
 # reading simulated file
@@ -54,8 +55,11 @@ def resample_simulation(TS,TE, beta_par=3,q=1,rho=1,minFO=0,verbose=1):
 			if q==0: N[i] =np.random.poisson(3*n_DA)
 			samples= TS[i] - np.random.beta(beta_par,beta_par,N[i])*n_DA # + m
 			samples=samples[samples>0] # avoid negative
-			samples=np.concatenate((samples,array([0])), axis=1)
-		if N[i]>0:
+			if len(samples)>0:
+				samples=np.concatenate((samples,array([0]))) #, axis=1)
+			else: samples = []
+			#print samples
+		elif N[i]>0:
 			samples=np.random.beta(beta_par,beta_par,N[i]) *n[i] +TE[i]
 		else: samples=[] # no record
 
@@ -113,6 +117,7 @@ def resample_simulation(TS,TE, beta_par=3,q=1,rho=1,minFO=0,verbose=1):
 sim_data = resample_simulation(TS,TE,q=q_rate)
 all_records = sim_data[0]
 
+#print "\n\n", all_records, len(all_records)
 #filtering sizes
 if len(all_records) >= 20 and len(all_records) <=200:
 	data="#!/usr/bin/env python\nfrom numpy import * \n\n"
@@ -126,8 +131,10 @@ if len(all_records) >= 20 and len(all_records) <=200:
 	taxa_names += "]\ndef get_taxa_names(): return taxa_names\n"                     
 	f="\ndef get_data(i): return d[i]\ndef get_out_name(i): return names[i]"
 	all_d=data+d+names+taxa_names+f
-	write_to_file(r"\fossils\%s.py" % output, all_d) 	
-	write_to_file(r"\fossils\%s_summary.txt" % output, sim_data[1]) 	
+	#write_to_file(r"\fossils\%s.py" % output, all_d) 	
+	#write_to_file(r"\fossils\%s_summary.txt" % output, sim_data[1]) 	
+	write_to_file("fossils/%s.py" % output, all_d) 	
+	write_to_file("fossils/%s_summary.txt" % output, sim_data[1]) 	
 else:
 	print("Skipping "+ filename + " : too big or too small")
 quit()
