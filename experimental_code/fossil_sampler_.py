@@ -3,7 +3,8 @@ import numpy as np
 import os
 
 # fossilSampler
-os.chdir(r'C:\Users\oskar\Documents\Dropbox\PyRate_Age-Dependency_and_Beyond\Toy_Datasets_TreeSimGM\BAT_simulator\testingzone')
+
+os.chdir('/Users/daniele/Dropbox-personal/Dropbox/PyRate_Age-Dependency_and_Beyond/Toy_Datasets_TreeSimGM/BAT_simulator/testingzone')
 
 filename="sim2_1_0.937_1.114"
 # reading simulated file
@@ -126,8 +127,8 @@ if len(all_records) >= 20 and len(all_records) <=200:
 	taxa_names += "]\ndef get_taxa_names(): return taxa_names\n"                     
 	f="\ndef get_data(i): return d[i]\ndef get_out_name(i): return names[i]"
 	all_d=data+d+names+taxa_names+f
-	write_to_file(r"\fossils\%s.py" % output, all_d) 	
-	write_to_file(r"\fossils\%s_summary.txt" % output, sim_data[1]) 	
+	write_to_file("fossils/%s.py" % output, all_d) 	
+	write_to_file("fossils/%s_summary.txt" % output, sim_data[1]) 	
 else:
 	print("Skipping "+ filename + " : too big or too small")
 quit()
