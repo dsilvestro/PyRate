@@ -2128,7 +2128,7 @@ if use_se_tbl==False:
 	taxa_names = taxa_names[taxa_included]
 
 	FA,LO,N=np.zeros(len(fossil)),np.zeros(len(fossil)),np.zeros(len(fossil))
-	for i in range(len(fossil)):	
+	for i in range(len(fossil)):
 		FA[i]=max(fossil[i])
 		LO[i]=min(fossil[i])
 		N[i]=len(fossil[i])
@@ -2360,7 +2360,21 @@ if args.data_info is True:
 		all_occ += len(i)
 		if min(i)==0: extant_sp+=1
 	print "%s species have a single occurrence, %s species are extant" % (one_occ_sp,extant_sp)
-	print "%s fossil occurrences, ranging from %s to %s Ma" % (all_occ, max(FA), min(LO[LO>0]))
+	j=0
+	m_ages,M_ages=[],[]
+	while True:
+		try: fossil_complete=input_data_module.get_data(j)
+		except(IndexError): break
+		min_age, max_age = np.inf, 0
+		for i in fossil_complete:
+			a,b = min(i[i>0]), max(i)
+			if a < min_age: min_age=a
+			if b > max_age: max_age=b
+		m_ages.append(min_age)
+		M_ages.append(max_age)
+		j+=1
+	print "%s fossil occurrences (%s replicates), ranging from %s (+/- %s) to %s (+/- %s) Ma" % \
+	(all_occ, j, round(mean(M_ages),3), round(std(M_ages),3),round(mean(m_ages),3), round(std(m_ages),3))
 	sys.exit("\n")
 	
 
