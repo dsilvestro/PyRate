@@ -1473,11 +1473,11 @@ def MCMC(all_arg):
 				covar_prior = get_post_sd(cov_parA[cov_parA>0]) # est hyperprior only based on non-zero rates
 				stop_update=inf
 			elif rcov < f_cov_par[0]: # cov lambda
-				cov_par[0]=update_parameter_normal(cov_parA[0],-3,3,d5[0])
+				cov_par[0]=update_parameter_normal(cov_parA[0],-1000,1000,d5[0])
 			elif rcov < f_cov_par[1]: # cov mu
-				cov_par[1]=update_parameter_normal(cov_parA[1],-3,3,d5[1])
+				cov_par[1]=update_parameter_normal(cov_parA[1],-1000,1000,d5[1])
 			else:
-				cov_par[2]=update_parameter_normal(cov_parA[2],-3,3,d5[2])
+				cov_par[2]=update_parameter_normal(cov_parA[2],-1000,1000,d5[2])
 
 		if constrain_time_frames is True: timesM=timesL
 		alphas[(alphas==0).nonzero()]=alphasA[(alphas==0).nonzero()]
