@@ -1622,8 +1622,14 @@ def MCMC(all_arg):
 		if TDI<3:
 			prior += sum(prior_times_frames(timesL, max(ts),min(te), lam_s))
 			prior += sum(prior_times_frames(timesM, max(ts),min(te), lam_s))
-
-		priorBD= get_hyper_priorBD(timesL,timesM,L,M,T,hyperP)
+		
+		if use_ADE_model is False:
+			priorBD= get_hyper_priorBD(timesL,timesM,L,M,T,hyperP)
+		else:
+			priorBD= get_hyper_priorBD(timesL,timesM,L,M,T,hyperP) # M in this case is the vector of Weibull scales
+			priorBD+= sum(prior_normal(log(W_shapeA),1)) # Normal prior on log(W_shape): highest prior pr at W_shape=1
+		
+		
 		prior += priorBD
 		###
 		if model_cov >0: prior+=sum(prior_normal(cov_par,covar_prior))
@@ -1675,8 +1681,12 @@ def MCMC(all_arg):
 				else:
 					print "\tt.frames:", timesLA, "(sp.)"
 					print "\tt.frames:", timesMA, "(ex.)"
-				print "\tsp.rates:", LA, "\n\tex.rates:", MA
-				if use_ADE_model is True: print "\tWeibull.shape:", round(W_shapeA,3)
+				print "\tsp.rates:", LA
+				if use_ADE_model is True: 
+					print "\tWeibull.shape:", round(W_shapeA,3)
+					print "\tWeibull.rate:", MA
+				else: 
+					print "\tex.rates:", MA
 				if est_hyperP is True: print "\thyper.prior.par", hyperPA
 
 				
@@ -1871,8 +1881,8 @@ if args.cite is True:
 	sys.exit(citation)
 ############################ MODEL SETTINGS ############################
 # PRIORS
-L_lam_r,L_lam_m = args.pL # shape and scale parameters of Gamma prior on sp rates
-M_lam_r,M_lam_m = args.pM # shape and scale parameters of Gamma prior on ex rates
+L_lam_r,L_lam_m = args.pL # shape and rate parameters of Gamma prior on sp rates
+M_lam_r,M_lam_m = args.pM # shape and rate parameters of Gamma prior on ex rates
 lam_s = args.pS                              # shape parameter dirichlet prior on time frames
 pert_prior = [args.pP[0],args.pP[1]] # gamma prior on foss. rate; beta on mode PERT distribution
 covar_prior_fixed=args.pC # std of normal prior on th covariance parameters
@@ -2302,7 +2312,13 @@ if model_BDI >=0:
 	if TDI<2: out_name = "%s%s%s" % (out_name,time_framesL,time_framesM)
 		
 		
-		
+# SET UO AGE DEP. EXTINCTION MODEL
+use_ADE_model = False
+if args.ADE == 1:
+	use_ADE_model = True
+	BPD_partial_lik = BD_age_partial_lik
+	out_name += "_ADE"
+	
 
 est_hyperP = False
 use_cauchy = False
@@ -2319,19 +2335,28 @@ else:
 	if min([L_lam_m,M_lam_m])==0:
 		est_hyperP = True
 		hypP_par = np.ones(2)
-	
+
+if use_ADE_model is True: 
+	hypP_par[1]=0.1
+	tot_extant = -1
 
 if fix_Shift is True: est_hyperP = True
 # define hyper-prior function for BD rates
 if tot_extant==-1 or TDI ==3 or use_poiD is True:
 	if fix_Shift is True and TDI < 3 or use_cauchy is True: 
-		print("Using Cauchy priors on the birth-death rates.\n")
-		get_hyper_priorBD = HPBD1 # cauchy with hyper-priors
+		if est_hyperP is False or fix_hyperP is True:
+			print "Using Cauchy priors on the birth-death rates (C_l[0,%s],C_l[0,%s]).\n" % (hypP_par[0],hypP_par[1])
+		else:
+				print "Using Cauchy priors on the birth-death rates (C_l[0,est],C_l[0,est]).\n" 
+ 		get_hyper_priorBD = HPBD1 # cauchy with hyper-priors
 	else: 
-		print("Using Gamma priors on the birth-death rates.\n")
+		if est_hyperP is False:
+			print "Using Gamma priors on the birth-death rates (G_l[%s,%s], G_m[%s,%s]).\n" % (L_lam_r,hypP_par[0],M_lam_r,hypP_par[1])
+		else:
+			print "Using Gamma priors on the birth-death rates (G_l[%s,est], G_m[%s,est]).\n" % (L_lam_r,M_lam_r)
 		get_hyper_priorBD = HPBD2 # gamma
 else: 
-	print("Priors on the birth-death rates based on extant diversity.\n")
+	print "Priors on the birth-death rates based on extant diversity (N = %s).\n" % (tot_extant)
 	get_hyper_priorBD = HPBD3 # based on no. extant
 
 if use_poiD is True:
@@ -2344,12 +2369,7 @@ if use_poiD is True:
 		BPD_partial_lik = BD_partial_lik
 		PoiD_const = 0
 
-# SET UO AGE DEP. EXTINCTION MODEL
-use_ADE_model = False
-if args.ADE == 1:
-	use_ADE_model = True
-	BPD_partial_lik = BD_age_partial_lik
-	out_name += "_ADE"
+
 
 # GET DATA SUMMARY INFO
 if args.data_info is True:
