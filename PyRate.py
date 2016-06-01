@@ -1627,7 +1627,7 @@ def MCMC(all_arg):
 			priorBD= get_hyper_priorBD(timesL,timesM,L,M,T,hyperP)
 		else:
 			priorBD= get_hyper_priorBD(timesL,timesM,L,M,T,hyperP) # M in this case is the vector of Weibull scales
-			priorBD+= sum(prior_normal(log(W_shapeA),1)) # Normal prior on log(W_shape): highest prior pr at W_shape=1
+			priorBD+= sum(prior_normal(log(W_shapeA),2)) # Normal prior on log(W_shape): highest prior pr at W_shape=1
 		
 		
 		prior += priorBD
