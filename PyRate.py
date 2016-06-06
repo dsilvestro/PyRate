@@ -908,17 +908,66 @@ def cdf_WR(W_shape,W_scale,x):
 def log_wr(t,W_shape,W_scale):
 	return log(W_shape/W_scale)+(W_shape-1)*log(t/W_scale)
 
+def log_wei_pdf(x,W_shape,W_scale): # log pdf Weibull 
+	log_pdf = log(W_shape/W_scale) + (W_shape-1)*log(x/W_scale) - (x/W_scale)**W_shape
+	return log_pdf
+
+def pdf_W_poi(W_shape,W_scale,q,x): # exp log Weibull + Q_function
+	return exp(log_wei_pdf(x,W_shape,W_scale) + log(1-exp(-q*x)))
+
+def cdf_Weibull(x,W_shape,W_scale):
+	# Weibull cdf
+	wei_cdf = 1 - exp(-(x/W_scale)**W_shape)
+	return wei_cdf
+
+# integration settings
+nbins  = 10000
+xLim   = 100
+x_bins = np.linspace(0.0000001,xLim,nbins) 
+	
 def BD_age_partial_lik(arg): 
-	[ts,te,up,lo,rate,par, cov_par,W_shape]=arg
-	if par=="l": lik = BD_partial_lik(arg)
+	#[ts, te, up, lo, m, 'm', cov_par[1],W_shape,alphas[1]]
+	[ts,te,up,lo, rate,par,  cov_par,   W_shape,q]=arg
+	if par=="l": lik = BD_partial_lik(arg[0:-1])
 	else:
 		W_scale = rate
 		ind_ex_events=np.intersect1d((te <= up).nonzero()[0], (te >= lo).nonzero()[0])
-		d = ts[ind_ex_events]-te[ind_ex_events]
-		de = d[te>0] #takes only the extinct species times
-		death_lik_de = sum(log_wr(de, W_shape, W_scale)) # log probability of death event
-		death_lik_wte = sum(-cdf_WR(W_shape,W_scale, d)) 
-		lik = death_lik_de + death_lik_wte
+		ts_time = ts[ind_ex_events]
+		te_time = te[ind_ex_events]
+		br = ts_time-te_time
+		#br=ts-te
+		lik1=(log_wei_pdf(br[te_time>0],W_shape,W_scale)) + (log(1-exp(-q*br[te_time>0])))
+		v=x_bins
+		# standard integration
+		#v= np.linspace(0.0000001,1000,10000000) 
+		#P = pdf_W_poi(W_shape,W_scale,q,v)
+		#lik2= log(sum(P) *(v[1]-v[0]))
+		#
+		# numerical integration + analytical for right tail
+		P = pdf_W_poi(W_shape,W_scale,q,v)                 # partial integral (0 => xLim) via numerical integration
+		d= v[1]-v[0]
+		const_int = (1- cdf_Weibull(xLim,W_shape,W_scale)) # partial integral (xLim => Inf) via CDF_weibull
+		lik2 = log( sum(P)*d  + const_int ) 
+		#__ x999=6.90776/q # https://www.wolframalpha.com: 0.999 = 1-exp(-qx)
+		#__ nbins= 1000
+		#__ v= np.linspace(0.0000001,max(x999,max(ts[te==0])),nbins) # replace with trapezoid integration
+		#__ P = pdf_W_poi(W_shape,W_scale,q,v)
+		#__ d = v[1]-v[0]
+		#__ #lik3= log(sum(P_partial)*(v_partial[1]-v_partial[0]) + (1- cdf_Weibull(x999,W_shape,W_scale)) )
+		#__ lik3= log(sum((np.diff(P)*d)/2. + (P[0:-1]*d)) + (1- cdf_Weibull(x999,W_shape,W_scale)) )
+		
+		
+		P_ext = [log(sum(P[v>i])*d + const_int)-lik2 for i in ts_time[te_time==0] ] # P(x > ts | W_shape, W_scale, q)
+		# this is equal to log(1- (sum(P[v<=i]) *(v[1]-v[0]) / exp(lik2)))
+		lik_extant = sum(P_ext)
+		lik_extinct = sum(lik1-lik2)
+		lik = lik_extinct + lik_extant
+		# fit BD model
+		#de = d[te>0] #takes only the extinct species times
+		#death_lik_de = sum(log_wr(de, W_shape, W_scale)) # log probability of death event
+		#death_lik_wte = sum(-cdf_WR(W_shape,W_scale, br[te==0])) 
+		#lik += death_lik_wte 
+		#
 	return lik	
 
 def BD_age_lik_vec_times(arg): pass
@@ -1295,7 +1344,7 @@ def DDP_gibbs_sampler(arg): # rate_type = "l" or "m" (for speciation/extinction 
 		P=eta_temp*rel_lik
 	
 		# randomly sample a new value for indicator ind[i]
-		IND = random_choice_P(P)[1] 
+		IND = random_choice_P(P)[1]  # numpy.random.choice(a, size=None, replace=True, p=None)
 		ind[i] = IND # update ind vector
 		if IND==(len(par_k1)-1): par = par_k1 # add category
 
@@ -1506,7 +1555,13 @@ def MCMC(all_arg):
 				z[:,3]=alphas[1]   # baseline foss rate (q)
 				z[:,4]=range(len(fossil))
 				z[:,5]=cov_par[2]  # covariance baseline foss rate
-				z[:,6]=M[len(M)-1] # ex rate
+				if use_ADE_model is True: # ex rate
+					W_scale = M[len(M)-1]
+					mean_life_span = W_scale * gamma(1 + 1./W_shape)
+					M_temp = exp(log_wr(mean_life_span,W_shape,W_scale))
+					z[:,6]= M_temp
+				else:
+					z[:,6]=M[len(M)-1] # ex rate
 				args=list(z[ind1])
 				if num_processes_ts==0:
 					for j in range(len(ind1)):
@@ -1561,7 +1616,10 @@ def MCMC(all_arg):
 					for temp_l in range(len(timesL)-1):
 						up, lo = timesL[temp_l], timesL[temp_l+1]
 						l = L[temp_l]
-						args.append([ts, te, up, lo, l, 'l', cov_par[0],1])
+						if use_ADE_model is False:
+							args.append([ts, te, up, lo, l, 'l', cov_par[0],1])
+						elif use_ADE_model is True:
+							args.append([ts, te, up, lo, l, 'l', cov_par[0],1,1])
 					# parameters of each partial likelihood and prior (m)
 					for temp_m in range(len(timesM)-1):
 						up, lo = timesM[temp_m], timesM[temp_m+1]
@@ -1569,7 +1627,7 @@ def MCMC(all_arg):
 						if use_ADE_model is False:
 							args.append([ts, te, up, lo, m, 'm', cov_par[1],1])
 						elif use_ADE_model is True:
-							args.append([ts, te, up, lo, m, 'm', cov_par[1],W_shape])
+							args.append([ts, te, up, lo, m, 'm', cov_par[1],W_shape,alphas[1]])
 			
 					if num_processes==0:
 						likBDtemp=np.zeros(len(args))
