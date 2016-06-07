@@ -1,14 +1,26 @@
+import argparse, os,sys
+from os.path import basename
 from numpy import *
 import numpy as np
 import os
 
 # fossilSampler .
-os.chdir(r'C:\Users\oskar\Documents\Dropbox\PyRate_Age-Dependency_and_Beyond\Toy_Datasets_TreeSimGM\BAT_simulator\testingzone')
+#os.chdir(r'C:\Users\oskar\Documents\Dropbox\PyRate_Age-Dependency_and_Beyond\Toy_Datasets_TreeSimGM\BAT_simulator\testingzone')
 #os.chdir('/Users/daniele/Dropbox-personal/Dropbox/PyRate_Age-Dependency_and_Beyond/Toy_Datasets_TreeSimGM/BAT_simulator/testingzone')
 
-filename="sim2_1_0.937_1.114"
+p = argparse.ArgumentParser() #description='<input file>') 
+p.add_argument('-v', action='version', version='%(prog)s')
+p.add_argument('-d', type=str,help="Load SE table",metavar='<1 input file>',default="")
+
+args = p.parse_args()
+
+output_wd = os.path.dirname(args.d)
+if output_wd=="": output_wd= self_path
+
+filename=os.path.splitext(basename(args.d))[0]
+
 # reading simulated file
-simi = np.loadtxt(fname=filename+".txt", skiprows=1)
+simi = np.loadtxt(fname=args.d, skiprows=1)
 TS=simi[:,2]
 TE=simi[:,3]
 
@@ -133,8 +145,8 @@ if len(all_records) >= 20 and len(all_records) <=200:
 	all_d=data+d+names+taxa_names+f
 	#write_to_file(r"\fossils\%s.py" % output, all_d) 	
 	#write_to_file(r"\fossils\%s_summary.txt" % output, sim_data[1]) 	
-	write_to_file("fossils/%s.py" % output, all_d) 	
-	write_to_file("fossils/%s_summary.txt" % output, sim_data[1]) 	
+	write_to_file(output_wd+"/fossils/%s.py" % output, all_d) 	
+	write_to_file(output_wd+"/fossils/%s_summary.txt" % output, sim_data[1]) 	
 else:
 	print("Skipping "+ filename + " : too big or too small")
 quit()
