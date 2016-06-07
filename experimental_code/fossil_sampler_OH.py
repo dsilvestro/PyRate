@@ -3,11 +3,56 @@ from os.path import basename
 from numpy import *
 import numpy as np
 import os
+from scipy.special import gamma
+np.set_printoptions(suppress=True) # prints floats, no scientific notation
+np.set_printoptions(precision=3) # rounds all array elements to 3rd digit
+
 
 # fossilSampler .
 #os.chdir(r'C:\Users\oskar\Documents\Dropbox\PyRate_Age-Dependency_and_Beyond\Toy_Datasets_TreeSimGM\BAT_simulator\testingzone')
 #os.chdir('/Users/daniele/Dropbox-personal/Dropbox/PyRate_Age-Dependency_and_Beyond/Toy_Datasets_TreeSimGM/BAT_simulator/testingzone')
+os.chdir("/Users/daniele/Desktop/try/pyrate_ade")
 
+def mean_ext_WR(x,W_shape,W_scale):
+	return mean((W_shape/W_scale)*(x/W_scale)**(W_shape-1)), W_scale * gamma(1 + 1./W_shape)
+
+
+R = 50.
+N = 100 #np.random.randint(25,50,1) # no. species
+E = 0.05 #np.random.uniform(0.05,0.25) # fraction of extant
+
+
+W_shape = .5
+W_scale = 3.
+v= np.linspace(0.0001,10,1000)
+mean_ext_WR(v,W_shape,W_scale)
+# CI
+br_length = sort(np.random.weibull(W_shape,10000)*W_scale)
+print br_length[int(0.025*len(br_length))],br_length[int(0.975*len(br_length))]
+
+
+br_length = np.random.weibull(W_shape,N)*W_scale
+
+TS = np.random.uniform(br_length,R,N)
+ind_rand_extant = np.random.choice(np.arange(N), size=int(N*E), replace=False,p=br_length/sum(br_length))
+
+TS[ind_rand_extant]=np.random.uniform(0,br_length[ind_rand_extant],len(ind_rand_extant))
+TE = TS-br_length
+TE[TE<0]=0
+
+
+filename="sim1_1_%s_%s.txt" % (W_shape,W_scale)
+
+outfile = open(filename, "wb") 
+outfile.writelines("clade	species	ts	te\n")
+for i in range(N):
+	outfile.writelines("0\t%s\t%s\t%s\n" % (i,TS[i],TE[i]))
+
+outfile.close()
+
+
+
+<<<<<<< HEAD
 p = argparse.ArgumentParser() #description='<input file>') 
 p.add_argument('-v', action='version', version='%(prog)s')
 p.add_argument('-d', type=str,help="Load SE table",metavar='<1 input file>',default="")
@@ -21,14 +66,19 @@ filename=os.path.splitext(basename(args.d))[0]
 
 # reading simulated file
 simi = np.loadtxt(fname=args.d, skiprows=1)
+=======
+# reading simulated file
+filename="sim1_1_%s_%s" % (W_shape,W_scale)
+simi = np.loadtxt(fname=filename+".txt", skiprows=1)
+>>>>>>> origin/master
 TS=simi[:,2]
 TE=simi[:,3]
 
 # simulatiom name
-output = "F"+filename
+output = "sim%s%s" % (W_shape,W_scale)
 
 ##  'q_rate' IS THE PRESERVATION RATE, WE SHOULD TEST WITH VALUES OF E.G. 0.25, 0.5, 1, 3
-q_rate = 2.5
+q_rate = 1.
 
 ## SIMULAITON FUNCTIONS
 def write_to_file(f, o):
@@ -145,8 +195,16 @@ if len(all_records) >= 20 and len(all_records) <=200:
 	all_d=data+d+names+taxa_names+f
 	#write_to_file(r"\fossils\%s.py" % output, all_d) 	
 	#write_to_file(r"\fossils\%s_summary.txt" % output, sim_data[1]) 	
+<<<<<<< HEAD
 	write_to_file(output_wd+"/fossils/%s.py" % output, all_d) 	
 	write_to_file(output_wd+"/fossils/%s_summary.txt" % output, sim_data[1]) 	
+=======
+	write_to_file("%s.py" % output, all_d) 	
+	write_to_file("%s_summary.txt" % output, sim_data[1]) 	
+>>>>>>> origin/master
 else:
 	print("Skipping "+ filename + " : too big or too small")
+
+print "saved as: ", output
+
 quit()

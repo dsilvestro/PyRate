@@ -75,7 +75,7 @@ for (j in 1:replicates){
 
 	for (n in 1:length(taxa)){
 		times[[n]] <- dat2$new_age[dat2$Species == taxa[n]]
-		if (splist$Status[splist$Species == taxa[n]] == "extant"){
+		if (toupper(splist$Status[splist$Species == taxa[n]]) == toupper("extant")){
 			times[[n]] <- append(times[[n]], "0", after=length(times[[n]]))
 		}
 	}
@@ -143,7 +143,7 @@ lookup <- as.data.frame(taxa)
 lookup$status  <- "extinct"
 
 write.table(splist, file=splistout, sep="\t", row.names=F, quote=F)
-cat("  PyRate input file was saved in: ", sprintf("%s", outfile), "\n\n")
+cat("\n\nPyRate input file was saved in: ", sprintf("%s", outfile), "\n\n")
 
 }
 

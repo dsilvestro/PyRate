@@ -908,17 +908,66 @@ def cdf_WR(W_shape,W_scale,x):
 def log_wr(t,W_shape,W_scale):
 	return log(W_shape/W_scale)+(W_shape-1)*log(t/W_scale)
 
+def log_wei_pdf(x,W_shape,W_scale): # log pdf Weibull 
+	log_pdf = log(W_shape/W_scale) + (W_shape-1)*log(x/W_scale) - (x/W_scale)**W_shape
+	return log_pdf
+
+def pdf_W_poi(W_shape,W_scale,q,x): # exp log Weibull + Q_function
+	return exp(log_wei_pdf(x,W_shape,W_scale) + log(1-exp(-q*x)))
+
+def cdf_Weibull(x,W_shape,W_scale):
+	# Weibull cdf
+	wei_cdf = 1 - exp(-(x/W_scale)**W_shape)
+	return wei_cdf
+
+# integration settings
+nbins  = 10000
+xLim   = 100
+x_bins = np.linspace(0.0000001,xLim,nbins) 
+	
 def BD_age_partial_lik(arg): 
-	[ts,te,up,lo,rate,par, cov_par,W_shape]=arg
-	if par=="l": lik = BD_partial_lik(arg)
+	#[ts, te, up, lo, m, 'm', cov_par[1],W_shape,alphas[1]]
+	[ts,te,up,lo, rate,par,  cov_par,   W_shape,q]=arg
+	if par=="l": lik = BD_partial_lik(arg[0:-1])
 	else:
 		W_scale = rate
 		ind_ex_events=np.intersect1d((te <= up).nonzero()[0], (te >= lo).nonzero()[0])
-		d = ts[ind_ex_events]-te[ind_ex_events]
-		de = d[te>0] #takes only the extinct species times
-		death_lik_de = sum(log_wr(de, W_shape, W_scale)) # log probability of death event
-		death_lik_wte = sum(-cdf_WR(W_shape,W_scale, d)) 
-		lik = death_lik_de + death_lik_wte
+		ts_time = ts[ind_ex_events]
+		te_time = te[ind_ex_events]
+		br = ts_time-te_time
+		#br=ts-te
+		lik1=(log_wei_pdf(br[te_time>0],W_shape,W_scale)) + (log(1-exp(-q*br[te_time>0])))
+		v=x_bins
+		# standard integration
+		#v= np.linspace(0.0000001,1000,10000000) 
+		#P = pdf_W_poi(W_shape,W_scale,q,v)
+		#lik2= log(sum(P) *(v[1]-v[0]))
+		#
+		# numerical integration + analytical for right tail
+		P = pdf_W_poi(W_shape,W_scale,q,v)                 # partial integral (0 => xLim) via numerical integration
+		d= v[1]-v[0]
+		const_int = (1- cdf_Weibull(xLim,W_shape,W_scale)) # partial integral (xLim => Inf) via CDF_weibull
+		lik2 = log( sum(P)*d  + const_int ) 
+		#__ x999=6.90776/q # https://www.wolframalpha.com: 0.999 = 1-exp(-qx)
+		#__ nbins= 1000
+		#__ v= np.linspace(0.0000001,max(x999,max(ts[te==0])),nbins) # replace with trapezoid integration
+		#__ P = pdf_W_poi(W_shape,W_scale,q,v)
+		#__ d = v[1]-v[0]
+		#__ #lik3= log(sum(P_partial)*(v_partial[1]-v_partial[0]) + (1- cdf_Weibull(x999,W_shape,W_scale)) )
+		#__ lik3= log(sum((np.diff(P)*d)/2. + (P[0:-1]*d)) + (1- cdf_Weibull(x999,W_shape,W_scale)) )
+		
+		
+		P_ext = [log(sum(P[v>i])*d + const_int)-lik2 for i in ts_time[te_time==0] ] # P(x > ts | W_shape, W_scale, q)
+		# this is equal to log(1- (sum(P[v<=i]) *(v[1]-v[0]) / exp(lik2)))
+		lik_extant = sum(P_ext)
+		lik_extinct = sum(lik1-lik2)
+		lik = lik_extinct + lik_extant
+		# fit BD model
+		#de = d[te>0] #takes only the extinct species times
+		#death_lik_de = sum(log_wr(de, W_shape, W_scale)) # log probability of death event
+		#death_lik_wte = sum(-cdf_WR(W_shape,W_scale, br[te==0])) 
+		#lik += death_lik_wte 
+		#
 	return lik	
 
 def BD_age_lik_vec_times(arg): pass
@@ -964,9 +1013,11 @@ def BDI_partial_lik(arg):
 	Dk = event_at_state_k	
 
 	if par=="l":
-		lik = sum(log(L*k+I)*Uk - (L*k+I)*Tk)
+		# calc likelihood only when diversity > 0
+		lik = sum(log(L[k>0]*k[k>0]+I[k>0])*Uk[k>0] - (L[k>0]*k[k>0]+I[k>0])*Tk[k>0])
 	else: 
-		lik = sum(log(M*k)*Dk -(M*k*Tk))
+		# calc likelihood only when diversity > 0
+		lik = sum(log(M[k>0]*k[k>0])*Dk[k>0] -(M[k>0]*k[k>0]*Tk[k>0]))
 	return lik
 
 def PoiD_partial_lik(arg):
@@ -1295,7 +1346,7 @@ def DDP_gibbs_sampler(arg): # rate_type = "l" or "m" (for speciation/extinction 
 		P=eta_temp*rel_lik
 	
 		# randomly sample a new value for indicator ind[i]
-		IND = random_choice_P(P)[1] 
+		IND = random_choice_P(P)[1]  # numpy.random.choice(a, size=None, replace=True, p=None)
 		ind[i] = IND # update ind vector
 		if IND==(len(par_k1)-1): par = par_k1 # add category
 
@@ -1473,11 +1524,11 @@ def MCMC(all_arg):
 				covar_prior = get_post_sd(cov_parA[cov_parA>0]) # est hyperprior only based on non-zero rates
 				stop_update=inf
 			elif rcov < f_cov_par[0]: # cov lambda
-				cov_par[0]=update_parameter_normal(cov_parA[0],-3,3,d5[0])
+				cov_par[0]=update_parameter_normal(cov_parA[0],-1000,1000,d5[0])
 			elif rcov < f_cov_par[1]: # cov mu
-				cov_par[1]=update_parameter_normal(cov_parA[1],-3,3,d5[1])
+				cov_par[1]=update_parameter_normal(cov_parA[1],-1000,1000,d5[1])
 			else:
-				cov_par[2]=update_parameter_normal(cov_parA[2],-3,3,d5[2])
+				cov_par[2]=update_parameter_normal(cov_parA[2],-1000,1000,d5[2])
 
 		if constrain_time_frames is True: timesM=timesL
 		alphas[(alphas==0).nonzero()]=alphasA[(alphas==0).nonzero()]
@@ -1506,7 +1557,13 @@ def MCMC(all_arg):
 				z[:,3]=alphas[1]   # baseline foss rate (q)
 				z[:,4]=range(len(fossil))
 				z[:,5]=cov_par[2]  # covariance baseline foss rate
-				z[:,6]=M[len(M)-1] # ex rate
+				if use_ADE_model is True: # ex rate
+					W_scale = M[len(M)-1]
+					mean_life_span = W_scale * gamma(1 + 1./W_shape) # mean species longevity based on ADE model
+					M_temp = exp(log_wr(mean_life_span,W_shape,W_scale)) # expected extinction rate at the time of extinction
+					z[:,6]= M_temp
+				else:
+					z[:,6]=M[len(M)-1] # ex rate
 				args=list(z[ind1])
 				if num_processes_ts==0:
 					for j in range(len(ind1)):
@@ -1561,7 +1618,10 @@ def MCMC(all_arg):
 					for temp_l in range(len(timesL)-1):
 						up, lo = timesL[temp_l], timesL[temp_l+1]
 						l = L[temp_l]
-						args.append([ts, te, up, lo, l, 'l', cov_par[0],1])
+						if use_ADE_model is False:
+							args.append([ts, te, up, lo, l, 'l', cov_par[0],1])
+						elif use_ADE_model is True:
+							args.append([ts, te, up, lo, l, 'l', cov_par[0],1,1])
 					# parameters of each partial likelihood and prior (m)
 					for temp_m in range(len(timesM)-1):
 						up, lo = timesM[temp_m], timesM[temp_m+1]
@@ -1569,7 +1629,7 @@ def MCMC(all_arg):
 						if use_ADE_model is False:
 							args.append([ts, te, up, lo, m, 'm', cov_par[1],1])
 						elif use_ADE_model is True:
-							args.append([ts, te, up, lo, m, 'm', cov_par[1],W_shape])
+							args.append([ts, te, up, lo, m, 'm', cov_par[1],W_shape,alphas[1]])
 			
 					if num_processes==0:
 						likBDtemp=np.zeros(len(args))
@@ -1622,8 +1682,14 @@ def MCMC(all_arg):
 		if TDI<3:
 			prior += sum(prior_times_frames(timesL, max(ts),min(te), lam_s))
 			prior += sum(prior_times_frames(timesM, max(ts),min(te), lam_s))
-
+		
+		
 		priorBD= get_hyper_priorBD(timesL,timesM,L,M,T,hyperP)
+		if use_ADE_model is True:
+			# M in this case is the vector of Weibull scales
+			priorBD+= sum(prior_normal(log(W_shapeA),2)) # Normal prior on log(W_shape): highest prior pr at W_shape=1
+		
+		
 		prior += priorBD
 		###
 		if model_cov >0: prior+=sum(prior_normal(cov_par,covar_prior))
@@ -1675,8 +1741,12 @@ def MCMC(all_arg):
 				else:
 					print "\tt.frames:", timesLA, "(sp.)"
 					print "\tt.frames:", timesMA, "(ex.)"
-				print "\tsp.rates:", LA, "\n\tex.rates:", MA
-				if use_ADE_model is True: print "\tWeibull.shape:", round(W_shapeA,3)
+				print "\tsp.rates:", LA
+				if use_ADE_model is True: 
+					print "\tWeibull.shape:", round(W_shapeA,3)
+					print "\tWeibull.rate:", MA
+				else: 
+					print "\tex.rates:", MA
 				if est_hyperP is True: print "\thyper.prior.par", hyperPA
 
 				
@@ -1708,7 +1778,8 @@ def MCMC(all_arg):
 				if est_hyperP is True: log_state += list(hyperPA)
 				log_state += list(LA)
 				if use_ADE_model is True: log_state+= [W_shapeA]
-				log_state += list(MA)
+				log_state += list(MA) # This is W_scale in the case of ADE models
+				if use_ADE_model is True: log_state+= list(MA * gamma(1 + 1./W_shapeA))
 				if fix_Shift== False:
 					log_state += list(timesLA[1:-1])
 					log_state += list(timesMA[1:-1])
@@ -1792,6 +1863,7 @@ p.add_argument("-out",       type=str, help='output tag', default="")
 p.add_argument('-singleton', type=float, help='Remove singletons (min life span)', default=0, metavar=0)
 p.add_argument("-rescale",   type=float, help='Rescale data (e.g. -rescale 0.001: 1My -> 1Ky)', default=1, metavar=1)
 p.add_argument('-d',         type=str,help="Load SE table",metavar='<input file>',default="")
+p.add_argument('-clade',     type=int, help='clade analyzed (set to -1 to analyze all species)', default=-1, metavar=-1)
 p.add_argument('-trait_file',type=str,help="Load trait table",metavar='<input file>',default="")
 
 # PLOTS AND OUTPUT
@@ -1870,8 +1942,8 @@ if args.cite is True:
 	sys.exit(citation)
 ############################ MODEL SETTINGS ############################
 # PRIORS
-L_lam_r,L_lam_m = args.pL # shape and scale parameters of Gamma prior on sp rates
-M_lam_r,M_lam_m = args.pM # shape and scale parameters of Gamma prior on ex rates
+L_lam_r,L_lam_m = args.pL # shape and rate parameters of Gamma prior on sp rates
+M_lam_r,M_lam_m = args.pM # shape and rate parameters of Gamma prior on ex rates
 lam_s = args.pS                              # shape parameter dirichlet prior on time frames
 pert_prior = [args.pP[0],args.pP[1]] # gamma prior on foss. rate; beta on mode PERT distribution
 covar_prior_fixed=args.pC # std of normal prior on th covariance parameters
@@ -2138,17 +2210,18 @@ else:
 	t_file=np.loadtxt(se_tbl_file, skiprows=1)
 	print np.shape(t_file)
 	j=max(args.j-1,0)
-	print j
 	FA=t_file[:,2+2*j]*args.rescale
 	LO=t_file[:,3+2*j]*args.rescale
-	#N = np.repeat(2., len(FA))
+	focus_clade=args.clade
+	clade_ID=t_file[:,0].astype(int)
+	if focus_clade>=0: FA,LO=FA[clade_ID==focus_clade],LO[clade_ID==focus_clade]	
+	print j, len(FA), "species"
 	fix_SE=True
-	fixed_ts, fixed_te=FA, LO
-	
+	fixed_ts, fixed_te=FA, LO	
 	output_wd = os.path.dirname(se_tbl_file)
 	if output_wd=="": output_wd= self_path
-
 	out_name="%s_%s_%s"  % (os.path.splitext(os.path.basename(se_tbl_file))[0],j,args.out)
+	if focus_clade>=0: out_name+= "_c%s" % (focus_clade)
 	
 	
 	
@@ -2276,7 +2349,7 @@ if model_BDI >=0:
 	all_events_temp= np.array([np.concatenate((ts,te),axis=0),np.concatenate((np.zeros(len(ts))+1,z),axis=0)])
 	idx = np.argsort(all_events_temp[0])[::-1] # get indexes of sorted events
 	all_events_array=all_events_temp[:,idx] # sort by time of event
-	print all_events_array
+	#print all_events_array
 	all_events = all_events_array[0,:]
 	dT_events= -(np.diff(np.append(all_events,0)))
 		
@@ -2295,13 +2368,20 @@ if model_BDI >=0:
 	#	print i, "\t", div_trajectory[j],  "\t", div_traj[j], "\t",dT_events[j]
 	#	j+=1
 	div_trajectory=div_traj
+	#print div_traj
 	BPD_partial_lik = BDI_partial_lik
 	if model_BDI==0: out_name += "BD"
 	if model_BDI==1: out_name += "ID"
 	if TDI<2: out_name = "%s%s%s" % (out_name,time_framesL,time_framesM)
 		
 		
-		
+# SET UO AGE DEP. EXTINCTION MODEL
+use_ADE_model = False
+if args.ADE == 1:
+	use_ADE_model = True
+	BPD_partial_lik = BD_age_partial_lik
+	out_name += "_ADE"
+	
 
 est_hyperP = False
 use_cauchy = False
@@ -2318,19 +2398,28 @@ else:
 	if min([L_lam_m,M_lam_m])==0:
 		est_hyperP = True
 		hypP_par = np.ones(2)
-	
+
+if use_ADE_model is True: 
+	hypP_par[1]=0.1
+	tot_extant = -1
 
 if fix_Shift is True: est_hyperP = True
 # define hyper-prior function for BD rates
 if tot_extant==-1 or TDI ==3 or use_poiD is True:
 	if fix_Shift is True and TDI < 3 or use_cauchy is True: 
-		print("Using Cauchy priors on the birth-death rates.\n")
-		get_hyper_priorBD = HPBD1 # cauchy with hyper-priors
+		if est_hyperP is False or fix_hyperP is True:
+			print "Using Cauchy priors on the birth-death rates (C_l[0,%s],C_l[0,%s]).\n" % (hypP_par[0],hypP_par[1])
+		else:
+				print "Using Cauchy priors on the birth-death rates (C_l[0,est],C_l[0,est]).\n" 
+ 		get_hyper_priorBD = HPBD1 # cauchy with hyper-priors
 	else: 
-		print("Using Gamma priors on the birth-death rates.\n")
+		if est_hyperP is False:
+			print "Using Gamma priors on the birth-death rates (G_l[%s,%s], G_m[%s,%s]).\n" % (L_lam_r,hypP_par[0],M_lam_r,hypP_par[1])
+		else:
+			print "Using Gamma priors on the birth-death rates (G_l[%s,est], G_m[%s,est]).\n" % (L_lam_r,M_lam_r)
 		get_hyper_priorBD = HPBD2 # gamma
 else: 
-	print("Priors on the birth-death rates based on extant diversity.\n")
+	print "Priors on the birth-death rates based on extant diversity (N = %s).\n" % (tot_extant)
 	get_hyper_priorBD = HPBD3 # based on no. extant
 
 if use_poiD is True:
@@ -2343,11 +2432,7 @@ if use_poiD is True:
 		BPD_partial_lik = BD_partial_lik
 		PoiD_const = 0
 
-# SET UO AGE DEP. EXTINCTION MODEL
-use_ADE_model = False
-if args.ADE == 1:
-	use_ADE_model = True
-	BPD_partial_lik = BD_age_partial_lik
+
 
 # GET DATA SUMMARY INFO
 if args.data_info is True:
@@ -2437,6 +2522,7 @@ if TDI<2:
 	else: 
 		head+="w_shape\t"
 		for i in range(time_framesM): head += "w_scale_%s\t" % (i)
+		for i in range(time_framesM): head += "mean_longevity_%s\t" % (i)
 	
 	if fix_Shift== False:
 		for i in range(1,time_framesL): head += "shift_sp_%s\t" % (i)
