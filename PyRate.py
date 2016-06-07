@@ -1013,9 +1013,11 @@ def BDI_partial_lik(arg):
 	Dk = event_at_state_k	
 
 	if par=="l":
-		lik = sum(log(L*k+I)*Uk - (L*k+I)*Tk)
+		# calc likelihood only when diversity > 0
+		lik = sum(log(L[k>0]*k[k>0]+I[k>0])*Uk[k>0] - (L[k>0]*k[k>0]+I[k>0])*Tk[k>0])
 	else: 
-		lik = sum(log(M*k)*Dk -(M*k*Tk))
+		# calc likelihood only when diversity > 0
+		lik = sum(log(M[k>0]*k[k>0])*Dk[k>0] -(M[k>0]*k[k>0]*Tk[k>0]))
 	return lik
 
 def PoiD_partial_lik(arg):
@@ -1557,8 +1559,8 @@ def MCMC(all_arg):
 				z[:,5]=cov_par[2]  # covariance baseline foss rate
 				if use_ADE_model is True: # ex rate
 					W_scale = M[len(M)-1]
-					mean_life_span = W_scale * gamma(1 + 1./W_shape)
-					M_temp = exp(log_wr(mean_life_span,W_shape,W_scale))
+					mean_life_span = W_scale * gamma(1 + 1./W_shape) # mean species longevity based on ADE model
+					M_temp = exp(log_wr(mean_life_span,W_shape,W_scale)) # expected extinction rate at the time of extinction
 					z[:,6]= M_temp
 				else:
 					z[:,6]=M[len(M)-1] # ex rate
@@ -1681,10 +1683,10 @@ def MCMC(all_arg):
 			prior += sum(prior_times_frames(timesL, max(ts),min(te), lam_s))
 			prior += sum(prior_times_frames(timesM, max(ts),min(te), lam_s))
 		
-		if use_ADE_model is False:
-			priorBD= get_hyper_priorBD(timesL,timesM,L,M,T,hyperP)
-		else:
-			priorBD= get_hyper_priorBD(timesL,timesM,L,M,T,hyperP) # M in this case is the vector of Weibull scales
+		
+		priorBD= get_hyper_priorBD(timesL,timesM,L,M,T,hyperP)
+		if use_ADE_model is True:
+			# M in this case is the vector of Weibull scales
 			priorBD+= sum(prior_normal(log(W_shapeA),2)) # Normal prior on log(W_shape): highest prior pr at W_shape=1
 		
 		
@@ -1861,6 +1863,7 @@ p.add_argument("-out",       type=str, help='output tag', default="")
 p.add_argument('-singleton', type=float, help='Remove singletons (min life span)', default=0, metavar=0)
 p.add_argument("-rescale",   type=float, help='Rescale data (e.g. -rescale 0.001: 1My -> 1Ky)', default=1, metavar=1)
 p.add_argument('-d',         type=str,help="Load SE table",metavar='<input file>',default="")
+p.add_argument('-clade',     type=int, help='clade analyzed (set to -1 to analyze all species)', default=-1, metavar=-1)
 p.add_argument('-trait_file',type=str,help="Load trait table",metavar='<input file>',default="")
 
 # PLOTS AND OUTPUT
@@ -2207,17 +2210,18 @@ else:
 	t_file=np.loadtxt(se_tbl_file, skiprows=1)
 	print np.shape(t_file)
 	j=max(args.j-1,0)
-	print j
 	FA=t_file[:,2+2*j]*args.rescale
 	LO=t_file[:,3+2*j]*args.rescale
-	#N = np.repeat(2., len(FA))
+	focus_clade=args.clade
+	clade_ID=t_file[:,0].astype(int)
+	if focus_clade>=0: FA,LO=FA[clade_ID==focus_clade],LO[clade_ID==focus_clade]	
+	print j, len(FA), "species"
 	fix_SE=True
-	fixed_ts, fixed_te=FA, LO
-	
+	fixed_ts, fixed_te=FA, LO	
 	output_wd = os.path.dirname(se_tbl_file)
 	if output_wd=="": output_wd= self_path
-
 	out_name="%s_%s_%s"  % (os.path.splitext(os.path.basename(se_tbl_file))[0],j,args.out)
+	if focus_clade>=0: out_name+= "_c%s" % (focus_clade)
 	
 	
 	
@@ -2345,7 +2349,7 @@ if model_BDI >=0:
 	all_events_temp= np.array([np.concatenate((ts,te),axis=0),np.concatenate((np.zeros(len(ts))+1,z),axis=0)])
 	idx = np.argsort(all_events_temp[0])[::-1] # get indexes of sorted events
 	all_events_array=all_events_temp[:,idx] # sort by time of event
-	print all_events_array
+	#print all_events_array
 	all_events = all_events_array[0,:]
 	dT_events= -(np.diff(np.append(all_events,0)))
 		
@@ -2364,6 +2368,7 @@ if model_BDI >=0:
 	#	print i, "\t", div_trajectory[j],  "\t", div_traj[j], "\t",dT_events[j]
 	#	j+=1
 	div_trajectory=div_traj
+	#print div_traj
 	BPD_partial_lik = BDI_partial_lik
 	if model_BDI==0: out_name += "BD"
 	if model_BDI==1: out_name += "ID"
