@@ -139,7 +139,7 @@ output_name = output +"_"+str(Nextant)+"_"+str(Nextinct)+"_"+str(rho)+"_"+str(q_
 
 #print "\n\n", all_records, len(all_records)
 #filtering sizes
-if len(all_records) >= 20 and len(all_records) <=300:
+if Nextinct >= 20 and Nextinct <=300 and Nextant <=300:
 	data="#!/usr/bin/env python\nfrom numpy import * \n\n"
 	d="\nd=[sim_data]"
 	names="\nnames=['%s']" % (output_name)
