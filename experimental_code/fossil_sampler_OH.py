@@ -1,5 +1,3 @@
-import argparse, os,sys
-from os.path import basename
 from numpy import *
 import numpy as np
 import os
@@ -9,7 +7,7 @@ np.set_printoptions(precision=3) # rounds all array elements to 3rd digit
 
 
 # fossilSampler .
-#os.chdir(r'C:\Users\oskar\Documents\Dropbox\PyRate_Age-Dependency_and_Beyond\Toy_Datasets_TreeSimGM\BAT_simulator\testingzone')
+os.chdir(r'C:\Users\oskar\Documents\Dropbox\PyRate_Age-Dependency_and_Beyond\Toy_Datasets_TreeSimGM\BAT_simulator\testingzone')
 #os.chdir('/Users/daniele/Dropbox-personal/Dropbox/PyRate_Age-Dependency_and_Beyond/Toy_Datasets_TreeSimGM/BAT_simulator/testingzone')
 os.chdir("/Users/daniele/Desktop/try/pyrate_ade")
 
@@ -40,6 +38,7 @@ TS[ind_rand_extant]=np.random.uniform(0,br_length[ind_rand_extant],len(ind_rand_
 TE = TS-br_length
 TE[TE<0]=0
 
+<<<<<<< HEAD:experimental_code/fossil_sampler_OH.py
 
 filename="sim1_1_%s_%s.txt" % (W_shape,W_scale)
 
@@ -71,6 +70,11 @@ simi = np.loadtxt(fname=args.d, skiprows=1)
 filename="sim1_1_%s_%s" % (W_shape,W_scale)
 simi = np.loadtxt(fname=filename+".txt", skiprows=1)
 >>>>>>> origin/master
+=======
+filename="sim2_1_0.937_1.114"
+# reading simulated file
+simi = np.loadtxt(fname=filename+".txt", skiprows=1)
+>>>>>>> parent of 5857a95... fossil sampler with file name argument:experimental_code/fossil_sampler.py
 TS=simi[:,2]
 TE=simi[:,3]
 
@@ -195,6 +199,7 @@ if len(all_records) >= 20 and len(all_records) <=200:
 	all_d=data+d+names+taxa_names+f
 	#write_to_file(r"\fossils\%s.py" % output, all_d) 	
 	#write_to_file(r"\fossils\%s_summary.txt" % output, sim_data[1]) 	
+<<<<<<< HEAD:experimental_code/fossil_sampler_OH.py
 <<<<<<< HEAD
 	write_to_file(output_wd+"/fossils/%s.py" % output, all_d) 	
 	write_to_file(output_wd+"/fossils/%s_summary.txt" % output, sim_data[1]) 	
@@ -202,6 +207,10 @@ if len(all_records) >= 20 and len(all_records) <=200:
 	write_to_file("%s.py" % output, all_d) 	
 	write_to_file("%s_summary.txt" % output, sim_data[1]) 	
 >>>>>>> origin/master
+=======
+	write_to_file("fossils/%s.py" % output, all_d) 	
+	write_to_file("fossils/%s_summary.txt" % output, sim_data[1]) 	
+>>>>>>> parent of 5857a95... fossil sampler with file name argument:experimental_code/fossil_sampler.py
 else:
 	print("Skipping "+ filename + " : too big or too small")
 
