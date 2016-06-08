@@ -1,5 +1,8 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> parent of 5857a95... fossil sampler with file name argument
 from numpy import *
 import numpy as np
 import os
