@@ -1408,6 +1408,7 @@ def MCMC(all_arg):
 		if TDI<3:
 			LA = init_BD(len(timesLA))
 			MA = init_BD(len(timesMA))
+			if use_ADE_model is True: MA = np.random.uniform(3,5,len(timesMA)-1)
 		else : ### DPP
 			LA = init_BD(1) # init 1 rate
 			MA = init_BD(1) # init 1 rate
