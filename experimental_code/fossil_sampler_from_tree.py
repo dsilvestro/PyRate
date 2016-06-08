@@ -28,7 +28,7 @@ TE=simi[:,3]
 output = filename.split("_")[0]
 
 ##  'q_rate' IS THE PRESERVATION RATE, WE SHOULD TEST WITH VALUES OF E.G. 0.25, 0.5, 1, 3
-q_rate = 1
+q_rate = round(random.uniform(0.5, 1.5),3)
 rho=1
 ## SIMULAITON FUNCTIONS
 def write_to_file(f, o):
