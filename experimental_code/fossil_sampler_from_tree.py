@@ -130,7 +130,11 @@ sim_data = resample_simulation(TS,TE,q=q_rate)
 all_records = sim_data[0]
 
 # names log files
-output_name = output +"_"+str(rho)+"_"+str(q_rate)+"_"+filename.split("_")[1]+"_"+filename.split("_")[2]+"_"+filename.split("_")[3]
+
+Nextinct=sum(Next == 0 for row in all_records for Next in row)
+Nextant=len(all_records)- Nextinct
+
+output_name = output +"_"+str(Nextant)+"_"+str(Nextinct)+"_"+str(rho)+"_"+str(q_rate)+"_"+filename.split("_")[1]+"_"+filename.split("_")[2]+"_"+filename.split("_")[3]
 
 
 #print "\n\n", all_records, len(all_records)
@@ -152,5 +156,5 @@ if len(all_records) >= 20 and len(all_records) <=300:
 	write_to_file(output_wd+"/fossils/%s.py" % output, all_d) 	
 	write_to_file(output_wd+"/fossils/%s_summary.txt" % output, sim_data[1]) 	
 else:
-	print("Skipping "+ filename + " : too big or too small")
+	print("Skipping "+ filename + " with " + str(Nextant) +"extant and "+ str(Nextinct) +"extinct")
 quit()
