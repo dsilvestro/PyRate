@@ -472,15 +472,15 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0, plot_type=
 
 
 ########################## PLOT TS/TE STAT ##############################
-def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin):
+def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale):
 	step_size=int(step_size)
 	# read data
 	print "Processing data..."
 	tbl = np.loadtxt(tste_file,skiprows=1)
 	j_max=(np.shape(tbl)[1]-1)/2
 	j=np.arange(j_max)
-	ts = tbl[:,2+2*j]
-	te = tbl[:,3+2*j]
+	ts = tbl[:,2+2*j]*rescale
+	te = tbl[:,3+2*j]*rescale
 	wd = "%s" % os.path.dirname(tste_file)
 	# create out file
 	out_file_name = os.path.splitext(os.path.basename(tste_file))[0]
@@ -544,10 +544,10 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin):
 		
 		life_exp= np.array(life_exp)
 		STR= "\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" \
-		% (time_t, calc_median(diversity),min(diversity),max(diversity), 
-		calc_median(age_current_taxa),min(age_current_taxa),max(age_current_taxa),
-		calc_median(turnover),min(turnover),max(turnover),
-		calc_median(life_exp),np.min(life_exp),np.max(life_exp))
+		% (time_t, median(diversity),min(diversity),max(diversity), 
+		median(age_current_taxa),min(age_current_taxa),max(age_current_taxa),
+		median(turnover),min(turnover),max(turnover),
+		median(life_exp),np.min(life_exp),np.max(life_exp))
 		extant_at_time_t_previous = extant_at_time_t
 		STR = STR.replace("nan","NA")
 		sys.stdout.write(".")
@@ -928,7 +928,7 @@ x_bins = np.linspace(0.0000001,xLim,nbins)
 def BD_age_partial_lik(arg): 
 	#[ts, te, up, lo, m, 'm', cov_par[1],W_shape,alphas[1]]
 	[ts,te,up,lo, rate,par,  cov_par,   W_shape,q]=arg
-	if par=="l": lik = BD_partial_lik(arg[0:-1])
+	if par=="l": lik = 1 #BD_partial_lik(arg[0:-1])
 	else:
 		W_scale = rate
 		ind_ex_events=np.intersect1d((te <= up).nonzero()[0], (te >= lo).nonzero()[0])
@@ -955,13 +955,34 @@ def BD_age_partial_lik(arg):
 		#__ d = v[1]-v[0]
 		#__ #lik3= log(sum(P_partial)*(v_partial[1]-v_partial[0]) + (1- cdf_Weibull(x999,W_shape,W_scale)) )
 		#__ lik3= log(sum((np.diff(P)*d)/2. + (P[0:-1]*d)) + (1- cdf_Weibull(x999,W_shape,W_scale)) )
+		#lik3=(log_wei_pdf(ts_time[te_time==0]+np.random.weibull(W_shape)*W_scale,W_shape,W_scale)) + (log(1-exp(-q*ts_time[te_time==0])))
+		#
+		#lik3= (log_wei_pdf(br[te_time==0],W_shape,W_scale)) + (log(1-exp(-q*br[te_time==0]))) 
 		
+		# integral estant
+		#lik4 = np.array([log(sum(P[v<=i]) *d +  (1- cdf_Weibull(i,W_shape,W_scale))   ) for i in ts_time[te_time==0]])
 		
-		P_ext = [log(sum(P[v>i])*d + const_int)-lik2 for i in ts_time[te_time==0] ] # P(x > ts | W_shape, W_scale, q)
+		#j=0
+		#lik_extant=np.zeros(len(ts_time[te_time==0]))
+		#for i in ts_time[te_time==0]:
+		#	rW=np.random.weibull(W_shape,10000)*W_scale
+		#	rW=rW[rW>i]
+		#	if len(rW)==0:
+		#		rW= i + np.random.exponential(1,10)	
+		#	new_br = rW[0:10]
+		#	# pdf
+		#	lik3 = log_wei_pdf(new_br,W_shape,W_scale) + log(1-exp(-q*i))
+		#	# integral
+		#	lik4 = log(sum(P[v<=i]) *d +  (1- cdf_Weibull(i,W_shape,W_scale)) )
+		#	lik_extant[j] = log(mean(exp(lik3-lik4)))
+		#	j+=1
+		
+		lik_extant = [log(sum(P[v>i])*d + const_int)-lik2 for i in ts_time[te_time==0] ] # P(x > ts | W_shape, W_scale, q)
 		# this is equal to log(1- (sum(P[v<=i]) *(v[1]-v[0]) / exp(lik2)))
-		lik_extant = sum(P_ext)
+		#lik_extant = sum(lik3-lik4)   #sum(lik3- np.array([log(sum(P[v<=i]) *d) for i in ts_time[te_time==0]])  )
+		
 		lik_extinct = sum(lik1-lik2)
-		lik = lik_extinct + lik_extant
+		lik = lik_extinct + sum(lik_extant)
 		# fit BD model
 		#de = d[te>0] #takes only the extinct species times
 		#death_lik_de = sum(log_wr(de, W_shape, W_scale)) # log probability of death event
@@ -1688,7 +1709,7 @@ def MCMC(all_arg):
 		priorBD= get_hyper_priorBD(timesL,timesM,L,M,T,hyperP)
 		if use_ADE_model is True:
 			# M in this case is the vector of Weibull scales
-			priorBD+= sum(prior_normal(log(W_shapeA),2)) # Normal prior on log(W_shape): highest prior pr at W_shape=1
+			priorBD+= sum(prior_normal(log(W_shape),2)) # Normal prior on log(W_shape): highest prior pr at W_shape=1
 		
 		
 		prior += priorBD
@@ -1745,7 +1766,7 @@ def MCMC(all_arg):
 				print "\tsp.rates:", LA
 				if use_ADE_model is True: 
 					print "\tWeibull.shape:", round(W_shapeA,3)
-					print "\tWeibull.rate:", MA
+					print "\tWeibull.scale:", MA
 				else: 
 					print "\tex.rates:", MA
 				if est_hyperP is True: print "\thyper.prior.par", hyperPA
@@ -2143,7 +2164,7 @@ if len(args.SE_stats)>0:
 		else: step_size = 5
 		if len(args.SE_stats)>2: no_sim_ex_time = args.SE_stats[2]
 		else: no_sim_ex_time = 100
-		plot_tste_stats(se_tbl_file, EXT_RATE, step_size,no_sim_ex_time,burnin)
+		plot_tste_stats(se_tbl_file, EXT_RATE, step_size,no_sim_ex_time,burnin,args.rescale)
 		quit()
 
 ############################ LOAD INPUT DATA ############################
@@ -2174,7 +2195,14 @@ if use_se_tbl==False:
 	taxa_included = list()
 	for i in range(len(fossil_complete)):
 		if len(fossil_complete[i])==1 and fossil_complete[i][0]==0: pass
-		if args.singleton > 0:
+
+		if args.singleton == -1:
+			if min(fossil_complete[i])==0: singletons_excluded.append(i)
+			else:
+				have_record.append(i) # some (extant) species may have trait value but no fossil record
+				fossil.append(fossil_complete[i])
+				taxa_included.append(i)
+		elif args.singleton > 0:
 			obs_life_span = max(fossil_complete[i])-min(fossil_complete[i])
 			if len(fossil_complete[i])==1 or obs_life_span<=args.singleton: singletons_excluded.append(i)
 			else:
