@@ -653,18 +653,20 @@ def update_rates_sliding_win(L,M,tot_L,mod_d3):
 
 
 def update_rates_multiplier(L,M,tot_L,mod_d3):
-	# UPDATE LAMBDA
-	S=np.shape(L)
-	#print L, S
-	ff=np.random.binomial(1,f_rate,S)
-	#print ff
-	d=1.2
-	u = np.random.uniform(0,1,S)
-	l = 2*log(mod_d3)
-	m = exp(l*(u-.5))
-	m[ff==0] = 1.
- 	newL = L * m
-	U=sum(log(m))
+	if use_ADE_model is False:
+		# UPDATE LAMBDA
+		S=np.shape(L)
+		#print L, S
+		ff=np.random.binomial(1,f_rate,S)
+		#print ff
+		d=1.2
+		u = np.random.uniform(0,1,S)
+		l = 2*log(mod_d3)
+		m = exp(l*(u-.5))
+		m[ff==0] = 1.
+	 	newL = L * m
+		U=sum(log(m))
+	else: U,newL = 0,L
 
 	# UPDATE MU
 	S=np.shape(M)
@@ -924,6 +926,7 @@ def cdf_Weibull(x,W_shape,W_scale):
 nbins  = 10000
 xLim   = 100
 x_bins = np.linspace(0.0000001,xLim,nbins) 
+x_bin_size = x_bins[1]-x_bins[0]
 	
 def BD_age_partial_lik(arg): 
 	#[ts, te, up, lo, m, 'm', cov_par[1],W_shape,alphas[1]]
@@ -938,83 +941,68 @@ def BD_age_partial_lik(arg):
 		#br=ts-te
 		lik1=(log_wei_pdf(br[te_time>0],W_shape,W_scale)) + (log(1-exp(-q*br[te_time>0])))
 		v=x_bins
-		# standard integration
-		#v= np.linspace(0.0000001,1000,10000000) 
-		#P = pdf_W_poi(W_shape,W_scale,q,v)
-		#lik2= log(sum(P) *(v[1]-v[0]))
-		#
 		# numerical integration + analytical for right tail
 		P = pdf_W_poi(W_shape,W_scale,q,v)                 # partial integral (0 => xLim) via numerical integration
-		d= v[1]-v[0]
+		d= x_bin_size
 		const_int = (1- cdf_Weibull(xLim,W_shape,W_scale)) # partial integral (xLim => Inf) via CDF_weibull
 		lik2 = log( sum(P)*d  + const_int ) 
-		#__ x999=6.90776/q # https://www.wolframalpha.com: 0.999 = 1-exp(-qx)
-		#__ nbins= 1000
-		#__ v= np.linspace(0.0000001,max(x999,max(ts[te==0])),nbins) # replace with trapezoid integration
-		#__ P = pdf_W_poi(W_shape,W_scale,q,v)
-		#__ d = v[1]-v[0]
-		#__ #lik3= log(sum(P_partial)*(v_partial[1]-v_partial[0]) + (1- cdf_Weibull(x999,W_shape,W_scale)) )
-		#__ lik3= log(sum((np.diff(P)*d)/2. + (P[0:-1]*d)) + (1- cdf_Weibull(x999,W_shape,W_scale)) )
-		#lik3=(log_wei_pdf(ts_time[te_time==0]+np.random.weibull(W_shape)*W_scale,W_shape,W_scale)) + (log(1-exp(-q*ts_time[te_time==0])))
-		#
-		#lik3= (log_wei_pdf(br[te_time==0],W_shape,W_scale)) + (log(1-exp(-q*br[te_time==0]))) 
-		
-		# integral estant
-		#lik4 = np.array([log(sum(P[v<=i]) *d +  (1- cdf_Weibull(i,W_shape,W_scale))   ) for i in ts_time[te_time==0]])
-		
-		#j=0
-		#lik_extant=np.zeros(len(ts_time[te_time==0]))
-		#for i in ts_time[te_time==0]:
-		#	rW=np.random.weibull(W_shape,10000)*W_scale
-		#	rW=rW[rW>i]
-		#	if len(rW)==0:
-		#		rW= i + np.random.exponential(1,10)	
-		#	new_br = rW[0:10]
-		#	# pdf
-		#	lik3 = log_wei_pdf(new_br,W_shape,W_scale) + log(1-exp(-q*i))
-		#	# integral
-		#	lik4 = log(sum(P[v<=i]) *d +  (1- cdf_Weibull(i,W_shape,W_scale)) )
-		#	lik_extant[j] = log(mean(exp(lik3-lik4)))
-		#	j+=1
-		
 		lik_extant = [log(sum(P[v>i])*d + const_int)-lik2 for i in ts_time[te_time==0] ] # P(x > ts | W_shape, W_scale, q)
 		# this is equal to log(1- (sum(P[v<=i]) *(v[1]-v[0]) / exp(lik2)))
-		#lik_extant = sum(lik3-lik4)   #sum(lik3- np.array([log(sum(P[v<=i]) *d) for i in ts_time[te_time==0]])  )
-		
 		lik_extinct = sum(lik1-lik2)
 		lik = lik_extinct + sum(lik_extant)
 		# fit BD model
 		#de = d[te>0] #takes only the extinct species times
 		#death_lik_de = sum(log_wr(de, W_shape, W_scale)) # log probability of death event
 		#death_lik_wte = sum(-cdf_WR(W_shape,W_scale, br[te==0])) 
-		#lik += death_lik_wte 
-		#
 	return lik	
 
-def BD_age_lik_vec_times(arg): pass
-	#__ [ts,te,time_frames,L,M]=arg
-	#__ BD_lik = 0
-	#__ B = sort(time_frames)+0.000001 # add small number to avoid counting extant species as extinct
-	#__ ss1 = np.histogram(ts,bins=B)[0][::-1]
-	#__ ee2 = np.histogram(te,bins=B)[0][::-1]
-        #__ 
-	#__ for i in range(len(time_frames)-1):
-	#__ 	up, lo = time_frames[i], time_frames[i+1]	
-	#__ 	len_sp_events=ss1[i]
-	#__ 	len_ex_events=ee2[i]
-	#__ 	inTS = np.fmin(ts,up)
-	#__ 	inTE = np.fmax(te,lo)
-	#__ 	S    = inTS-inTE
-	#__ 	# speciation
-	#__ 	lik1 = log(L[i])*len_sp_events
-	#__ 	lik0 = -sum(L[i]*S[S>0]) # S < 0 when species outside up-lo range		
-	#__ 	# extinction
-	#__ 	lik2 = log(M[i])*len_ex_events
-	#__ 	lik3 = -sum(M[i]*S[S>0]) # S < 0 when species outside up-lo range
-	#__ 	BD_lik += lik0+lik1+lik2+lik3
-	#__ 	#print "len",sum(S[S>0]),-sum(L[i]*S[S>0]), -L[i]*sum(S[S>0])
-	#__ quit()
-	#__ return BD_lik
+def integrate_pdf(P,v,d,upper_lim):
+	if upper_lim==0: return 0
+	else: return sum(P[v<upper_lim])*d
+	
+def BD_age_lik_vec_times(arg): 
+	[ts,te,time_frames,W_shape,W_scales,q]=arg
+	integral_for_each_species=np.zeros(len(ts))
+	lik1_for_each_species=np.zeros(len(ts))
+	br = ts-te
+	len_time_intervals=len(time_frames)-1
+	for i in range(len_time_intervals):
+		t_i, t_i1 = time_frames[i], time_frames[i+1]	
+		dT = ts-t_i1
+		end_integral = dT+0.
+		end_integral[dT<0] = 0 # dT[dT<0] these are species originating after t_i1
+		start_integral = np.zeros(len(ts))
+		#ind_sp_events_in_i = (integral_for_each_species==0).nonzero()[0]
+		#ind_older_sp = (integral_for_each_species>0).nonzero()[0] # species originating before t_i
+		ind_older_sp = (ts>t_i).nonzero()[0] # species originating before t_i
+		l1 = ts-t_i
+		end_integral[ind_older_sp] = l1+ (t_i-t_i1)
+		start_integral[ind_older_sp] = l1	
+		# time interval specific integration
+		v=x_bins
+		d= x_bin_size
+		#print "\nHERE:",i,W_shape,W_scales[i],q,start_integral,end_integral,"dT:",dT, t_i1, "\n"
+		P = pdf_W_poi(W_shape,W_scales[i],q,v)
+		#print         W_shape,W_scales[i],q,v, sum(P)
+		if t_i1>0:
+			integral_for_each_species += np.array([ integrate_pdf(P,v,d,end_integral[j])-integrate_pdf(P,v,d,start_integral[j]) for j in range(len(ts)) ])
+		else: 
+			integral_for_each_species += np.array([ integrate_pdf(P,v,d,xLim)-integrate_pdf(P,v,d,start_integral[j]) for j in range(len(ts)) ])
+			const_int = (1- cdf_Weibull(xLim,W_shape,W_scales[i]))
+	
+		ex_events=np.intersect1d((te <= t_i).nonzero()[0], (te > t_i1).nonzero()[0])
+		lik1_for_each_species[ex_events] = (log_wei_pdf(br[ex_events],W_shape,W_scales[i])) + (log(1-exp(-q*br[ex_events])))
+
+	integral_for_each_species+=const_int
+
+	lik2 = log(integral_for_each_species)
+
+	lik_extant = [log(sum(P[v>i])*d + const_int) for i in ts[te==0] ]
+	lik_extant = lik_extant-lik2[te==0]
+
+	lik_extinct = sum(lik1_for_each_species[te>0]-lik2[te>0])
+	lik = lik_extinct + sum(lik_extant)
+	return lik 
 	
 
 
@@ -1634,7 +1622,8 @@ def MCMC(all_arg):
 			# parameters of each partial likelihood and prior (l)
 			if stop_update != inf:
 				if fix_Shift == True:
-					likBDtemp = BPD_lik_vec_times([ts,te,timesL,L,M])
+					if use_ADE_model is False: likBDtemp = BPD_lik_vec_times([ts,te,timesL,L,M])
+					else: likBDtemp = BD_age_lik_vec_times([ts,te,timesL,W_shape,M,alphas[1]])
 				else:	
 					args=list()
 					for temp_l in range(len(timesL)-1):
@@ -1763,11 +1752,11 @@ def MCMC(all_arg):
 				else:
 					print "\tt.frames:", timesLA, "(sp.)"
 					print "\tt.frames:", timesMA, "(ex.)"
-				print "\tsp.rates:", LA
 				if use_ADE_model is True: 
 					print "\tWeibull.shape:", round(W_shapeA,3)
 					print "\tWeibull.scale:", MA
 				else: 
+					print "\tsp.rates:", LA
 					print "\tex.rates:", MA
 				if est_hyperP is True: print "\thyper.prior.par", hyperPA
 
