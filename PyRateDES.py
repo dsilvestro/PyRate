@@ -24,10 +24,23 @@ self_path=os.getcwd()
 # DES libraries
 self_path= os.path.dirname(sys.argv[0])
 import imp
-des_model_lib = imp.load_source("des_model_lib", "%s/pyrate_lib/des_model_lib.py" % (self_path))
-mcmc_lib = imp.load_source("mcmc_lib", "%s/pyrate_lib/des_mcmc_lib.py" % (self_path))
+
+try: 
+	self_path= os.path.dirname(sys.argv[0])
+	des_model_lib = imp.load_source("des_model_lib", "%s/pyrate_lib/des_model_lib.py" % (self_path))
+	mcmc_lib = imp.load_source("mcmc_lib", "%s/pyrate_lib/des_mcmc_lib.py" % (self_path))
+	lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
+	lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
+except:
+	self_path=os.getcwd()
+	des_model_lib = imp.load_source("des_model_lib", "%s/pyrate_lib/des_model_lib.py" % (self_path))
+	mcmc_lib = imp.load_source("mcmc_lib", "%s/pyrate_lib/des_mcmc_lib.py" % (self_path))
+	lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
+	lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
+
 from des_model_lib import *
 from mcmc_lib import *
+from lib_utilities import *
 
 np.set_printoptions(suppress=True) # prints floats, no scientific notation
 np.set_printoptions(precision=3) # rounds all array elements to 3rd digit
@@ -56,6 +69,7 @@ p.add_argument('-thread',  type=int, help='no threads',  default=0)
 p.add_argument('-ver',  type=int, help='verbose',   default=0, metavar=0)
 p.add_argument('-pade',  type=int, help='0) Matrix decomposition 1) Use Pade approx (slow)', default=0, metavar=0)
 p.add_argument('-qtimes',  type=float, help='shift time (Q)',  default=[], metavar=0, nargs='+') # '*'
+p.add_argument('-sum',  type=str, help='Summarize results (provide log file)',  default="", metavar="log file")
 
 
 ### simulation settings ###
@@ -99,6 +113,35 @@ print_freq      = args.p
 hp_alpha        = 2.
 hp_beta         = 2.
 use_Pade_approx = args.pade
+
+#### SUMMARIZE RESULTS
+if args.sum !="":
+	f=args.sum
+	if burnin==0: 
+		print """Burnin was set to 0. Use command -b to specify a higher burnin
+	(e.g. -b 100 will exclude the first 100 samples)."""
+	t=loadtxt(f, skiprows=max(1,burnin))
+
+	head = next(open(f)).split()
+	start_column = 4
+	j=0
+
+	outfile=os.path.dirname(f)+"/"+os.path.splitext(os.path.basename(f))[0]+"_sum.txt"
+	out=open(outfile, "wb")
+
+	out.writelines("parameter\tmean\tmode\tHPDm\tHPDM\n")
+	for i in range(start_column,len(head)-1):
+		par = t[:,i]
+		hpd = np.around(calcHPD(par, .95), decimals=3)
+		mode = round(get_mode(par),3)
+		mean_par = round(mean(par),3)
+		if i==start_column: out_str= "%s\t%s\t%s\t%s\t%s\n" % (head[i], mean_par,mode,hpd[0],hpd[1])
+		else: out_str= "%s\t%s\t%s\t%s\t%s\n" % (head[i], mean_par,mode,hpd[0],hpd[1])
+		out.writelines(out_str)
+		j+=1
+
+	s= "\nA summary file was saved as: %s\n\n" % (outfile)
+	sys.exit(s)
 
 ### INIT SIMULATION SETTINGS
 # random settings
