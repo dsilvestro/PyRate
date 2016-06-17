@@ -3,7 +3,7 @@
 import argparse, os,sys, platform, time, csv, glob
 import random as rand
 import warnings
-version= "      PyRate 0.603       "
+version= "      PyRate 0.604       "
 build  = "        20160526         "
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
@@ -611,7 +611,7 @@ def init_times(m,time_framesL,time_framesM, tip_age):
 	timesM[time_framesM] =0
 	return timesL, timesM
 
-def init_alphas(): # p=1 for alpha1=alpha2
+def init_q_rates(): # p=1 for alpha1=alpha2
 	return array([np.random.uniform(.5,1),np.random.uniform(0,1)]),np.zeros(3)	
 
 ########################## UPDATES ######################################
@@ -832,7 +832,7 @@ def HPBD3(timesL,timesM,L,M,T,s):
 # BIRTH-DEATH MODELS
 def BPD_lik_vec_times(arg):
 	[ts,te,time_frames,L,M]=arg
-	if fix_SE is False and fix_Shift is False:
+	if fix_SE is False or fix_Shift is False:
 		BD_lik = 0
 		B = sort(time_frames)+0.000001 # add small number to avoid counting extant species as extinct
 		ss1 = np.histogram(ts,bins=B)[0][::-1]
@@ -929,7 +929,7 @@ x_bins = np.linspace(0.0000001,xLim,nbins)
 x_bin_size = x_bins[1]-x_bins[0]
 	
 def BD_age_partial_lik(arg): 
-	#[ts, te, up, lo, m, 'm', cov_par[1],W_shape,alphas[1]]
+	#[ts, te, up, lo, m, 'm', cov_par[1],W_shape,q_rates[1]]
 	[ts,te,up,lo, rate,par,  cov_par,   W_shape,q]=arg
 	if par=="l": lik = 1 #BD_partial_lik(arg[0:-1])
 	else:
@@ -1426,7 +1426,7 @@ def MCMC(all_arg):
 			alpha_par_Dir_L = np.random.uniform(0,1) # init concentration parameters
 			alpha_par_Dir_M = np.random.uniform(0,1) # init concentration parameters
 		
-		alphasA,cov_parA = init_alphas() # use 1 for symmetric PERT
+		q_ratesA,cov_parA = init_q_rates() # use 1 for symmetric PERT
 		if est_COVAR_prior is True: 
 			covar_prior = 1.
 			cov_parA = np.random.random(3)*f_cov_par # f_cov_par is 0 or >0 depending on COVAR model
@@ -1436,12 +1436,12 @@ def MCMC(all_arg):
 		#if fix_hyperP is False:	hyperPA=np.ones(2)
 		hyperPA = hypP_par
 		
-		if argsG is False: alphasA[0]=1
+		if argsG is False: q_ratesA[0]=1
 		SA=sum(tsA-teA)
 		W_shapeA=1.
 
 	else: # restore values
-		[itt, n_proc_,PostA, likA, priorA,tsA,teA,timesLA,timesMA,LA,MA,alphasA, cov_parA, lik_fossilA,likBDtempA]=arg
+		[itt, n_proc_,PostA, likA, priorA,tsA,teA,timesLA,timesMA,LA,MA,q_ratesA, cov_parA, lik_fossilA,likBDtempA]=arg
 		SA=sum(tsA-teA)
 	# start threads
 	if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
@@ -1489,7 +1489,7 @@ def MCMC(all_arg):
 
 		if it>0 and (it-burnin) % (I_effective/len(temperatures)) == 0 and it>burnin or it==I-1: rr=1.5 # no updates when changing temp
 
-		alphas=zeros(2)
+		q_rates=zeros(2)
 		cov_par=zeros(3)
 		L,M=zeros(len(LA)),zeros(len(MA))
 		tot_L=sum(tsA-teA)
@@ -1506,11 +1506,11 @@ def MCMC(all_arg):
 			ts,te=update_ts_te(tsA,teA,mod_d1)
 			tot_L=sum(ts-te)
 		elif rr<f_update_q: # q/alpha
-			alphas=np.zeros(2)+alphasA
+			q_rates=np.zeros(2)+q_ratesA
 			if np.random.random()>.5 and  argsG is True: 
-				alphas[0], hasting=update_multiplier_proposal(alphasA[0],d2[0]) # shape prm Gamma
+				q_rates[0], hasting=update_multiplier_proposal(q_ratesA[0],d2[0]) # shape prm Gamma
 			else:
-				alphas[1], hasting=update_multiplier_proposal(alphasA[1],d2[1]) #  preservation rate (q)
+				q_rates[1], hasting=update_multiplier_proposal(q_ratesA[1],d2[1]) #  preservation rate (q)
 
 		elif rr < f_update_lm: # l/m
 			if np.random.random()<f_shift and len(LA)+len(MA)>2: 
@@ -1524,7 +1524,7 @@ def MCMC(all_arg):
 							W_shape, hasting2 = update_multiplier_proposal(W_shapeA,1.1)
 							hasting+=hasting2
 					else:
-						hyperP,hasting = update_multiplier_proposal(hyperPA,1.2)
+						hyperP,hasting = update_multiplier_proposal(hyperPA,d_hyperprior)
 				else: # DPP or BDMCMC
 						L,M,hasting=update_rates(LA,MA,3,mod_d3)
 
@@ -1541,7 +1541,7 @@ def MCMC(all_arg):
 				cov_par[2]=update_parameter_normal(cov_parA[2],-1000,1000,d5[2])
 
 		if constrain_time_frames is True: timesM=timesL
-		alphas[(alphas==0).nonzero()]=alphasA[(alphas==0).nonzero()]
+		q_rates[(q_rates==0).nonzero()]=q_ratesA[(q_rates==0).nonzero()]
 		L[(L==0).nonzero()]=LA[(L==0).nonzero()]
 		M[(M==0).nonzero()]=MA[(M==0).nonzero()]
 		cov_par[(cov_par==0).nonzero()]=cov_parA[(cov_par==0).nonzero()]
@@ -1563,8 +1563,8 @@ def MCMC(all_arg):
 				z=zeros(len(fossil)*7).reshape(len(fossil),7)
 				z[:,0]=te
 				z[:,1]=ts
-				z[:,2]=alphas[0]   # shape prm Gamma
-				z[:,3]=alphas[1]   # baseline foss rate (q)
+				z[:,2]=q_rates[0]   # shape prm Gamma
+				z[:,3]=q_rates[1]   # baseline foss rate (q)
 				z[:,4]=range(len(fossil))
 				z[:,5]=cov_par[2]  # covariance baseline foss rate
 				if use_ADE_model is True: # ex rate
@@ -1595,8 +1595,8 @@ def MCMC(all_arg):
 
 		if it>=stop_update or stop_update==inf: lik_fossil = lik_fossilA
 
-		# pert_prior defines gamma prior on alphas[1] - fossilization rate
-		prior = prior_gamma(alphas[1],pert_prior[0],pert_prior[1]) + prior_uniform(alphas[0],0,20)
+		# pert_prior defines gamma prior on q_rates[1] - fossilization rate
+		prior = prior_gamma(q_rates[1],pert_prior[0],pert_prior[1]) + prior_uniform(q_rates[0],0,20)
 		if est_hyperP is True: prior += ( prior_uniform(hyperP[0],0,20)+prior_uniform(hyperP[1],0,20) )
 
 
@@ -1623,16 +1623,14 @@ def MCMC(all_arg):
 			if stop_update != inf:
 				if fix_Shift == True:
 					if use_ADE_model is False: likBDtemp = BPD_lik_vec_times([ts,te,timesL,L,M])
-					else: likBDtemp = BD_age_lik_vec_times([ts,te,timesL,W_shape,M,alphas[1]])
+					else: likBDtemp = BD_age_lik_vec_times([ts,te,timesL,W_shape,M,q_rates[1]])
 				else:	
 					args=list()
-					for temp_l in range(len(timesL)-1):
-						up, lo = timesL[temp_l], timesL[temp_l+1]
-						l = L[temp_l]
-						if use_ADE_model is False:
+					if use_ADE_model is False: # speciation rate is not used under ADE model
+						for temp_l in range(len(timesL)-1):
+							up, lo = timesL[temp_l], timesL[temp_l+1]
+							l = L[temp_l]
 							args.append([ts, te, up, lo, l, 'l', cov_par[0],1])
-						elif use_ADE_model is True:
-							args.append([ts, te, up, lo, l, 'l', cov_par[0],1,1])
 					# parameters of each partial likelihood and prior (m)
 					for temp_m in range(len(timesM)-1):
 						up, lo = timesM[temp_m], timesM[temp_m+1]
@@ -1640,7 +1638,7 @@ def MCMC(all_arg):
 						if use_ADE_model is False:
 							args.append([ts, te, up, lo, m, 'm', cov_par[1],1])
 						elif use_ADE_model is True:
-							args.append([ts, te, up, lo, m, 'm', cov_par[1],W_shape,alphas[1]])
+							args.append([ts, te, up, lo, m, 'm', cov_par[1],W_shape,q_rates[1]])
 			
 					if num_processes==0:
 						likBDtemp=np.zeros(len(args))
@@ -1668,8 +1666,8 @@ def MCMC(all_arg):
 					z=zeros(len(fossil)*7).reshape(len(fossil),7)
 					z[:,0]=te
 					z[:,1]=ts
-					z[:,2]=alphas[0]   # shape prm Gamma
-					z[:,3]=alphas[1]   # baseline foss rate (q)
+					z[:,2]=q_rates[0]   # shape prm Gamma
+					z[:,3]=q_rates[1]   # baseline foss rate (q)
 					z[:,4]=range(len(fossil))
 					z[:,5]=cov_par[2]  # covariance baseline foss rate
 					z[:,6]=M[len(M)-1] # ex rate
@@ -1719,7 +1717,7 @@ def MCMC(all_arg):
 		if it>0 and (it-burnin) % (I_effective/len(temperatures)) == 0 and it>burnin or it==I-1: 
 			PostA=Post # when temperature changes always accept first iteration
 		
-		#print Post, PostA, alphasA, sum(lik_fossil), sum(likBDtemp),  prior
+		#print Post, PostA, q_ratesA, sum(lik_fossil), sum(likBDtemp),  prior
 		if Post>-inf and Post<inf:
 			if Post*tempMC3-PostA*tempMC3 + hasting >= log(np.random.random()) or stop_update==inf: # 
 				likBDtempA=likBDtemp
@@ -1732,7 +1730,7 @@ def MCMC(all_arg):
 				hyperPA=hyperP
 				tsA,teA=ts,te
 				SA=sum(tsA-teA)
-				alphasA=alphas
+				q_ratesA=q_rates
 				lik_fossilA=lik_fossil
 				cov_parA=cov_par
 				W_shapeA=W_shape
@@ -1765,7 +1763,7 @@ def MCMC(all_arg):
 					print "\tcov. (sp/ex/q):", cov_parA
 					if est_COVAR_prior is True: print "\tHP_covar:",round(covar_prior,3) 
  				if fix_SE ==False: 
-					print "\tq.rate:", round(alphasA[1], 3), "\tGamma.prm:", round(alphasA[0], 3)
+					print "\tq.rate:", round(q_ratesA[1], 3), "\tGamma.prm:", round(q_ratesA[0], 3)
 					print "\tts:", tsA[0:5], "..."
 					print "\tte:", teA[0:5], "..."
 			if it<=burnin and n_proc==0: print("\n%s*\tpost: %s lik: %s prior: %s tot length %s" \
@@ -1775,7 +1773,7 @@ def MCMC(all_arg):
 		elif it % sample_freq ==0 and it>=burnin or it==0 and it>=burnin:
 			s_max=max(tsA)
 			if fix_SE ==False:
-				log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), alphasA[1], alphasA[0]]
+				log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), q_ratesA[1], q_ratesA[0]]
 			else:
 				log_state= [it,PostA, priorA, likA-sum(lik_fossilA)]
 
@@ -1787,8 +1785,8 @@ def MCMC(all_arg):
 				log_state += s_max,min(teA)
 				if TDI==1: log_state += [temperature]
 				if est_hyperP is True: log_state += list(hyperPA)
-				log_state += list(LA)
-				if use_ADE_model is True: log_state+= [W_shapeA]
+				if use_ADE_model is False: log_state += list(LA)
+				else: log_state+= [W_shapeA]
 				log_state += list(MA) # This is W_scale in the case of ADE models
 				if use_ADE_model is True: log_state+= list(MA * gamma(1 + 1./W_shapeA))
 				if fix_Shift== False:
@@ -1808,7 +1806,7 @@ def MCMC(all_arg):
 			os.fsync(logfile)
 
 			lik_tmp += sum(likBDtempA)
-			if TDI !=1 and n_proc==0 and TDI<3:
+			if TDI !=1 and n_proc==0 and TDI<3 and use_ADE_model is False:
 				margL=zeros(len(marginal_frames))
 				margM=zeros(len(marginal_frames))
 				for i in range(len(timesLA)-1): # indexes of the 1My bins within each timeframe
@@ -1838,7 +1836,7 @@ def MCMC(all_arg):
 		if frac1>=0: 
 			pool_ts.close()
 			pool_ts.join()
-	return [it, n_proc,PostA, likA, priorA,tsA,teA,timesLA,timesMA,LA,MA,alphasA, cov_parA,lik_fossilA,likBDtempA]
+	return [it, n_proc,PostA, likA, priorA,tsA,teA,timesLA,timesMA,LA,MA,q_ratesA, cov_parA,lik_fossilA,likBDtempA]
 
 def marginal_rates(it, margL,margM, marginal_file, run):
 	log_state= [it]
@@ -1942,9 +1940,10 @@ p.add_argument('-tR',     type=float, help='Tuning - window size (rates)', defau
 p.add_argument('-tS',     type=float, help='Tuning - window size (time of shift)', default=1., metavar=1.)
 p.add_argument('-fR',     type=float, help='Tuning - fraction of updated values (rates)', default=1., metavar=1.)
 p.add_argument('-fS',     type=float, help='Tuning - fraction of updated values (shifts)', default=.7, metavar=.7)
-p.add_argument('-tC',     type=float, help='Tuning -window sizes cov parameters (l,m,q)', default=[.2, .2, .15], nargs=3)
+p.add_argument('-tC',     type=float, help='Tuning - window sizes cov parameters (l,m,q)', default=[.2, .2, .15], nargs=3)
 p.add_argument('-fU',     type=float, help='Tuning - update freq. (q/alpha,l/m,cov)', default=[.02, .18, .08], nargs=3)
 p.add_argument('-multiR', type=int,   help='Tuning - Proposals for l/m: 0) sliding win 1) muliplier ', default=1, metavar=1)
+p.add_argument('-tHP',    type=float, help='Tuning - window sizes hyperpriors on l and m', default=[1.2, 1.2], nargs=3)
 
 args = p.parse_args()
 t1=time.time()
@@ -1974,8 +1973,11 @@ argsHPP=args.mHPP
 TDI=args.A                  # 0: parameter estimation, 1: thermodynamic integration, 2: BD-MCMC
 if constrain_time_frames is True or args.fixShift != "":
 	if TDI==2:
-		print("\nWarning: constrained shift times (-mC,-fixShift) cannot be used with BDMCMC alorithm. Using standard MCMC instead.\n")
+		print("\nConstrained shift times (-mC,-fixShift) cannot be used with BDMCMC alorithm. Using standard MCMC instead.\n")
 		TDI = 0
+if args.ADE==1 and TDI>1: 
+	print("\nADE models (-ADE 1) cannot be used with BDMCMC alorithm. Using standard MCMC instead.\n")
+	TDI = 0
 mcmc_gen=args.n             # no. total mcmc generations
 sample_freq=args.s
 print_freq=args.p
@@ -1996,6 +1998,7 @@ d4=args.tS                     # win-size (time of shift)
 f_shift=args.fS                # update frequency (time of shift) || will turn into 0 when no rate shifts
 freq_list=args.fU              # generate update frequencies by parm category
 d5=args.tC                     # win-size (cov)
+d_hyperprior=np.array(args.tHP)          # win-size hyper-priors onf l/m (or W_scale)
 if model_cov==0: freq_list[2]=0 
 f_update_se=1-sum(freq_list)
 if frac1==0: f_update_se=0
@@ -2399,6 +2402,7 @@ if args.ADE == 1:
 	use_ADE_model = True
 	BPD_partial_lik = BD_age_partial_lik
 	out_name += "_ADE"
+	argsHPP = True
 	
 
 est_hyperP = False
@@ -2420,25 +2424,27 @@ else:
 if use_ADE_model is True: 
 	hypP_par[1]=0.1
 	tot_extant = -1
+	d_hyperprior[0]=1 # fisrt hyper-prior (normally for sp.rates is currently not used under ADE, thus not updated)
 
 if fix_Shift is True: est_hyperP = True
 # define hyper-prior function for BD rates
 if tot_extant==-1 or TDI ==3 or use_poiD is True:
-	if fix_Shift is True and TDI < 3 or use_cauchy is True: 
+	if use_ADE_model is False and fix_Shift is True and TDI < 3 or use_cauchy is True: 
 		if est_hyperP is False or fix_hyperP is True:
-			print "Using Cauchy priors on the birth-death rates (C_l[0,%s],C_l[0,%s]).\n" % (hypP_par[0],hypP_par[1])
+			prior_setting= "Using Cauchy priors on the birth-death rates (C_l[0,%s],C_l[0,%s]).\n" % (hypP_par[0],hypP_par[1])
 		else:
-				print "Using Cauchy priors on the birth-death rates (C_l[0,est],C_l[0,est]).\n" 
+				prior_setting= "Using Cauchy priors on the birth-death rates (C_l[0,est],C_l[0,est]).\n" 
  		get_hyper_priorBD = HPBD1 # cauchy with hyper-priors
 	else: 
 		if est_hyperP is False:
-			print "Using Gamma priors on the birth-death rates (G_l[%s,%s], G_m[%s,%s]).\n" % (L_lam_r,hypP_par[0],M_lam_r,hypP_par[1])
+			prior_setting= "Using Gamma priors on the birth-death rates (G_l[%s,%s], G_m[%s,%s]).\n" % (L_lam_r,hypP_par[0],M_lam_r,hypP_par[1])
 		else:
-			print "Using Gamma priors on the birth-death rates (G_l[%s,est], G_m[%s,est]).\n" % (L_lam_r,M_lam_r)
+			prior_setting= "Using Gamma priors on the birth-death rates (G_l[%s,est], G_m[%s,est]).\n" % (L_lam_r,M_lam_r)
 		get_hyper_priorBD = HPBD2 # gamma
 else: 
-	print "Priors on the birth-death rates based on extant diversity (N = %s).\n" % (tot_extant)
+	prior_setting= "Priors on the birth-death rates based on extant diversity (N = %s).\n" % (tot_extant)
 	get_hyper_priorBD = HPBD3 # based on no. extant
+print prior_setting
 
 if use_poiD is True:
 	if model_cov>=1: 
@@ -2502,6 +2508,9 @@ if TDI==3: o2 += "\n\nHyper-prior on concentration parameter (Gamma shape, rate)
 if len(fixed_times_of_shift)>0:
 	o2 += "\nUsing the following fixed time frames: "
 	for i in fixed_times_of_shift: o2 += "%s " % (i)
+o2+= "\n"+prior_setting
+if argsHPP is True: o2+="Using Homogeneous Poisson Process of preservation (HPP)."
+else:               o2+="Using Non-Homogeneous Poisson Process of preservation (NHPP)."
 version_notes="""\n
 Please cite: \n%s\n
 Feedback and support: pyrate.help@gmail.com
@@ -2533,9 +2542,9 @@ if TDI<2:
 	if TDI==1: head += "beta\t"
 	if est_hyperP is True: 
 		head += "hypL\thypM\t"
-	for i in range(time_framesL): head += "lambda_%s\t" % (i)
 	
 	if use_ADE_model is False: 
+		for i in range(time_framesL): head += "lambda_%s\t" % (i)
 		for i in range(time_framesM): head += "mu_%s\t" % (i)
 	else: 
 		head+="w_shape\t"
@@ -2563,7 +2572,7 @@ logfile.flush()
 os.fsync(logfile)
 
 # OUTPUT 2 MARGINAL RATES
-if TDI!=1: # (path_dir, output_file, out_run)
+if TDI!=1 and use_ADE_model is False: # (path_dir, output_file, out_run)
 	out_log_marginal = "%s/%s_marginal_rates.log" % (path_dir, suff_out) 
 	marginal_file = open(out_log_marginal , "wb") 
 	head="it\t"
@@ -2578,12 +2587,12 @@ if TDI!=1: # (path_dir, output_file, out_run)
 	marginal_frames= array([int(fabs(i-int(max(FA)))) for i in range(int(max(FA))+1)])
 
 # OUTPUT 3 MARGINAL LIKELIHOOD
-else: 
+elif TDI==1: 
 	out_log_marginal_lik = "%s/%s_marginal_likelihood.txt" % (path_dir, suff_out) 
 	marginal_file = open(out_log_marginal_lik , "wb") 
 	marginal_file.writelines(o)
 	marginal_frames=0	
-
+else: marginal_frames=0	
 # OUTPUT 4 MARGINAL SHIFT TIMES	
 #if TDI==2: 
 #	out_log_marginal_time = "%s/%s_marginal_t_shifts.log" % (path_dir, suff_out) 
