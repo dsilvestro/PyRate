@@ -680,6 +680,17 @@ def update_rates_multiplier(L,M,tot_L,mod_d3):
 	U+=sum(log(m))
 	return newL,newM,U
 	
+def update_q_multiplier(q,d=1.1,f=0.75):
+	S=np.shape(q)
+	ff=np.random.binomial(1,f,S)
+	u = np.random.uniform(0,1,S)
+	l = 2*log(d)
+	m = exp(l*(u-.5))
+	m[ff==0] = 1.
+ 	new_q = q * m
+	U=sum(log(m))
+	return new_q,U
+
 
 def update_times(times, root, mod_d4):
 	rS= zeros(len(times))
@@ -961,7 +972,7 @@ def integrate_pdf(P,v,d,upper_lim):
 	else: return sum(P[v<upper_lim])*d
 	
 def BD_age_lik_vec_times(arg): 
-	[ts,te,time_frames,W_shape,W_scales,q]=arg
+	[ts,te,time_frames,W_shape,W_scales,q_rates]=arg
 	integral_for_each_species=np.zeros(len(ts))
 	lik1_for_each_species=np.zeros(len(ts))
 	br = ts-te
@@ -982,7 +993,7 @@ def BD_age_lik_vec_times(arg):
 		v=x_bins
 		d= x_bin_size
 		#print "\nHERE:",i,W_shape,W_scales[i],q,start_integral,end_integral,"dT:",dT, t_i1, "\n"
-		P = pdf_W_poi(W_shape,W_scales[i],q,v)
+		P = pdf_W_poi(W_shape,W_scales[i],q_rates[i],v)
 		#print         W_shape,W_scales[i],q,v, sum(P)
 		if t_i1>0:
 			integral_for_each_species += np.array([ integrate_pdf(P,v,d,end_integral[j])-integrate_pdf(P,v,d,start_integral[j]) for j in range(len(ts)) ])
@@ -991,7 +1002,7 @@ def BD_age_lik_vec_times(arg):
 			const_int = (1- cdf_Weibull(xLim,W_shape,W_scales[i]))
 	
 		ex_events=np.intersect1d((te <= t_i).nonzero()[0], (te > t_i1).nonzero()[0])
-		lik1_for_each_species[ex_events] = (log_wei_pdf(br[ex_events],W_shape,W_scales[i])) + (log(1-exp(-q*br[ex_events])))
+		lik1_for_each_species[ex_events] = (log_wei_pdf(br[ex_events],W_shape,W_scales[i])) + (log(1-exp(-q_rates[i]*br[ex_events])))
 
 	integral_for_each_species+=const_int
 
@@ -1043,6 +1054,56 @@ def PoiD_partial_lik(arg):
 	return lik
 
 # PRESERVATION 
+def HPP_vec_lik(arg):
+	[te,ts,time_frames,q_rates,i]=arg	
+	i=int(i) # species number
+	k_vec = occs_sp_bin[i] # no. occurrences per time bin per species
+	# e.g. k_vec = [0,0,1,12.,3,0]
+	h = np.histogram(np.array([ts,te]),bins=sort(time_frames))[0][::-1]
+	ind_tste= (h).nonzero()[0]
+	ind_min=min(ind_tste)
+	ind_max=max(ind_tste)
+	ind=np.arange(len(time_frames))
+	ind = ind[ind_min:(ind_max+1)] # indexes of time frames where lineage is present
+	# calc time lived in each time frame
+	t = time_frames[time_frames<ts]
+	t = t[t>te]
+	t2 = np.array([ts]+list(t)+[te])
+	d = abs(np.diff(t2))
+	lik = sum(-q_rates[ind]*d + log(q_rates[ind])*k_vec[ind]) - log(1-exp(sum(-q_rates[ind]*d))) -sum(log(np.arange(1,sum(k_vec)+1))) 
+	
+	
+	q=q_rates[0]
+	k=sum(k_vec)
+	#print -q*(ts-te) + log(q)*k - sum(log(np.arange(1,k+1))) - log(1-exp(-q*(ts-te))), lik
+	#print -q*(ts-te) + log(q)*k,  sum(-q_rates[ind]*d + log(q_rates[ind])*k_vec[ind])
+	return lik
+
+def HPP_vec_lik_(arg):
+	[te,ts,time_frames,q_rates,i]=arg	
+	i=int(i) # species number
+	k_vec = occs_sp_bin[i] # no. occurrences per time bin per species
+	# e.g. k_vec = [0,0,1,12.,3,0]
+	
+	lik=0
+	TotTime=0
+	for j in range(1, len(time_frames)):
+		if ts<time_frames[j] or te>time_frames[j-1]: pass
+		else:
+			up = min(ts, time_frames[j-1])
+			lo = max(te, time_frames[j])
+			dT = up-lo
+			k = k_vec[j-1]
+			q=q_rates[j-1]
+			lik_temp = -q*(dT) + log(q)*k  - log(1-exp(-q*(dT)))
+			lik+= lik_temp
+			TotTime+=dT
+	#print ts-te
+	#print -q*(ts-te) + log(q)*k,  sum(-q_rates[ind]*d + log(q_rates[ind])*k_vec[ind])
+	return lik
+
+
+
 def HOMPP_lik(arg):
 	[m,M,shapeGamma,q_rate,i,cov_par, ex_rate]=arg
 	i=int(i)
@@ -1427,6 +1488,9 @@ def MCMC(all_arg):
 			alpha_par_Dir_M = np.random.uniform(0,1) # init concentration parameters
 		
 		q_ratesA,cov_parA = init_q_rates() # use 1 for symmetric PERT
+		if multiHPP is True: # init multiple q rates
+			q_ratesA = np.zeros(len(timesLA)-1)+q_ratesA[1]
+		
 		if est_COVAR_prior is True: 
 			covar_prior = 1.
 			cov_parA = np.random.random(3)*f_cov_par # f_cov_par is 0 or >0 depending on COVAR model
@@ -1436,7 +1500,7 @@ def MCMC(all_arg):
 		#if fix_hyperP is False:	hyperPA=np.ones(2)
 		hyperPA = hypP_par
 		
-		if argsG is False: q_ratesA[0]=1
+		if argsG is False and multiHPP is False: q_ratesA[0]=1
 		SA=sum(tsA-teA)
 		W_shapeA=1.
 
@@ -1489,7 +1553,7 @@ def MCMC(all_arg):
 
 		if it>0 and (it-burnin) % (I_effective/len(temperatures)) == 0 and it>burnin or it==I-1: rr=1.5 # no updates when changing temp
 
-		q_rates=zeros(2)
+		q_rates=zeros(len(q_ratesA))
 		cov_par=zeros(3)
 		L,M=zeros(len(LA)),zeros(len(MA))
 		tot_L=sum(tsA-teA)
@@ -1506,8 +1570,9 @@ def MCMC(all_arg):
 			ts,te=update_ts_te(tsA,teA,mod_d1)
 			tot_L=sum(ts-te)
 		elif rr<f_update_q: # q/alpha
-			q_rates=np.zeros(2)+q_ratesA
-			if np.random.random()>.5 and  argsG is True: 
+			q_rates=np.zeros(len(q_ratesA))+q_ratesA
+			if multiHPP is True: q_rates, hasting = update_q_multiplier(q_ratesA,d=1.1,f=0.75)
+			elif np.random.random()>.5 and argsG is True: 
 				q_rates[0], hasting=update_multiplier_proposal(q_ratesA[0],d2[0]) # shape prm Gamma
 			else:
 				q_rates[1], hasting=update_multiplier_proposal(q_ratesA[1],d2[1]) #  preservation rate (q)
@@ -1567,20 +1632,22 @@ def MCMC(all_arg):
 				z[:,3]=q_rates[1]   # baseline foss rate (q)
 				z[:,4]=range(len(fossil))
 				z[:,5]=cov_par[2]  # covariance baseline foss rate
-				if use_ADE_model is True: # ex rate
-					W_scale = M[len(M)-1]
-					mean_life_span = W_scale * gamma(1 + 1./W_shape) # mean species longevity based on ADE model
-					M_temp = exp(log_wr(mean_life_span,W_shape,W_scale)) # expected extinction rate at the time of extinction
-					z[:,6]= M_temp
-				else:
-					z[:,6]=M[len(M)-1] # ex rate
+				#if use_ADE_model is True: # ex rate
+				#	W_scale = M[len(M)-1]
+				#	mean_life_span = W_scale * gamma(1 + 1./W_shape) # mean species longevity based on ADE model
+				#	M_temp = exp(log_wr(mean_life_span,W_shape,W_scale)) # expected extinction rate at the time of extinction
+				#	z[:,6]= M_temp
+				#else:
+				z[:,6]=M[len(M)-1] # ex rate
 				args=list(z[ind1])
 				if num_processes_ts==0:
 					for j in range(len(ind1)):
 						i=ind1[j] # which species' lik
-						if argsHPP is True or  frac1==0: lik_fossil[i] = HOMPP_lik(args[j])
-						elif argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
-						else: lik_fossil[i] = NHPP_lik(args[j])
+						if multiHPP is True:  lik_fossil[i] = HPP_vec_lik([te[i],ts[i],timesL,q_rates,i])
+						else:
+							if argsHPP is True or  frac1==0: lik_fossil[i] = HOMPP_lik(args[j])
+							elif argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
+							else: lik_fossil[i] = NHPP_lik(args[j])
 				else:
 					if argsHPP is True or  frac1==0: lik_fossil[ind1] = array(pool_ts.map(HOMPP_lik, args))
 					elif argsG is True: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args)) 
@@ -1596,7 +1663,8 @@ def MCMC(all_arg):
 		if it>=stop_update or stop_update==inf: lik_fossil = lik_fossilA
 
 		# pert_prior defines gamma prior on q_rates[1] - fossilization rate
-		prior = prior_gamma(q_rates[1],pert_prior[0],pert_prior[1]) + prior_uniform(q_rates[0],0,20)
+		if multiHPP is True: prior = sum(prior_gamma(q_rates,pert_prior[0],pert_prior[1]))
+		else: prior = prior_gamma(q_rates[1],pert_prior[0],pert_prior[1]) + prior_uniform(q_rates[0],0,20)			
 		if est_hyperP is True: prior += ( prior_uniform(hyperP[0],0,20)+prior_uniform(hyperP[1],0,20) )
 
 
@@ -1623,7 +1691,7 @@ def MCMC(all_arg):
 			if stop_update != inf:
 				if fix_Shift == True:
 					if use_ADE_model is False: likBDtemp = BPD_lik_vec_times([ts,te,timesL,L,M])
-					else: likBDtemp = BD_age_lik_vec_times([ts,te,timesL,W_shape,M,q_rates[1]])
+					else: likBDtemp = BD_age_lik_vec_times([ts,te,timesL,W_shape,M,q_rates])
 				else:	
 					args=list()
 					if use_ADE_model is False: # speciation rate is not used under ADE model
@@ -1763,7 +1831,8 @@ def MCMC(all_arg):
 					print "\tcov. (sp/ex/q):", cov_parA
 					if est_COVAR_prior is True: print "\tHP_covar:",round(covar_prior,3) 
  				if fix_SE ==False: 
-					print "\tq.rate:", round(q_ratesA[1], 3), "\tGamma.prm:", round(q_ratesA[0], 3)
+					if multiHPP is True: print "\tq.rates:", q_ratesA
+					else: print "\tq.rate:", round(q_ratesA[1], 3), "\tGamma.prm:", round(q_ratesA[0], 3)
 					print "\tts:", tsA[0:5], "..."
 					print "\tte:", teA[0:5], "..."
 			if it<=burnin and n_proc==0: print("\n%s*\tpost: %s lik: %s prior: %s tot length %s" \
@@ -1773,7 +1842,8 @@ def MCMC(all_arg):
 		elif it % sample_freq ==0 and it>=burnin or it==0 and it>=burnin:
 			s_max=max(tsA)
 			if fix_SE ==False:
-				log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), q_ratesA[1], q_ratesA[0]]
+				if multiHPP is False: log_state = [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), q_ratesA[1], q_ratesA[0]]
+				else: log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA)] + list(q_ratesA)
 			else:
 				log_state= [it,PostA, priorA, likA-sum(lik_fossilA)]
 
@@ -1920,6 +1990,7 @@ p.add_argument("-cauchy", type=float, help='Prior - use hyper priors on sp/ex ra
 
 # MODEL
 p.add_argument("-mHPP",    help='Model - Homogeneous Poisson process of preservation', action='store_true', default=False)
+p.add_argument("-multiHPP",    help='Model - Homogeneous Poisson process of preservation', action='store_true', default=False)
 p.add_argument('-mL',      type=int, help='Model - no. (starting) time frames (speciation)', default=1, metavar=1)
 p.add_argument('-mM',      type=int, help='Model - no. (starting) time frames (extinction)', default=1, metavar=1)
 p.add_argument('-mC',      help='Model - constrain time frames (l,m)', action='store_true', default=False)
@@ -2262,6 +2333,16 @@ if len(fixed_times_of_shift)>0:
 	# estimate DPP hyperprior
 	hp_gamma_rate  = get_rate_HP(time_framesL,target_k,hp_gamma_shape)
 
+
+if 2>1:
+	occs_sp_bin =list()
+	temp_times_of_shift = np.array(list(fixed_times_of_shift)+[max(FA)+1]+[0])
+	for i in range(len(fossil)):
+		occs_temp = fossil[i]
+		h = np.histogram(occs_temp[occs_temp>0],bins=sort( temp_times_of_shift ))[0][::-1]
+		occs_sp_bin.append(h)
+
+
 if args.fixSE != "" or use_se_tbl==True:          # fix TS, TE
 	if use_se_tbl==True: pass
 	else:
@@ -2425,6 +2506,8 @@ if use_ADE_model is True:
 	hypP_par[1]=0.1
 	tot_extant = -1
 	d_hyperprior[0]=1 # fisrt hyper-prior (normally for sp.rates is currently not used under ADE, thus not updated)
+	if args.multiHPP is True: multiHPP = True
+	else: multiHPP = False 
 
 if fix_Shift is True: est_hyperP = True
 # define hyper-prior function for BD rates
@@ -2530,7 +2613,11 @@ sumfile.close()
 out_log = "%s/%s_mcmc.log" % (path_dir, suff_out) #(path_dir, output_file, out_run)
 logfile = open(out_log , "wb",0) 
 if fix_SE == False:
-	head="it\tposterior\tprior\tPP_lik\tBD_lik\tq_rate\talpha\t"
+	if multiHPP is False:
+		head="it\tposterior\tprior\tPP_lik\tBD_lik\tq_rate\talpha\t"
+	else: 
+		head="it\tposterior\tprior\tPP_lik\tBD_lik\t"
+		for i in range(time_framesL): head += "q_%s\t" % (i)
 else: 
 	head="it\tposterior\tprior\tBD_lik\t"
 	
