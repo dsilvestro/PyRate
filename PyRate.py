@@ -612,7 +612,7 @@ def init_times(m,time_framesL,time_framesM, tip_age):
 	return timesL, timesM
 
 def init_q_rates(): # p=1 for alpha1=alpha2
-	return array([np.random.uniform(.5,1),np.random.uniform(0,1)]),np.zeros(3)	
+	return array([np.random.uniform(.5,1),np.random.uniform(0.25,1)]),np.zeros(3)	
 
 ########################## UPDATES ######################################
 def update_parameter(i, m, M, d, f): 
@@ -941,8 +941,8 @@ def integrate_pdf(P,v,d,upper_lim):
 	else: return sum(P[v<upper_lim])*d
 
 # integration settings //--> Add to command list
-nbins  = 10000
-xLim   = 100
+nbins  = 1000
+xLim   = 50
 x_bins = np.linspace(0.0000001,xLim,nbins) 
 x_bin_size = x_bins[1]-x_bins[0]
 	
@@ -970,48 +970,64 @@ def BD_age_partial_lik(arg):
 	#death_lik_de = sum(log_wr(de, W_shape, W_scale)) # log probability of death event
 	#death_lik_wte = sum(-cdf_WR(W_shape,W_scale, br[te==0])) 
 	return lik	
-	
-def BD_age_lik_vec_times(arg): 
-	[ts,te,time_frames,W_shape,W_scales,q_rates]=arg
-	integral_for_each_species=np.zeros(len(ts))
-	partial_integral_for_extant_species=np.zeros(len(ts[te==0]))
-	lik1_for_each_species=np.zeros(len(ts))
-	br = ts-te
-	len_time_intervals=len(time_frames)-1
-	if multiHPP is False: 
-		q_rates = np.zeros(len_time_intervals)+q_rates[1] # because in this case q_rates[0] is alpha par of gamma model (set to 1)
-	for i in range(len_time_intervals):
-		t_i, t_i1 = time_frames[i], time_frames[i+1]	
-		dT = ts-t_i1
-		end_integral = dT+0.
-		end_integral[dT<0] = 0 # dT[dT<0] these are species originating after t_i1
-		start_integral = np.zeros(len(ts))
-		ind_older_sp = (ts>t_i).nonzero()[0] # species originating before t_i
-		l1 = ts[ind_older_sp]-t_i
-		end_integral[ind_older_sp] = l1+ (t_i-t_i1)
-		start_integral[ind_older_sp] = l1	
-		# time interval specific integration
-		v=x_bins
-		d= x_bin_size
-		#P = pdf_W_poi(W_shape,W_scales[i],q_rates[i],v)
-		P = pdf_W_poi_nolog(W_shape,W_scales[i],q_rates[i],v)
-		if t_i1>0:
-			integral_for_each_species += np.array([ integrate_pdf(P,v,d,end_integral[j])-integrate_pdf(P,v,d,start_integral[j]) for j in range(len(ts)) ])
-		else: 
-			integral_for_each_species += np.array([ integrate_pdf(P,v,d,xLim)-integrate_pdf(P,v,d,start_integral[j]) for j in range(len(ts)) ])
-			partial_integral_for_extant_species += np.array([ integrate_pdf(P,v,d,end_integral[j])-integrate_pdf(P,v,d,start_integral[j]) for j in range(len(ts)) if te[j]==0 ])
-			const_int = (1- cdf_Weibull(xLim,W_shape,W_scales[i]))
-	
-		ex_events=np.intersect1d((te <= t_i).nonzero()[0], (te > t_i1).nonzero()[0])
-		lik1_for_each_species[ex_events] = (log_wei_pdf(br[ex_events],W_shape,W_scales[i])) + (log(1-exp(-q_rates[i]*br[ex_events])))
 
-	integral_for_each_species+=const_int
-	lik2 = log(integral_for_each_species)
-	lik_extant = log(1- (partial_integral_for_extant_species / exp(lik2[te==0])))
-	lik_extinct = sum(lik1_for_each_species[te>0]-lik2[te>0])
-	lik = lik_extinct + sum(lik_extant)
-	return lik 
+######## W-MEAN
+def get_fraction_per_bin(ts,te,time_frames):
+	len_time_intervals=len(time_frames)-1
+	n=len(ts)
+	tot_br = ts-te
+	in_bin_br =np.zeros(n*len_time_intervals).reshape(n,len_time_intervals)
+	in_bin_0_br =np.zeros(n)
+	te_temp = np.fmax(te,np.ones(n)*time_frames[1])
+	br_temp = ts-te_temp
+	in_bin_0_br[br_temp>0] = br_temp[br_temp>0]	
+	in_bin_br[:,0]= in_bin_0_br
+	for i in range(1,len_time_intervals):
+		t_i, t_i1 = time_frames[i], time_frames[i+1]	
+		ts_temp = np.fmin(ts,np.ones(n)*t_i)
+		te_temp = np.fmax(te,np.ones(n)*t_i1)
+		br_temp = ts_temp-te_temp
+		in_bin_i_br = br_temp
+		in_bin_i_br[br_temp<0] = 0
+		in_bin_br[:,i]= in_bin_i_br
+	return in_bin_br.T/tot_br
+
+
+def BD_age_lik_vec_times(arg): 
+	[ts,te,time_frames,W_shape,W_scales,q_rates,q_time_frames]=arg
+	len_time_intervals=len(time_frames)-1
+	if multiHPP is False: # because in this case q_rates[0] is alpha par of gamma model (set to 1)
+		q_rates = np.zeros(len_time_intervals)+q_rates[1] 
 	
+	#Weigths = get_fraction_per_bin(ts,te,time_frames)
+	#W_scale_species = np.sum(W_scales*Weigths.T,axis=1)
+	W_scale_species = np.zeros(len(ts))+W_scales[0]
+	#W_scale_species = np.zeros(len(ts))
+	#W_scale_species = W_scales[np.round(Weigths).astype(int)][1]
+	
+	qWeigths = get_fraction_per_bin(ts,te,q_time_frames)
+	q_rate_species  = np.sum(q_rates*qWeigths.T,axis=1)
+	
+	br=ts-te	
+	#print W_scales
+	#print "O:",Weigths
+	#print "T:", W_scale_species	
+	lik1=(log_wei_pdf(br[te>0],W_shape,W_scale_species[te>0])) + (log(1-exp(-q_rate_species[te>0]*br[te>0])))	
+	# the q density using the weighted mean is equal to (log(1-exp(-np.sum(q_rates*(br*Weigths).T,axis=1))))
+	# numerical integration + analytical for right tail
+	v=np.zeros((len(ts),len(x_bins)))+x_bins
+	P = pdf_W_poi(W_shape,W_scale_species,q_rate_species,v.T)                 # partial integral (0 => xLim) via numerical integration
+	d= x_bin_size
+	const_int = (1- cdf_Weibull(xLim,W_shape,W_scale_species)) # partial integral (xLim => Inf) via CDF_weibull
+	lik2 = log( np.sum(P,axis=0)*d  + const_int ) 
+	ind_extant = (te==0).nonzero()[0]
+	lik_extant =[log(sum(P[x_bins>br[i],i])*d + const_int[i])-lik2[i] for i in ind_extant] # P(x > ts | W_shape, W_scale, q)
+	# this is equal to log(1- (sum(P[v<=i]) *(v[1]-v[0]) / exp(lik2)))
+	lik_extinct = sum(lik1-lik2[te>0])
+	lik = lik_extinct + sum(lik_extant)
+	return lik	
+
+
 
 
 def BDI_partial_lik(arg):
@@ -1068,8 +1084,6 @@ def HPP_vec_lik(arg):
 	t2 = np.array([ts]+list(t)+[te])
 	d = abs(np.diff(t2))
 	lik = sum(-q_rates[ind]*d + log(q_rates[ind])*k_vec[ind]) - log(1-exp(sum(-q_rates[ind]*d))) -sum(log(np.arange(1,sum(k_vec)+1))) 
-	
-	
 	q=q_rates[0]
 	k=sum(k_vec)
 	#print -q*(ts-te) + log(q)*k - sum(log(np.arange(1,k+1))) - log(1-exp(-q*(ts-te))), lik
@@ -1486,7 +1500,7 @@ def MCMC(all_arg):
 		
 		q_ratesA,cov_parA = init_q_rates() # use 1 for symmetric PERT
 		if multiHPP is True: # init multiple q rates
-			q_ratesA = np.zeros(len(timesLA)-1)+q_ratesA[1]
+			q_ratesA = np.zeros(time_framesQ)+q_ratesA[1]
 		
 		if est_COVAR_prior is True: 
 			covar_prior = 1.
@@ -1607,9 +1621,11 @@ def MCMC(all_arg):
 		L[(L==0).nonzero()]=LA[(L==0).nonzero()]
 		M[(M==0).nonzero()]=MA[(M==0).nonzero()]
 		cov_par[(cov_par==0).nonzero()]=cov_parA[(cov_par==0).nonzero()]
-		timesL[0]=max(ts)
-		timesM[0]=max(ts)
-				
+		max_ts = max(ts)
+		timesL[0]=max_ts
+		timesM[0]=max_ts
+		q_time_frames = np.sort(np.array([max_ts,0]+times_q_shift))[::-1]
+
 		# NHPP Lik: multi-thread computation (ts, te)
 		# generate args lik (ts, te)
 		if fix_SE is False:
@@ -1634,7 +1650,7 @@ def MCMC(all_arg):
 				if num_processes_ts==0:
 					for j in range(len(ind1)):
 						i=ind1[j] # which species' lik
-						if multiHPP is True:  lik_fossil[i] = HPP_vec_lik([te[i],ts[i],timesL,q_rates,i])
+						if multiHPP is True:  lik_fossil[i] = HPP_vec_lik([te[i],ts[i],q_time_frames,q_rates,i])
 						else:
 							if argsHPP is True or  frac1==0: lik_fossil[i] = HOMPP_lik(args[j])
 							elif argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
@@ -1680,7 +1696,9 @@ def MCMC(all_arg):
 			# Birth-Death Lik: construct 2D array (args partial likelihood)
 			# parameters of each partial likelihood and prior (l)
 			if stop_update != inf:
-				if fix_Shift == True:
+				if use_ADE_model is True and multiHPP is True: 
+					likBDtemp = BD_age_lik_vec_times([ts,te,timesL,W_shape,M,q_rates,q_time_frames])
+				elif fix_Shift == True:
 					if use_ADE_model is False: likBDtemp = BPD_lik_vec_times([ts,te,timesL,L,M])
 					else: likBDtemp = BD_age_lik_vec_times([ts,te,timesL,W_shape,M,q_rates])
 				else:	
@@ -1991,6 +2009,7 @@ p.add_argument('-mPoiD',   help='Poisson-death diversification model', action='s
 p.add_argument("-mBDI",    type=int, help='BDI sub-model - 0) birth-death, 1) immigration-death', default=-1, metavar=-1)
 p.add_argument("-ncat",    type=int, help='Model - Number of categories for Gamma heterogeneity', default=4, metavar=4)
 p.add_argument('-fixShift',metavar='<input file>', type=str,help="Input tab-delimited file",default="")
+p.add_argument('-qShift',  metavar='<input file>', type=str,help="Input tab-delimited file",default="")
 p.add_argument('-fixSE',   metavar='<input file>', type=str,help="Input mcmc.log file",default="")
 p.add_argument('-ADE',    type=int, help='ADE model: 0) no age dependence 1) estimated age dep', default=0, metavar=0)
 
@@ -2325,15 +2344,6 @@ if len(fixed_times_of_shift)>0:
 	hp_gamma_rate  = get_rate_HP(time_framesL,target_k,hp_gamma_shape)
 
 
-if 2>1:
-	occs_sp_bin =list()
-	temp_times_of_shift = np.array(list(fixed_times_of_shift)+[max(FA)+1]+[0])
-	for i in range(len(fossil)):
-		occs_temp = fossil[i]
-		h = np.histogram(occs_temp[occs_temp>0],bins=sort( temp_times_of_shift ))[0][::-1]
-		occs_sp_bin.append(h)
-
-
 if args.fixSE != "" or use_se_tbl==True:          # fix TS, TE
 	if use_se_tbl==True: pass
 	else:
@@ -2496,11 +2506,30 @@ else:
 if use_ADE_model is True: 
 	hypP_par[1]=0.1
 	tot_extant = -1
-	d_hyperprior[0]=1 # fisrt hyper-prior (normally for sp.rates is currently not used under ADE, thus not updated)
+	d_hyperprior[0]=1 # first hyper-prior on sp.rates is not used under ADE, thus not updated (multiplier update =1)
 	if args.multiHPP is True: multiHPP = True
 	else: multiHPP = False 
+else: multiHPP = False # multiHPP is for now limited to ADE models
 
-if fix_Shift is True: est_hyperP = True
+if args.qShift != "":
+	try: 
+		try: times_q_shift=list(sort(np.loadtxt(args.qShift))[::-1])
+		except(IndexError): times_q_shift=[np.loadtxt(args.qShift)]
+		time_framesQ=len(times_q_shift)+1
+		multiHPP = True
+		occs_sp_bin =list()
+		temp_times_q_shift = np.array(list(times_q_shift)+[max(FA)+1]+[0])
+		for i in range(len(fossil)):
+			occs_temp = fossil[i]
+			h = np.histogram(occs_temp[occs_temp>0],bins=sort( temp_times_q_shift ))[0][::-1]
+			occs_sp_bin.append(h)
+	except: 
+		msg = "\nError in the input file %s.\n" % (args.qShift)
+		sys.exit(msg)
+
+
+
+if fix_Shift is True and use_ADE_model is False: est_hyperP = True
 # define hyper-prior function for BD rates
 if tot_extant==-1 or TDI ==3 or use_poiD is True:
 	if use_ADE_model is False and fix_Shift is True and TDI < 3 or use_cauchy is True: 
@@ -2583,8 +2612,14 @@ if len(fixed_times_of_shift)>0:
 	o2 += "\nUsing the following fixed time frames: "
 	for i in fixed_times_of_shift: o2 += "%s " % (i)
 o2+= "\n"+prior_setting
-if argsHPP is True: o2+="Using Homogeneous Poisson Process of preservation (HPP)."
-else:               o2+="Using Non-Homogeneous Poisson Process of preservation (NHPP)."
+if argsHPP is True: 
+	if multiHPP is False: 
+		o2+="Using Homogeneous Poisson Process of preservation (HPP)."
+	else: o2 += "\nUsing Homogeneous Poisson Process of preservation with shifts (HPPS) at: "
+	for i in times_q_shift: o2 += "%s " % (i)
+	
+else: o2+="Using Non-Homogeneous Poisson Process of preservation (NHPP)."
+
 version_notes="""\n
 Please cite: \n%s\n
 Feedback and support: pyrate.help@gmail.com
@@ -2608,7 +2643,7 @@ if fix_SE == False:
 		head="it\tposterior\tprior\tPP_lik\tBD_lik\tq_rate\talpha\t"
 	else: 
 		head="it\tposterior\tprior\tPP_lik\tBD_lik\t"
-		for i in range(time_framesL): head += "q_%s\t" % (i)
+		for i in range(time_framesQ): head += "q_%s\t" % (i)
 else: 
 	head="it\tposterior\tprior\tBD_lik\t"
 	
