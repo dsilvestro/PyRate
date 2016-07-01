@@ -653,7 +653,7 @@ def update_rates_sliding_win(L,M,tot_L,mod_d3):
 
 
 def update_rates_multiplier(L,M,tot_L,mod_d3):
-	if use_ADE_model is False:
+	if use_ADE_model is False and use_Death_model is False:
 		# UPDATE LAMBDA
 		S=np.shape(L)
 		#print L, S
@@ -1314,7 +1314,7 @@ def Alg_3_1(arg):
 		n_likBD=zeros(len(likBDtemp))
 		
 		# ESTIMATE DELTAS (individual death rates)		
-		if len(L)>1:  # SPECIATION RATES
+		if len(L)>1 :  # SPECIATION RATES
 			deathRate=estimate_delta(likBDtemp, L,"l",timesL, ts, te, cov_par, 0,deathRate,n_likBD,len(L))
 		if len(M)>1:  # EXTINCTION RATES
 			deathRate=estimate_delta(likBDtemp, M,"m",timesM, ts, te, cov_par, len(L),deathRate,n_likBD,len(L))
@@ -1330,7 +1330,7 @@ def Alg_3_1(arg):
 			#print sum(likBDtemp), Pr_birth, Pr_death, deathRate
 			if np.random.random()<Pr_birth or len(L)+len(M)==2: # ADD PARAMETER
 				LL=len(L)+len(M)
-				if np.random.random()>.5:
+				if np.random.random()>.5 and use_Death_model is False:
 					ind=np.random.random_integers(0,len(L))
 					timesL, L = born_prm(timesL, L, ind, ts)
 					IND=ind
@@ -1490,6 +1490,7 @@ def MCMC(all_arg):
 			LA = init_BD(len(timesLA))
 			MA = init_BD(len(timesMA))
 			if use_ADE_model is True: MA = np.random.uniform(3,5,len(timesMA)-1)
+			if use_Death_model is True: LA = np.ones(1)
 		else : ### DPP
 			LA = init_BD(1) # init 1 rate
 			MA = init_BD(1) # init 1 rate
@@ -1624,7 +1625,7 @@ def MCMC(all_arg):
 		max_ts = max(ts)
 		timesL[0]=max_ts
 		timesM[0]=max_ts
-		q_time_frames = np.sort(np.array([max_ts,0]+times_q_shift))[::-1]
+		if multiHPP is True:  q_time_frames = np.sort(np.array([max_ts,0]+times_q_shift))[::-1]
 
 		# NHPP Lik: multi-thread computation (ts, te)
 		# generate args lik (ts, te)
@@ -2006,6 +2007,7 @@ p.add_argument('-mC',      help='Model - constrain time frames (l,m)', action='s
 p.add_argument('-mCov',    type=int, help='COVAR model: 1) speciation, 2) extinction, 3) speciation & extinction, 4) preservation, 5) speciation & extinction & preservation', default=0, metavar=0)
 p.add_argument("-mG",      help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
 p.add_argument('-mPoiD',   help='Poisson-death diversification model', action='store_true', default=False)
+p.add_argument('-mDeath',  help='Pure-death model', action='store_true', default=False)
 p.add_argument("-mBDI",    type=int, help='BDI sub-model - 0) birth-death, 1) immigration-death', default=-1, metavar=-1)
 p.add_argument("-ncat",    type=int, help='Model - Number of categories for Gamma heterogeneity', default=4, metavar=4)
 p.add_argument('-fixShift',metavar='<input file>', type=str,help="Input tab-delimited file",default="")
@@ -2103,7 +2105,6 @@ if args.ginput != "":
 	You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
 	lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=-1,burnin=int(burnin)+1)
 	quit()
-
 
 # freq update CovPar
 if model_cov==0: f_cov_par= [0  ,0  ,0 ]
@@ -2438,6 +2439,10 @@ if use_poiD is True:
 else:
 	BPD_partial_lik = BD_partial_lik
 	PoiD_const = 0
+
+if args.mDeath is True: use_Death_model =True
+else: use_Death_model=False
+
 
 # USE BDI subMODELS
 model_BDI=args.mBDI
