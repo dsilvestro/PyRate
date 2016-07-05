@@ -302,6 +302,9 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0, plot_type=
 				M_tbl=t[:,m_ind]
 				R_tbl=t[:,r_ind] 
 				file_n=1
+				if np.min([np.max(L_tbl),np.max(M_tbl)])>0.1: no_decimals = 3
+				elif np.min([np.max(L_tbl),np.max(M_tbl)])>0.001: no_decimals = 5
+				else: no_decimals = 15	
 			else:
 				L_tbl=np.concatenate((L_tbl,t[:,l_ind]),axis=0)
 				M_tbl=np.concatenate((M_tbl,t[:,m_ind]),axis=0)
@@ -321,9 +324,9 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0, plot_type=
 		sys.stdout.write(".")
 		sys.stdout.flush()
 		for time_ind in range(shape(R_tbl)[1]):
-			hpd1=np.around(calcHPD(L_tbl[:,time_ind],threshold),decimals=3)
-			hpd2=np.around(calcHPD(M_tbl[:,time_ind],threshold),decimals=3)
-			hpd3=np.around(calcHPD(R_tbl[:,time_ind],threshold),decimals=3)
+			hpd1=np.around(calcHPD(L_tbl[:,time_ind],threshold),decimals=no_decimals)
+			hpd2=np.around(calcHPD(M_tbl[:,time_ind],threshold),decimals=no_decimals)
+			hpd3=np.around(calcHPD(R_tbl[:,time_ind],threshold),decimals=no_decimals)
 				
 			L_hpd_m.append(hpd1[0])
 			L_hpd_M.append(hpd1[1])
@@ -344,9 +347,9 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0, plot_type=
 			l=np.sort(L_tbl[:,time_ind])
 			m=np.sort(M_tbl[:,time_ind])
 			r=np.sort(R_tbl[:,time_ind])
-			hpd1=np.around(np.array([l[int(threshold*len(l))] , l[int(len(l) - threshold*len(l))] ]),decimals=3)
-			hpd2=np.around(np.array([m[int(threshold*len(m))] , m[int(len(m) - threshold*len(m))] ]),decimals=3)
-			hpd3=np.around(np.array([r[int(threshold*len(r))] , r[int(len(r) - threshold*len(r))] ]),decimals=3)
+			hpd1=np.around(np.array([l[int(threshold*len(l))] , l[int(len(l) - threshold*len(l))] ]),decimals=no_decimals)
+			hpd2=np.around(np.array([m[int(threshold*len(m))] , m[int(len(m) - threshold*len(m))] ]),decimals=no_decimals)
+			hpd3=np.around(np.array([r[int(threshold*len(r))] , r[int(len(r) - threshold*len(r))] ]),decimals=no_decimals)
 				
 			L_hpd_m.append(hpd1[0])
 			L_hpd_M.append(hpd1[1])
@@ -362,9 +365,9 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0, plot_type=
 	hpds50 =  np.array(get_CI(threshold=.50))
 	#hpds10 =  get_CI(threshold=.10)
 
-	L_tbl_mean=np.around(np.mean(L_tbl,axis=0),3)
-	M_tbl_mean=np.around(np.mean(M_tbl,axis=0),3)
-	R_tbl_mean=np.around(np.mean(R_tbl,axis=0),3)
+	L_tbl_mean=np.around(np.mean(L_tbl,axis=0),no_decimals)
+	M_tbl_mean=np.around(np.mean(M_tbl,axis=0),no_decimals)
+	R_tbl_mean=np.around(np.mean(R_tbl,axis=0),no_decimals)
 	mean_rates=np.array([L_tbl_mean,L_tbl_mean,M_tbl_mean,M_tbl_mean,R_tbl_mean,R_tbl_mean] )
 	
 	nonzero_rate = L_tbl_mean+ M_tbl_mean
@@ -2620,8 +2623,9 @@ o2+= "\n"+prior_setting
 if argsHPP is True: 
 	if multiHPP is False: 
 		o2+="Using Homogeneous Poisson Process of preservation (HPP)."
-	else: o2 += "\nUsing Homogeneous Poisson Process of preservation with shifts (HPPS) at: "
-	for i in times_q_shift: o2 += "%s " % (i)
+	else: 
+		o2 += "\nUsing Homogeneous Poisson Process of preservation with shifts (HPPS) at: "
+		for i in times_q_shift: o2 += "%s " % (i)
 	
 else: o2+="Using Non-Homogeneous Poisson Process of preservation (NHPP)."
 
