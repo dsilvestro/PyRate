@@ -2445,6 +2445,7 @@ if args.fixSE != "" or use_se_tbl==True:          # fix TS, TE
 else: fix_SE=False
 
 if args.discrete is True: useDiscreteTraitModel = True
+else: useDiscreteTraitModel = False
 
 # Get trait values (Cov model)
 if model_cov>=1 or useDiscreteTraitModel is True:
@@ -2528,8 +2529,13 @@ if model_cov>=1 or useDiscreteTraitModel is True:
 		#print con_trait
 		if est_COVAR_prior is True: out_name += "_COVhp"
 		else: out_name += "_COV"
-	else: con_trait = trait_values
-
+	else: 
+		con_trait = trait_values
+		ind_nan_trait= (np.isfinite(trait_values)==False).nonzero()
+		regression_trait= "\n\nDiscrete trait data for %s of %s taxa" \
+		% (len(trait_values)-len(ind_nan_trait[0]), len(trait_values))
+		print(regression_trait)
+		
 
 if useDiscreteTraitModel is True:
 	ind_trait_species = con_trait
@@ -2725,7 +2731,7 @@ if TDI==3: suff_out+= "_dpp"
 o0 = "\n%s build %s\n" % (version, build)
 o1 = "\ninput: %s output: %s/%s" % (args.input_data, path_dir, out_name)
 o2 = "\n\nPyRate was called as follows:\n%s\n" % (args)
-if model_cov>=1: o2 += regression_trait
+if model_cov>=1 or useDiscreteTraitModel is True: o2 += regression_trait
 if TDI==3: o2 += "\n\nHyper-prior on concentration parameter (Gamma shape, rate): %s, %s\n" % (hp_gamma_shape, hp_gamma_rate)
 if len(fixed_times_of_shift)>0:
 	o2 += "\nUsing the following fixed time frames: "
