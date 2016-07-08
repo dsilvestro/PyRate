@@ -586,6 +586,71 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
 	print "done\n"
 
 
+
+########################## COMBINE LOG FILES ##############################
+def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
+	infile=path_to_files
+	sys.path.append(infile)
+	direct="%s/*%s*.log" % (infile,tag)
+	files=glob.glob(direct)
+	files=sort(files)
+	print "found", len(files), "log files...\n"
+	j=0
+	
+	for f in files:
+		if 2>1: #try:
+			file_name =  os.path.splitext(os.path.basename(f))[0]
+			print file_name,
+			t=loadtxt(f, skiprows=max(1,int(burnin)))
+			shape_f=shape(t)
+			print shape_f
+			t_file = t[burnin:shape_f[0],:]#).astype(str)
+			if resample>0:
+				r_ind= sort(np.random.randint(burnin,shape_f[0],resample))
+				t_file = t[r_ind,:]
+
+		#except: print "ERROR in",f		
+		if len(col_tag) == 0:
+			if j==0: 
+				head = next(open(f))#.split()
+				comb = t_file
+			else:
+				comb = np.concatenate((comb,t_file),axis=0)
+		else: 
+			head_temp = next(open(f)).split() # should be faster
+			sp_ind_list=[]
+			for TAG in col_tag:
+				sp_ind_list+=[head_temp.index(s) for s in head_temp if TAG in s]
+			
+			sp_ind= np.array(sp_ind_list)
+			#print "INDEXES",sp_ind
+			if j==0: 
+				head_temp= np.array(head_temp)
+				head_t= ["%s\t" % (i) for i in head_temp[sp_ind]]
+				head=""
+				for i in head_t: head+=i
+				head+="\n"
+				print "found", len(head_t), "columns"
+				comb = t_file[:,sp_ind]
+			else:
+				comb = np.concatenate((comb,t_file[:,sp_ind]),axis=0)
+			
+		j+=1
+
+	#print shape(comb)	
+	if col_tag == "":
+		sampling_freq= comb[1,0]-comb[0,0]
+		comb[:,0] = (np.arange(0,len(comb))+1)*sampling_freq
+		fmt_list=['%i']
+	else: fmt_list=['%i']
+	for i in range(1,np.shape(comb)[1]): fmt_list.append('%4f')
+	outfile = "%s/combined_%s%s_files.log" % (infile,len(files),tag)
+	comb[:,0] = np.arange(len(comb[:,0]))
+	
+	with open(outfile, 'wb') as f:
+		f.write(head)
+		np.savetxt(f, comb, delimiter="\t",fmt=fmt_list,newline="\r") #)
+
 ########################## INITIALIZE MCMC ##############################
 def get_gamma_rates(a):
 	b=a
@@ -844,6 +909,16 @@ def HPBD3(timesL,timesM,L,M,T,s):
 	return pNtvar([all_t_frames,Ln,Mn,tot_extant])
 
 # BIRTH-DEATH MODELS
+def BD_lik_discrete_trait(arg):
+	[ts,te,L,M]=arg
+	S = ts-te
+	lik0 = log(L)*lengths_B_events     #
+	lik1 = -L*sum(S)                   # assumes that speiation can arise from any trait state
+	lik2 = log(M)*lengths_D_events                                            # Trait specific extinction
+	lik3 = -sum( [M[i]*sum(S[ind_trait_species==i]) for i in range(len(M))] ) # only species with a trait state can go extinct
+	return sum(lik0+lik1+lik2+lik3)
+
+
 def BPD_lik_vec_times(arg):
 	[ts,te,time_frames,L,M]=arg
 	if fix_SE is False or fix_Shift is False:
@@ -1494,6 +1569,10 @@ def MCMC(all_arg):
 			MA = init_BD(len(timesMA))
 			if use_ADE_model is True: MA = np.random.uniform(3,5,len(timesMA)-1)
 			if use_Death_model is True: LA = np.ones(1)
+			if useDiscreteTraitModel is True: 
+				LA = init_BD(len(lengths_B_events)+1)
+				MA = init_BD(len(lengths_B_events)+1)
+				
 		else : ### DPP
 			LA = init_BD(1) # init 1 rate
 			MA = init_BD(1) # init 1 rate
@@ -1650,6 +1729,7 @@ def MCMC(all_arg):
 				z[:,4]=range(len(fossil))
 				z[:,5]=cov_par[2]  # covariance baseline foss rate
 				z[:,6]=M[len(M)-1] # ex rate
+				if useDiscreteTraitModel is True: z[:,6] = mean(M)
 				args=list(z[ind1])
 				if num_processes_ts==0:
 					for j in range(len(ind1)):
@@ -1700,7 +1780,10 @@ def MCMC(all_arg):
 			# Birth-Death Lik: construct 2D array (args partial likelihood)
 			# parameters of each partial likelihood and prior (l)
 			if stop_update != inf:
-				if use_ADE_model is True and multiHPP is True: 
+				if useDiscreteTraitModel is True:
+					likBDtemp = BD_lik_discrete_trait([ts,te,L,M])
+						
+				elif use_ADE_model is True and multiHPP is True: 
 					likBDtemp = BD_age_lik_vec_times([ts,te,timesL,W_shape,M,q_rates,q_time_frames])
 				elif fix_Shift == True:
 					if use_ADE_model is False: likBDtemp = BPD_lik_vec_times([ts,te,timesL,L,M])
@@ -1889,7 +1972,7 @@ def MCMC(all_arg):
 			os.fsync(logfile)
 
 			lik_tmp += sum(likBDtempA)
-			if TDI !=1 and n_proc==0 and TDI<3 and use_ADE_model is False:
+			if TDI !=1 and n_proc==0 and TDI<3 and use_ADE_model is False and useDiscreteTraitModel is False:
 				margL=zeros(len(marginal_frames))
 				margM=zeros(len(marginal_frames))
 				for i in range(len(timesLA)-1): # indexes of the 1My bins within each timeframe
@@ -1968,6 +2051,8 @@ p.add_argument('-BF',        type=str,help="Input 'marginal_likelihood.txt' file
 p.add_argument("-data_info", help='Summary information about an input data', action='store_true', default=False)
 p.add_argument('-SE_stats',  type=str,help="Calculate and plot stats from SE table:",metavar='<marginal_rates.log file bin_size #_simulations>',nargs='+',default=[])
 p.add_argument('-ginput',    type=str,help='generate SE table from *mcmc.log files', default="", metavar="<path_to_mcmc.log>")
+p.add_argument('-combLog',   type=str,help='Combine (and resample) log files', default="", metavar="<path_to_log_files>")
+p.add_argument('-resample',  type=int,help='Number of samples for each log file (-combLog). Use 0 to keep all samples.', default=0, metavar=0)
 
 # MCMC SETTINGS
 p.add_argument('-n',      type=int, help='mcmc generations',default=10000000, metavar=10000000)
@@ -1987,23 +2072,22 @@ p.add_argument('-T',   type=float, help='BDMCMC - time of model update', default
 p.add_argument('-S',   type=int,   help='BDMCMC - start model update', default=1000, metavar=1000)
 p.add_argument('-k',   type=int,   help='TI - no. scaling factors', default=10, metavar=10)
 p.add_argument('-a',   type=float, help='TI - shape beta distribution', default=.3, metavar=.3)
-p.add_argument('-dpp_f',  type=float, help='DPP - frequency ', default=500, metavar=500)
-p.add_argument('-dpp_hp', type=float, help='DPP - shape of gamma HP on concentration parameter', default=2., metavar=2.)
-p.add_argument('-dpp_eK', type=float, help='DPP - expected number of rate categories', default=2., metavar=2.)
-#p.add_argument('-dpp_max_grid', type=float, help='DPP - max age of time frames',default=1400., metavar=1400.)
-p.add_argument('-dpp_grid'    , type=float, help='DPP - size of time frames',default=1.5, metavar=1.5)
+p.add_argument('-dpp_f',    type=float, help='DPP - frequency ', default=500, metavar=500)
+p.add_argument('-dpp_hp',   type=float, help='DPP - shape of gamma HP on concentration parameter', default=2., metavar=2.)
+p.add_argument('-dpp_eK',   type=float, help='DPP - expected number of rate categories', default=2., metavar=2.)
+p.add_argument('-dpp_grid', type=float, help='DPP - size of time frames',default=1.5, metavar=1.5)
 
 # PRIORS
-p.add_argument('-pL',  type=float,    help='Prior - speciation rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.1, 1.1], metavar=1.1, nargs=2)
-p.add_argument('-pM',  type=float,    help='Prior - extinction rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.1, 1.1], metavar=1.1, nargs=2)
-p.add_argument('-pP',  type=float,    help='Prior - preservation rate (Gamma <shape, rate>)', default=[1.5, 1.1], metavar=1.5, nargs=2)
-p.add_argument('-pS',  type=float,    help='Prior - time frames (Dirichlet <shape>)', default=2.5, metavar=2.5)
-p.add_argument('-pC',  type=float,    help='Prior - covariance parameters (Normal <standard deviation>) | (if pC=0 -> sd estimated)', default=1, metavar=1)
-p.add_argument("-cauchy", type=float, help='Prior - use hyper priors on sp/ex rates (if 0 -> estimated)', default=[-1, -1], metavar=-1, nargs=2)
+p.add_argument('-pL',      type=float, help='Prior - speciation rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.1, 1.1], metavar=1.1, nargs=2)
+p.add_argument('-pM',      type=float, help='Prior - extinction rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.1, 1.1], metavar=1.1, nargs=2)
+p.add_argument('-pP',      type=float, help='Prior - preservation rate (Gamma <shape, rate>)', default=[1.5, 1.1], metavar=1.5, nargs=2)
+p.add_argument('-pS',      type=float, help='Prior - time frames (Dirichlet <shape>)', default=2.5, metavar=2.5)
+p.add_argument('-pC',      type=float, help='Prior - covariance parameters (Normal <standard deviation>) | (if pC=0 -> sd estimated)', default=1, metavar=1)
+p.add_argument("-cauchy",  type=float, help='Prior - use hyper priors on sp/ex rates (if 0 -> estimated)', default=[-1, -1], metavar=-1, nargs=2)
 
 # MODEL
 p.add_argument("-mHPP",    help='Model - Homogeneous Poisson process of preservation', action='store_true', default=False)
-p.add_argument("-multiHPP",    help='Model - Homogeneous Poisson process of preservation', action='store_true', default=False)
+p.add_argument("-multiHPP",help='Model - Poisson process of preservation with shifts', action='store_true', default=False)
 p.add_argument('-mL',      type=int, help='Model - no. (starting) time frames (speciation)', default=1, metavar=1)
 p.add_argument('-mM',      type=int, help='Model - no. (starting) time frames (extinction)', default=1, metavar=1)
 p.add_argument('-mC',      help='Model - constrain time frames (l,m)', action='store_true', default=False)
@@ -2016,7 +2100,9 @@ p.add_argument("-ncat",    type=int, help='Model - Number of categories for Gamm
 p.add_argument('-fixShift',metavar='<input file>', type=str,help="Input tab-delimited file",default="")
 p.add_argument('-qShift',  metavar='<input file>', type=str,help="Input tab-delimited file",default="")
 p.add_argument('-fixSE',   metavar='<input file>', type=str,help="Input mcmc.log file",default="")
-p.add_argument('-ADE',    type=int, help='ADE model: 0) no age dependence 1) estimated age dep', default=0, metavar=0)
+p.add_argument('-ADE',     type=int, help='ADE model: 0) no age dependence 1) estimated age dep', default=0, metavar=0)
+p.add_argument('-discrete',help='Discrete-trait-dependent BD model (requires -trait_file)', action='store_true', default=False)
+
 
 # TUNING
 p.add_argument('-tT',     type=float, help='Tuning - window size (ts, te)', default=1., metavar=1.)
@@ -2225,6 +2311,9 @@ elif len(list_files_BF):
 	if len(list_files_BF)<2: sys.exit("\n2 '*marginal_likelihood.txt' files required.\n")
 	calc_BF(list_files_BF[0],list_files_BF[1])
 	quit()
+elif args.combLog != "": # COMBINE LOG FILES
+	comb_log_files(args.combLog,burnin,args.tag,resample=args.resample,col_tag=[])
+	sys.exit("\n")
 elif len(args.input_data)==0 and args.d == "": sys.exit("\nInput file required. Use '-h' for command list.\n")
 
 use_se_tbl = False
@@ -2355,8 +2444,10 @@ if args.fixSE != "" or use_se_tbl==True:          # fix TS, TE
 		fixed_ts, fixed_te= calc_ts_te(args.fixSE, burnin=args.b)
 else: fix_SE=False
 
+if args.discrete is True: useDiscreteTraitModel = True
+
 # Get trait values (Cov model)
-if model_cov>=1:
+if model_cov>=1 or useDiscreteTraitModel is True:
 	try:
 		if args.trait_file != "": # Use trait file
 			traitfile=file(args.trait_file, 'U')
@@ -2392,48 +2483,68 @@ if model_cov>=1:
 						print "matched taxon:", taxa_name
 					else: 
 						matched_trait_values.append(np.nan)
+						print taxa_name, "did not have data"
 				trait_values= np.array(matched_trait_values)
 			
 			
 		else:             # Trait data from .py file
 			trait_values=input_data_module.get_continuous(max(args.trait-1,0))
-		if args.logT==0: pass
-		elif args.logT==1: trait_values = log(trait_values)
-		else: trait_values = np.log10(trait_values)		
+		if useDiscreteTraitModel is False:
+			if args.logT==0: pass
+			elif args.logT==1: trait_values = log(trait_values)
+			else: trait_values = np.log10(trait_values)		
 	except: sys.exit("\nTrait data not found! Check input file.\n")
 	
-	# Mid point age of each lineage
-	if use_se_tbl==True: MidPoints = (fixed_ts+fixed_te)/2.
-	else:
-		MidPoints=np.zeros(len(fossil_complete))
-		for i in range(len(fossil_complete)):
-			MidPoints[i]=np.mean([max(fossil_complete[i]),min(fossil_complete[i])])
+	if useDiscreteTraitModel is False:
+		# Mid point age of each lineage
+		if use_se_tbl==True: MidPoints = (fixed_ts+fixed_te)/2.
+		else:
+			MidPoints=np.zeros(len(fossil_complete))
+			for i in range(len(fossil_complete)):
+				MidPoints[i]=np.mean([max(fossil_complete[i]),min(fossil_complete[i])])
 	
-	# fit linear regression (for species with trait value - even if without fossil data)
-	slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(MidPoints[np.isfinite(trait_values)],trait_values[np.isfinite(trait_values)])
+		# fit linear regression (for species with trait value - even if without fossil data)
+		slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(MidPoints[np.isfinite(trait_values)],trait_values[np.isfinite(trait_values)])
 	
-	# 
-	ind_nan_trait= (np.isfinite(trait_values)==False).nonzero()
-	meanGAUScomplete=np.zeros(len(MidPoints))
-	meanGAUScomplete[ind_nan_trait] = slope*MidPoints[ind_nan_trait] + intercept
+		# 
+		ind_nan_trait= (np.isfinite(trait_values)==False).nonzero()
+		meanGAUScomplete=np.zeros(len(MidPoints))
+		meanGAUScomplete[ind_nan_trait] = slope*MidPoints[ind_nan_trait] + intercept
 	
-	if use_se_tbl==True: meanGAUS= meanGAUScomplete
-	else:
-		trait_values= trait_values[np.array(have_record)]
-		meanGAUS= meanGAUScomplete[np.array(have_record)]
+		if use_se_tbl==True: meanGAUS= meanGAUScomplete
+		else:
+			trait_values= trait_values[np.array(have_record)]
+			meanGAUS= meanGAUScomplete[np.array(have_record)]
 	
-	sdGAUS = std_err
-	regression_trait= "\n\nEstimated linear trend trait-value: \nslope=%s; sd. error= %s (intercept= %s; R2= %s; P-value= %s\nTrait data for %s of %s taxa)" \
-	% (round(slope,2), round(std_err,2), round(intercept,2), round(r_value,2), round(p_value,2), len(trait_values)-len(ind_nan_trait[0]), len(trait_values))
-	print(regression_trait)
+		sdGAUS = std_err
+		regression_trait= "\n\nEstimated linear trend trait-value: \nslope=%s; sd. error= %s (intercept= %s; R2= %s; P-value= %s\nTrait data for %s of %s taxa)" \
+		% (round(slope,2), round(std_err,2), round(intercept,2), round(r_value,2), round(p_value,2), len(trait_values)-len(ind_nan_trait[0]), len(trait_values))
+		print(regression_trait)
 	
-	#print trait_values
-	parGAUS=scipy.stats.norm.fit(trait_values[np.isfinite(trait_values)]) # fit normal distribution
-	#global con_trait
-	con_trait=seed_missing(trait_values,meanGAUS,sdGAUS) # fill the gaps (missing data)
-	#print con_trait
-	if est_COVAR_prior is True: out_name += "_COVhp"
-	else: out_name += "_COV"
+		#print trait_values
+		parGAUS=scipy.stats.norm.fit(trait_values[np.isfinite(trait_values)]) # fit normal distribution
+		#global con_trait
+		con_trait=seed_missing(trait_values,meanGAUS,sdGAUS) # fill the gaps (missing data)
+		#print con_trait
+		if est_COVAR_prior is True: out_name += "_COVhp"
+		else: out_name += "_COV"
+	else: con_trait = trait_values
+
+
+if useDiscreteTraitModel is True:
+	ind_trait_species = con_trait
+	ind_trait_species[np.isnan(ind_trait_species)]=np.nanmax(ind_trait_species)+1
+	ind_trait_species = ind_trait_species.astype(int)
+	len_trait_values = len(np.unique(con_trait)) 
+	lengths_B_events=[]
+	lengths_D_events=[]
+	for i in range(len_trait_values):
+		lengths_B_events.append(len(con_trait[con_trait==i]))
+		lo_temp = LO[con_trait==i]
+		lengths_D_events.append(len(lo_temp[lo_temp>0]))
+	lengths_B_events = np.array(lengths_B_events)
+	lengths_D_events = np.array(lengths_D_events)
+	TDI = 0
 
 use_poiD=args.mPoiD
 if use_poiD is True:
@@ -2665,13 +2776,16 @@ if TDI<2:
 	if est_hyperP is True: 
 		head += "hypL\thypM\t"
 	
-	if use_ADE_model is False: 
+	if use_ADE_model is False and useDiscreteTraitModel is False: 
 		for i in range(time_framesL): head += "lambda_%s\t" % (i)
 		for i in range(time_framesM): head += "mu_%s\t" % (i)
-	else: 
+	elif use_ADE_model is True: 
 		head+="w_shape\t"
 		for i in range(time_framesM): head += "w_scale_%s\t" % (i)
 		for i in range(time_framesM): head += "mean_longevity_%s\t" % (i)
+	elif useDiscreteTraitModel is True:
+		for i in range(len(lengths_B_events)): head += "lambda_%s\t" % (i)
+		for i in range(len(lengths_B_events)): head += "mu_%s\t" % (i)		
 	
 	if fix_Shift== False:
 		for i in range(1,time_framesL): head += "shift_sp_%s\t" % (i)
@@ -2694,7 +2808,7 @@ logfile.flush()
 os.fsync(logfile)
 
 # OUTPUT 2 MARGINAL RATES
-if TDI!=1 and use_ADE_model is False: # (path_dir, output_file, out_run)
+if TDI!=1 and use_ADE_model is False and useDiscreteTraitModel is False: # (path_dir, output_file, out_run)
 	out_log_marginal = "%s/%s_marginal_rates.log" % (path_dir, suff_out) 
 	marginal_file = open(out_log_marginal , "wb") 
 	head="it\t"
