@@ -303,7 +303,7 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0, plot_type=
 				R_tbl=t[:,r_ind] 
 				file_n=1
 				if np.min([np.max(L_tbl),np.max(M_tbl)])>0.1: no_decimals = 3
-				elif np.min([np.max(L_tbl),np.max(M_tbl)])>0.001: no_decimals = 5
+				elif np.min([np.max(L_tbl),np.max(M_tbl)])>0.01: no_decimals = 5
 				else: no_decimals = 15	
 			else:
 				L_tbl=np.concatenate((L_tbl,t[:,l_ind]),axis=0)
@@ -596,7 +596,7 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 	files=sort(files)
 	print "found", len(files), "log files...\n"
 	j=0
-	
+	burnin = int(burnin)
 	for f in files:
 		if 2>1: #try:
 			file_name =  os.path.splitext(os.path.basename(f))[0]
@@ -1963,6 +1963,8 @@ def MCMC(all_arg):
 			else: # DPP
 				log_state+= [len(LA), len(MA), alpha_par_Dir_L,alpha_par_Dir_M, s_max,min(teA)]
 			 					
+			if useDiscreteTraitModel is True: 
+				for i in range(len(lengths_B_events)): log_state += [sum(tsA[ind_trait_species==i]-teA[ind_trait_species==i])]
 			log_state += [SA]
 			if fix_SE ==False:
 				log_state += list(tsA)
@@ -2289,13 +2291,13 @@ if path_dir_log_files != "":
 		files=glob.glob(direct)
 		files=sort(files)		
 		if len(files)==0:
-			try:
+			if 2>1: #try:
 				name_file = os.path.splitext(os.path.basename(str(path_dir_log_files)))[0]
 				path_dir_log_files = os.path.dirname(str(path_dir_log_files))
 				name_file = name_file.split("marginal_rates")[0]
 				one_file=True
 				plot_RTT(path_dir_log_files, burnin, name_file,one_file,root_plot,plot_type)
-			except: sys.exit("\nFile or directory not recognized.\n")
+			#except: sys.exit("\nFile or directory not recognized.\n")
 		else:
 			for f in files:
 				name_file = os.path.splitext(os.path.basename(f))[0]
@@ -2362,15 +2364,14 @@ if use_se_tbl==False:
 	for i in range(len(fossil_complete)):
 		if len(fossil_complete[i])==1 and fossil_complete[i][0]==0: pass
 
-		if args.singleton == -1:
+		if args.singleton == -1: # exclude extant taxa
 			if min(fossil_complete[i])==0: singletons_excluded.append(i)
 			else:
-				have_record.append(i) # some (extant) species may have trait value but no fossil record
+				have_record.append(i) 
 				fossil.append(fossil_complete[i])
 				taxa_included.append(i)
-		elif args.singleton > 0:
-			obs_life_span = max(fossil_complete[i])-min(fossil_complete[i])
-			if len(fossil_complete[i])==1 or obs_life_span<=args.singleton: singletons_excluded.append(i)
+		elif args.singleton > 0: # min number of occurrences
+			if len(fossil_complete[i]) <= args.singleton: singletons_excluded.append(i)
 			else:
 				have_record.append(i) # some (extant) species may have trait value but no fossil record
 				fossil.append(fossil_complete[i])
@@ -2379,7 +2380,7 @@ if use_se_tbl==False:
 			have_record.append(i) # some (extant) species may have trait value but no fossil record
 			fossil.append(fossil_complete[i]*args.rescale)
 			taxa_included.append(i)
-	if len(singletons_excluded)>0 and args.data_info is False: print "%s species excluded as singletons (%s remaining)" % (len(singletons_excluded), len(fossil))	
+	if len(singletons_excluded)>0 and args.data_info is False: print "%s species excluded (%s remaining)" % (len(singletons_excluded), len(fossil))	
 	out_name=input_data_module.get_out_name(j) +args.out
 
 	try: 
@@ -2481,10 +2482,10 @@ if model_cov>=1 or useDiscreteTraitModel is True:
 					matched_val = trait_values[trait_taxa==taxa_name]
 					if len(matched_val)>0: 
 						matched_trait_values.append(matched_val[0])
-						print "matched taxon:", taxa_name
+						print "matched taxon: %s\t%s\t%s" % (taxa_name, matched_val[0], max(fossil[i])-min(fossil[i]))
 					else: 
 						matched_trait_values.append(np.nan)
-						print taxa_name, "did not have data"
+						#print taxa_name, "did not have data"
 				trait_values= np.array(matched_trait_values)
 			
 			
@@ -2800,6 +2801,8 @@ elif TDI==2: head+="k_birth\tk_death\troot_age\tdeath_age\t"
 else:        head+="k_birth\tk_death\tDPP_alpha_L\tDPP_alpha_M\troot_age\tdeath_age\t"
 
 
+if useDiscreteTraitModel is True: 
+	for i in range(len(lengths_B_events)): head += "S_%s\t" % (i)
 head += "tot_length"
 head=head.split('\t')
 
