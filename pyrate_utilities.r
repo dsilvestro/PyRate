@@ -58,12 +58,12 @@ for (j in 1:replicates){
 	dat[dat$min_age == 0,3] <- 0.001
 	
 	if (any(dat[,4] < dat[,3])){
+		cat("\nWarning: the min age is older than the max age for at least one record\n")
 		cat ("\nlines:",1+as.numeric(which(dat[,4] < dat[,3])),sep=" ")
-		stop("the min age is older than the max age for at least one record\n")
 	}
 	
 	if (isTRUE(rnd)){
-			dat$new_age <- round(runif(length(dat[,1]), min=dat[,3], max=dat[,4]), digits=6)
+			dat$new_age <- round(runif(length(dat[,1]), min=apply(dat[,3:4],FUN=min,1), max=apply(dat[,3:4],FUN=max,1)), digits=6)
 		} else {
 			for (i in 1:length(dat[,1])){
 				dat$new_age[i] <- mean(c(dat[i,3], dat[i,4]))
