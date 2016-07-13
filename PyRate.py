@@ -2639,8 +2639,9 @@ else: multiHPP = False # multiHPP is for now limited to ADE models
 
 if args.qShift != "":
 	try: 
-		try: times_q_shift=list(sort(np.loadtxt(args.qShift))[::-1])
-		except(IndexError): times_q_shift=[np.loadtxt(args.qShift)]
+		try: times_q_shift=np.sort(np.loadtxt(args.qShift))[::-1]
+		except(IndexError): times_q_shift=np.array([np.loadtxt(args.qShift)])		
+		times_q_shift=list(times_q_shift[times_q_shift<max(FA)])
 		time_framesQ=len(times_q_shift)+1
 		multiHPP = True
 		occs_sp_bin =list()
