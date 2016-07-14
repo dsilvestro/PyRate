@@ -993,11 +993,11 @@ def BD_partial_lik(arg):
 	return lik
 
 # WORK IN PROGRESS
-#_ def cdf_WR(W_shape,W_scale,x):
-#_ 	return (x/W_scale)**(W_shape)
+def cdf_WR(W_shape,W_scale,x):
+	return (x/W_scale)**(W_shape)
 
-#_ def log_wr(t,W_shape,W_scale):
-#_ 	return log(W_shape/W_scale)+(W_shape-1)*log(t/W_scale)
+def log_wr(t,W_shape,W_scale):
+	return log(W_shape/W_scale)+(W_shape-1)*log(t/W_scale)
 
 def log_wei_pdf(x,W_shape,W_scale): # log pdf Weibull 
 	return log(W_shape/W_scale) + (W_shape-1)*log(x/W_scale) - (x/W_scale)**W_shape
@@ -1023,6 +1023,21 @@ nbins  = 1000
 xLim   = 50
 x_bins = np.linspace(0.0000001,xLim,nbins) 
 x_bin_size = x_bins[1]-x_bins[0]
+
+def BD_bd_rates_ADE_lik(arg): 
+	[s,e,W_shape,W_scale]=arg
+	# fit BD model
+	birth_lik = len(s)*log(l)-l*sum(d) # replace with partial lik function
+	d = s-e
+	de = d[e>0] #takes only the extinct species times
+	death_lik_de = sum(log_wr(de, W_shape, W_scale)) # log probability of death event
+	death_lik_wte = sum(-cdf_WR(W_shape,W_scale, d[te==0])) 
+	death_lik_de = sum(log_wr(de, W_shape, W_scale)) # log probability of death event
+	# analytical integration
+	death_lik_wte = sum(-m0*cdf_WR(W_shape,W_scale, d)) # log probability of waiting time until death event
+	lik = birth_lik + death_lik_de + death_lik_wte
+	return lik
+
 	
 def BD_age_partial_lik(arg): 
 	[ts,te,up,lo, rate,par,  cov_par,   W_shape,q]=arg
@@ -1043,10 +1058,6 @@ def BD_age_partial_lik(arg):
 	# this is equal to log(1- (sum(P[v<=i]) *(v[1]-v[0]) / exp(lik2)))
 	lik_extinct = sum(lik1-lik2)
 	lik = lik_extinct + sum(lik_extant)
-	# fit BD model
-	#de = d[te>0] #takes only the extinct species times
-	#death_lik_de = sum(log_wr(de, W_shape, W_scale)) # log probability of death event
-	#death_lik_wte = sum(-cdf_WR(W_shape,W_scale, br[te==0])) 
 	return lik	
 
 ######## W-MEAN
@@ -2117,7 +2128,7 @@ p.add_argument('-fS',     type=float, help='Tuning - fraction of updated values 
 p.add_argument('-tC',     type=float, help='Tuning - window sizes cov parameters (l,m,q)', default=[.2, .2, .15], nargs=3)
 p.add_argument('-fU',     type=float, help='Tuning - update freq. (q/alpha,l/m,cov)', default=[.02, .18, .08], nargs=3)
 p.add_argument('-multiR', type=int,   help='Tuning - Proposals for l/m: 0) sliding win 1) muliplier ', default=1, metavar=1)
-p.add_argument('-tHP',    type=float, help='Tuning - window sizes hyperpriors on l and m', default=[1.2, 1.2], nargs=3)
+p.add_argument('-tHP',    type=float, help='Tuning - window sizes hyperpriors on l and m', default=[1.2, 1.2], nargs=2)
 
 args = p.parse_args()
 t1=time.time()
@@ -2551,6 +2562,9 @@ if useDiscreteTraitModel is True:
 		lengths_D_events.append(len(lo_temp[lo_temp>0]))
 	lengths_B_events = np.array(lengths_B_events)
 	lengths_D_events = np.array(lengths_D_events)
+	print lengths_B_events, lengths_D_events
+	obs_S = [sum(FA[ind_trait_species==i]-LO[ind_trait_species==i]) for i in range(len(lengths_B_events))]
+	print obs_S
 	TDI = 0
 
 use_poiD=args.mPoiD
