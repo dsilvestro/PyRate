@@ -2291,7 +2291,7 @@ mcmc_log_file = args.reduceLog
 if mcmc_log_file != "":
 	infile_path = mcmc_log_file.split("/")
 	infile_stem = infile_path[-1].split(".")[0]
-	workdir = "/".join(mcmc_log_file.split("/")[:-1])
+	workdir = os.getcwd()
 	outfile = "%s/%s_reducedLog.log" %(workdir,infile_stem)
 	output = open(outfile, "wb")
 	outlog=csv.writer(output, delimiter='\t')
