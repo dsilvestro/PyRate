@@ -2066,6 +2066,7 @@ p.add_argument('-SE_stats',  type=str,help="Calculate and plot stats from SE tab
 p.add_argument('-ginput',    type=str,help='generate SE table from *mcmc.log files', default="", metavar="<path_to_mcmc.log>")
 p.add_argument('-combLog',   type=str,help='Combine (and resample) log files', default="", metavar="<path_to_log_files>")
 p.add_argument('-resample',  type=int,help='Number of samples for each log file (-combLog). Use 0 to keep all samples.', default=0, metavar=0)
+p.add_argument('-reduceLog', metavar='<input file>', type=str,help='Reduce the log file to only the first columns to check convergence', default="")
 
 # MCMC SETTINGS
 p.add_argument('-n',      type=int, help='mcmc generations',default=10000000, metavar=10000000)
@@ -2283,6 +2284,26 @@ else:
 freq_dpp       = args.dpp_f
 hp_gamma_shape = args.dpp_hp
 target_k       = args.dpp_eK
+
+############### Reduce Log File (written by Tobias Hofmann)
+#extract the first 12 columns from the mcmc log file in order to view it in tracer (omitting the species-specific columns that are not of interest for convergence)
+mcmc_log_file = args.reduceLog
+if mcmc_log_file != "":
+	infile_path = mcmc_log_file.split("/")
+	infile_stem = infile_path[-1].split(".")[0]
+	workdir = "/".join(mcmc_log_file.split("/")[:-1])
+	outfile = "%s/%s_reducedLog.log" %(workdir,infile_stem)
+	output = open(outfile, "wb")
+	outlog=csv.writer(output, delimiter='\t')
+	with open(mcmc_log_file, 'r') as f:
+		reader = csv.reader(f, delimiter='\t')
+		reader = list(reader)
+		header = reader[0]
+		body = reader[1:]
+		outlog.writerow(header[0:12])
+		for line in body:
+			outlog.writerow(line[0:12])
+	quit()
 
 ############### PLOT RTT
 path_dir_log_files=args.plot2
