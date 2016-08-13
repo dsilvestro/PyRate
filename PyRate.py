@@ -662,9 +662,15 @@ def init_ts_te(FA,LO):
 	ts=FA+np.random.exponential(.75, len(FA)) # exponential random starting point
 	tt=np.random.beta(2.5, 1, len(LO)) # beta random starting point
 	ts=FA+(.025*FA) #IMPROVE INIT
+	ts[ts>boundMax] = np.random.uniform(FA[ts>boundMax],boundMax,len(ts[ts>boundMax])) # avoit init values outside bounds
 	te=LO-(.025*LO) #IMPROVE INIT
+	te[te<boundMin] = np.random.uniform(boundMin,LO[te<boundMin],len(te[te<boundMin])) # avoit init values outside bounds
 	#te=LO*tt
 	if frac1==0: ts, te= FA,LO
+	try: 
+		ts[SP_not_in_window] = boundMax
+		te[EX_not_in_window] = boundMin
+	except(NameError): pass
 	return ts, te
 
 def init_BD(n):
@@ -768,17 +774,19 @@ def update_times(times, root, mod_d4):
 	y=-1*y
 	return y
 
-def update_ts_te(ts, te, d1):
+def update_ts_te_old(ts, te, d1):
 	tsn, ten= zeros(len(ts)), zeros(len(te))
 	f1=np.random.random_integers(1,frac1) #int(frac1*len(FA)) #-np.random.random_integers(0,frac1*len(FA)-1)) 
-	ind=np.random.random_integers(0,len(ts)-1,f1) 
+	ind=np.random.choice(SP_in_window,f1) # update only values in SP/EX_in_window
+	#ind=np.random.random_integers(0,len(ts)-1,f1) 
 	tsn[ind]=np.random.uniform(-d1,d1,len(tsn[ind]))
 	tsn = abs(tsn+ts)		                         # reflection at min boundary (0)
 	ind=(tsn<FA).nonzero()					 # indices of ts<FA (not allowed)
 	tsn[ind] = abs(tsn[ind]-FA[ind])+FA[ind]         # reflection at max boundary (FA)
 	tsn=abs(tsn)
 
-	ind=np.random.random_integers(0,len(ts)-1,f1) 
+	ind=np.random.choice(EX_in_window,f1)
+	#ind=np.random.random_integers(0,len(ts)-1,f1) 
 	ten[ind]=np.random.uniform(-d1,d1,len(ten[ind]))
 	ten=abs(ten+te)		                         # reflection at min boundary (0)
 	ind2=(ten>LO).nonzero()                          
@@ -787,6 +795,29 @@ def update_ts_te(ts, te, d1):
 	ten[ind2] = te[ind2]                             # reflection at max boundary (LO)
 	ind=(LO==0).nonzero()                            # indices of LO==0 (extant species)
 	ten[ind]=0
+	return tsn,ten
+
+def update_ts_te(ts, te, d1):
+	tsn, ten= zeros(len(ts))+ts, zeros(len(te))+te
+	f1=np.random.random_integers(1,frac1) #int(frac1*len(FA)) #-np.random.random_integers(0,frac1*len(FA)-1)) 
+	ind=np.random.choice(SP_in_window,f1) # update only values in SP/EX_in_window
+	tsn[ind] = ts[ind] + (np.random.uniform(0,1,len(ind))-.5)*d1
+	M = boundMax
+	tsn[tsn>M]=M-(tsn[tsn>M]-M)
+	m = FA
+	tsn[tsn<m]=(m[tsn<m]-tsn[tsn<m])+m[tsn<m]
+	tsn[tsn>M] = ts[tsn>M]
+
+	ind=np.random.choice(EX_in_window,f1)
+	ten[ind] = te[ind] + (np.random.uniform(0,1,len(ind))-.5)*d1
+	M = LO
+	ten[ten>M]=M[ten>M]-(ten[ten>M]-M[ten>M])
+	m = boundMin
+	ten[ten<m]=(m-ten[ten<m])+m
+	ten[ten>M] = te[ten>M]
+	ten[LO==0]=0                                     # indices of LO==0 (extant species)
+	S= tsn-ten
+	if min(S)<=0: print S
 	return tsn,ten
 
 def seed_missing(x,m,s): # assigns random normally distributed trait values to missing data
@@ -912,10 +943,10 @@ def HPBD3(timesL,timesM,L,M,T,s):
 def BD_lik_discrete_trait(arg):
 	[ts,te,L,M]=arg
 	S = ts-te
-	lik0 = log(L)*lengths_B_events     #
-	lik1 = -L*sum(S)                   # assumes that speiation can arise from any trait state
-	lik2 = log(M)*lengths_D_events                                            # Trait specific extinction
-	lik3 = -sum( [M[i]*sum(S[ind_trait_species==i]) for i in range(len(M))] ) # only species with a trait state can go extinct
+	lik0 =  sum(log(L)*lengths_B_events )    #
+	lik1 = -sum(L*sum(S))                   # assumes that speiation can arise from any trait state
+	lik2 =  sum(log(M)*lengths_D_events)                                        # Trait specific extinction
+	lik3 = -sum([M[i]*sum(S[ind_trait_species==i]) for i in range(len(M))]) # only species with a trait state can go extinct
 	return sum(lik0+lik1+lik2+lik3)
 
 
@@ -991,6 +1022,24 @@ def BD_partial_lik(arg):
 	else:           # constant rate model
 		lik= log(rate)*len(i_events) -rate*sum(n_S) #log(rate)*len(i_events) +sum(-rate*n_S)
 	return lik
+
+
+def BD_partial_lik_bounded(arg):
+	[ts,te,up,lo,rate,par, cov_par,n_frames_L]=arg
+	# indexes of the species within time frame
+	if par=="l": 
+		i_events=np.intersect1d((ts[SP_in_window] <= up).nonzero()[0], (ts[SP_in_window] > lo).nonzero()[0])
+	else: 
+		i_events=np.intersect1d((te[EX_in_window] <= up).nonzero()[0], (te[EX_in_window] > lo).nonzero()[0])
+	n_all_inframe, n_S = get_sp_in_frame_br_length(ts,te,up,lo)
+	if cov_par !=0: # covaring model: $r$ is vector of rates tranformed by trait
+		r=exp(log(rate)+cov_par*(con_trait-parGAUS[0])) # exp(log(rate)+cov_par*(con_trait-mean(con_trait[all_inframe])))
+		lik= sum(log(r[i_events])) + sum(-r[n_all_inframe]*n_S) #, cov_par
+	else:           # constant rate model
+		#print par, len(i_events), len(te)
+		lik= log(rate)*len(i_events) -rate*sum(n_S) #log(rate)*len(i_events) +sum(-rate*n_S)
+	return lik
+
 
 # WORK IN PROGRESS
 def cdf_WR(W_shape,W_scale,x):
@@ -1421,11 +1470,11 @@ def Alg_3_1(arg):
 				LL=len(L)+len(M)
 				if np.random.random()>.5 and use_Death_model is False:
 					ind=np.random.random_integers(0,len(L))
-					timesL, L = born_prm(timesL, L, ind, ts)
+					timesL, L = born_prm(timesL, L, ind, ts[SP_in_window])
 					IND=ind
 				else: 
 					ind=np.random.random_integers(0,len(M))
-					timesM, M = born_prm(timesM, M, ind, te)
+					timesM, M = born_prm(timesM, M, ind, te[EX_in_window])
 					IND=ind+len(timesL)-1
 				if LL == len(L)+len(M): IND=-1
 			else: # REMOVE PARAMETER
@@ -1582,7 +1631,7 @@ def MCMC(all_arg):
 			if use_Death_model is True: LA = np.ones(1)
 			if useDiscreteTraitModel is True: 
 				LA = init_BD(len(lengths_B_events)+1)
-				MA = init_BD(len(lengths_B_events)+1)
+				MA = init_BD(len(lengths_D_events)+1)
 				
 		else : ### DPP
 			LA = init_BD(1) # init 1 rate
@@ -2095,7 +2144,7 @@ p.add_argument('-pL',      type=float, help='Prior - speciation rate (Gamma <sha
 p.add_argument('-pM',      type=float, help='Prior - extinction rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.1, 1.1], metavar=1.1, nargs=2)
 p.add_argument('-pP',      type=float, help='Prior - preservation rate (Gamma <shape, rate>)', default=[1.5, 1.1], metavar=1.5, nargs=2)
 p.add_argument('-pS',      type=float, help='Prior - time frames (Dirichlet <shape>)', default=2.5, metavar=2.5)
-p.add_argument('-pC',      type=float, help='Prior - covariance parameters (Normal <standard deviation>) | (if pC=0 -> sd estimated)', default=1, metavar=1)
+p.add_argument('-pC',      type=float, help='Prior - Covar parameters (Normal <standard deviation>) | (if pC=0 -> sd estimated)', default=1, metavar=1)
 p.add_argument("-cauchy",  type=float, help='Prior - use hyper priors on sp/ex rates (if 0 -> estimated)', default=[-1, -1], metavar=-1, nargs=2)
 
 # MODEL
@@ -2115,6 +2164,7 @@ p.add_argument('-qShift',  metavar='<input file>', type=str,help="Input tab-deli
 p.add_argument('-fixSE',   metavar='<input file>', type=str,help="Input mcmc.log file",default="")
 p.add_argument('-ADE',     type=int, help='ADE model: 0) no age dependence 1) estimated age dep', default=0, metavar=0)
 p.add_argument('-discrete',help='Discrete-trait-dependent BD model (requires -trait_file)', action='store_true', default=False)
+p.add_argument('-bound',      type=float, help='Bounded BD model', default=[np.inf, 0], metavar=0, nargs=2)
 
 
 # TUNING
@@ -2436,6 +2486,8 @@ else:
 
 if argsG is True: out_name += "_G"
 
+############################ SET BIRTH-DEATH MODEL ############################
+
 # Number of extant taxa (user specified)
 if args.N>-1: tot_extant=args.N
 else: tot_extant = -1	
@@ -2459,29 +2511,43 @@ else: fix_SE=False
 if args.discrete is True: useDiscreteTraitModel = True
 else: useDiscreteTraitModel = False
 
-# Get trait values (Cov model)
-if model_cov>=1 or useDiscreteTraitModel is True:
-	try:
+useBounded_BD = False
+if args.bound[0] != np.inf or args.bound[1] != 0: 
+	useBounded_BD = True
+boundMax = max(args.bound) # if not specified it is set to Inf
+boundMin = min(args.bound) # if not specified it is set to 0
+
+
+# Get trait values (COVAR and DISCRETE models)
+if model_cov>=1 or useDiscreteTraitModel is True or useBounded_BD is True:
+	if 2>1: #try:
 		if args.trait_file != "": # Use trait file
 			traitfile=file(args.trait_file, 'U')
 			
 			L=traitfile.readlines()
 			head= L[0].split()
 			
-			if len(head)==2: col=1
-			elif len(head)==3: col=2
-			else: sys.exit("\nNo trait data found.")
+			if useBounded_BD is True: # columns: taxon_name, SP, EX (SP==1 if speciate in window)
+				trait_val=[l.split()[1:3] for l in L][1:]
+			else:
+				if len(head)==2: col=1
+				elif len(head)==3: col=2 ####  CHECK HERE: WITH BOUNDED-BD 3 columns but two traits!
+				else: sys.exit("\nNo trait data found!")
+				trait_val=[l.split()[col] for l in L][1:]
 			
-			trait_val=[l.split()[col] for l in L][1:]
-			trait_values = np.zeros(len(trait_val))
-			trait_count = 0 
-			for i in range(len(trait_val)): 
-				try: 
-					trait_values[i] = float(trait_val[i])
-					trait_count+=1
-				except: trait_values[i] = np.nan
-			
-			if trait_count==0: sys.exit("\nNo trait data found.") 
+			if useBounded_BD is True:
+				trait_values = np.array(trait_val)
+				trait_values = trait_values.astype(float)
+			else:
+				trait_values = np.zeros(len(trait_val))
+				trait_count = 0 
+				for i in range(len(trait_val)): 
+					try: 
+						trait_values[i] = float(trait_val[i])
+						trait_count+=1
+					except: 
+						trait_values[i] = np.nan
+				if trait_count==0: sys.exit("\nNo trait data found.") 
 			
 			if match_taxa_trait is True:
 				trait_taxa=np.array([l.split()[0] for l in L][1:])
@@ -2495,20 +2561,23 @@ if model_cov>=1 or useDiscreteTraitModel is True:
 						matched_trait_values.append(matched_val[0])
 						print "matched taxon: %s\t%s\t%s" % (taxa_name, matched_val[0], max(fossil[i])-min(fossil[i]))
 					else: 
-						matched_trait_values.append(np.nan)
+						if useBounded_BD is True: # taxa not specified originate/go_extinct in window 
+							matched_trait_values.append([1,1])
+						else: 
+							matched_trait_values.append(np.nan)
 						#print taxa_name, "did not have data"
 				trait_values= np.array(matched_trait_values)
-			
+				#print trait_values
 			
 		else:             # Trait data from .py file
 			trait_values=input_data_module.get_continuous(max(args.trait-1,0))
-		if useDiscreteTraitModel is False:
+		if model_cov>=1:
 			if args.logT==0: pass
 			elif args.logT==1: trait_values = log(trait_values)
 			else: trait_values = np.log10(trait_values)		
-	except: sys.exit("\nTrait data not found! Check input file.\n")
+	#except: sys.exit("\nTrait data not found! Check input file.\n")
 	
-	if useDiscreteTraitModel is False:
+	if model_cov>=1:
 		# Mid point age of each lineage
 		if use_se_tbl==True: MidPoints = (fixed_ts+fixed_te)/2.
 		else:
@@ -2541,12 +2610,13 @@ if model_cov>=1 or useDiscreteTraitModel is True:
 		#print con_trait
 		if est_COVAR_prior is True: out_name += "_COVhp"
 		else: out_name += "_COV"
-	else: 
+	elif useDiscreteTraitModel is True: 
 		con_trait = trait_values
 		ind_nan_trait= (np.isfinite(trait_values)==False).nonzero()
 		regression_trait= "\n\nDiscrete trait data for %s of %s taxa" \
 		% (len(trait_values)-len(ind_nan_trait[0]), len(trait_values))
 		print(regression_trait)
+	else: print "\n"
 		
 
 if useDiscreteTraitModel is True:
@@ -2560,8 +2630,9 @@ if useDiscreteTraitModel is True:
 		lengths_B_events.append(len(con_trait[con_trait==i]))
 		lo_temp = LO[con_trait==i]
 		lengths_D_events.append(len(lo_temp[lo_temp>0]))
-	lengths_B_events = np.array(lengths_B_events)
+	lengths_B_events = np.array([sum(lengths_B_events)]) # ASSUME CONST BIRTH RATE
 	lengths_D_events = np.array(lengths_D_events)
+	#ind_trait_species = ind_trait_species-ind_trait_species
 	print lengths_B_events, lengths_D_events
 	obs_S = [sum(FA[ind_trait_species==i]-LO[ind_trait_species==i]) for i in range(len(lengths_B_events))]
 	print obs_S
@@ -2571,9 +2642,22 @@ use_poiD=args.mPoiD
 if use_poiD is True:
 	BPD_partial_lik = PoiD_partial_lik
 	PoiD_const = - (sum(log(np.arange(1,len(FA)+1))))
+elif useBounded_BD is True:
+	BPD_partial_lik = BD_partial_lik_bounded
+	PoiD_const = 0
+	SP_in_window = (trait_values[:,0]==1).nonzero()[0]
+	EX_in_window = (trait_values[:,1]==1).nonzero()[0]
+	SP_not_in_window = (trait_values[:,0]==0).nonzero()[0]
+	EX_not_in_window = (trait_values[:,1]==0).nonzero()[0]
+	#print SP_in_window, EX_in_window
+	###### NEXT: change function update_ts_te() so that only SP/EX_in_win are updated
+	# make sure the starting points are set to win boundaries for the other species and
+	# within boundaries for SP/EX_in_win
 else:
 	BPD_partial_lik = BD_partial_lik
 	PoiD_const = 0
+	SP_in_window = np.arange(len(FA)) # all ts/te can be updated
+	EX_in_window = np.arange(len(LO))
 
 if args.mDeath is True: use_Death_model =True
 else: use_Death_model=False
@@ -2807,7 +2891,7 @@ if TDI<2:
 		for i in range(time_framesM): head += "mean_longevity_%s\t" % (i)
 	elif useDiscreteTraitModel is True:
 		for i in range(len(lengths_B_events)): head += "lambda_%s\t" % (i)
-		for i in range(len(lengths_B_events)): head += "mu_%s\t" % (i)		
+		for i in range(len(lengths_D_events)): head += "mu_%s\t" % (i)		
 	
 	if fix_Shift== False:
 		for i in range(1,time_framesL): head += "shift_sp_%s\t" % (i)
