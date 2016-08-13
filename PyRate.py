@@ -2097,24 +2097,26 @@ p.add_argument('-logT',      type=int, help='Transform trait: 0) False, 1) Ln(x)
 p.add_argument("-N",         type=float, help='number of exant species') 
 p.add_argument("-wd",        type=str, help='path to working directory', default="")
 p.add_argument("-out",       type=str, help='output tag', default="")
-p.add_argument('-singleton', type=float, help='Remove singletons (min life span)', default=0, metavar=0)
+p.add_argument('-singleton', type=float, help='Remove singletons (min no. occurrences)', default=0, metavar=0)
+p.add_argument('-frac_sampled_singleton', type=float, help='Random fraction of singletons not removed', default=0, metavar=0)
 p.add_argument("-rescale",   type=float, help='Rescale data (e.g. -rescale 0.001: 1My -> 1Ky)', default=1, metavar=1)
 p.add_argument('-d',         type=str,help="Load SE table",metavar='<input file>',default="")
 p.add_argument('-clade',     type=int, help='clade analyzed (set to -1 to analyze all species)', default=-1, metavar=-1)
 p.add_argument('-trait_file',type=str,help="Load trait table",metavar='<input file>',default="")
 
 # PLOTS AND OUTPUT
-p.add_argument('-plot',      metavar='<input file>', type=str,help="RTT plot (type 1): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
-p.add_argument('-plot2',     metavar='<input file>', type=str,help="RTT plot (type 2): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
-p.add_argument('-root_plot', type=float, help='User define root age for RTT plots', default=0, metavar=0)
-p.add_argument('-tag',       metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted (-plot) or summarized in SE table (-ginput)",default="")
-p.add_argument('-mProb',     type=str,help="Input 'mcmc.log' file",default="")
-p.add_argument('-BF',        type=str,help="Input 'marginal_likelihood.txt' files",metavar='<2 input files>',nargs='+',default=[])
-p.add_argument("-data_info", help='Summary information about an input data', action='store_true', default=False)
-p.add_argument('-SE_stats',  type=str,help="Calculate and plot stats from SE table:",metavar='<marginal_rates.log file bin_size #_simulations>',nargs='+',default=[])
-p.add_argument('-ginput',    type=str,help='generate SE table from *mcmc.log files', default="", metavar="<path_to_mcmc.log>")
-p.add_argument('-combLog',   type=str,help='Combine (and resample) log files', default="", metavar="<path_to_log_files>")
-p.add_argument('-resample',  type=int,help='Number of samples for each log file (-combLog). Use 0 to keep all samples.', default=0, metavar=0)
+p.add_argument('-plot',       metavar='<input file>', type=str,help="RTT plot (type 1): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
+p.add_argument('-plot2',      metavar='<input file>', type=str,help="RTT plot (type 2): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
+p.add_argument('-root_plot',  type=float, help='User define root age for RTT plots', default=0, metavar=0)
+p.add_argument('-tag',        metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted (-plot) or summarized in SE table (-ginput)",default="")
+p.add_argument('-mProb',      type=str,help="Input 'mcmc.log' file",default="")
+p.add_argument('-BF',         type=str,help="Input 'marginal_likelihood.txt' files",metavar='<2 input files>',nargs='+',default=[])
+p.add_argument("-data_info",  help='Summary information about an input data', action='store_true', default=False)
+p.add_argument('-SE_stats',   type=str,help="Calculate and plot stats from SE table:",metavar='<marginal_rates.log file bin_size #_simulations>',nargs='+',default=[])
+p.add_argument('-ginput',     type=str,help='generate SE table from *mcmc.log files', default="", metavar="<path_to_mcmc.log>")
+p.add_argument('-combLog',    type=str,help='Combine (and resample) log files', default="", metavar="<path_to_log_files>")
+p.add_argument('-resample',   type=int,help='Number of samples for each log file (-combLog). Use 0 to keep all samples.', default=0, metavar=0)
+p.add_argument('-check_names',type=str,help='Automatic check for typos in taxa names (provide SpeciesList file)', default="", metavar="<*_SpeciesList.txt file>")
 
 # MCMC SETTINGS
 p.add_argument('-n',      type=int, help='mcmc generations',default=10000000, metavar=10000000)
@@ -2185,7 +2187,7 @@ t1=time.time()
 
 if args.cite is True:
 	sys.exit(citation)
-############################ MODEL SETTINGS ############################
+############################ MODEL SETTINGS ############################ 
 # PRIORS
 L_lam_r,L_lam_m = args.pL # shape and rate parameters of Gamma prior on sp rates
 M_lam_r,M_lam_m = args.pM # shape and rate parameters of Gamma prior on ex rates
@@ -2257,6 +2259,19 @@ if args.ginput != "":
 	You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
 	lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=-1,burnin=int(burnin)+1)
 	quit()
+
+if args.check_names != "":
+	try:
+		self_path= os.path.dirname(sys.argv[0])
+		import imp
+		lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
+		lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
+	except: sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
+	You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
+	SpeciesList_file = args.check_names
+	lib_utilities.check_taxa_names(SpeciesList_file)
+	quit()
+
 
 # freq update CovPar
 if model_cov==0: f_cov_par= [0  ,0  ,0 ]
@@ -2432,7 +2447,8 @@ if use_se_tbl==False:
 				fossil.append(fossil_complete[i])
 				taxa_included.append(i)
 		elif args.singleton > 0: # min number of occurrences
-			if len(fossil_complete[i]) <= args.singleton: singletons_excluded.append(i)
+			if len(fossil_complete[i]) <= args.singleton and np.random.random() >= args.frac_sampled_singleton: 
+				singletons_excluded.append(i)
 			else:
 				have_record.append(i) # some (extant) species may have trait value but no fossil record
 				fossil.append(fossil_complete[i])
