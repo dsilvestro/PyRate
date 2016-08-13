@@ -11,20 +11,26 @@ np.set_printoptions(precision=3) # rounds all array elements to 3rd digit
 #os.chdir('/Users/daniele/Dropbox-personal/Dropbox/PyRate_Age-Dependency_and_Beyond/Toy_Datasets_TreeSimGM/BAT_simulator/testingzone')
 os.chdir("/Users/daniele/Desktop/try/pyrate_ade/multiHPP")
 
-for sim_no in range(1):
+n_simulations=1
+W_shape_vec = np.round(np.random.uniform(1.5,1.5,n_simulations),3) # shapes[sim_no]
+q_rate_vec  = np.round(np.random.uniform(0.5,1.5,2*n_simulations),3).reshape((n_simulations,2)) # preservation rate
+W_scale_vec = np.round(np.random.uniform(4,7,2*n_simulations),3).reshape((n_simulations,2))
+W_scale_vec[:,1]=W_scale_vec[:,0]
+generate_output = True
+shift_time = 15.
+
+for sim_no in range(0,n_simulations):
 	def mean_ext_WR(x,W_shape,W_scale):
 		return mean((W_shape/W_scale)*(x/W_scale)**(W_shape-1)), W_scale * gamma(1 + 1./W_shape)
 
 
-	R = 15. # root age
+	R = 30. # root age
 	N = np.random.randint(100,150) # no. species
 	E = 1 # if 0 all extinct, if 1 includes extant
-	shift_time = 7.
-	q_rate = np.round(np.random.uniform(0.5,1.5,2),3) # preservation rate
-	generate_output = True
 	#shapes = [0.5,1.,1.5]
-	W_shape = round(np.random.uniform(0.5,1.5),3) # shapes[sim_no]
-	W_scale = np.round(np.random.uniform(3,7,2),3)
+	q_rate  = q_rate_vec[sim_no]   #np.round(np.random.uniform(0.5,1.5,2),3) # preservation rate
+	W_shape = W_shape_vec[sim_no]  #np.round(np.random.uniform(0.5,1.5),3) # shapes[sim_no]
+	W_scale = W_scale_vec[sim_no]  #np.round(np.random.uniform(3,7,2),3)
 	v= np.linspace(0.0001,10,1000)
 	#mean_ext_WR(v,W_shape,W_scale)
 	# CI
@@ -41,14 +47,17 @@ for sim_no in range(1):
 	
 	# species originating prior to the shift time
 	br_length_0 = np.random.weibull(W_shape,N)*W_scale[0]
+	#print mean(br_length_0),W_scale[0]
 	# species going extinct after shift time
 	TE[TS>shift_time] = TS[TS>shift_time]- br_length_0[TS>shift_time]
 	ind_TE_after = (TE<shift_time).nonzero()[0]
 	
 	for i in ind_TE_after:
-		br_temp = np.random.weibull(W_shape,1)*W_scale[1]
-		while br_temp <= (TS[i]-shift_time): br_temp = np.random.weibull(W_shape,1)*W_scale[1]
-		TE[i]= TS[i]-br_temp
+		patial_br = shift_time-TE[i]
+		TE[i] = shift_time-patial_br/(W_scale[0]/W_scale[1])
+		#__ br_temp = np.random.weibull(W_shape,1)*W_scale[1]
+		#__ while br_temp <= (TS[i]-shift_time): br_temp = np.random.weibull(W_shape,1)*W_scale[1]
+		#__ TE[i]= TS[i]-br_temp
 	
 	
 	# species originating AFTER the shift time
@@ -57,9 +66,9 @@ for sim_no in range(1):
 	
 	TE[TE<0]=0
 	
-	#for i in range(len(TS)):
-	#	print i, round(TS[i],3), round(TE[i],3)
-        #
+	for i in range(len(TS)):
+		print i, round(TS[i],3), round(TE[i],3)
+        
 	print len(TE[TE==0]), N, len(TE[TE==0])/float(N)
 	#print TS[TE==0]
 	
@@ -169,8 +178,8 @@ for sim_no in range(1):
 		rho = sim_data[2]
 		# simulatiom name
 		sim_output = "sim_%s" % (sim_no)
-		# names log files
-		output_name = "sim%s_%s_%s_%s_%s_%s_%s_%s_%s" % (sim_no, N,E,rho,q_rate[0],q_rate[1],W_shape,W_scale[0],W_scale[1])
+		# names log files                                # extant, extinct, q0, q1, shape, scale0, scale1
+		output_name = "sim%s_%s_%s_%s_%s_%s_%s_%s" % (sim_no, N,len(TE[TE==0]),q_rate[0],q_rate[1],W_shape,W_scale[0],W_scale[1])
 
 
 

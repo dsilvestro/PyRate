@@ -11,7 +11,7 @@ np.set_printoptions(precision=3) # rounds all array elements to 3rd digit
 #os.chdir('/Users/daniele/Dropbox-personal/Dropbox/PyRate_Age-Dependency_and_Beyond/Toy_Datasets_TreeSimGM/BAT_simulator/testingzone')
 os.chdir("/Users/daniele/Desktop/try/pyrate_ade/HPP_extant")
 
-for sim_no in range(100):
+for sim_no in range(1):
 	def mean_ext_WR(x,W_shape,W_scale):
 		return mean((W_shape/W_scale)*(x/W_scale)**(W_shape-1)), W_scale * gamma(1 + 1./W_shape)
 
@@ -22,7 +22,7 @@ for sim_no in range(100):
 	q_rate = round(np.random.uniform(0.5,1.5),3) # preservation rate
 	generate_output = True
 	shapes = [0.5,1.,1.5]
-	W_shape = round(np.random.uniform(0.5,1.5),3) # shapes[sim_no]
+	W_shape = round(np.random.uniform(1.5,1.5),3) # shapes[sim_no]
 	W_scale = round(np.random.uniform(2.5,5),3)
 	v= np.linspace(0.0001,10,1000)
 	mean_ext_WR(v,W_shape,W_scale)

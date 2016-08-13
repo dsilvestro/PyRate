@@ -184,7 +184,16 @@ for REP in range(10):
 
 
 
+N = 12
+R = 50
+W_shape = .5
+W_scale = 4.
+br_length = np.random.weibull(W_shape,N)*W_scale
 
+ts = np.random.uniform(br_length,R,N)
+te = np.random.uniform(0,R,N)
+te = ts-br_length
+te[te<0]=0
 
 
 
