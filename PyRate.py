@@ -802,7 +802,7 @@ def update_ts_te(ts, te, d1):
 	f1=np.random.random_integers(1,frac1) #int(frac1*len(FA)) #-np.random.random_integers(0,frac1*len(FA)-1)) 
 	ind=np.random.choice(SP_in_window,f1) # update only values in SP/EX_in_window
 	tsn[ind] = ts[ind] + (np.random.uniform(0,1,len(ind))-.5)*d1
-	M = boundMax
+	M = np.inf #boundMax
 	tsn[tsn>M]=M-(tsn[tsn>M]-M)
 	m = FA
 	tsn[tsn<m]=(m[tsn<m]-tsn[tsn<m])+m[tsn<m]
@@ -812,12 +812,14 @@ def update_ts_te(ts, te, d1):
 	ten[ind] = te[ind] + (np.random.uniform(0,1,len(ind))-.5)*d1
 	M = LO
 	ten[ten>M]=M[ten>M]-(ten[ten>M]-M[ten>M])
-	m = boundMin
+	m = 0 #boundMin
 	ten[ten<m]=(m-ten[ten<m])+m
 	ten[ten>M] = te[ten>M]
 	ten[LO==0]=0                                     # indices of LO==0 (extant species)
 	S= tsn-ten
 	if min(S)<=0: print S
+	tsn[SP_not_in_window] = max([boundMax, max(tsn[SP_in_window])])
+	ten[EX_not_in_window] = min([boundMin, min(ten[EX_in_window])])
 	return tsn,ten
 
 def seed_missing(x,m,s): # assigns random normally distributed trait values to missing data
@@ -1259,17 +1261,19 @@ def HOMPP_lik(arg):
 	x=fossil[i]
 	lik=0
 	k=len(x[x>0]) # no. fossils for species i
+	br_length = M-m
+	if useBounded_BD is True: br_length = min(br_length, boundMax-boundMin)
 	if cov_par ==2: # transform preservation rate by trait value
 		q=exp(log(q_rate)+cov_par*(con_trait[i]-parGAUS[0]))
 	else: q=q_rate
 	if argsG is True:
 		YangGamma=get_gamma_rates(shapeGamma)
 		qGamma= YangGamma*q
-		lik1= -qGamma*(M-m) + log(qGamma)*k - sum(log(np.arange(1,k+1)))  -log(1-exp(-qGamma*(M-m)))
+		lik1= -qGamma*(br_length) + log(qGamma)*k - sum(log(np.arange(1,k+1)))  -log(1-exp(-qGamma*(br_length)))
 		lik2= lik1-max(lik1)
 		lik=log(sum(exp(lik2)*(1./args.ncat)))+max(lik1)
 		return lik
-	else: 	return -q*(M-m) + log(q)*k - sum(log(np.arange(1,k+1))) - log(1-exp(-q*(M-m)))
+	else: 	return -q*(br_length) + log(q)*k - sum(log(np.arange(1,k+1))) - log(1-exp(-q*(br_length)))
 
 def NHPP_lik(arg):
 	[m,M,nothing,q_rate,i,cov_par, ex_rate]=arg
@@ -1607,8 +1611,28 @@ def get_rate_HP(n,target_k,hp_gamma_shape):
 
 ####### END FUNCTIONS for DIRICHLET PROCESS PRIOR #######
 
-
-
+def get_init_values(mcmc_log_file):
+	tbl = np.loadtxt(mcmc_log_file,skiprows=1)
+	last_row = np.shape(tbl)[0]-1
+	head = next(open(mcmc_log_file)).split()
+	ts_index = [head.index(i) for i in head if "_TS" in i]
+	te_index = [head.index(i) for i in head if "_TE" in i]
+	q_rates_index = [head.index("alpha"), head.index("q_rate")]
+	ts = tbl[last_row,ts_index]
+	te = tbl[last_row,te_index]
+	q_rates = tbl[last_row,q_rates_index]
+	if len(fixed_times_of_shift)>0: # fixShift
+		hyp_index = [head.index("hypL"), head.index("hypM")]
+		l_index = [head.index(i) for i in head if "lambda_" in i]
+		m_index = [head.index(i) for i in head if "mu_" in i]
+		lam = tbl[last_row,l_index]
+		mu  = tbl[last_row,m_index]
+		hyp = tbl[last_row,hyp_index]
+	else:
+		lam = float(len(ts))/(ts-te)          # const rate ML estimator
+		mu  = float(len(te[te>0]))/(ts-te)    # const rate ML estimator
+		hyp = hypP_par	
+	return [ts,te,q_rates,lam,mu,hyp]
 
 
 
@@ -1622,11 +1646,15 @@ def MCMC(all_arg):
 		print("initializing chain...")
 		if fix_SE is True: tsA, teA = fixed_ts, fixed_te
 		else: tsA, teA = init_ts_te(FA,LO)
+		if restore_chain is True: tsA, teA = restore_init_values[0], restore_init_values[1]
 		timesLA, timesMA = init_times(max(tsA),time_framesL,time_framesM, min(teA))
 		if len(fixed_times_of_shift)>0: timesLA[1:-1],timesMA[1:-1]=fixed_times_of_shift,fixed_times_of_shift
 		if TDI<3:
 			LA = init_BD(len(timesLA))
 			MA = init_BD(len(timesMA))
+			if restore_chain is True: 
+				LA = restore_init_values[3]
+				MA = restore_init_values[4]
 			if use_ADE_model is True: MA = np.random.uniform(3,5,len(timesMA)-1)
 			if use_Death_model is True: LA = np.ones(1)
 			if useDiscreteTraitModel is True: 
@@ -1642,6 +1670,8 @@ def MCMC(all_arg):
 			alpha_par_Dir_M = np.random.uniform(0,1) # init concentration parameters
 		
 		q_ratesA,cov_parA = init_q_rates() # use 1 for symmetric PERT
+		if restore_chain is True: q_ratesA = restore_init_values[2]
+		
 		if multiHPP is True: # init multiple q rates
 			q_ratesA = np.zeros(time_framesQ)+q_ratesA[1]
 		
@@ -1653,6 +1683,7 @@ def MCMC(all_arg):
 			
 		#if fix_hyperP is False:	hyperPA=np.ones(2)
 		hyperPA = hypP_par
+		if restore_chain is True: hyperPA = restore_init_values[5]
 		
 		if argsG is False and multiHPP is False: q_ratesA[0]=1
 		SA=sum(tsA-teA)
@@ -1960,7 +1991,10 @@ def MCMC(all_arg):
 				W_shapeA=W_shape
 			
 		if it % print_freq ==0 or it==burnin:
-			l=[round(y, 2) for y in [PostA, likA, priorA, SA]]
+			try: l=[round(y, 2) for y in [PostA, likA, priorA, SA]]
+			except: 
+				print lik, prior, prior_root_age(max(ts),max(FA),max(FA)), priorBD, max(ts),max(FA)
+				quit()
 			if it>burnin and n_proc==0:
 				print_out= "\n%s\tpost: %s lik: %s (%s, %s) prior: %s tot.l: %s" \
 				% (it, l[0], l[1], round(sum(lik_fossilA), 2), round(sum(likBDtempA)+ PoiD_const, 2),l[2], l[3])
@@ -2103,6 +2137,7 @@ p.add_argument("-rescale",   type=float, help='Rescale data (e.g. -rescale 0.001
 p.add_argument('-d',         type=str,help="Load SE table",metavar='<input file>',default="")
 p.add_argument('-clade',     type=int, help='clade analyzed (set to -1 to analyze all species)', default=-1, metavar=-1)
 p.add_argument('-trait_file',type=str,help="Load trait table",metavar='<input file>',default="")
+p.add_argument('-restore_mcmc',type=str,help="Load mcmc.log file",metavar='<input file>',default="")
 
 # PLOTS AND OUTPUT
 p.add_argument('-plot',       metavar='<input file>', type=str,help="RTT plot (type 1): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
@@ -2249,7 +2284,7 @@ else:
 	d3 = max(args.tR,1.05) # avoid win size < 1
 
 
-if args.ginput != "":
+if args.ginput != "" or args.check_names != "":
 	try:
 		self_path= os.path.dirname(sys.argv[0])
 		import imp
@@ -2257,19 +2292,11 @@ if args.ginput != "":
 		lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
 	except: sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
 	You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
-	lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=-1,burnin=int(burnin)+1)
-	quit()
-
-if args.check_names != "":
-	try:
-		self_path= os.path.dirname(sys.argv[0])
-		import imp
-		lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
-		lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
-	except: sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
-	You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
-	SpeciesList_file = args.check_names
-	lib_utilities.check_taxa_names(SpeciesList_file)
+	if args.ginput != "":
+		lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=-1,burnin=int(burnin)+1)
+	elif args.check_names != "":
+		SpeciesList_file = args.check_names
+		lib_utilities.check_taxa_names(SpeciesList_file)
 	quit()
 
 
@@ -2410,6 +2437,13 @@ if len(args.SE_stats)>0:
 		else: no_sim_ex_time = 100
 		plot_tste_stats(se_tbl_file, EXT_RATE, step_size,no_sim_ex_time,burnin,args.rescale)
 		quit()
+
+
+
+if args.restore_mcmc != "":
+	restore_init_values = get_init_values(args.restore_mcmc)
+	restore_chain = True
+else: restore_chain = False
 
 ############################ LOAD INPUT DATA ############################
 match_taxa_trait = False
@@ -2674,6 +2708,8 @@ else:
 	PoiD_const = 0
 	SP_in_window = np.arange(len(FA)) # all ts/te can be updated
 	EX_in_window = np.arange(len(LO))
+	SP_not_in_window = []
+	EX_not_in_window = []
 
 if args.mDeath is True: use_Death_model =True
 else: use_Death_model=False
@@ -2807,10 +2843,11 @@ if args.data_info is True:
 	print "\nDATA SUMMARY\n"
 	if len(singletons_excluded)>0: print "%s species excluded as singletons (observed life span < %s Myr)" % (len(singletons_excluded), args.singleton)
 	print "%s species included in the data set" % (len(fossil))
-	one_occ_sp,all_occ,extant_sp  = 0,0,0
+	one_occ_sp,all_occ,extant_sp,n_occs_list  = 0,0,0,list()
 	for i in fossil:
 		if len(i)==1: one_occ_sp+=1
 		all_occ += len(i[i>0])
+		n_occs_list.append(len(i[i>0]))
 		if min(i)==0: extant_sp+=1
 	print "%s species have a single occurrence, %s species are extant" % (one_occ_sp,extant_sp)
 	j=0
@@ -2828,6 +2865,13 @@ if args.data_info is True:
 		j+=1
 	print "%s fossil occurrences (%s replicates), ranging from %s (+/- %s) to %s (+/- %s) Ma" % \
 	(all_occ, j, round(mean(M_ages),3), round(std(M_ages),3),round(mean(m_ages),3), round(std(m_ages),3))
+	
+	n_occs_list = np.array(n_occs_list)
+	hist = np.histogram(n_occs_list,bins = np.arange(np.max(n_occs_list)+1)+1)[0]
+	hist2 = hist.astype(float)/max(hist) * 50
+	print "occs.\ttaxa\thistogram"
+	for i in range(len(hist)): print "%s\t%s\t%s" % (i+1,int(hist[i]),"*"*int(hist2[i]))
+	
 	sys.exit("\n")
 	
 
