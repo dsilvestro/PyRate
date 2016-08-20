@@ -2138,6 +2138,7 @@ p.add_argument('-d',         type=str,help="Load SE table",metavar='<input file>
 p.add_argument('-clade',     type=int, help='clade analyzed (set to -1 to analyze all species)', default=-1, metavar=-1)
 p.add_argument('-trait_file',type=str,help="Load trait table",metavar='<input file>',default="")
 p.add_argument('-restore_mcmc',type=str,help="Load mcmc.log file",metavar='<input file>',default="")
+p.add_argument('-filter',     type=float,help="Filter lineages with all occurrences within time range ",default=[inf,0], metavar=inf, nargs=2)
 
 # PLOTS AND OUTPUT
 p.add_argument('-plot',       metavar='<input file>', type=str,help="RTT plot (type 1): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
@@ -2473,8 +2474,12 @@ if use_se_tbl==False:
 	taxa_included = list()
 	for i in range(len(fossil_complete)):
 		if len(fossil_complete[i])==1 and fossil_complete[i][0]==0: pass
+		
+		elif max(fossil_complete[i]) > max(args.filter) or min(fossil_complete[i]) < min(args.filter):
+			print "excluded taxon with age range:",round(max(fossil_complete[i]),3), round(min(fossil_complete[i]),3)
+			
 
-		if args.singleton == -1: # exclude extant taxa
+		elif args.singleton == -1: # exclude extant taxa
 			if min(fossil_complete[i])==0: singletons_excluded.append(i)
 			else:
 				have_record.append(i) 
@@ -2491,7 +2496,8 @@ if use_se_tbl==False:
 			have_record.append(i) # some (extant) species may have trait value but no fossil record
 			fossil.append(fossil_complete[i]*args.rescale)
 			taxa_included.append(i)
-	if len(singletons_excluded)>0 and args.data_info is False: print "%s species excluded (%s remaining)" % (len(singletons_excluded), len(fossil))	
+	if len(singletons_excluded)>0 and args.data_info is False: print "The analysis includes %s species (%s were excluded)" % (len(fossil),len(singletons_excluded))	
+	else: print "\nThe analysis includes %s species (%s were excluded)" % (len(fossil),len(fossil_complete)-len(fossil)) 
 	out_name=input_data_module.get_out_name(j) +args.out
 
 	try: 
