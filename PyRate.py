@@ -1276,7 +1276,7 @@ def HOMPP_lik(arg):
 	else: 	return -q*(br_length) + log(q)*k - sum(log(np.arange(1,k+1))) - log(1-exp(-q*(br_length)))
 
 def NHPP_lik(arg):
-	[m,M,nothing,q_rate,i,cov_par, ex_rate]=arg
+	[m,M,shapeGamma,q_rate,i,cov_par, ex_rate]=arg
 	i=int(i)
 	x=fossil[i]
 	lik=0
@@ -1286,9 +1286,8 @@ def NHPP_lik(arg):
 	c=.5
 	if cov_par !=0: # transform preservation rate by trait value
 		q=exp(log(q_rate)+cov_par*(con_trait[i]-parGAUS[0]))
-	else: q=q_rate
-
-	if m==0: # data augmentation
+	else: q=q_rate	
+	if m==0 and use_DA is True: # data augmentation
 		l=1./ex_rate
 		#quant=[.1,.2,.3,.4,.5,.6,.7,.8,.9]
 		quant=[.125,.375,.625,.875] # quantiles gamma distribution (predicted te)
@@ -1318,6 +1317,7 @@ def NHPP_lik(arg):
 			log_lik_temp_scaled = log_lik_temp-max(log_lik_temp)
 			lik = log(sum(exp(log_lik_temp_scaled))/ len(GM))+max(log_lik_temp)
 		else: lik= sum(-(int_q) + np.sum((logPERT4_density(MM,z[:,0:k],aa,bb,X)+log(q)), axis=1))
+	elif m==0: HOMPP_lik(arg)		
 	else:
 		C=M-c*(M-m)
 		a = 1+ (4*(C-m))/(M-m)
@@ -1622,16 +1622,21 @@ def get_init_values(mcmc_log_file):
 	te = tbl[last_row,te_index]
 	q_rates = tbl[last_row,q_rates_index]
 	if len(fixed_times_of_shift)>0: # fixShift
-		hyp_index = [head.index("hypL"), head.index("hypM")]
-		l_index = [head.index(i) for i in head if "lambda_" in i]
-		m_index = [head.index(i) for i in head if "mu_" in i]
-		lam = tbl[last_row,l_index]
-		mu  = tbl[last_row,m_index]
-		hyp = tbl[last_row,hyp_index]
+		try:
+			hyp_index = [head.index("hypL"), head.index("hypM")]
+			l_index = [head.index(i) for i in head if "lambda_" in i]
+			m_index = [head.index(i) for i in head if "mu_" in i]
+			lam = tbl[last_row,l_index]
+			mu  = tbl[last_row,m_index]
+			hyp = tbl[last_row,hyp_index]
+		except: 
+			lam = np.array([float(len(ts))/(ts-te)      ])    # const rate ML estimator
+			mu  = np.array([float(len(te[te>0]))/(ts-te)])    # const rate ML estimator
+			hyp = np.ones(2)	
 	else:
-		lam = float(len(ts))/(ts-te)          # const rate ML estimator
-		mu  = float(len(te[te>0]))/(ts-te)    # const rate ML estimator
-		hyp = hypP_par	
+		lam = np.array([float(len(ts))/(ts-te)      ])    # const rate ML estimator
+		mu  = np.array([float(len(te[te>0]))/(ts-te)])    # const rate ML estimator
+		hyp = np.ones(2)	
 	return [ts,te,q_rates,lam,mu,hyp]
 
 
@@ -1653,8 +1658,10 @@ def MCMC(all_arg):
 			LA = init_BD(len(timesLA))
 			MA = init_BD(len(timesMA))
 			if restore_chain is True: 
-				LA = restore_init_values[3]
-				MA = restore_init_values[4]
+				LAt = restore_init_values[3]
+				MAt = restore_init_values[4]
+				if len(LAt) == len(LA): LA = LAt # if restored mcmc has different number of rates ignore them
+				if len(MAt) == len(MA): MA = MAt
 			if use_ADE_model is True: MA = np.random.uniform(3,5,len(timesMA)-1)
 			if use_Death_model is True: LA = np.ones(1)
 			if useDiscreteTraitModel is True: 
@@ -2162,16 +2169,17 @@ p.add_argument('-b',      type=float, help='burnin', default=0, metavar=0)
 p.add_argument('-thread', type=int, help='no. threads used for BD and NHPP likelihood respectively (set to 0 to bypass multi-threading)', default=[0,0], metavar=4, nargs=2)
 
 # MCMC ALGORITHMS
-p.add_argument('-A',   type=int, help='0) parameter estimation, 1) marginal likelihood, 2) BDMCMC', default=2, metavar=2)
-p.add_argument('-r',   type=int,   help='MC3 - no. MCMC chains', default=1, metavar=1)
-p.add_argument('-t',   type=float, help='MC3 - temperature', default=.03, metavar=.03)
-p.add_argument('-sw',  type=float, help='MC3 - swap frequency', default=100, metavar=100)
-p.add_argument('-M',   type=int,   help='BDMCMC - frequency of model update', default=10, metavar=10)
-p.add_argument('-B',   type=int,   help='BDMCMC - birth rate', default=1, metavar=1)
-p.add_argument('-T',   type=float, help='BDMCMC - time of model update', default=1.0, metavar=1.0)
-p.add_argument('-S',   type=int,   help='BDMCMC - start model update', default=1000, metavar=1000)
-p.add_argument('-k',   type=int,   help='TI - no. scaling factors', default=10, metavar=10)
-p.add_argument('-a',   type=float, help='TI - shape beta distribution', default=.3, metavar=.3)
+p.add_argument('-A',        type=int, help='0) parameter estimation, 1) marginal likelihood, 2) BDMCMC', default=2, metavar=2)
+p.add_argument("-use_DA",   help='Use data augmentation for NHPP likelihood opf extant taxa', action='store_true', default=False)
+p.add_argument('-r',        type=int,   help='MC3 - no. MCMC chains', default=1, metavar=1)
+p.add_argument('-t',        type=float, help='MC3 - temperature', default=.03, metavar=.03)
+p.add_argument('-sw',       type=float, help='MC3 - swap frequency', default=100, metavar=100)
+p.add_argument('-M',        type=int,   help='BDMCMC - frequency of model update', default=10, metavar=10)
+p.add_argument('-B',        type=int,   help='BDMCMC - birth rate', default=1, metavar=1)
+p.add_argument('-T',        type=float, help='BDMCMC - time of model update', default=1.0, metavar=1.0)
+p.add_argument('-S',        type=int,   help='BDMCMC - start model update', default=1000, metavar=1000)
+p.add_argument('-k',        type=int,   help='TI - no. scaling factors', default=10, metavar=10)
+p.add_argument('-a',        type=float, help='TI - shape beta distribution', default=.3, metavar=.3)
 p.add_argument('-dpp_f',    type=float, help='DPP - frequency ', default=500, metavar=500)
 p.add_argument('-dpp_hp',   type=float, help='DPP - shape of gamma HP on concentration parameter', default=2., metavar=2.)
 p.add_argument('-dpp_eK',   type=float, help='DPP - expected number of rate categories', default=2., metavar=2.)
@@ -2299,6 +2307,11 @@ if args.ginput != "" or args.check_names != "":
 		SpeciesList_file = args.check_names
 		lib_utilities.check_taxa_names(SpeciesList_file)
 	quit()
+
+
+use_DA = False
+if args.use_DA is True: use_DA = True
+
 
 
 # freq update CovPar
