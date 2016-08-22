@@ -171,3 +171,29 @@ gamm <- fitdist(time2, distr="gamma", method = "mle")$estimate
 
 cat("Lineage: ", lineage, "; Shape: ", gamm[1], "; Scale: ", 1/gamm[2], "; Offset: ", min(time), sep="", file=outfile, append=FALSE)
 }
+
+
+
+
+extract.ages.pbdb <- function(file = NULL,sep=",", extant_species = c(), replicates = 1, cutoff = NULL, random = TRUE){
+	print("This function is currently being tested - caution with the results!")
+	tbl = read.table(file=file,h=T,sep=sep,stringsAsFactors =F)
+	new_tbl = NULL # ADD EXTANT SPECIES
+	
+	for (i in 1:dim(tbl)[1]){
+		if (tbl$accepted_name[i] %in% extant_species){
+			status="extant"
+		}else{status="extinct"}
+		species_name = gsub(" ", "_", tbl$accepted_name[i])
+		new_tbl = rbind(new_tbl,c(species_name,status,tbl$min_ma[i],tbl$max_ma[i]))
+	}
+	colnames(new_tbl) = c("Species","Status","min_age","max_age")
+	
+	output_file = file.path(dirname(file),strsplit(basename(file), "\\.")[[1]][1])
+	output_file = paste(output_file,".txt",sep="")
+	write.table(file=output_file,new_tbl,quote=F,row.names = F,sep="\t")
+	extract.ages(file=output_file,replicates = replicates, cutoff = cutoff, random = random)
+}
+
+
+
