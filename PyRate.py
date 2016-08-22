@@ -662,9 +662,11 @@ def init_ts_te(FA,LO):
 	ts=FA+np.random.exponential(.75, len(FA)) # exponential random starting point
 	tt=np.random.beta(2.5, 1, len(LO)) # beta random starting point
 	ts=FA+(.025*FA) #IMPROVE INIT
-	ts[ts>boundMax] = np.random.uniform(FA[ts>boundMax],boundMax,len(ts[ts>boundMax])) # avoit init values outside bounds
+	if max(ts) > boundMax:
+		ts[ts>boundMax] = np.random.uniform(FA[ts>boundMax],boundMax,len(ts[ts>boundMax])) # avoit init values outside bounds
 	te=LO-(.025*LO) #IMPROVE INIT
-	te[te<boundMin] = np.random.uniform(boundMin,LO[te<boundMin],len(te[te<boundMin])) # avoit init values outside bounds
+	if min(te) < boundMin:
+		te[te<boundMin] = np.random.uniform(boundMin,LO[te<boundMin],len(te[te<boundMin])) # avoit init values outside bounds
 	#te=LO*tt
 	if frac1==0: ts, te= FA,LO
 	try: 
