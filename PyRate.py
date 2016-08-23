@@ -620,7 +620,7 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 			head_temp = next(open(f)).split() # should be faster
 			sp_ind_list=[]
 			for TAG in col_tag:
-				sp_ind_list+=[head_temp.index(s) for s in head_temp if TAG in s]
+				sp_ind_list+=[head_temp.index(s) for s in head_temp if s == TAG]
 			
 			sp_ind= np.array(sp_ind_list)
 			#print "INDEXES",sp_ind
@@ -2161,6 +2161,7 @@ p.add_argument('-SE_stats',   type=str,help="Calculate and plot stats from SE ta
 p.add_argument('-ginput',     type=str,help='generate SE table from *mcmc.log files', default="", metavar="<path_to_mcmc.log>")
 p.add_argument('-combLog',    type=str,help='Combine (and resample) log files', default="", metavar="<path_to_log_files>")
 p.add_argument('-resample',   type=int,help='Number of samples for each log file (-combLog). Use 0 to keep all samples.', default=0, metavar=0)
+p.add_argument('-col_tag',    type=str,help='Columns to be combined using combLog', default=[], metavar="column names",nargs='+')
 p.add_argument('-check_names',type=str,help='Automatic check for typos in taxa names (provide SpeciesList file)', default="", metavar="<*_SpeciesList.txt file>")
 p.add_argument('-reduceLog',  type=str,help='Reduce file size (mcmc.log) to quickly assess convergence', default="", metavar="<*_mcmc.log file>")
 
@@ -2436,7 +2437,7 @@ elif len(list_files_BF):
 	calc_BF(list_files_BF[0],list_files_BF[1])
 	quit()
 elif args.combLog != "": # COMBINE LOG FILES
-	comb_log_files(args.combLog,burnin,args.tag,resample=args.resample,col_tag=[])
+	comb_log_files(args.combLog,burnin,args.tag,resample=args.resample,col_tag=args.col_tag)
 	sys.exit("\n")
 elif len(args.input_data)==0 and args.d == "": sys.exit("\nInput file required. Use '-h' for command list.\n")
 
