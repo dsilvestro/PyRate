@@ -449,7 +449,7 @@ def check_taxa_names(SpeciesList_file):
 	# top hits:
 	score_float = all_scores[:,2].astype(float)
 	diff_int    = all_scores[:,5].astype(int)
-	if len(all_scores)==0: sys.exit("No typos founds!")
+	if len(all_scores)==0: sys.exit("No typos found!")
 	th1,th2 = 0.9,1
 	passed = np.array([])
 	while True:
@@ -458,10 +458,11 @@ def check_taxa_names(SpeciesList_file):
 		res = np.union1d(pass1,pass2)
 		for i in res: 
 			if i not in passed: 
-				print '\t'.join(all_scores[i])		
+				print '\t'.join(all_scores[i])
+		if len(res)==0: print "No typos found!"
 		passed = np.union1d(res,passed)
 		if len(passed)==len(all_scores): break
-		answ = raw_input("\nShow more results (y or n)? ")
+		answ = raw_input("\nShow more results using lower threshold (y or n)? ")
 		if answ=="y":
 			th1 -= 0.1
 			th2 += 1
@@ -470,4 +471,33 @@ def check_taxa_names(SpeciesList_file):
 
 
 
-
+def reduce_log_file(log_file): # written by Tobias Hofmann (tobias.hofmann@bioenv.gu.se)
+	target_columns = ["it","posterior","prior","PP_lik","BD_lik","root_age","tot_length"]
+	workdir = os.path.dirname(log_file)
+	if workdir=="": workdir= self_path
+	input_file = os.path.basename(log_file)
+	name_file = os.path.splitext(input_file)[0]
+	outfile = "%s/%s_reducedLog.log" %(workdir,name_file)
+	output = open(outfile, "wb")
+	outlog=csv.writer(output, delimiter='\t')
+	print "Reading mcmc log file. This can take some moments (depending on file-size)..."
+	with open(log_file, 'r') as f:
+		reader = csv.reader(f, delimiter='\t')
+		reader = list(reader)
+		header = reader[0]
+		body = reader[1:]
+		id_list = []
+		for column in header:
+			if column in target_columns:
+				id_list.append(header.index(column))
+		out_header = []
+		for element in id_list:
+			out_header.append(header[element])
+		outlog.writerow(out_header)
+		for line in body:
+			out_line = []
+			for element in id_list:
+				out_line.append(line[element])
+			outlog.writerow(out_line)
+	print "The reduced log file was saved as: %s\n" % (outfile)
+	

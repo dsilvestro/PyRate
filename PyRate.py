@@ -2162,6 +2162,7 @@ p.add_argument('-ginput',     type=str,help='generate SE table from *mcmc.log fi
 p.add_argument('-combLog',    type=str,help='Combine (and resample) log files', default="", metavar="<path_to_log_files>")
 p.add_argument('-resample',   type=int,help='Number of samples for each log file (-combLog). Use 0 to keep all samples.', default=0, metavar=0)
 p.add_argument('-check_names',type=str,help='Automatic check for typos in taxa names (provide SpeciesList file)', default="", metavar="<*_SpeciesList.txt file>")
+p.add_argument('-reduceLog',  type=str,help='Reduce file size (mcmc.log) to quickly assess convergence', default="", metavar="<*_mcmc.log file>")
 
 # MCMC SETTINGS
 p.add_argument('-n',      type=int, help='mcmc generations',default=10000000, metavar=10000000)
@@ -2295,7 +2296,7 @@ else:
 	d3 = max(args.tR,1.05) # avoid win size < 1
 
 
-if args.ginput != "" or args.check_names != "":
+if args.ginput != "" or args.check_names != "" or args.reduceLog != "":
 	try:
 		self_path= os.path.dirname(sys.argv[0])
 		import imp
@@ -2308,6 +2309,8 @@ if args.ginput != "" or args.check_names != "":
 	elif args.check_names != "":
 		SpeciesList_file = args.check_names
 		lib_utilities.check_taxa_names(SpeciesList_file)
+	elif args.reduceLog != "":
+		lib_utilities.reduce_log_file(args.reduceLog)
 	quit()
 
 
