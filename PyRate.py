@@ -2162,6 +2162,7 @@ p.add_argument('-ginput',     type=str,help='generate SE table from *mcmc.log fi
 p.add_argument('-combLog',    type=str,help='Combine (and resample) log files', default="", metavar="<path_to_log_files>")
 p.add_argument('-resample',   type=int,help='Number of samples for each log file (-combLog). Use 0 to keep all samples.', default=0, metavar=0)
 p.add_argument('-check_names',type=str,help='Automatic check for typos in taxa names (provide SpeciesList file)', default="", metavar="<*_SpeciesList.txt file>")
+p.add_argument('-reduceLog',  metavar='<input file>', type=str,help='Reduce the log file to only those columns that are essential to check convergence', default="")
 
 # MCMC SETTINGS
 p.add_argument('-n',      type=int, help='mcmc generations',default=10000000, metavar=10000000)
@@ -2233,6 +2234,45 @@ t1=time.time()
 
 if args.cite is True:
 	sys.exit(citation)
+
+
+
+#Shift this to where you want it in the code
+def reducelog(file): #written by Tobias Hofmann (tobias.hofmann@bioenv.gu.se)
+	target_columns = ["posterior","prior","PP_lik","BD_lik","root_age","tot_length"]
+	infile_path = file.split("/")
+	infile_stem = infile_path[-1].split(".")[0]
+	workdir = os.getcwd()
+	outfile = "%s/%s_reducedLog.log" %(workdir,infile_stem)
+	print outfile
+	output = open(outfile, "wb")
+	outlog=csv.writer(output, delimiter='\t')
+	print "Reading mcmc log file. This can take some moments (depending on file-size)..."
+	with open(file, 'r') as f:
+		reader = csv.reader(f, delimiter='\t')
+		reader = list(reader)
+		header = reader[0]
+		body = reader[1:]
+		id_list = []
+		for column in header:
+			if column in target_columns:
+				id_list.append(header.index(column))
+		out_header = []
+		for element in id_list:
+			out_header.append(header[element])
+		outlog.writerow(out_header)
+		for line in body:
+			out_line = []
+			for element in id_list:
+				out_line.append(line[element])
+			outlog.writerow(out_line)
+
+
+if args.reduceLog != "":
+	reducelog(args.reduceLog,workdir)
+	quit()
+
+
 ############################ MODEL SETTINGS ############################ 
 # PRIORS
 L_lam_r,L_lam_m = args.pL # shape and rate parameters of Gamma prior on sp rates
