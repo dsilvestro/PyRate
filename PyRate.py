@@ -1264,7 +1264,8 @@ def HOMPP_lik(arg):
 	lik=0
 	k=len(x[x>0]) # no. fossils for species i
 	br_length = M-m
-	if useBounded_BD is True: br_length = min(br_length, boundMax-boundMin)
+	if useBounded_BD is True: 
+		br_length = min(M,boundMax)-max(m, boundMin)
 	if cov_par ==2: # transform preservation rate by trait value
 		q=exp(log(q_rate)+cov_par*(con_trait[i]-parGAUS[0]))
 	else: q=q_rate
@@ -2728,6 +2729,7 @@ elif useBounded_BD is True:
 	###### NEXT: change function update_ts_te() so that only SP/EX_in_win are updated
 	# make sure the starting points are set to win boundaries for the other species and
 	# within boundaries for SP/EX_in_win
+	argsHPP = True # only HPP can be used with bounded BD
 else:
 	BPD_partial_lik = BD_partial_lik
 	PoiD_const = 0
