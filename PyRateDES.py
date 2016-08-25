@@ -70,6 +70,8 @@ p.add_argument('-ver',  type=int, help='verbose',   default=0, metavar=0)
 p.add_argument('-pade',  type=int, help='0) Matrix decomposition 1) Use Pade approx (slow)', default=0, metavar=0)
 p.add_argument('-qtimes',  type=float, help='shift time (Q)',  default=[], metavar=0, nargs='+') # '*'
 p.add_argument('-sum',  type=str, help='Summarize results (provide log file)',  default="", metavar="log file")
+p.add_argument('-symd',      help='symmetric dispersal rates', action='store_true', default=False)
+p.add_argument('-syme',      help='symmetric extinction rates', action='store_true', default=False)
 
 
 ### simulation settings ###
@@ -104,6 +106,9 @@ input_data= args.d
 Q_times=np.sort(args.qtimes)
 output_wd = args.wd
 if output_wd=="": output_wd= self_path
+
+equal_d = args.symd
+equal_e = args.syme
 
 ### MCMC SETTINGS
 update_freq     = [0.33,.66,.95]
@@ -191,7 +196,10 @@ else:
 	else: ti_tag=""
 	output_wd = os.path.dirname(input_data)
 	if output_wd=="": output_wd= self_path
-	out_log ="%s/%s_%s%s%s.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag)
+	model_tag=""
+	if equal_d is True: model_tag+= "_symd"
+	if equal_e is True: model_tag+= "_syme"
+	out_log ="%s/%s_%s%s%s%s.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag,model_tag)
 	time_series = np.sort(time_series)[::-1] # the order of the time vector is only used to assign the different Q matrices
 	                                         # to the correct time bin. Q_list[0] = root age, Q_list[n] = most recent
 
@@ -265,6 +273,13 @@ NOTE that Q_list[0] = root age, Q_list[n] = most recent
 n_Q_times=len(Q_times)+1
 dis_rate_vec=np.random.uniform(0.1,0.2,nareas*n_Q_times).reshape(n_Q_times,nareas)
 ext_rate_vec=np.random.uniform(0.01,0.05,nareas*n_Q_times).reshape(n_Q_times,nareas)
+if equal_d is True:
+	d_temp=dis_rate_vec[:,0]
+	dis_rate_vec = array([d_temp,d_temp]).T
+if equal_e is True:
+	e_temp=ext_rate_vec[:,0]
+	ext_rate_vec = array([e_temp,e_temp]).T
+
 r_vec= np.zeros((n_Q_times,nareas+2)) 
 r_vec[:,1:3]=0.001
 r_vec[:,3]=1
@@ -338,8 +353,18 @@ for it in range(n_generations * len(scal_fac_TI)):
 	gibbs_sample = 0
 	if it>0: r= np.random.random()
 	else: r = 2
-	if r < update_freq[0]: dis_rate_vec,hasting=update_multiplier_proposal(dis_rate_vec_A,1.2)
-	elif r < update_freq[1]: ext_rate_vec,hasting=update_multiplier_proposal(ext_rate_vec_A,1.2)
+	if r < update_freq[0]: 
+		if equal_d is True:
+			d_temp,hasting = update_multiplier_proposal(dis_rate_vec_A[:,0],1.2)
+			dis_rate_vec = array([d_temp,d_temp]).T
+		else:
+			dis_rate_vec,hasting=update_multiplier_proposal(dis_rate_vec_A,1.2)
+	elif r < update_freq[1]: 
+		if equal_e is True:
+			e_temp,hasting = update_multiplier_proposal(ext_rate_vec_A[:,0],1.2)
+			ext_rate_vec = array([e_temp,e_temp]).T
+		else:
+			ext_rate_vec,hasting=update_multiplier_proposal(ext_rate_vec_A,1.2)
 	elif r<=update_freq[2]: 
 		r_vec=update_parameter_uni_2d_freq(r_vec_A,0.1)
 		r_vec[:,0]=0
