@@ -3,8 +3,8 @@
 import argparse, os,sys, platform, time, csv, glob
 import random as rand
 import warnings
-version= "      PyRate 0.604       "
-build  = "        20160526         "
+version= "      PyRate 0.605       "
+build  = "        20160830         "
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
@@ -1320,7 +1320,7 @@ def NHPP_lik(arg):
 			log_lik_temp_scaled = log_lik_temp-max(log_lik_temp)
 			lik = log(sum(exp(log_lik_temp_scaled))/ len(GM))+max(log_lik_temp)
 		else: lik= sum(-(int_q) + np.sum((logPERT4_density(MM,z[:,0:k],aa,bb,X)+log(q)), axis=1))
-	elif m==0: HOMPP_lik(arg)		
+	elif m==0: lik = HOMPP_lik(arg)		
 	else:
 		C=M-c*(M-m)
 		a = 1+ (4*(C-m))/(M-m)
@@ -1361,7 +1361,7 @@ def NHPPgamma(arg):
 				lik=log(sum(exp(lik2)*(1./args.ncat)))+max(lik1)
 			else: lik=-100000
 		else: lik=-100000
-		
+	elif m==0: lik = HOMPP_lik(arg)
 	else: lik=NHPP_lik(arg)
 	return lik
 
