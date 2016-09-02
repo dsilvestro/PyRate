@@ -436,7 +436,7 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0, plot_type=
 				plot_M  = "\nplot(age,age,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = 'Extinction rate', xlab = 'Ma' )" \
 					% (0,1.1*np.nanmax(M_hpd_M),max_x_axis,min_x_axis)
 				plot_R  = "\nplot(age,age,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = 'Net diversification rate', xlab = 'Ma' )" \
-					% (1.1*np.nanmin(R_hpd_m),1.1*np.nanmax(R_hpd_M),max_x_axis,min_x_axis)
+					% (-abs(1.1*np.nanmin(R_hpd_m)),1.1*np.nanmax(R_hpd_M),max_x_axis,min_x_axis)
 				plot_R += """\nabline(h=0,lty=2,col="darkred")""" # \nabline(v=-c(65,200,251,367,445),lty=2,col="darkred")
 		
 			if name[count]=="_mean": 
@@ -2081,12 +2081,15 @@ def MCMC(all_arg):
 			if TDI !=1 and n_proc==0 and TDI<3 and use_ADE_model is False and useDiscreteTraitModel is False:
 				margL=zeros(len(marginal_frames))
 				margM=zeros(len(marginal_frames))
+				if useBounded_BD is True: min_marginal_frame = boundMin
+				else: min_marginal_frame = min(LO)
+				
 				for i in range(len(timesLA)-1): # indexes of the 1My bins within each timeframe
-					ind=np.intersect1d(marginal_frames[marginal_frames<=timesLA[i]],marginal_frames[marginal_frames>=max(min(LO),timesLA[i+1])])
+					ind=np.intersect1d(marginal_frames[marginal_frames<=timesLA[i]],marginal_frames[marginal_frames>=max(min_marginal_frame,timesLA[i+1])])
 					j=array(ind)
 					margL[j]=LA[i]
 				for i in range(len(timesMA)-1): # indexes of the 1My bins within each timeframe
-					ind=np.intersect1d(marginal_frames[marginal_frames<=timesMA[i]],marginal_frames[marginal_frames>=max(min(LO),timesMA[i+1])])
+					ind=np.intersect1d(marginal_frames[marginal_frames<=timesMA[i]],marginal_frames[marginal_frames>=max(min_marginal_frame,timesMA[i+1])])
 					j=array(ind)
 					margM[j]=MA[i]
 				marginal_rates(it, margL, margM, marginal_file, n_proc)
@@ -2872,7 +2875,7 @@ if args.data_info is True:
 	print "%s species included in the data set" % (len(fossil))
 	one_occ_sp,all_occ,extant_sp,n_occs_list  = 0,0,0,list()
 	for i in fossil:
-		if len(i)==1: one_occ_sp+=1
+		if len(i[i>0])==1: one_occ_sp+=1
 		all_occ += len(i[i>0])
 		n_occs_list.append(len(i[i>0]))
 		if min(i)==0: extant_sp+=1
@@ -2893,12 +2896,12 @@ if args.data_info is True:
 	print "%s fossil occurrences (%s replicates), ranging from %s (+/- %s) to %s (+/- %s) Ma" % \
 	(all_occ, j, round(mean(M_ages),3), round(std(M_ages),3),round(mean(m_ages),3), round(std(m_ages),3))
 	
+	# print histogram
 	n_occs_list = np.array(n_occs_list)
 	hist = np.histogram(n_occs_list,bins = np.arange(np.max(n_occs_list)+1)+1)[0]
 	hist2 = hist.astype(float)/max(hist) * 50
-	print "occs.\ttaxa\thistogram"
-	for i in range(len(hist)): print "%s\t%s\t%s" % (i+1,int(hist[i]),"*"*int(hist2[i]))
-	
+	#print "occs.\ttaxa\thistogram"
+	#for i in range(len(hist)): print "%s\t%s\t%s" % (i+1,int(hist[i]),"*"*int(hist2[i]))
 	sys.exit("\n")
 	
 
@@ -3007,15 +3010,17 @@ if TDI!=1 and use_ADE_model is False and useDiscreteTraitModel is False: # (path
 	out_log_marginal = "%s/%s_marginal_rates.log" % (path_dir, suff_out) 
 	marginal_file = open(out_log_marginal , "wb") 
 	head="it\t"
-	for i in range(int(max(FA))+1): head += "l_%s\t" % i #int(fabs(int(max(FA))))
-	for i in range(int(max(FA))+1): head += "m_%s\t" % i #int(fabs(int(max(FA))))
-	for i in range(int(max(FA))+1): head += "r_%s\t" % i #int(fabs(int(max(FA))))
+	if useBounded_BD is True: max_marginal_frame = boundMax+1
+	else: max_marginal_frame = max(FA)
+	for i in range(int(max_marginal_frame)+1): head += "l_%s\t" % i #int(fabs(int(max(FA))))
+	for i in range(int(max_marginal_frame)+1): head += "m_%s\t" % i #int(fabs(int(max(FA))))
+	for i in range(int(max_marginal_frame)+1): head += "r_%s\t" % i #int(fabs(int(max(FA))))
 	head=head.split('\t')
 	wmarg=csv.writer(marginal_file, delimiter='	')
 	wmarg.writerow(head)
 	marginal_file.flush()
 	os.fsync(marginal_file)
-	marginal_frames= array([int(fabs(i-int(max(FA)))) for i in range(int(max(FA))+1)])
+	marginal_frames= array([int(fabs(i-int(max_marginal_frame))) for i in range(int(max_marginal_frame)+1)])
 
 # OUTPUT 3 MARGINAL LIKELIHOOD
 elif TDI==1: 
