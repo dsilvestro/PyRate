@@ -72,6 +72,7 @@ p.add_argument('-qtimes',  type=float, help='shift time (Q)',  default=[], metav
 p.add_argument('-sum',  type=str, help='Summarize results (provide log file)',  default="", metavar="log file")
 p.add_argument('-symd',      help='symmetric dispersal rates', action='store_true', default=False)
 p.add_argument('-syme',      help='symmetric extinction rates', action='store_true', default=False)
+p.add_argument('-data_in_area', type=int,  help='if data only in area 1 set to 1 (set to 2 if data only in area 2)', default=0)
 
 
 ### simulation settings ###
@@ -281,7 +282,7 @@ if equal_e is True:
 	ext_rate_vec = array([e_temp,e_temp]).T
 
 r_vec= np.zeros((n_Q_times,nareas+2)) 
-r_vec[:,1:3]=0.001
+r_vec[:,1:3]=0.25
 r_vec[:,3]=1
 # where r[1] = prob not obs in A; r[2] = prob not obs in B
 # r[0] = 0 (for impossible ranges); r[3] = 1 (for obs ranges)
@@ -307,7 +308,18 @@ Q_index =Q_index.astype(int)
 if verbose ==1: print Q_index, shape(dis_rate_vec)
 
 prior_exp_rate = 1.
-	
+
+if args.data_in_area == 1:
+	ext_rate_vec[:,1] = 0
+	dis_rate_vec[:,0] = 0
+	r_vec[:,2] = small_number
+elif  args.data_in_area == 2:
+	ext_rate_vec[:,0] = 0
+	dis_rate_vec[:,1] = 0
+	r_vec[:,1] = small_number
+
+print np.shape(ext_rate_vec)
+
 #############################################
 ######               MCMC              ######
 #############################################
@@ -355,20 +367,23 @@ for it in range(n_generations * len(scal_fac_TI)):
 	else: r = 2
 	if r < update_freq[0]: 
 		if equal_d is True:
-			d_temp,hasting = update_multiplier_proposal(dis_rate_vec_A[:,0],1.2)
+			d_temp,hasting = update_multiplier_proposal(dis_rate_vec_A[:,0],1.1)
 			dis_rate_vec = array([d_temp,d_temp]).T
 		else:
-			dis_rate_vec,hasting=update_multiplier_proposal(dis_rate_vec_A,1.2)
+			dis_rate_vec,hasting=update_multiplier_proposal(dis_rate_vec_A,1.1)
 	elif r < update_freq[1]: 
 		if equal_e is True:
-			e_temp,hasting = update_multiplier_proposal(ext_rate_vec_A[:,0],1.2)
+			e_temp,hasting = update_multiplier_proposal(ext_rate_vec_A[:,0],1.1)
 			ext_rate_vec = array([e_temp,e_temp]).T
 		else:
-			ext_rate_vec,hasting=update_multiplier_proposal(ext_rate_vec_A,1.2)
+			ext_rate_vec,hasting=update_multiplier_proposal(ext_rate_vec_A,1.1)
 	elif r<=update_freq[2]: 
-		r_vec=update_parameter_uni_2d_freq(r_vec_A,0.1)
+		r_vec=update_parameter_uni_2d_freq(r_vec_A,0.01)
 		r_vec[:,0]=0
 		r_vec[:,3]=1
+		if args.data_in_area == 1: r_vec[:,2] = small_number
+		elif  args.data_in_area == 2: r_vec[:,1] = small_number
+		
 	else:
 		gibbs_sample = 1
 		prior_exp_rate = gibbs_sampler_hp(np.concatenate((dis_rate_vec,ext_rate_vec)),hp_alpha,hp_beta)
@@ -415,12 +430,13 @@ for it in range(n_generations * len(scal_fac_TI)):
 	
 	lik_alter = lik * scal_fac_TI[scal_fac_ind]
 	
-	if (lik_alter-(likA* scal_fac_TI[scal_fac_ind]) + prior-priorA +hasting >= log(np.random.uniform(0,1))) or (gibbs_sample == 1) :
-		dis_rate_vec_A= dis_rate_vec
-		ext_rate_vec_A= ext_rate_vec
-		r_vec_A=        r_vec
-		likA=lik
-		priorA=prior
+	if np.isfinite((lik_alter+prior+hasting)) is True:
+		if (lik_alter-(likA* scal_fac_TI[scal_fac_ind]) + prior-priorA +hasting >= log(np.random.uniform(0,1))) or (gibbs_sample == 1) :
+			dis_rate_vec_A= dis_rate_vec
+			ext_rate_vec_A= ext_rate_vec
+			r_vec_A=        r_vec
+			likA=lik
+			priorA=prior
 		
 	if it % print_freq == 0:
 		sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
