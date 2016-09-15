@@ -768,10 +768,10 @@ def update_q_multiplier(q,d=1.1,f=0.75):
 	return new_q,U
 
 
-def update_times(times, root, mod_d4):
-	rS= zeros(len(times))
-	rS[0]=root
-	for i in range(1,len(times)): rS[i]=update_parameter(times[i],0, root, mod_d4, 1)
+def update_times(times, max_time,min_time, mod_d4,a,b):
+	rS= times+zeros(len(times))
+	rS[0]=max_time
+	for i in range(a,b): rS[i]=update_parameter(times[i],min_time, max_time, mod_d4, 1)
 	y=sort(-rS)
 	y=-1*y
 	return y
@@ -1657,6 +1657,9 @@ def MCMC(all_arg):
 		if restore_chain is True: tsA, teA = restore_init_values[0], restore_init_values[1]
 		timesLA, timesMA = init_times(max(tsA),time_framesL,time_framesM, min(teA))
 		if len(fixed_times_of_shift)>0: timesLA[1:-1],timesMA[1:-1]=fixed_times_of_shift,fixed_times_of_shift
+		if fix_edgeShift is True: 
+			timesLA[1],timesMA[1]= edgeShift0,edgeShift0
+			timesLA[-2],timesMA[-2]= edgeShift1,edgeShift1
 		if TDI<3:
 			LA = init_BD(len(timesLA))
 			MA = init_BD(len(timesMA))
@@ -1774,8 +1777,14 @@ def MCMC(all_arg):
 
 		elif rr < f_update_lm: # l/m
 			if np.random.random()<f_shift and len(LA)+len(MA)>2: 
-				timesL=update_times(timesLA, max(ts),mod_d4)
-				timesM=update_times(timesMA, max(ts),mod_d4)
+				if fix_edgeShift is True:
+					timesL=update_times(timesLA, max(ts),min(te),mod_d4,2,len(timesL)-2)
+					timesM=update_times(timesMA, max(ts),min(te),mod_d4,2,len(timesM)-2)
+					print timesM, timesMA
+					
+				else:
+					timesL=update_times(timesLA, max(ts),min(te),mod_d4,1,len(timesL))
+					timesM=update_times(timesMA, max(ts),min(te),mod_d4,1,len(timesM))
 			else: 
 				if TDI<2: # 
 					if np.random.random()<.95 or est_hyperP is False or fix_hyperP is True:
@@ -2152,6 +2161,7 @@ p.add_argument('-clade',     type=int, help='clade analyzed (set to -1 to analyz
 p.add_argument('-trait_file',type=str,help="Load trait table",metavar='<input file>',default="")
 p.add_argument('-restore_mcmc',type=str,help="Load mcmc.log file",metavar='<input file>',default="")
 p.add_argument('-filter',     type=float,help="Filter lineages with all occurrences within time range ",default=[inf,0], metavar=inf, nargs=2)
+p.add_argument('-filter_taxa',type=str,help="Filter lineages within list (drop all others) ",default="", metavar="taxa_file")
 
 # PLOTS AND OUTPUT
 p.add_argument('-plot',       metavar='<input file>', type=str,help="RTT plot (type 1): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
@@ -2218,7 +2228,8 @@ p.add_argument('-qShift',  metavar='<input file>', type=str,help="Input tab-deli
 p.add_argument('-fixSE',   metavar='<input file>', type=str,help="Input mcmc.log file",default="")
 p.add_argument('-ADE',     type=int, help='ADE model: 0) no age dependence 1) estimated age dep', default=0, metavar=0)
 p.add_argument('-discrete',help='Discrete-trait-dependent BD model (requires -trait_file)', action='store_true', default=False)
-p.add_argument('-bound',      type=float, help='Bounded BD model', default=[np.inf, 0], metavar=0, nargs=2)
+p.add_argument('-bound',   type=float, help='Bounded BD model', default=[np.inf, 0], metavar=0, nargs=2)
+p.add_argument('-edgeShift',type=float, help='Fixed times of shifts at the edges (when -mL/-mM > 3)', default=[np.inf, 0], metavar=0, nargs=2)
 
 
 # TUNING
@@ -2359,6 +2370,10 @@ if args.fixShift != "" or TDI==3:     # fix times of rate shift or DPP
 else: 
 	fixed_times_of_shift=[]
 	fix_Shift = False
+if args.edgeShift[0] != np.inf and args.edgeShift[1] != 0:
+	fix_edgeShift = True
+	edgeShift0 = args.edgeShift[0]
+	edgeShift1 = args.edgeShift[1]
 
 # BDMCMC & MCMC SETTINGS
 runs=args.r              # no. parallel MCMCs (MC3)
@@ -2491,12 +2506,17 @@ if use_se_tbl==False:
 		fossil_complete=input_data_module.get_data(0)
 		print("Warning: data set number %s not found. Using the first data set instead." % (args.j))
 		j=0
+	
+	if args.filter_taxa != "":
+		list_included_taxa = [line.rstrip() for line in open(args.filter_taxa)]
+		print "Included taxa:"
+	
 	fossil=list()
 	have_record=list()
 	singletons_excluded = list()
 	taxa_included = list()
 	for i in range(len(fossil_complete)):
-		if len(fossil_complete[i])==1 and fossil_complete[i][0]==0: pass
+		if len(fossil_complete[i])==1 and fossil_complete[i][0]==0: pass # exclude taxa with no fossils
 		
 		elif max(fossil_complete[i]) > max(args.filter) or min(fossil_complete[i]) < min(args.filter):
 			print "excluded taxon with age range:",round(max(fossil_complete[i]),3), round(min(fossil_complete[i]),3)
@@ -2515,6 +2535,14 @@ if use_se_tbl==False:
 				have_record.append(i) # some (extant) species may have trait value but no fossil record
 				fossil.append(fossil_complete[i])
 				taxa_included.append(i)
+		elif args.filter_taxa != "": # keep only taxa within list
+			taxa_names_temp=input_data_module.get_taxa_names()
+			if taxa_names_temp[i] in list_included_taxa:
+				have_record.append(i) # some (extant) species may have trait value but no fossil record
+				fossil.append(fossil_complete[i])
+				taxa_included.append(i)
+				print taxa_names_temp[i]
+			else: singletons_excluded.append(i)
 		else: 
 			have_record.append(i) # some (extant) species may have trait value but no fossil record
 			fossil.append(fossil_complete[i]*args.rescale)
