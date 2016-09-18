@@ -2374,7 +2374,7 @@ if args.edgeShift[0] != np.inf and args.edgeShift[1] != 0:
 	fix_edgeShift = True
 	edgeShift0 = args.edgeShift[0]
 	edgeShift1 = args.edgeShift[1]
-
+else: fix_edgeShift = False
 # BDMCMC & MCMC SETTINGS
 runs=args.r              # no. parallel MCMCs (MC3)
 if runs>1 and TDI>0: 
