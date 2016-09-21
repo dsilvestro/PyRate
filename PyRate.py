@@ -1361,7 +1361,7 @@ def NHPPgamma(arg):
 				lik=log(sum(exp(lik2)*(1./args.ncat)))+max(lik1)
 			else: lik=-100000
 		else: lik=-100000
-	elif m==0: lik = HOMPP_lik(arg)
+	elif m==0 and use_DA is False: lik = HOMPP_lik(arg)
 	else: lik=NHPP_lik(arg)
 	return lik
 
@@ -2156,6 +2156,7 @@ p.add_argument("-out",       type=str, help='output tag', default="")
 p.add_argument('-singleton', type=float, help='Remove singletons (min no. occurrences)', default=0, metavar=0)
 p.add_argument('-frac_sampled_singleton', type=float, help='Random fraction of singletons not removed', default=0, metavar=0)
 p.add_argument("-rescale",   type=float, help='Rescale data (e.g. -rescale 0.001: 1My -> 1Ky)', default=1, metavar=1)
+p.add_argument("-translate", type=float, help='Shift data (e.g. -translate 10: 1My -> 10My)', default=0, metavar=0)
 p.add_argument('-d',         type=str,help="Load SE table",metavar='<input file>',default="")
 p.add_argument('-clade',     type=int, help='clade analyzed (set to -1 to analyze all species)', default=-1, metavar=-1)
 p.add_argument('-trait_file',type=str,help="Load trait table",metavar='<input file>',default="")
@@ -2526,26 +2527,26 @@ if use_se_tbl==False:
 			if min(fossil_complete[i])==0: singletons_excluded.append(i)
 			else:
 				have_record.append(i) 
-				fossil.append(fossil_complete[i])
+				fossil.append(fossil_complete[i]*args.rescale+args.translate)
 				taxa_included.append(i)
 		elif args.singleton > 0: # min number of occurrences
 			if len(fossil_complete[i]) <= args.singleton and np.random.random() >= args.frac_sampled_singleton: 
 				singletons_excluded.append(i)
 			else:
 				have_record.append(i) # some (extant) species may have trait value but no fossil record
-				fossil.append(fossil_complete[i])
+				fossil.append(fossil_complete[i]*args.rescale+args.translate)
 				taxa_included.append(i)
 		elif args.filter_taxa != "": # keep only taxa within list
 			taxa_names_temp=input_data_module.get_taxa_names()
 			if taxa_names_temp[i] in list_included_taxa:
 				have_record.append(i) # some (extant) species may have trait value but no fossil record
-				fossil.append(fossil_complete[i])
+				fossil.append(fossil_complete[i]*args.rescale+args.translate)
 				taxa_included.append(i)
 				print taxa_names_temp[i]
 			else: singletons_excluded.append(i)
 		else: 
 			have_record.append(i) # some (extant) species may have trait value but no fossil record
-			fossil.append(fossil_complete[i]*args.rescale)
+			fossil.append(fossil_complete[i]*args.rescale+args.translate)
 			taxa_included.append(i)
 	if len(singletons_excluded)>0 and args.data_info is False: print "The analysis includes %s species (%s were excluded)" % (len(fossil),len(singletons_excluded))	
 	else: print "\nThe analysis includes %s species (%s were excluded)" % (len(fossil),len(fossil_complete)-len(fossil)) 
@@ -2574,8 +2575,8 @@ else:
 	t_file=np.loadtxt(se_tbl_file, skiprows=1)
 	print np.shape(t_file)
 	j=max(args.j-1,0)
-	FA=t_file[:,2+2*j]*args.rescale
-	LO=t_file[:,3+2*j]*args.rescale
+	FA=t_file[:,2+2*j]*args.rescale+args.translate
+	LO=t_file[:,3+2*j]*args.rescale+args.translate
 	focus_clade=args.clade
 	clade_ID=t_file[:,0].astype(int)
 	if focus_clade>=0: FA,LO=FA[clade_ID==focus_clade],LO[clade_ID==focus_clade]	
