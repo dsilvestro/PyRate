@@ -1170,7 +1170,26 @@ def BD_age_lik_vec_times(arg):
 	return lik	
 
 
+def pure_death_shift(arg):
+	[ts,te,time_frames,L,M,Q]=arg
+	BD_lik = 0
+	B = sort(time_frames)+0.000001 # add small number to avoid counting extant species as extinct
+	ss1 = np.histogram(ts,bins=B)[0][::-1]
+	ee2 = np.histogram(te,bins=B)[0][::-1]
 
+	for i in range(len(time_frames)-1):
+		up, lo = time_frames[i], time_frames[i+1]	
+		len_sp_events=ss1[i]
+		len_ex_events=ee2[i]
+		inTS = np.fmin(ts,up)
+		inTE = np.fmax(te,lo)
+		S    = inTS-inTE
+		# prob waiting times: qExp(S,mu) * samplingP(S,q) # CHECK for ANALYTICAL SOLUTION?
+		# prob extinction events: dExp(S[inTE>lo],mu) * samplingD(S[inTE>lo],mu)
+		# prob extant taxa: 1 - (dExp(S[inTE>lo],mu) * samplingD(S[inTE>lo],mu))/exp(P_waiting_time)
+		
+
+		BD_lik += lik0+lik1+lik2+lik3
 
 def BDI_partial_lik(arg):
 	[ts,te,up,lo,rate,par, cov_par,n_frames_L]=arg
@@ -1769,7 +1788,7 @@ def MCMC(all_arg):
 			tot_L=sum(ts-te)
 		elif rr<f_update_q: # q/alpha
 			q_rates=np.zeros(len(q_ratesA))+q_ratesA
-			if multiHPP is True: q_rates, hasting = update_q_multiplier(q_ratesA,d=1.1,f=0.75)
+			if multiHPP is True: q_rates, hasting = update_q_multiplier(q_ratesA,d=1.1,f=0.5)
 			elif np.random.random()>.5 and argsG is True: 
 				q_rates[0], hasting=update_multiplier_proposal(q_ratesA[0],d2[0]) # shape prm Gamma
 			else:
@@ -1817,7 +1836,8 @@ def MCMC(all_arg):
 		max_ts = max(ts)
 		timesL[0]=max_ts
 		timesM[0]=max_ts
-		if multiHPP is True:  q_time_frames = np.sort(np.array([max_ts,0]+times_q_shift))[::-1]
+		if multiHPP is True and it==0:  q_time_frames = np.sort(np.array([max_ts,0]+times_q_shift))[::-1]
+		else: q_time_frames[0]= max_ts
 
 		# NHPP Lik: multi-thread computation (ts, te)
 		# generate args lik (ts, te)
@@ -1949,9 +1969,11 @@ def MCMC(all_arg):
 					if num_processes_ts==0:
 						for j in range(len(ind1)):
 							i=ind1[j] # which species' lik
-							if argsHPP is True or  frac1==0: lik_fossil[i] = HOMPP_lik(args[j])
-							elif argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
-							else: lik_fossil[i] = NHPP_lik(args[j])
+							if multiHPP is True:  lik_fossil[i] = HPP_vec_lik([te[i],ts[i],q_time_frames,q_rates,i])
+							else:
+								if argsHPP is True or  frac1==0: lik_fossil[i] = HOMPP_lik(args[j])
+								elif argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
+								else: lik_fossil[i] = NHPP_lik(args[j])
 					else:
 						if argsHPP is True or frac1==0: lik_fossil[ind1] = array(pool_ts.map(HOMPP_lik, args))
 						elif argsG is True: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args))
@@ -2214,7 +2236,7 @@ p.add_argument("-cauchy",  type=float, help='Prior - use hyper priors on sp/ex r
 
 # MODEL
 p.add_argument("-mHPP",    help='Model - Homogeneous Poisson process of preservation', action='store_true', default=False)
-p.add_argument("-multiHPP",help='Model - Poisson process of preservation with shifts', action='store_true', default=False)
+#p.add_argument("-multiHPP",help='Model - Poisson process of preservation with shifts', action='store_true', default=False)
 p.add_argument('-mL',      type=int, help='Model - no. (starting) time frames (speciation)', default=1, metavar=1)
 p.add_argument('-mM',      type=int, help='Model - no. (starting) time frames (extinction)', default=1, metavar=1)
 p.add_argument('-mC',      help='Model - constrain time frames (l,m)', action='store_true', default=False)
@@ -2225,7 +2247,7 @@ p.add_argument('-mDeath',  help='Pure-death model', action='store_true', default
 p.add_argument("-mBDI",    type=int, help='BDI sub-model - 0) birth-death, 1) immigration-death', default=-1, metavar=-1)
 p.add_argument("-ncat",    type=int, help='Model - Number of categories for Gamma heterogeneity', default=4, metavar=4)
 p.add_argument('-fixShift',metavar='<input file>', type=str,help="Input tab-delimited file",default="")
-p.add_argument('-qShift',  metavar='<input file>', type=str,help="Input tab-delimited file",default="")
+p.add_argument('-qShift',  metavar='<input file>', type=str,help="Poisson process of preservation with shifts (Input tab-delimited file)",default="")
 p.add_argument('-fixSE',   metavar='<input file>', type=str,help="Input mcmc.log file",default="")
 p.add_argument('-ADE',     type=int, help='ADE model: 0) no age dependence 1) estimated age dep', default=0, metavar=0)
 p.add_argument('-discrete',help='Discrete-trait-dependent BD model (requires -trait_file)', action='store_true', default=False)
@@ -2842,9 +2864,8 @@ if use_ADE_model is True:
 	hypP_par[1]=0.1
 	tot_extant = -1
 	d_hyperprior[0]=1 # first hyper-prior on sp.rates is not used under ADE, thus not updated (multiplier update =1)
-	if args.multiHPP is True: multiHPP = True
-	else: multiHPP = False 
-else: multiHPP = False # multiHPP is for now limited to ADE models
+
+#else: multiHPP = False # multiHPP is for now limited to ADE models
 
 if args.qShift != "":
 	try: 
@@ -2852,17 +2873,18 @@ if args.qShift != "":
 		except(IndexError): times_q_shift=np.array([np.loadtxt(args.qShift)])		
 		times_q_shift=list(times_q_shift[times_q_shift<max(FA)])
 		time_framesQ=len(times_q_shift)+1
-		multiHPP = True
 		occs_sp_bin =list()
 		temp_times_q_shift = np.array(list(times_q_shift)+[max(FA)+1]+[0])
 		for i in range(len(fossil)):
 			occs_temp = fossil[i]
 			h = np.histogram(occs_temp[occs_temp>0],bins=sort( temp_times_q_shift ))[0][::-1]
 			occs_sp_bin.append(h)
+		argsHPP = True
+		multiHPP = True
 	except: 
 		msg = "\nError in the input file %s.\n" % (args.qShift)
 		sys.exit(msg)
-
+else: multiHPP = False 
 
 
 if fix_Shift is True and use_ADE_model is False: est_hyperP = True
