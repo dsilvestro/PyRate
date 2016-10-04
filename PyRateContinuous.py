@@ -33,6 +33,8 @@ except:
 
 from lib_updates_priors import *
 from lib_DD_likelihood  import *
+from lib_utilities import calcHPD as calcHPD
+from lib_utilities import print_R_vec as print_R_vec
 
 #### ARGS
 p = argparse.ArgumentParser() #description='<input file>') 
@@ -52,6 +54,7 @@ p.add_argument('-ginput', type=str,help='generate input file from *mcmc.log', de
 p.add_argument('-tag', metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined when using '-ginput' function",default="")
 p.add_argument('-mL',  type=str, help='calculate marginal likelihood',  default="", metavar="<path_to_log_files>")
 p.add_argument("-DD",  help='Diversity Dependent Model', action='store_true', default=False)
+p.add_argument('-plot', type=str, help='Log file', default="", metavar="")
 p.add_argument("-verbose",  help='Print curve trajectory', action='store_true', default=False)
 
 args = p.parse_args()
@@ -155,7 +158,7 @@ curve_scale_factor = (max(tempfile[:,1])-min(tempfile[:,1])) / float(max(Temp_va
 
 if args.verbose is True:
 	print "total branch length:" , sum(ts-te)
-	print"raw range: %s (%s-%s)"       % (max(tempfile[:,1])-min(tempfile[:,1]), max(tempfile[:,1]), min(tempfile[:,1]))
+	print "raw range: %s (%s-%s)"       % (max(tempfile[:,1])-min(tempfile[:,1]), max(tempfile[:,1]), min(tempfile[:,1]))
 	print "rescaled range: %s (%s-%s)" % (max(Temp_values)-min(Temp_values), max(Temp_values), min(Temp_values))
 	print "max diversity:", max(Dtraj)
 	print "rescaling factor:", curve_scale_factor
@@ -166,6 +169,119 @@ if args.verbose is True:
 GarrayA=np.zeros(2) # correlation parameters with Temp of lambda and mu, respectively
 
 l0A,m0A= init_BD(1),init_BD(1)
+
+### PLOT RTT
+def get_marginal_rates(model,l0,m0,Garray,Temp_at_events,shift_ind,root_age):
+	if args.m==0: 
+		l_at_events=trasfRateTemp(l0, Garray[0],Temp_at_events)
+		m_at_events=trasfRateTemp(m0, Garray[1],Temp_at_events)
+	if args.m==1: 
+		l_at_events=trasfRateTempLinear(l0, Garray[0],Temp_at_events)
+		m_at_events=trasfRateTempLinear(m0, Garray[1],Temp_at_events)
+	if args.m== -1: 
+		l_at_events=np.repeat(l0,len(Temp_at_events))
+		m_at_events=np.repeat(m0,len(Temp_at_events))
+	age_vec, l_vec, m_vec = list(),list(),list()
+	for i in range(len(Temp_at_events)):
+		age = all_events_temp2[0,i]
+		if age <= root_age:
+			age_vec.append(np.round(age,8))
+			l_vec.append(np.round(l_at_events[i],8))
+			m_vec.append(np.round(m_at_events[i],8))
+	return(age_vec,l_vec,m_vec)
+	
+
+summary_file = args.plot
+if summary_file != "":
+	output_wd = os.path.dirname(dataset)
+	if output_wd=="": output_wd= self_path
+	name_file = os.path.splitext(os.path.basename(dataset))[0]
+	
+	root_age = max(ts)
+	shift_ind = np.zeros(len(times_of_T_change_tste)).astype(int)
+	print "\nParsing log file:", summary_file
+	t=np.loadtxt(summary_file, skiprows=max(1,int(args.b)))
+	head = next(open(summary_file)).split()
+	
+	L0_index = [head.index(i) for i in head if "l0" in i][0]
+	M0_index = [head.index(i) for i in head if "m0" in i][0]	
+	Gl_index = [head.index(i) for i in head if "Gl" in i][0]
+	Gm_index = [head.index(i) for i in head if "Gm" in i][0]
+	n_rates = 1
+
+	print "\nCalculating marginal rates..."
+	marginal_L= list()
+	marginal_M= list()
+	for j in range(shape(t)[0]):
+		L0 = t[j,L0_index]
+		Gl = t[j,Gl_index]
+		M0 = t[j,M0_index]
+		Gm = t[j,Gm_index]
+		
+		Garray = np.array([Gl,Gm])*curve_scale_factor	
+		age_vec,l_vec,m_vec = get_marginal_rates(args.m,L0,M0,Garray,Temp_at_events,shift_ind,root_age)
+		marginal_L.append(l_vec)
+		marginal_M.append(m_vec)
+	
+	marginal_L = np.array(marginal_L)
+	marginal_M = np.array(marginal_M)
+	
+	l_vec= np.zeros(np.shape(marginal_L)[1])
+	m_vec= np.zeros(np.shape(marginal_L)[1])
+	hpd_array_L= np.zeros((2,np.shape(marginal_L)[1]))
+	hpd_array_M= np.zeros((2,np.shape(marginal_L)[1]))
+	for i in range(np.shape(marginal_L)[1]):
+		l_vec[i] = np.mean(marginal_L[:,i])
+		m_vec[i] = np.mean(marginal_M[:,i])
+		hpd_array_L[:,i] = calcHPD(marginal_L[:,i])
+		hpd_array_M[:,i] = calcHPD(marginal_M[:,i])
+	print "done"	
+	# write R file
+	print "\ngenerating R file...",
+	out="%s/%s_RTT.r" % (output_wd,name_file)
+	newfile = open(out, "wb") 	
+	if platform.system() == "Windows" or platform.system() == "Microsoft":
+		r_script= "\n\npdf(file='%s\%s_RTT.pdf',width=0.6*20, height=0.6*20)\nlibrary(scales)\n" % (output_wd,name_file)
+	else: r_script= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*20, height=0.6*20)\nlibrary(scales)\n" % (output_wd,name_file)
+
+	r_script += print_R_vec("\n\nt",  age_vec)
+	r_script += "\ntime = -t"
+	r_script += print_R_vec("\nspeciation",l_vec)
+	r_script += print_R_vec("\nextinction",m_vec)
+	
+	r_script += print_R_vec('\nL_hpd_m',hpd_array_L[0,:])
+	r_script += print_R_vec('\nL_hpd_M',hpd_array_L[1,:])
+	r_script += print_R_vec('\nM_hpd_m',hpd_array_M[0,:])
+	r_script += print_R_vec('\nM_hpd_M',hpd_array_M[1,:])
+	
+	
+	r_script += """
+	par(mfrow=c(2,1))
+	plot(speciation ~ time,type="l",col="#4c4cec", lwd=3,main="Speciation rates", ylim = c(0,max(c(L_hpd_M,M_hpd_M))),xlab="Time",ylab="speciation rate",xlim=c(min(time),0))
+	polygon(c(time, rev(time)), c(L_hpd_M, rev(L_hpd_m)), col = alpha("#4c4cec",0.3), border = NA)	
+
+	plot(extinction ~ time,type="l",col="#e34a33",  lwd=3,main="Extinction rates", ylim = c(0,max(c(L_hpd_M,M_hpd_M))),xlab="Time",ylab="extinction",xlim=c(min(time),0))
+	polygon(c(time, rev(time)), c(M_hpd_M, rev(M_hpd_m)), col = alpha("#e34a33",0.3), border = NA)
+	""" 
+	
+	r_script+="n<-dev.off()"
+	newfile.writelines(r_script)
+	newfile.close()
+	print "\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, output_wd)
+	if platform.system() == "Windows" or platform.system() == "Microsoft":
+		cmd="cd %s; Rscript %s\%s_RTT.r" % (output_wd,output_wd,name_file)
+	else: 
+		cmd="cd %s; Rscript %s/%s_RTT.r" % (output_wd,output_wd,name_file)
+	os.system(cmd)
+	print "done\n"
+	
+	sys.exit("\n")
+
+
+
+
+
+
 
 output_wd = os.path.dirname(dataset)
 if output_wd=="": output_wd= self_path
