@@ -302,9 +302,10 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0, plot_type=
 				M_tbl=t[:,m_ind]
 				R_tbl=t[:,r_ind] 
 				file_n=1
-				if np.min([np.max(L_tbl),np.max(M_tbl)])>0.1: no_decimals = 3
-				elif np.min([np.max(L_tbl),np.max(M_tbl)])>0.01: no_decimals = 5
-				else: no_decimals = 15	
+				#if np.min([np.max(L_tbl),np.max(M_tbl)])>0.1: no_decimals = 3
+				#elif np.min([np.max(L_tbl),np.max(M_tbl)])>0.01: no_decimals = 5
+				#else: 
+				no_decimals = 15	
 			else:
 				L_tbl=np.concatenate((L_tbl,t[:,l_ind]),axis=0)
 				M_tbl=np.concatenate((M_tbl,t[:,m_ind]),axis=0)
@@ -1836,8 +1837,9 @@ def MCMC(all_arg):
 		max_ts = max(ts)
 		timesL[0]=max_ts
 		timesM[0]=max_ts
-		if multiHPP is True and it==0:  q_time_frames = np.sort(np.array([max_ts,0]+times_q_shift))[::-1]
-		else: q_time_frames[0]= max_ts
+		if fix_SE is False:
+			if multiHPP is True and it==0:  q_time_frames = np.sort(np.array([max_ts,0]+times_q_shift))[::-1]
+			else: q_time_frames[0]= max_ts
 
 		# NHPP Lik: multi-thread computation (ts, te)
 		# generate args lik (ts, te)
