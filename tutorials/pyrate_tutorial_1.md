@@ -90,25 +90,25 @@ Under these settings PyRate will run for 20 million iterations sampling every 5,
 #### Output files
 The PyRate analysis described above produces three output files, saved in a folder named *pyrate_mcmc_logs* in the same directory as the input file:
 
-######  \*\_sum.txt  
+######  sum.txt  
    Text file providing the complete list of settings used in the analysis.  
-######  \*\_mcmc.log   
+######  mcmc.log   
 Tab-separated table with the MCMC samples of the posterior, prior, likelihoods of the preservation process and of the birth-death (indicated by *PP_lik* and *BD_lik*, respectively), the preservation rate (*q_rate*), the shape parameter of its gamma-distributed heterogeneity (*alpha*), the number of sampled rate shifts (*k_birth*, *k_death*), the time of origin of the oldest lineage (*root_age*), the total branch length (*tot_length*), and the times of speciation and extinction of all taxa in the data set (*\*_TS* and *\*_TE*, respectively). When using the TPP model of preservation, the preservation rates between shifts are indicated as *q_0, q_1, ... q_n* (from older to younger).
-###### \*\_marginal_rates.log 
+###### marginal_rates.log 
 Tab-separated table with the posterior samples of the marginal rates of speciation, extinction, and net diversification, calculated within 1 time unit (typically Myr). 
 
 
 #### Summarize the results
 The log files can be opened in the program **Tracer** to check if the MCMC has converged and determine the proportion of burnin. 
 
-The **\*\_mcmc.log** file can be used to calculate the sampling frequencies of birth-death models with different number of rate shifts. This is done by using the PyRate command `-mProb` followed by the log file:
+The **mcmc.log** file can be used to calculate the sampling frequencies of birth-death models with different number of rate shifts. This is done by using the PyRate command `-mProb` followed by the log file:
 
 `python PyRate.py -mProb .../Canis_pbdb_data_mcmc.log -b 200`
 
 where the flag `-b 200` indicates that the first 200 samples will be removed (i.e. the first 200,000 iterations, if the sampling frequency was set to 1,000). This command will provide a table with the relative probabilities of birth-death models with different number of rate shifts. 
 
 
-The **\*\_marginal_rates.log** file can be used to generate rates-through-time plots using the function `-plot`:
+The **marginal_rates.log** file can be used to generate rates-through-time plots using the function `-plot`:
 
 `python PyRate.py -plot .../Canis_pbdb_data_marginal_rates.log -b 200`
 
@@ -117,7 +117,7 @@ This will generate an R script and a PDF file with the RTT plots showing speciat
 ***
 ## Speciation/extinction rates within fixed time bins
 #### Analysis setup
-PyRate can also fit birth-death models in which the **number and temporal placement of rate shifts is fixed *a priori***, e.g. based on geological epochs. In this case a file with the predefined times of rate shifts must be provided using the command `-fixShift`. The format of this file is very simple and an example is available here: `.../PyRate-master/example_files/epochs.txt`. This model assumes half-Cauchy prior distributions for speciation and extinction rates between shifts, with a hyper-prior on the respective scale parameter to reduce the risk of over parameterization. 
+PyRate can also fit birth-death models in which the **number and temporal placement of rate shifts is fixed a priori**, e.g. based on geological epochs. In this case a file with the predefined times of rate shifts must be provided using the command `-fixShift`. The format of this file is very simple and an example is available here: `.../PyRate-master/example_files/epochs.txt`. This model assumes half-Cauchy prior distributions for speciation and extinction rates between shifts, with a hyper-prior on the respective scale parameter to reduce the risk of over parameterization. 
 To enforce fixed times of rate shifts we use the following command:
 
 `python PyRate.py .../Canis_pbdb_data_PyRate.py -fixShift .../epochs.txt`
@@ -125,9 +125,9 @@ To enforce fixed times of rate shifts we use the following command:
 The other options described above to set preservation model, length of the MCMC, and sampling frequency are also available in this case.
 
 #### Summarize the results
-Running PyRate with fixed times of rate shifts produces the same 3 output files described in the previous analysis. The main difference is in the *\*\_mcmc.log* file where we will no longer have the estimate number of rate shifts (*k_birth*, *k_death*) as these are fixed. However, the log file now includes speciation/ extinction rates between shifts (named *lambda_0, lambda_1,* ... and  *mu_0, mu_1, ...*, respectively), and the estimated scale parameters of the half-Cauchy prior distributions assigned to speciation and extinction rates, indicated by *hypL* and *hypM*, respectively.
+Running PyRate with fixed times of rate shifts produces the same 3 output files described in the previous analysis. The main difference is in the *mcmc.log* file where we will no longer have the estimate number of rate shifts (*k_birth*, *k_death*) as these are fixed. However, the log file now includes speciation/ extinction rates between shifts (named *lambda_0, lambda_1,* ... and  *mu_0, mu_1, ...*, respectively), and the estimated scale parameters of the half-Cauchy prior distributions assigned to speciation and extinction rates, indicated by *hypL* and *hypM*, respectively.
 
-RTT plots can be generated as in the previous analysis using the command `-plot` (or `-plot2`) followed by the path to the *\*\_marginal_rates.log* file and setting the number of samples be discarded as burnin (e.g. `-b 100`).
+RTT plots can be generated as in the previous analysis using the command `-plot` (or `-plot2`) followed by the path to the *marginal_rates.log* file and setting the number of samples be discarded as burnin (e.g. `-b 100`).
 
 
 
