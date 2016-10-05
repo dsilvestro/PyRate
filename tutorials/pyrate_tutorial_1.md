@@ -1,5 +1,5 @@
 # PyRate Tutorial \#1
-#### Daniele Silvestro – Sep 2016
+#### Daniele Silvestro – Oct 2016
 ***  
 Useful links:  
 [PyRate code](https://github.com/dsilvestro/PyRate)  
@@ -35,8 +35,8 @@ The option `replicates` (by default set to 1) resamples the ages of each fossil 
 
 
    
-   
-      
+
+***      
 ## Estimation of speciation/extinction rates through time
 
 #### Defining the preservation model
@@ -114,7 +114,7 @@ The **\*\_marginal_rates.log** file can be used to generate rates-through-time p
 
 This will generate an R script and a PDF file with the RTT plots showing speciation, extinction, and net diversification through time. A slightly different flavor of the RTT plot can be obtained using the flag `-plot2` instead of `-plot`. 
     
-
+***
 ## Speciation/extinction rates within fixed time bins
 #### Analysis setup
 PyRate can also fit birth-death models in which the **number and temporal placement of rate shifts is fixed *a priori***, e.g. based on geological epochs. In this case a file with the predefined times of rate shifts must be provided using the command `-fixShift`. The format of this file is very simple and an example is available here: `.../PyRate-master/example_files/epochs.txt`. This model assumes half-Cauchy prior distributions for speciation and extinction rates between shifts, with a hyper-prior on the respective scale parameter to reduce the risk of over parameterization. 
