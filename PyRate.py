@@ -1842,8 +1842,9 @@ def MCMC(all_arg):
 		timesL[0]=max_ts
 		timesM[0]=max_ts
 		if fix_SE is False:
-			if multiHPP is True and it==0:  q_time_frames = np.sort(np.array([max_ts,0]+times_q_shift))[::-1]
-			else: q_time_frames[0]= max_ts
+			if multiHPP is True: 
+				if it==0:  q_time_frames = np.sort(np.array([max_ts,0]+times_q_shift))[::-1]
+				else: q_time_frames[0]= max_ts
 
 		# NHPP Lik: multi-thread computation (ts, te)
 		# generate args lik (ts, te)
@@ -2871,8 +2872,6 @@ if use_ADE_model is True:
 	hypP_par[1]=0.1
 	tot_extant = -1
 	d_hyperprior[0]=1 # first hyper-prior on sp.rates is not used under ADE, thus not updated (multiplier update =1)
-
-#else: multiHPP = False # multiHPP is for now limited to ADE models
 
 if args.qShift != "":
 	try: 
