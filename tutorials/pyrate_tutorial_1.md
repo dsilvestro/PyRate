@@ -61,9 +61,9 @@ Although formal **model testing between preservation models** is currently not i
 #### Analysis setup
 Here we describe the main settings for a standard analysis of fossil occurrence data using PyRate. The analysis will estimate:
   
-1. ** origination and extinction times** of each lineage  
-2. ** preservation rate** and its level of **heterogeneity**  
-3. ** speciation and extinction rates **through time. 
+1. **origination and extinction times** of each lineage  
+2. **preservation rate** and its level of **heterogeneity**  
+3. **speciation and extinction rates** through time. 
 
 Temporal rate variation is introduced by rate shifts. The number and temporal placement of shifts are estimated from the data using the BDMCM algorithm.
 
