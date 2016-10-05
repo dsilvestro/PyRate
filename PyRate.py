@@ -3,8 +3,8 @@
 import argparse, os,sys, platform, time, csv, glob
 import random as rand
 import warnings
-version= "      PyRate 0.605       "
-build  = "        20160830         "
+version= "PyRate"
+build  = "20161005"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
@@ -21,8 +21,7 @@ comprehensive Bayesian analysis of the fossil record. New Phytologist,
 doi:10.1111/nph.13247. 
 """
 print("""
-                       %s
-                       %s
+                           %s - %s
 
            Bayesian estimation of speciation and extinction
                   rates from fossil occurrence data        
@@ -81,6 +80,10 @@ except(ImportError):
 	use_seq_lik=True
 
 if platform.system() == "Windows" or platform.system() == "Microsoft": use_seq_lik=True
+
+version_details="PyRate %s; OS: %s %s; Python version: %s; Numpy version: %s; Scipy version: %s" \
+% (build, platform.system(), platform.release(), sys.version, np.version.version, scipy.version.version)
+
 ### numpy print options ###
 np.set_printoptions(suppress=True) # prints floats, no scientific notation
 np.set_printoptions(precision=3) # rounds all array elements to 3rd digit
@@ -950,6 +953,7 @@ def BD_lik_discrete_trait(arg):
 	S = ts-te
 	lik0 =  sum(log(L)*lengths_B_events )    #
 	lik1 = -sum(L*sum(S))                   # assumes that speiation can arise from any trait state
+	#lik1 = -sum([L[i]*sum(S[ind_trait_species==i]) for i in range(len(L))])
 	lik2 =  sum(log(M)*lengths_D_events)                                        # Trait specific extinction
 	lik3 = -sum([M[i]*sum(S[ind_trait_species==i]) for i in range(len(M))]) # only species with a trait state can go extinct
 	return sum(lik0+lik1+lik2+lik3)
@@ -2168,7 +2172,7 @@ def marginal_likelihood(marginal_file, l, t):
 self_path=os.getcwd()
 p = argparse.ArgumentParser() #description='<input file>') 
 
-p.add_argument('-v',         action='version', version='%(prog)s')
+p.add_argument('-v',         action='version', version=version_details)
 p.add_argument('-cite',      help='print PyRate citation', action='store_true', default=False)
 p.add_argument('input_data', metavar='<input file>', type=str,help='Input python file - see template',default=[],nargs='*')
 p.add_argument('-j',         type=int, help='number of data set in input file', default=1, metavar=1)
@@ -2763,6 +2767,7 @@ if useDiscreteTraitModel is True:
 		lo_temp = LO[con_trait==i]
 		lengths_D_events.append(len(lo_temp[lo_temp>0]))
 	lengths_B_events = np.array([sum(lengths_B_events)]) # ASSUME CONST BIRTH RATE
+	#lengths_B_events = np.array(lengths_D_events)
 	lengths_D_events = np.array(lengths_D_events)
 	#ind_trait_species = ind_trait_species-ind_trait_species
 	print lengths_B_events, lengths_D_events
