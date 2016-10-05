@@ -48,7 +48,7 @@ small_number= 1e-5
 
 citation= """\nThe DES method is described in:\nSilvestro, D., Zizka A., Bacon C. D., Cascales-Minana B. and Salamin, N., Antonelli, A. (2016)
 Fossil Biogeography: A new model to infer dispersal, extinction and sampling from paleontological data.
-Phil Trans Roy Soc B, in press.\n
+Phil. Trans. R. Soc. B 371: 20150225.\n
 """
 
 
