@@ -222,9 +222,9 @@ def get_marginal_rates(model,l0,m0,Garray,Temp_at_events,shift_ind,root_age):
 	for i in range(len(Temp_at_events)):
 		age = all_events_temp2[0,i]
 		if age <= root_age:
-			age_vec.append(np.round(age,3))
-			l_vec.append(np.round(l_at_events[i],3))
-			m_vec.append(np.round(m_at_events[i],3))
+			age_vec.append(np.round(age,8))
+			l_vec.append(np.round(l_at_events[i],8))
+			m_vec.append(np.round(m_at_events[i],8))
 	return(age_vec,l_vec,m_vec)
 	
 
@@ -295,7 +295,7 @@ if summary_file != "":
 	polygon(c(time, rev(time)), c(L_hpd_M, rev(L_hpd_m)), col = alpha("#4c4cec",0.3), border = NA)	
 	abline(v %s,lty=2,col="gray")
 
-	plot(extinction ~ time,type="l",col="#e34a33",  lwd=3,main="Extinction rates - Joint effects", ylim = c(0,max(c(L_hpd_M,M_hpd_M))),xlab="Time",ylab="extinction",xlim=c(min(time),0))
+	plot(extinction ~ time,type="l",col="#e34a33",  lwd=3,main="Extinction rates", ylim = c(0,max(c(L_hpd_M,M_hpd_M))),xlab="Time",ylab="extinction",xlim=c(min(time),0))
 	polygon(c(time, rev(time)), c(M_hpd_M, rev(M_hpd_m)), col = alpha("#e34a33",0.3), border = NA)
 	abline(v %s,lty=2,col="gray")
 	""" % (lib_utilities.print_R_vec("",-s_times),lib_utilities.print_R_vec("",-s_times))
