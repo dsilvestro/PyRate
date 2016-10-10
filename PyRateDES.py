@@ -397,8 +397,9 @@ for it in range(n_generations * len(scal_fac_TI)):
 			if r < update_freq[1] or it==0:
 				w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
 			for l in list_taxa_index:
-				lik += calc_likelihood_mQ_eigen([delta_t,r_vec,w_list,vl_list,vl_inv_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index])
-			#print "l1",lik,
+				l_temp = calc_likelihood_mQ_eigen([delta_t,r_vec,w_list,vl_list,vl_inv_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index])
+				#print l,  l_temp
+				lik +=l_temp 
 			#print "elapsed time:", time.time()-t1
 		else:
 			#t1= time.time()
@@ -430,7 +431,8 @@ for it in range(n_generations * len(scal_fac_TI)):
 	
 	lik_alter = lik * scal_fac_TI[scal_fac_ind]
 	
-	if np.isfinite((lik_alter+prior+hasting)) is True:
+	if np.isfinite((lik_alter+prior+hasting)) == True:
+		if it==0: likA=lik_alter+0.
 		if (lik_alter-(likA* scal_fac_TI[scal_fac_ind]) + prior-priorA +hasting >= log(np.random.uniform(0,1))) or (gibbs_sample == 1) :
 			dis_rate_vec_A= dis_rate_vec
 			ext_rate_vec_A= ext_rate_vec
