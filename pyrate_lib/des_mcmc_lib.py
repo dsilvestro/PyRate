@@ -46,6 +46,17 @@ def update_multiplier_proposal(i,d):
 	U=sum(log(m))
 	return ii, U
 
+def update_multiplier_proposal_freq(q,d=1.1,f=0.75):
+	S=np.shape(q)
+	ff=np.random.binomial(1,f,S)
+	u = np.random.uniform(0,1,S)
+	l = 2*log(d)
+	m = exp(l*(u-.5))
+	m[ff==0] = 1.
+ 	new_q = q * m
+	U=sum(log(m))
+	return new_q,U
+
 
 def update_scaling_vec_V(V):
 	I=np.random.choice(len(V),2,replace=False) # select 2 random time frames
@@ -60,7 +71,7 @@ def update_scaling_vec_V(V):
 def update_parameter_uni_2d_freq(oldL,d,f=.65,m=0,M=1):
 	S=shape(oldL)
 	ii=(np.random.uniform(0,1,S)-.5)*d
-	ff=np.rint(np.random.uniform(0,f,S))
+	ff=np.random.binomial(1,f,S)
 	s= oldL + ii*ff	
 	s[s>M]=M-(s[s>M]-M)
 	s[s<m]=(m-s[s<m])+m
@@ -152,6 +163,71 @@ def calc_likelihood_mQ_eigen(args):
 		
 	[calc_lik_bin(j,L) for j in range(len(recursive))]	
 	PvDes_final=L[-1,:]
+	return np.log(np.sum(PvDes_final))
+
+
+
+def calc_likelihood_mQ_eigen_aprx(args):
+	[delta_t,r_vec_list,w_list,vl_list,vl_inv_list,rho_at_present,r_vec_indexes,sign_list,sp_OrigTimeIndex,Q_index]=args
+	PvDes= rho_at_present
+	recursive = np.arange(sp_OrigTimeIndex,len(delta_t))[::-1]
+	L = np.zeros((len(recursive)+1,4))
+	L[0,:]=PvDes
+	print recursive, len(recursive)
+	
+	def calc_lik_bin(j,L,t=0):
+		i = recursive[j]
+		ind_Q = Q_index[i]
+		r_vec=r_vec_list[Q_index[i]]
+		if t==0: t=delta_t[i] 
+		r_ind= r_vec_indexes[i]
+		sign=  sign_list[i]
+		rho_vec= np.prod(abs(sign-r_vec[r_ind]),axis=1)
+		d= exp(w_list[ind_Q]*t) 
+		m1 = np.zeros((4,4))
+		np.fill_diagonal(m1,d)
+		Pt1 = np.dot(vl_list[ind_Q],m1)
+		Pt = np.dot(Pt1,vl_inv_list[ind_Q])
+		PvDes_temp = L[j,:]
+		condLik_temp= np.dot(PvDes_temp,Pt)
+		PvDes= condLik_temp *rho_vec
+		print j, rho_vec, list(PvDes), r_vec_list, i # d.astype(float)
+		L[j+1,:]= PvDes
+		return PvDes
+		
+	def calc_lik_bin_mod(j,L,t=0):
+		i = recursive[j]
+		ind_Q = Q_index[i]
+		r_vec=r_vec_list[Q_index[i]]
+		r_ind= r_vec_indexes[i]
+		sign=  sign_list[i]
+		rho_vec= np.prod(abs(sign-r_vec[r_ind]),axis=1)
+		print sign, r_vec[r_ind], rho_vec
+		d= exp(w_list[ind_Q]*t) 
+		m1 = np.zeros((4,4))
+		np.fill_diagonal(m1,d)
+		Pt1 = np.dot(vl_list[ind_Q],m1)
+		Pt = np.dot(Pt1,vl_inv_list[ind_Q])
+		PvDes_temp = L[j,:]
+		condLik_temp= np.dot(PvDes_temp,Pt)
+		s_prob =log(exp(.25*4))
+		PvDes= condLik_temp * np.array([0,0,0,s_prob**2])
+		print j, rho_vec, list(PvDes), r_vec_list, i # d.astype(float)
+		L[j+1,:]= PvDes
+		#quit()
+		return PvDes
+		
+	
+	
+	
+	print calc_lik_bin_mod(0,L,t=8)
+	
+	
+	[calc_lik_bin(j,L) for j in range(len(recursive))]	
+	PvDes_final=L[-1,:]
+	quit()
+	
+	#print np.log(np.sum(PvDes_final))
 	return np.log(np.sum(PvDes_final))
 
 
