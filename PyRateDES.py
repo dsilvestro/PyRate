@@ -344,7 +344,7 @@ if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
 start_time=time.time()
 
 update_rate_freq = max(0.2, 1./sum(np.shape(dis_rate_vec)))
-print "HERE::::::", update_rate_freq, update_freq
+#print "HERE::::::", update_rate_freq, update_freq
 
 	
 scal_fac_ind=0
@@ -379,10 +379,11 @@ for it in range(n_generations * len(scal_fac_TI)):
 		else:
 			ext_rate_vec,hasting=update_multiplier_proposal_freq(ext_rate_vec_A,d=1.1,f=update_rate_freq)
 	elif r<=update_freq[2]: 
-		r_vec=update_parameter_uni_2d_freq(r_vec_A,d=0.025,f=update_rate_freq)
+		r_vec=update_parameter_uni_2d_freq(r_vec_A,d=0.1,f=update_rate_freq)
 		r_vec[:,0]=0
 		r_vec[:,3]=1
-		if args.data_in_area == 1: r_vec[:,2] = small_number
+		# CHECK THIS: CHANGE TO VALUE CLOSE TO 1? i.e. for 'ghost' area 
+		if args.data_in_area == 1: r_vec[:,2] = small_number 
 		elif  args.data_in_area == 2: r_vec[:,1] = small_number
 		
 	else:
