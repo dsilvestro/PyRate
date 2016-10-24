@@ -13,7 +13,7 @@ def powerset(iterable):
 	return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
 
 
-def build_rho_index_vec(obs_state,nareas,possible_areas,verbose):
+def build_rho_index_vec(obs_state,nareas,possible_areas,verbose=0):
 	obs_state=set(obs_state)
 	r_vec_index=[]
 	r_neg_index=np.zeros((len(possible_areas),nareas))
@@ -40,7 +40,9 @@ def build_rho_index_vec(obs_state,nareas,possible_areas,verbose):
 					temp.append(0) # 0 is index of r_vec = 0
 				else: print "Warning: problem in function <build_rho_index_vec>"
 		if verbose ==1: 
-			print anc_state,"\t",obs_state,"\t",temp,"\t",r_neg_index[i]
+			r_vec= np.array([0]+list(np.zeros(nareas)+0.25) +[1])
+			r_vec[1]=0.33
+			print anc_state,"\t",obs_state,"\t",temp,"\t",r_neg_index[i], abs(r_neg_index[i]-r_vec[temp]),np.prod(abs(r_neg_index[i]-r_vec[temp]))
 		r_vec_index.append(temp)	
 	#print "\nFINAL",np.array(r_vec_index),r_neg_index	, "\nEND"
 	return np.array(r_vec_index),r_neg_index
@@ -78,6 +80,7 @@ def make_Q_list(dv_list,ev_list): # construct list of Q matrices
 		[e1,e2] = ev_list[i]
 		Q= np.array([
 			[D, 0, 0, 0 ],
+#			[D, d1, d2, 0 ],
 			[e1,D, 0, d1],
 			[e2,0, D, d2],
 			[0 ,e1,e2,D ]	

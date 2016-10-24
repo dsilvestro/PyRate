@@ -61,8 +61,13 @@ for file_i in range(len(files)):
 		
 		FAbeta, LObeta=zeros(len(n)), zeros(len(n))
 		all_records=list()
+		no_data=0.
+		no_extant=0
+		no_extinct=0
 	
 		for i in range(len(n)): #looping over species
+			ts= TS[i]
+			te= TE[i]
 		
 			if TE[i]==0: 
 				## setting extinctiom of extant taxa as getting extinct at the present
@@ -95,6 +100,9 @@ for file_i in range(len(files)):
 				FAbeta[i]=max(samples)
 				LObeta[i]=min(samples)
 				all_records.append(samples)
+				if te==0: no_extant+=1
+				else: no_extinct+=1
+			elif te==0: no_data+=1 # extant species with no data
 		
 		g,a,b,e,f="no. records:\n", "\nts (true):\n","\nte (true):\n","\nts (obs):\n","\nte (obs):\n"
 		for i in range(len(TS)):
@@ -118,8 +126,8 @@ for file_i in range(len(files)):
 		(sum(TS-TE), sum(FAbeta-LObeta), beta_par, minFO, q, rho)
 	
 		o=''.join([a1,g,a,b,e,f]) # a0,
-
-		return [all_records, o]
+		taxon_sampling = round((len(all_records)-no_data)/float(len(TE)),2)
+		return [all_records, o,taxon_sampling,no_extant,no_extinct]
 
 
 
