@@ -1644,10 +1644,14 @@ def get_init_values(mcmc_log_file):
 	head = next(open(mcmc_log_file)).split()
 	ts_index = [head.index(i) for i in head if "_TS" in i]
 	te_index = [head.index(i) for i in head if "_TE" in i]
-	q_rates_index = [head.index("alpha"), head.index("q_rate")]
+	try:
+		q_rates_index = [head.index("alpha"), head.index("q_rate")]
+		q_rates = tbl[last_row,q_rates_index]
+	except:
+		q_rates_index = [head.index(i) for i in head if "q_" in i]
+		q_rates = tbl[last_row,q_rates_index]	
 	ts = tbl[last_row,ts_index]
 	te = tbl[last_row,te_index]
-	q_rates = tbl[last_row,q_rates_index]
 	if len(fixed_times_of_shift)>0: # fixShift
 		try:
 			hyp_index = [head.index("hypL"), head.index("hypM")]
@@ -1707,10 +1711,9 @@ def MCMC(all_arg):
 			alpha_par_Dir_M = np.random.uniform(0,1) # init concentration parameters
 		
 		q_ratesA,cov_parA = init_q_rates() # use 1 for symmetric PERT
-		if restore_chain is True: q_ratesA = restore_init_values[2]
-		
 		if multiHPP is True: # init multiple q rates
 			q_ratesA = np.zeros(time_framesQ)+q_ratesA[1]
+		if restore_chain is True: q_ratesA = restore_init_values[2]
 		
 		if est_COVAR_prior is True: 
 			covar_prior = 1.
