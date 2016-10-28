@@ -1543,6 +1543,48 @@ def Alg_3_1(arg):
 		
 ######	END FUNCTIONS for BDMCMC ######
 
+####### BEGIN FUNCTIONS for RJMCMC #######
+def add_shift_RJ(rates,times):
+	r_time, r_time_ind = random_choice_P(np.diff(times))
+	delta_t_prime      = np.random.uniform(0,r_time)
+	t_prime            = times[r_time_ind] + delta_t_prime
+	times_prime        = np.sort(np.array(list(times)+[t_prime]))[::-1]
+	a,b                = 1,0.2
+	rate_prime         = np.random.gamma(a,b)
+	log_q_prob         = -prior_gamma(rate_prime,a,b)-log(max(times)-min(times)) # log(1/prob(proposing_prime_values)) + log(1/timespan)
+	rates_prime        = np.insert(rates,r_time_ind+1,rate_prime)
+	return rates_prime,times_prime,log_q_prob
+
+def remove_shift_RJ(rates,times):
+	rm_shift_ind  = np.random.choice(range(1,len(times)-1))
+	rm_shift_time = times[rm_shift_ind]
+	times_prime   = times[times != rm_shift_time]
+	rm_rate       = rates[rm_shift_ind]
+	a,b           = 1,0.2
+	log_q_prob    = prior_gamma(rm_rate,a,b)+log(max(times)-min(times)) # log(prob(proposing_prime_values)) - log(timespan)
+	rates_prime   = rates[rates != rm_rate]
+	return rates_prime,times_prime,log_q_prob
+	
+
+def RJMCMC(arg):
+	[L,M, timesL, timesM]=arg
+	r=np.random.random(2)
+	newL,newtimesL,log_q_probL = L,timesL,0
+	newM,newtimesM,log_q_probM = M,timesM,0
+	
+	if np.random.random()>0.5:
+		# ADD/REMOVE SHIFT LAMBDA
+		if r[0]>0.5: newL,newtimesL,log_q_probL = add_shift_RJ(L,timesL)
+		# if 1-rate model this won't do anything, keeping the frequency of add/remove equal
+		elif len(L)>1: newL,newtimesL,log_q_probL = remove_shift_RJ(L,timesL) 
+	else:
+		# ADD/REMOVE SHIFT LAMBDA
+		if r[1]>0.5: newM,newtimesM,log_q_probM = add_shift_RJ(M,timesM)
+		# if 1-rate model this won't do anything, keeping the frequency of add/remove equal
+		elif len(M)>1: newM,newtimesM,log_q_probM = remove_shift_RJ(M,timesM) 
+	
+	return newL,newtimesL,newM,newtimesM,log_q_probL+log_q_probM
+
 
 ####### BEGIN FUNCTIONS for DIRICHLET PROCESS PRIOR #######
 
@@ -1768,7 +1810,7 @@ def MCMC(all_arg):
 			rr=random.uniform(0,1) #random.uniform(.8501, 1)
 			stop_update=I+1
 
-		if np.random.random() < 1./freq_Alg_3_1 and it>start_Alg_3_1 and TDI==2:
+		if np.random.random() < 1./freq_Alg_3_1 and it>start_Alg_3_1 and TDI in [2,4]:
 			stop_update=inf
 			rr=1.5 # no updates
 			
@@ -1955,49 +1997,76 @@ def MCMC(all_arg):
 					likBDtemp = likBDtemp
 					#print likBDtemp - BD_lik_vec_times([ts,te,timesL,L,M])
 
-			else: # run BD algorithm (Alg. 3.1)
-				sys.stderr = NO_WARN
-				args=[it, likBDtempA,tsA, teA, LA,MA, timesLA, timesMA, cov_parA,len(LA)]
-				likBDtemp, L,M, timesL, timesM, cov_par = Alg_3_1(args)
+			else: 
+				if TDI==2: # run BD algorithm (Alg. 3.1)
+					sys.stderr = NO_WARN
+					args=[it, likBDtempA,tsA, teA, LA,MA, timesLA, timesMA, cov_parA,len(LA)]
+					likBDtemp, L,M, timesL, timesM, cov_par = Alg_3_1(args)
 			
-				# NHPP Lik: needs to be recalculated after Alg 3.1
-				if fix_SE is False:
-					# NHPP calculated only if not -fixSE
-					# generate args lik (ts, te)
-					ind1=range(0,len(fossil))
-					lik_fossil=zeros(len(fossil))
-					# generate args lik (ts, te)
-					z=zeros(len(fossil)*7).reshape(len(fossil),7)
-					z[:,0]=te
-					z[:,1]=ts
-					z[:,2]=q_rates[0]   # shape prm Gamma
-					z[:,3]=q_rates[1]   # baseline foss rate (q)
-					z[:,4]=range(len(fossil))
-					z[:,5]=cov_par[2]  # covariance baseline foss rate
-					z[:,6]=M[len(M)-1] # ex rate
-					args=list(z[ind1])
-					if num_processes_ts==0:
-						for j in range(len(ind1)):
-							i=ind1[j] # which species' lik
-							if multiHPP is True:  lik_fossil[i] = HPP_vec_lik([te[i],ts[i],q_time_frames,q_rates,i])
-							else:
-								if argsHPP is True or  frac1==0: lik_fossil[i] = HOMPP_lik(args[j])
-								elif argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
-								else: lik_fossil[i] = NHPP_lik(args[j])
-					else:
-						if argsHPP is True or frac1==0: lik_fossil[ind1] = array(pool_ts.map(HOMPP_lik, args))
-						elif argsG is True: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args))
-						else: lik_fossil[ind1] = array(pool_ts.map(NHPP_lik, args))
+					# NHPP Lik: needs to be recalculated after Alg 3.1
+					if fix_SE is False:
+						# NHPP calculated only if not -fixSE
+						# generate args lik (ts, te)
+						ind1=range(0,len(fossil))
+						lik_fossil=zeros(len(fossil))
+						# generate args lik (ts, te)
+						z=zeros(len(fossil)*7).reshape(len(fossil),7)
+						z[:,0]=te
+						z[:,1]=ts
+						z[:,2]=q_rates[0]   # shape prm Gamma
+						z[:,3]=q_rates[1]   # baseline foss rate (q)
+						z[:,4]=range(len(fossil))
+						z[:,5]=cov_par[2]  # covariance baseline foss rate
+						z[:,6]=M[len(M)-1] # ex rate
+						args=list(z[ind1])
+						if num_processes_ts==0:
+							for j in range(len(ind1)):
+								i=ind1[j] # which species' lik
+								if multiHPP is True:  lik_fossil[i] = HPP_vec_lik([te[i],ts[i],q_time_frames,q_rates,i])
+								else:
+									if argsHPP is True or  frac1==0: lik_fossil[i] = HOMPP_lik(args[j])
+									elif argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
+									else: lik_fossil[i] = NHPP_lik(args[j])
+						else:
+							if argsHPP is True or frac1==0: lik_fossil[ind1] = array(pool_ts.map(HOMPP_lik, args))
+							elif argsG is True: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args))
+							else: lik_fossil[ind1] = array(pool_ts.map(NHPP_lik, args))
 			
-				sys.stderr = original_stderr			
+					sys.stderr = original_stderr
+				
+				elif TDI==4: # run RJMCMC
+					L,timesL,M,timesM,hasting = RJMCMC([LA,MA, timesLA, timesMA])
+					#print  L,timesL,M,timesM #,hasting
+					args=list()
+					for temp_l in range(len(timesL)-1):
+						up, lo = timesL[temp_l], timesL[temp_l+1]
+						l = L[temp_l]
+						args.append([ts, te, up, lo, l, 'l', cov_par[0],1])
+					for temp_m in range(len(timesM)-1):
+						up, lo = timesM[temp_m], timesM[temp_m+1]
+						m = M[temp_m]
+						args.append([ts, te, up, lo, m, 'm', cov_par[1],1])			
+					
+					if num_processes==0:
+						likBDtemp=np.zeros(len(args))
+						i=0
+						for i in range(len(args)):
+							likBDtemp[i]=BPD_partial_lik(args[i])
+							i+=1
+					# multi-thread computation of lik and prior (rates)
+					else: likBDtemp = array(pool_lik.map(BPD_partial_lik, args))
+					#print sum(likBDtempA), sum(likBDtemp)
+					
 		
 		lik= sum(lik_fossil) + sum(likBDtemp) + PoiD_const
 
 		T= max(ts)
-		if TDI<3:
+		if TDI < 3:
 			prior += sum(prior_times_frames(timesL, max(ts),min(te), lam_s))
 			prior += sum(prior_times_frames(timesM, max(ts),min(te), lam_s))
-		
+		if TDI ==4: 
+			prior += sum(prior_times_frames(timesL, max(ts),min(te), 1))
+			prior += sum(prior_times_frames(timesM, max(ts),min(te), 1))
 		
 		priorBD= get_hyper_priorBD(timesL,timesM,L,M,T,hyperP)
 		if use_ADE_model is True:
@@ -2025,7 +2094,7 @@ def MCMC(all_arg):
 		
 		#print Post, PostA, q_ratesA, sum(lik_fossil), sum(likBDtemp),  prior
 		if Post>-inf and Post<inf:
-			if Post*tempMC3-PostA*tempMC3 + hasting >= log(np.random.random()) or stop_update==inf: # 
+			if Post*tempMC3-PostA*tempMC3 + hasting >= log(np.random.random()) or stop_update==inf and TDI==2: # 
 				likBDtempA=likBDtemp
 				PostA=Post
 				priorA=prior
@@ -2050,7 +2119,7 @@ def MCMC(all_arg):
 				print_out= "\n%s\tpost: %s lik: %s (%s, %s) prior: %s tot.l: %s" \
 				% (it, l[0], l[1], round(sum(lik_fossilA), 2), round(sum(likBDtempA)+ PoiD_const, 2),l[2], l[3])
 				if TDI==1: print_out+=" beta: %s" % (round(temperature,4))
-				if TDI==2 or TDI==3: print_out+=" k: %s" % (len(LA)+len(MA))
+				if TDI in [2,3,4]: print_out+=" k: %s" % (len(LA)+len(MA))
 				print(print_out)
 				#if TDI==1: print "\tpower posteriors:", marginal_lik[0:10], "..."
 				if TDI==3:
@@ -2103,7 +2172,7 @@ def MCMC(all_arg):
 				if fix_Shift== False:
 					log_state += list(timesLA[1:-1])
 					log_state += list(timesMA[1:-1])
-			elif TDI==2: # BD-MCMC
+			elif TDI in [2,4]: # BD-MCMC
 				log_state+= [len(LA), len(MA), s_max,min(teA)]
 			else: # DPP
 				log_state+= [len(LA), len(MA), alpha_par_Dir_L,alpha_par_Dir_M, s_max,min(teA)]
@@ -2305,7 +2374,7 @@ argsHPP=args.mHPP
 # GENERAL SETTINGS
 TDI=args.A                  # 0: parameter estimation, 1: thermodynamic integration, 2: BD-MCMC
 if constrain_time_frames is True or args.fixShift != "":
-	if TDI==2:
+	if TDI in [2,4]:
 		print("\nConstrained shift times (-mC,-fixShift) cannot be used with BDMCMC alorithm. Using standard MCMC instead.\n")
 		TDI = 0
 if args.ADE==1 and TDI>1: 
@@ -3046,7 +3115,7 @@ if TDI<2:
 	if fix_Shift== False:
 		for i in range(1,time_framesL): head += "shift_sp_%s\t" % (i)
 		for i in range(1,time_framesM): head += "shift_ex_%s\t" % (i)
-elif TDI==2: head+="k_birth\tk_death\troot_age\tdeath_age\t"
+elif TDI in [2,4]: head+="k_birth\tk_death\troot_age\tdeath_age\t"
 else:        head+="k_birth\tk_death\tDPP_alpha_L\tDPP_alpha_M\troot_age\tdeath_age\t"
 
 
