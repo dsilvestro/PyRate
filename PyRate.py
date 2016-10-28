@@ -2188,7 +2188,7 @@ def MCMC(all_arg):
 			os.fsync(logfile)
 
 			lik_tmp += sum(likBDtempA)
-			if TDI !=1 and n_proc==0 and TDI<3 and use_ADE_model is False and useDiscreteTraitModel is False:
+			if TDI in [0,2,4] and n_proc==0 and use_ADE_model is False and useDiscreteTraitModel is False:
 				margL=zeros(len(marginal_frames))
 				margM=zeros(len(marginal_frames))
 				if useBounded_BD is True: min_marginal_frame = boundMin
@@ -3022,8 +3022,15 @@ if args.data_info is True:
 		m_ages.append(min_age)
 		M_ages.append(max_age)
 		j+=1
-	print "%s fossil occurrences (%s replicates), ranging from %s (+/- %s) to %s (+/- %s) Ma" % \
+	print "%s fossil occurrences (%s replicates), ranging from %s (+/- %s) to %s (+/- %s) Ma\n" % \
 	(all_occ, j, round(mean(M_ages),3), round(std(M_ages),3),round(mean(m_ages),3), round(std(m_ages),3))
+	# print species FA,LO
+	print "Taxon\tFA\tLA"
+	for i in range(len(fossil)):
+		foss_temp = fossil[i]
+		if min(foss_temp)==0: status_temp="extant"
+		else: status_temp=""
+		print "%s\t%s\t%s\t%s" % (taxa_names[i], round(max(foss_temp),3),round(min(foss_temp[foss_temp>0]),3),status_temp)
 	
 	# print histogram
 	n_occs_list = np.array(n_occs_list)
@@ -3045,6 +3052,7 @@ except(OSError): pass
 suff_out=out_name
 if TDI==1: suff_out+= "_TI"
 if TDI==3: suff_out+= "_dpp"
+if TDI==4: suff_out+= "_rj"
 
 # OUTPUT 0 SUMMARY AND SETTINGS
 o0 = "\n%s build %s\n" % (version, build)
