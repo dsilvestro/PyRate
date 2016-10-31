@@ -2094,7 +2094,7 @@ def MCMC(all_arg):
 		
 		#print Post, PostA, q_ratesA, sum(lik_fossil), sum(likBDtemp),  prior
 		if Post>-inf and Post<inf:
-			if Post*tempMC3-PostA*tempMC3 + hasting >= log(np.random.random()) or stop_update==inf and TDI==2: # 
+			if Post*tempMC3-PostA*tempMC3 + hasting >= log(np.random.random()) or stop_update==inf and TDI in [2,3]: # 
 				likBDtempA=likBDtemp
 				PostA=Post
 				priorA=prior
