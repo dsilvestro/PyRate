@@ -58,6 +58,8 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 		if path_dir=="": path_dir= self_path
 		
 	print "found", len(files), "log files...\n"
+	print files
+	print tag
 	count=0
 
 	if len(files)==1 or tag != "":
@@ -71,7 +73,7 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 		newfile.flush()
 
 	for f in files:
-		if 2>1: #try:
+		try:
 			t_file=np.genfromtxt(f, delimiter='\t', dtype=None)
 			input_file = os.path.basename(f)
 			name_file = os.path.splitext(input_file)[0]
@@ -178,7 +180,7 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 				newfile.close()
 			else: count+=1
 			
-		#except: print "Could not read file:",name_file
+		except: print "Could not read file:",name_file
 	#print shape(out_array)
 	#print out_array[1:5,:]
 	if len(files)==1 or tag != "":
