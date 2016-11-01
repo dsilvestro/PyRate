@@ -137,7 +137,7 @@ def get_eigen_list(Q_list):
 
 
 def calc_likelihood_mQ_eigen(args):
-	[delta_t,r_vec_list,w_list,vl_list,vl_inv_list,rho_at_present,r_vec_indexes,sign_list,sp_OrigTimeIndex,Q_index]=args
+	[delta_t,r_vec_list,w_list,vl_list,vl_inv_list,rho_at_present,r_vec_indexes,sign_list,sp_OrigTimeIndex,index_r,index_q]=args
 	PvDes= rho_at_present
 	recursive = np.arange(sp_OrigTimeIndex,len(delta_t))[::-1]
 	L = np.zeros((len(recursive)+1,4))
@@ -145,8 +145,8 @@ def calc_likelihood_mQ_eigen(args):
 	
 	def calc_lik_bin(j,L):
 		i = recursive[j]
-		ind_Q = Q_index[i]
-		r_vec=r_vec_list[Q_index[i]]
+		ind_Q = index_q[i]
+		r_vec=r_vec_list[index_r[i]]
 		t=delta_t[i] 
 		r_ind= r_vec_indexes[i]
 		sign=  sign_list[i]
@@ -233,14 +233,14 @@ def calc_likelihood_mQ_eigen_aprx(args):
 
 
 def calc_likelihood_mQ(args):
-	[delta_t,r_vec_list,Q_list,rho_at_present,r_vec_indexes,sign_list,sp_OrigTimeIndex,Q_index]=args
+	[delta_t,r_vec_list,Q_list,rho_at_present,r_vec_indexes,sign_list,sp_OrigTimeIndex,index_r,index_q]=args
 	PvDes= rho_at_present
 	#print rho_at_present
 	recursive = np.arange(sp_OrigTimeIndex,len(delta_t))[::-1]
 	for i in recursive:
 		#print "here",i, Q_index[i]
-		Q = Q_list[Q_index[i]]
-		r_vec=r_vec_list[Q_index[i]]
+		Q = Q_list[index_q[i]]
+		r_vec=r_vec_list[index_r[i]]
 		# get time span
 		t=delta_t[i] 
 		# get rho vector

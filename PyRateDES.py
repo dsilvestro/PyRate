@@ -344,8 +344,12 @@ if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
 start_time=time.time()
 
 update_rate_freq = max(0.2, 1./sum(np.shape(dis_rate_vec)))
-#print "HERE::::::", update_rate_freq, update_freq
-
+print "HERE::::::", OrigTimeIndex, delta_t # update_rate_freq, update_freq
+l=1
+recursive = np.arange(OrigTimeIndex[l],len(delta_t))[::-1]
+print recursive
+print shape(r_vec_indexes_LIST[l]),shape(sign_list_LIST[l])
+#quit()
 	
 scal_fac_ind=0
 for it in range(n_generations * len(scal_fac_TI)):		
@@ -391,6 +395,8 @@ for it in range(n_generations * len(scal_fac_TI)):
 		prior_exp_rate = gibbs_sampler_hp(np.concatenate((dis_rate_vec,ext_rate_vec)),hp_alpha,hp_beta)
 
 	Q_list= make_Q_list(dis_rate_vec,ext_rate_vec)
+	#print Q_list, len(delta_t)	
+	
 
 	if num_processes==0:
 		if use_Pade_approx==0:
@@ -399,7 +405,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 			if r < update_freq[1] or it==0:
 				w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
 			for l in list_taxa_index:
-				l_temp = calc_likelihood_mQ_eigen([delta_t,r_vec,w_list,vl_list,vl_inv_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index])
+				l_temp = calc_likelihood_mQ_eigen([delta_t,r_vec,w_list,vl_list,vl_inv_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index])
 				#print l,  l_temp
 				lik +=l_temp 
 			#print "elapsed time:", time.time()-t1
@@ -407,7 +413,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 			#t1= time.time()
 			lik=0
 			for l in list_taxa_index:
-				lik += calc_likelihood_mQ([delta_t,r_vec,Q_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index])
+				lik += calc_likelihood_mQ([delta_t,r_vec,Q_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index])
 			#print "l2",lik
 			#print "elapsed time:", time.time()-t1
 		

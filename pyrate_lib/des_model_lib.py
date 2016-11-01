@@ -89,6 +89,26 @@ def make_Q_list(dv_list,ev_list): # construct list of Q matrices
 		np.fill_diagonal(Q, -np.sum(Q,axis=1))
 		Q_list.append(Q)
 	return Q_list
+
+def make_Q_Covar(dv_list,ev_list,time_var,covar_par=np.zeros(2)): # construct list of Q matrices
+	transf_d = np.array([dv_list[0][0] *exp(covar_par[0]*time_var), dv_list[0][1] *exp(covar_par[0]*time_var)]).T
+	transf_e = np.array([ev_list[0][0] *exp(covar_par[1]*time_var), ev_list[0][1] *exp(covar_par[1]*time_var)]).T
+	Q_list=[]
+	for i in range(len(transf_d)):
+		D=0
+		[d1,d2] = transf_d[i] # d1 A->B; d2 B->A;
+		[e1,e2] = transf_e[i]
+		Q= np.array([
+			[D, 0, 0, 0 ],
+#			[D, d1, d2, 0 ],
+			[e1,D, 0, d1],
+			[e2,0, D, d2],
+			[0 ,e1,e2,D ]	
+		])
+		# fill diagonal values
+		np.fill_diagonal(Q, -np.sum(Q,axis=1))
+		Q_list.append(Q)
+	return Q_list
 		
 
 def make_Q3A(dv,ev): # construct Q matrix
