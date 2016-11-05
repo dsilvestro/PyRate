@@ -162,9 +162,9 @@ def calc_model_probabilities(f,burnin):
 		B[:,2]=B[:,2]/sum(B[:,2])
 		B = B[B[:,2].argsort()[::-1]]
 		cum_prob = np.cumsum(B[:,2])
-		print "Best BD/ID configurations (rel.pr > 0.05)"
+		print "Best BD/ID configurations (rel.pr >= 0.05)"
 		print "   B/I    D      Rel.pr"
-		print B[(B[:,2]>0.05).nonzero()[0],:]
+		print B[(np.round(B[:,2],3)>=0.05).nonzero()[0],:]
 	
 	except: pass
 	quit()
@@ -683,12 +683,23 @@ def init_BD(n):
 	#return np.repeat(0.5,max(n-1,1)) 
 	return np.random.exponential(.2, max(n-1,1))+.1
 
-def init_times(m,time_framesL,time_framesM, tip_age):
-	timesL=np.linspace(m,tip_age,time_framesL+1)
-	timesM=np.linspace(m,tip_age,time_framesM+1)
+def init_times(root_age,time_framesL,time_framesM,tip_age):
+	timesL=np.linspace(root_age*(0.7),tip_age,time_framesL+1)
+	timesM=np.linspace(root_age*(0.7),tip_age,time_framesM+1)
 	timesM[1:time_framesM] +=1
 	timesL[time_framesL] =0
 	timesM[time_framesM] =0
+	#print timesL,timesM
+	#ts,te=sort(ts)[::-1],sort(te)[::-1]
+	#indL = np.linspace(len(ts),0,time_framesL).astype(int)
+	#indM = np.linspace(len(te[te>0]),0,time_framesM).astype(int)
+	#
+	#print indL[1:time_framesL], indM[1:time_framesM]
+	#print ts[indL[1:time_framesL]],te[indM[1:time_framesM]]
+	#b= [0]+ list(te[indM[1:time_framesM]])+[max(ts)]
+	#print np.histogram(ts,bins=b)
+	#quit()
+	
 	return timesL, timesM
 
 def init_q_rates(): # p=1 for alpha1=alpha2
@@ -775,10 +786,15 @@ def update_q_multiplier(q,d=1.1,f=0.75):
 def update_times(times, max_time,min_time, mod_d4,a,b):
 	rS= times+zeros(len(times))
 	rS[0]=max_time
-	for i in range(a,b): rS[i]=update_parameter(times[i],min_time, max_time, mod_d4, 1)
+	if np.random.random()< 1.5:
+		for i in range(a,b): rS[i]=update_parameter(times[i],min_time, max_time, mod_d4, 1)
+	else:
+		i = np.random.choice(range(a,b))
+		rS[i]=update_parameter(times[i],min_time, max_time, mod_d4*3, 1)
 	y=sort(-rS)
 	y=-1*y
 	return y
+
 
 def update_ts_te_old(ts, te, d1):
 	tsn, ten= zeros(len(ts)), zeros(len(te))
@@ -1551,7 +1567,7 @@ def add_shift_RJ(rates,times):
 	times_prime        = np.sort(np.array(list(times)+[t_prime]))[::-1]
 	a,b                = 1,0.2
 	rate_prime         = np.random.gamma(a,b)
-	log_q_prob         = -prior_gamma(rate_prime,a,b)-log(max(times)-min(times)) # log(1/prob(proposing_prime_values)) + log(1/timespan)
+	log_q_prob         = -prior_gamma(rate_prime,a,b) -log(max(times)-min(times)) # log(/prob(proposing_prime_values)) + log(1/timespan)
 	rates_prime        = np.insert(rates,r_time_ind+1,rate_prime)
 	return rates_prime,times_prime,log_q_prob
 
@@ -1561,7 +1577,7 @@ def remove_shift_RJ(rates,times):
 	times_prime   = times[times != rm_shift_time]
 	rm_rate       = rates[rm_shift_ind]
 	a,b           = 1,0.2
-	log_q_prob    = prior_gamma(rm_rate,a,b)+log(max(times)-min(times)) # log(prob(proposing_prime_values)) - log(timespan)
+	log_q_prob    = prior_gamma(rm_rate,a,b) +log(max(times)-min(times)) # log(prob(proposing_prime_values)) - log(timespan)
 	rates_prime   = rates[rates != rm_rate]
 	return rates_prime,times_prime,log_q_prob
 	
@@ -1728,8 +1744,12 @@ def MCMC(all_arg):
 		timesLA, timesMA = init_times(max(tsA),time_framesL,time_framesM, min(teA))
 		if len(fixed_times_of_shift)>0: timesLA[1:-1],timesMA[1:-1]=fixed_times_of_shift,fixed_times_of_shift
 		if fix_edgeShift is True: 
-			timesLA[1],timesMA[1]= edgeShift0,edgeShift0
-			timesLA[-2],timesMA[-2]= edgeShift1,edgeShift1
+			if len(edgeShifts)==1: 
+				timesLA, timesMA = init_times(edgeShifts[0],time_framesL,time_framesM, 0) # starting shift tims within allowed window
+				timesLA[1],timesMA[1]= edgeShifts[0],edgeShifts[0]
+			if len(edgeShifts)>1: 
+				timesLA, timesMA = init_times(edgeShifts[0],time_framesL,time_framesM, edgeShifts[1]) # starting shift tims within allowed window
+				timesLA[-2],timesMA[-2]= edgeShifts[1],edgeShifts[1]
 		if TDI<3:
 			LA = init_BD(len(timesLA))
 			MA = init_BD(len(timesMA))
@@ -1793,8 +1813,13 @@ def MCMC(all_arg):
 		# update parameters
 		ts,te=tsA, teA
 		timesL,timesM=timesLA,timesMA
-		hyperP=hyperPA
-		W_shape=W_shapeA
+		try: # to make it work with MC3
+			hyperP=hyperPA
+			W_shape=W_shapeA
+		except: 
+			hyperPA,W_shapeA=[1,1],[1]
+			hyperP,W_shape=hyperPA,W_shapeA
+		
 		
 		# GLOBALLY CHANGE TRAIT VALUE
 		if model_cov >0:
@@ -1847,10 +1872,13 @@ def MCMC(all_arg):
 		elif rr < f_update_lm: # l/m
 			if np.random.random()<f_shift and len(LA)+len(MA)>2: 
 				if fix_edgeShift is True:
-					timesL=update_times(timesLA, max(ts),min(te),mod_d4,2,len(timesL)-2)
-					timesM=update_times(timesMA, max(ts),min(te),mod_d4,2,len(timesM)-2)
-					print timesM, timesMA
-					
+					if len(edgeShifts)>1:
+						timesL=update_times(timesLA, edgeShifts[0],edgeShifts[1],mod_d4,2,len(timesL)-2)
+						timesM=update_times(timesMA, edgeShifts[0],edgeShifts[1],mod_d4,2,len(timesM)-2)
+					else:
+						timesL=update_times(timesLA, edgeShifts[0],min(te),mod_d4,2,len(timesL)-1)
+						timesM=update_times(timesMA, edgeShifts[0],min(te),mod_d4,2,len(timesM)-1)
+						
 				else:
 					timesL=update_times(timesLA, max(ts),min(te),mod_d4,1,len(timesL))
 					timesM=update_times(timesMA, max(ts),min(te),mod_d4,1,len(timesM))
@@ -2065,8 +2093,8 @@ def MCMC(all_arg):
 			prior += sum(prior_times_frames(timesL, max(ts),min(te), lam_s))
 			prior += sum(prior_times_frames(timesM, max(ts),min(te), lam_s))
 		if TDI ==4: 
-			prior += sum(prior_times_frames(timesL, max(ts),min(te), 1))
-			prior += sum(prior_times_frames(timesM, max(ts),min(te), 1))
+			prior += -log(max(ts)-max(te))*len(L-1)  #sum(prior_times_frames(timesL, max(ts),min(te), 1))
+			prior += -log(max(ts)-max(te))*len(M-1)  #sum(prior_times_frames(timesM, max(ts),min(te), 1))
 		
 		priorBD= get_hyper_priorBD(timesL,timesM,L,M,T,hyperP)
 		if use_ADE_model is True:
@@ -2113,7 +2141,9 @@ def MCMC(all_arg):
 		if it % print_freq ==0 or it==burnin:
 			try: l=[round(y, 2) for y in [PostA, likA, priorA, SA]]
 			except: 
-				print lik, prior, prior_root_age(max(ts),max(FA),max(FA)), priorBD, max(ts),max(FA)
+				print "An error occurred."
+				print PostA,lik, prior, prior_root_age(max(ts),max(FA),max(FA)), priorBD, max(ts),max(FA)
+				print prior_gamma(q_rates[1],pert_prior[0],pert_prior[1]) + prior_uniform(q_rates[0],0,20)
 				quit()
 			if it>burnin and n_proc==0:
 				print_out= "\n%s\tpost: %s lik: %s (%s, %s) prior: %s tot.l: %s" \
@@ -2268,6 +2298,8 @@ p.add_argument('-filter_taxa',type=str,help="Filter lineages within list (drop a
 # PLOTS AND OUTPUT
 p.add_argument('-plot',       metavar='<input file>', type=str,help="RTT plot (type 1): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
 p.add_argument('-plot2',      metavar='<input file>', type=str,help="RTT plot (type 2): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
+p.add_argument('-plot3',      metavar='<input file>', type=str,help="RTT plot (type 3; fixed number of shifts): provide 'mcmc.log' file",default="")
+p.add_argument('-grid_plot3', type=float, help='Plot resolution in Myr (only for -plot3 command)', default=0.1, metavar=0.1)
 p.add_argument('-root_plot',  type=float, help='User define root age for RTT plots', default=0, metavar=0)
 p.add_argument('-tag',        metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted (-plot) or summarized in SE table (-ginput)",default="")
 p.add_argument('-mProb',      type=str,help="Input 'mcmc.log' file",default="")
@@ -2472,10 +2504,10 @@ if args.fixShift != "" or TDI==3:     # fix times of rate shift or DPP
 else: 
 	fixed_times_of_shift=[]
 	fix_Shift = False
-if args.edgeShift[0] != np.inf and args.edgeShift[1] != 0:
+if args.edgeShift[0] != np.inf: # and args.edgeShift[1] != 0:
 	fix_edgeShift = True
-	edgeShift0 = args.edgeShift[0]
-	edgeShift1 = args.edgeShift[1]
+	if args.edgeShift[1] != 0: edgeShifts = args.edgeShift
+	else: edgeShifts = [args.edgeShift[0]]
 else: fix_edgeShift = False
 # BDMCMC & MCMC SETTINGS
 runs=args.r              # no. parallel MCMCs (MC3)
@@ -2518,39 +2550,54 @@ hp_gamma_shape = args.dpp_hp
 target_k       = args.dpp_eK
 
 ############### PLOT RTT
-path_dir_log_files=args.plot2
-plot_type=2
-if path_dir_log_files=="": 
+if args.plot != "": 
 	path_dir_log_files=args.plot
 	plot_type=1
+elif args.plot2 != "":
+	path_dir_log_files=args.plot2
+	plot_type=2
+elif args.plot3 != "":
+	path_dir_log_files=args.plot3
+	plot_type=3
 list_files_BF=sort(args.BF)
 file_stem=args.tag
 root_plot=args.root_plot
 if path_dir_log_files != "":
-	#path_dir_log_files=sort(path_dir_log_files)
-	# plot each file separately
-	print root_plot 
-	if file_stem == "":
-		direct="%s/*marginal_rates.log" % path_dir_log_files
-		files=glob.glob(direct)
-		files=sort(files)		
-		if len(files)==0:
-			if 2>1: #try:
-				name_file = os.path.splitext(os.path.basename(str(path_dir_log_files)))[0]
-				path_dir_log_files = os.path.dirname(str(path_dir_log_files))
-				name_file = name_file.split("marginal_rates")[0]
-				one_file=True
-				plot_RTT(path_dir_log_files, burnin, name_file,one_file,root_plot,plot_type)
-			#except: sys.exit("\nFile or directory not recognized.\n")
-		else:
-			for f in files:
-				name_file = os.path.splitext(os.path.basename(f))[0]
-				name_file = name_file.split("marginal_rates")[0]
-				one_file =False
-				plot_RTT(path_dir_log_files, burnin, name_file,one_file,root_plot,plot_type)
+	if plot_type==3:
+		if 2>1: #try:
+			self_path= os.path.dirname(sys.argv[0])
+			import imp
+			lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
+			lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
+			rtt_plot_bds = imp.load_source("rtt_plot_bds", "%s/pyrate_lib/rtt_plot_bds.py" % (self_path))
+			rtt_plot_bds.RTTplot_high_res(path_dir_log_files,args.grid_plot3,int(burnin),root_plot)		
+		#except: sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
+		#You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
 	else:
-		one_file =False
-		plot_RTT(path_dir_log_files, burnin, file_stem,one_file,root_plot,plot_type)
+		#path_dir_log_files=sort(path_dir_log_files)
+		# plot each file separately
+		print root_plot 
+		if file_stem == "":
+			direct="%s/*marginal_rates.log" % path_dir_log_files
+			files=glob.glob(direct)
+			files=sort(files)		
+			if len(files)==0:
+				if 2>1: #try:
+					name_file = os.path.splitext(os.path.basename(str(path_dir_log_files)))[0]
+					path_dir_log_files = os.path.dirname(str(path_dir_log_files))
+					name_file = name_file.split("marginal_rates")[0]
+					one_file=True
+					plot_RTT(path_dir_log_files, burnin, name_file,one_file,root_plot,plot_type)
+				#except: sys.exit("\nFile or directory not recognized.\n")
+			else:
+				for f in files:
+					name_file = os.path.splitext(os.path.basename(f))[0]
+					name_file = name_file.split("marginal_rates")[0]
+					one_file =False
+					plot_RTT(path_dir_log_files, burnin, name_file,one_file,root_plot,plot_type)
+		else:
+			one_file =False
+			plot_RTT(path_dir_log_files, burnin, file_stem,one_file,root_plot,plot_type)
 	quit()
 elif args.mProb != "": calc_model_probabilities(args.mProb,burnin)
 elif len(list_files_BF):
@@ -3050,6 +3097,7 @@ try: os.mkdir(path_dir)
 except(OSError): pass
 
 suff_out=out_name
+if TDI<=1: suff_out+= "BD%s-%s" % (args.mL,args.mM)
 if TDI==1: suff_out+= "_TI"
 if TDI==3: suff_out+= "_dpp"
 if TDI==4: suff_out+= "_rj"
