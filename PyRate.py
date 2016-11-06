@@ -605,13 +605,13 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 		if 2>1: #try:
 			file_name =  os.path.splitext(os.path.basename(f))[0]
 			print file_name,
-			t=loadtxt(f, skiprows=max(1,int(burnin)))
-			shape_f=shape(t)
+			t_file=loadtxt(f, skiprows=max(1,int(burnin)))
+			shape_f=shape(t_file)
 			print shape_f
-			t_file = t[burnin:shape_f[0],:]#).astype(str)
+			#t_file = t[burnin:shape_f[0],:]#).astype(str)
 			if resample>0:
-				r_ind= sort(np.random.randint(burnin,shape_f[0],resample))
-				t_file = t[r_ind,:]
+				r_ind= sort(np.random.randint(0,shape_f[0],resample))
+				t_file = t_file[r_ind,:]
 
 		#except: print "ERROR in",f		
 		if len(col_tag) == 0:
@@ -2550,6 +2550,7 @@ hp_gamma_shape = args.dpp_hp
 target_k       = args.dpp_eK
 
 ############### PLOT RTT
+path_dir_log_files=""
 if args.plot != "": 
 	path_dir_log_files=args.plot
 	plot_type=1
