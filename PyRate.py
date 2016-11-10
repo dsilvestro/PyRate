@@ -684,8 +684,8 @@ def init_BD(n):
 	return np.random.exponential(.2, max(n-1,1))+.1
 
 def init_times(root_age,time_framesL,time_framesM,tip_age):
-	timesL=np.linspace(root_age*(0.7),tip_age,time_framesL+1)
-	timesM=np.linspace(root_age*(0.7),tip_age,time_framesM+1)
+	timesL=np.linspace(root_age,tip_age,time_framesL+1)
+	timesM=np.linspace(root_age,tip_age,time_framesM+1)
 	timesM[1:time_framesM] +=1
 	timesL[time_framesL] =0
 	timesM[time_framesM] =0
@@ -1749,7 +1749,12 @@ def MCMC(all_arg):
 				timesLA[1],timesMA[1]= edgeShifts[0],edgeShifts[0]
 			if len(edgeShifts)>1: 
 				timesLA, timesMA = init_times(edgeShifts[0],time_framesL,time_framesM, edgeShifts[1]) # starting shift tims within allowed window
+				timesLA[0],timesMA[0]= max(tsA),max(tsA)
+				timesLA[1],timesMA[1]= edgeShifts[0],edgeShifts[0]
 				timesLA[-2],timesMA[-2]= edgeShifts[1],edgeShifts[1]
+				print timesLA
+				print timesMA
+				#quit()
 		if TDI<3:
 			LA = init_BD(len(timesLA))
 			MA = init_BD(len(timesMA))
