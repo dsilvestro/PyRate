@@ -112,7 +112,9 @@ equal_d = args.symd
 equal_e = args.syme
 
 ### MCMC SETTINGS
-update_freq     = [.3,.6,.9]
+runMCMC = 0
+if runMCMC == 1: update_freq     = [.3,.6,.9]
+else: update_freq     = [.33,.66,1]
 n_generations   = args.n
 sampling_freq   = args.s
 print_freq      = args.p
@@ -272,8 +274,8 @@ NOTE that Q_list[0] = root age, Q_list[n] = most recent
 
 # INIT PARAMETERS
 n_Q_times=len(Q_times)+1
-dis_rate_vec=np.random.uniform(0.1,0.2,nareas*n_Q_times).reshape(n_Q_times,nareas)
-ext_rate_vec=np.random.uniform(0.01,0.05,nareas*n_Q_times).reshape(n_Q_times,nareas)
+dis_rate_vec=np.random.uniform(0.1,0.2,nareas*1).reshape(1,nareas)
+ext_rate_vec=np.random.uniform(0.01,0.05,nareas*1).reshape(1,nareas)
 if equal_d is True:
 	d_temp=dis_rate_vec[:,0]
 	dis_rate_vec = array([d_temp,d_temp]).T
@@ -326,9 +328,10 @@ print np.shape(ext_rate_vec)
 
 logfile = open(out_log , "w",0) 
 head="it\tposterior\tprior\tlikelihood"
-for i in range(n_Q_times): head+= "\td12_t%s\td21_t%s" % (i,i)
-for i in range(n_Q_times): head+= "\te1_t%s\te2_t%s" % (i,i)
+for i in range(len(dis_rate_vec)): head+= "\td12_t%s\td21_t%s" % (i,i)
+for i in range(len(ext_rate_vec)): head+= "\te1_t%s\te2_t%s" % (i,i)
 for i in range(n_Q_times): head+= "\tq1_t%s\tq2_t%s" % (i,i)
+head += "\tcov_d\tcov_e" 
 head+="\thp_rate\tbeta"
 
 head=head.split("\t")
@@ -352,6 +355,11 @@ print shape(r_vec_indexes_LIST[l]),shape(sign_list_LIST[l])
 #quit()
 covar_par_A =np.zeros(2)
 
+# time variable Q (no shifts)
+time_var_temp = np.ones(len(delta_t)) # replace with a 'time-continous' variable	
+# RESCALE and SHIFT TIME VARIABLE
+time_var = time_var_temp-time_var_temp[len(delta_t)-1]
+print time_var
 
 scal_fac_ind=0
 for it in range(n_generations * len(scal_fac_TI)):		
@@ -374,7 +382,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	if it>0: r= np.random.random()
 	else: r = 2
 	if r < update_freq[0]: 
-		if np.random.random()< -.5: 
+		if np.random.random()< .5: 
 			covar_par=update_parameter_uni_2d_freq(covar_par_A,d=0.1,f=1,m=-3,M=3)
 		else:
 			if equal_d is True:
@@ -383,7 +391,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 			else:
 				dis_rate_vec,hasting=update_multiplier_proposal_freq(dis_rate_vec_A,d=1.1,f=update_rate_freq)
 	elif r < update_freq[1]: 
-		if np.random.random()< -.5: 
+		if np.random.random()< .5: 
 			covar_par=update_parameter_uni_2d_freq(covar_par_A,d=0.1,f=1,m=-3,M=3)
 		else:
 			if equal_e is True:
@@ -405,15 +413,14 @@ for it in range(n_generations * len(scal_fac_TI)):
 	Q_list_old= make_Q_list(dis_rate_vec,ext_rate_vec)
 	#print "Q1",Q_list
 	
-	# time variable Q (no shifts)
-	time_var = np.ones(len(delta_t)) # replace with a 'time-continous' variable
+	# TRANSFORM Q MATRIX	
 	Q_list= make_Q_Covar(dis_rate_vec,ext_rate_vec,time_var,covar_par)
 	#print "Q2", Q_list[0], covar_par
 	#print Q_list[3]
-	if it % print_freq == 0: 
-		print it,  Q_list[0],Q_list_old,covar_par
 	
-
+	#if it % print_freq == 0: 
+	#	print it,  Q_list[0],Q_list_old,covar_par
+	
 	if num_processes==0:
 		if use_Pade_approx==0:
 			#t1= time.time()
@@ -436,7 +443,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 			for l in list_taxa_index:
 				Q_index_temp = np.array(range(0,33))
 				lik += calc_likelihood_mQ([delta_t,r_vec,Q_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp])
-			print "lik2",lik
+			#print "lik2",lik
 			#print "elapsed time:", time.time()-t1
 		
 			
@@ -457,28 +464,41 @@ for it in range(n_generations * len(scal_fac_TI)):
 
 
 		
-	prior= sum(prior_exp(dis_rate_vec,prior_exp_rate))+sum(prior_exp(ext_rate_vec,prior_exp_rate))
+	prior= sum(prior_exp(dis_rate_vec,prior_exp_rate))+sum(prior_exp(ext_rate_vec,prior_exp_rate))+prior_normal(covar_par,0,0.5)
 	
 	lik_alter = lik * scal_fac_TI[scal_fac_ind]
 	
 	if np.isfinite((lik_alter+prior+hasting)) == True:
 		if it==0: likA=lik_alter+0.
-		if (lik_alter-(likA* scal_fac_TI[scal_fac_ind]) + prior-priorA +hasting >= log(np.random.uniform(0,1))) or (gibbs_sample == 1) :
-			dis_rate_vec_A= dis_rate_vec
-			ext_rate_vec_A= ext_rate_vec
-			r_vec_A=        r_vec
-			likA=lik
-			priorA=prior
-			covar_par_A=covar_par
+		if runMCMC == 1:
+			# MCMC
+			if (lik_alter-(likA* scal_fac_TI[scal_fac_ind]) + prior-priorA +hasting >= log(np.random.uniform(0,1))) or (gibbs_sample == 1) :
+				dis_rate_vec_A= dis_rate_vec
+				ext_rate_vec_A= ext_rate_vec
+				r_vec_A=        r_vec
+				likA=lik
+				priorA=prior
+				covar_par_A=covar_par
+		else:
+			# MAP (approx maximum a posteriori algorithm)
+			if (lik_alter-(likA* scal_fac_TI[scal_fac_ind]) + prior-priorA >= log(np.random.uniform(0.9,1))):
+				dis_rate_vec_A= dis_rate_vec
+				ext_rate_vec_A= ext_rate_vec
+				r_vec_A=        r_vec
+				likA=lik
+				priorA=prior
+				covar_par_A=covar_par
 		
 	if it % print_freq == 0:
 		sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
 		q_rates = -log(sampling_prob)/bin_size
-		print it,"\t",likA,"\t",  dis_rate_vec_A.flatten(),ext_rate_vec_A.flatten(),scal_fac_TI[scal_fac_ind], q_rates, "covar",covar_par_A,dis_rate_vec_A.flatten()*exp(covar_par_A[0])
+		print it,"\t",likA,"\t",  dis_rate_vec_A.flatten(),ext_rate_vec_A.flatten(),scal_fac_TI[scal_fac_ind], q_rates, \
+		"covar",covar_par_A,dis_rate_vec_A.flatten()*exp(covar_par_A[0]*time_var[0])
 	if it % sampling_freq == 0 and it >= burnin:
 		sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
 		q_rates = -log(sampling_prob)/bin_size
-		log_state= [it,likA+priorA, priorA,likA]+list(dis_rate_vec_A.flatten())+list(ext_rate_vec_A.flatten())+ list(q_rates) +[prior_exp_rate]+[scal_fac_TI[scal_fac_ind]]
+		log_state= [it,likA+priorA, priorA,likA]+list(dis_rate_vec_A.flatten())+list(ext_rate_vec_A.flatten())+ \
+		list(q_rates)+list(covar_par_A) +[prior_exp_rate]+[scal_fac_TI[scal_fac_ind]]
 		wlog.writerow(log_state)
 		logfile.flush()
 		os.fsync(logfile)
