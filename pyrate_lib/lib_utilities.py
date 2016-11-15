@@ -255,7 +255,8 @@ def calc_marginal_likelihood(infile,burnin,extract_mcmc=1):
 				mL=0
 				for i in range(len(l)-1): mL+=((l[i]+l[i+1])/2.)*(x[i]-x[i+1]) # Beerli and Palczewski 2010
 				#ml_str="\n%s\t%s\t%s\t%s%s%s" % (name_file,round(mL,3),replicate,model    ,l_str,s_str)
-				if like_index == min(L_index): ml_str="\n%s\t%s\t%s\t%s" % (name_file,replicate,model,round(mL,3))
+				n_categories = len(x)
+				if like_index == min(L_index): ml_str="\n%s\t%s\t%s\t%s\t%s" % (name_file,replicate,model,n_categories,round(mL,3))
 				else: ml_str += "\t%s" % (round(mL,3))
 			newfile.writelines(ml_str)
 			
@@ -474,8 +475,8 @@ def check_taxa_names(SpeciesList_file):
 
 
 
-def reduce_log_file(log_file): # written by Tobias Hofmann (tobias.hofmann@bioenv.gu.se)
-	target_columns = ["it","posterior","prior","PP_lik","BD_lik","root_age","tot_length"]
+def reduce_log_file(log_file,burnin=1): # written by Tobias Hofmann (tobias.hofmann@bioenv.gu.se)
+	target_columns = ["it","posterior","prior","PP_lik","BD_lik","q_rate","alpha","k_birth","k_death","root_age","death_age"]
 	workdir = os.path.dirname(log_file)
 	if workdir=="": workdir= self_path
 	input_file = os.path.basename(log_file)
@@ -483,24 +484,14 @@ def reduce_log_file(log_file): # written by Tobias Hofmann (tobias.hofmann@bioen
 	outfile = "%s/%s_reducedLog.log" %(workdir,name_file)
 	output = open(outfile, "wb")
 	outlog=csv.writer(output, delimiter='\t')
-	print "Reading mcmc log file. This can take some moments (depending on file-size)..."
-	with open(log_file, 'r') as f:
-		reader = csv.reader(f, delimiter='\t')
-		reader = list(reader)
-		header = reader[0]
-		body = reader[1:]
-		id_list = []
-		for column in header:
-			if column in target_columns:
-				id_list.append(header.index(column))
-		out_header = []
-		for element in id_list:
-			out_header.append(header[element])
-		outlog.writerow(out_header)
-		for line in body:
-			out_line = []
-			for element in id_list:
-				out_line.append(line[element])
-			outlog.writerow(out_line)
+	print "Parsing header..."
+	head = next(open(log_file)).split()
+	w=[head.index(x) for x in head if x in target_columns]
+	#print w
+	print "Reading mcmc log file..."
+	tbl = np.loadtxt(log_file,skiprows=burnin,usecols=(w))
+	print np.shape(tbl)	
+	outlog.writerow(target_columns)
+	for i in tbl: outlog.writerow(list(i))
 	print "The reduced log file was saved as: %s\n" % (outfile)
 	

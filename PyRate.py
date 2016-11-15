@@ -2465,7 +2465,7 @@ if args.ginput != "" or args.check_names != "" or args.reduceLog != "":
 		SpeciesList_file = args.check_names
 		lib_utilities.check_taxa_names(SpeciesList_file)
 	elif args.reduceLog != "":
-		lib_utilities.reduce_log_file(args.reduceLog)
+		lib_utilities.reduce_log_file(args.reduceLog,int(args.b))
 	quit()
 
 
