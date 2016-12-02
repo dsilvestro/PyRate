@@ -54,8 +54,7 @@ We can set up a model in which preservation rates are estimated independently wi
 
 `python PyRate.py .../Canis_pbdb_data_PyRate.py -qShift .../epochs_q.txt`  
 
-Although formal **model testing between preservation models** is currently not implemented in PyRate, likelihoods can be used to approximately compare the fit of HPP, HPP+Gamma, and TPP models. For instance you can calculate the harmonic mean of the sampled likelihoods (parameter *PP_lik* in the log file, see below) as a proxy for the relative probability of each model.
-**IMPORTANT NOTE:** The likelihood of the NHPP model is not comparable with that from HPP or TPP models.
+Formal **model testing between preservation models** is currently not implemented in PyRate.
 
 
 #### Analysis setup
