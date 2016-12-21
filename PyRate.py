@@ -2452,20 +2452,38 @@ else:
 
 
 if args.ginput != "" or args.check_names != "" or args.reduceLog != "":
+	import imp
 	try:
 		self_path= os.path.dirname(sys.argv[0])
-		import imp
-		lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
-		lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
-	except: sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
-	You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
+		try: 
+			print "attempt 1"
+			lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
+			lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
+		except:
+			print "attempt 2"
+			lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s\pyrate_lib\lib_DD_likelihood.py" % (self_path))
+			lib_utilities = imp.load_source("lib_utilities", "%s\pyrate_lib\lib_utilities.py" % (self_path))
+	except: 
+		self_path=os.getcwd()
+		try: 
+			print "attempt 3"
+			lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
+			lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
+		except:
+			print "attempt 4"
+			lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s\pyrate_lib\lib_DD_likelihood.py" % (self_path))
+			lib_utilities = imp.load_source("lib_utilities", "%s\pyrate_lib\lib_utilities.py" % (self_path))
+						
+		
+	#	sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
+	#You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
 	if args.ginput != "":
 		lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=-1,burnin=int(burnin)+1)
 	elif args.check_names != "":
 		SpeciesList_file = args.check_names
 		lib_utilities.check_taxa_names(SpeciesList_file)
 	elif args.reduceLog != "":
-		lib_utilities.reduce_log_file(args.reduceLog,int(args.b))
+		lib_utilities.reduce_log_file(args.reduceLog,max(1,int(args.b)))
 	quit()
 
 
