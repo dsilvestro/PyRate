@@ -239,7 +239,6 @@ def parse_input_data(input_file_name,RHO_sampling=np.ones(2),verbose=0,n_sampled
 		# remove empty taxa (absent throughout)
 		ind_keep = (np.sum(DATA,axis=1) != 0).nonzero()[0]
 		DATA = DATA[ind_keep]
-		reduce_data = 1
 		if reduce_data==1: # KEEPS ONLY TAXA WITH OCCURRENCES IN BOTH AREAS
 			DATA_temp = []
 			print "\n\n\n",shape(DATA), "\n\n\n"
