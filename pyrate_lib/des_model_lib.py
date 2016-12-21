@@ -110,6 +110,25 @@ def make_Q_Covar(dv_list,ev_list,time_var,covar_par=np.zeros(2)): # construct li
 		Q_list.append(Q)
 	return Q_list
 		
+def make_Q_Covar4V(dv_list,ev_list,time_var,covar_par=np.zeros(4)): # construct list of Q matrices
+	transf_d = np.array([dv_list[0][0] *exp(covar_par[0]*time_var), dv_list[0][1] *exp(covar_par[1]*time_var)]).T
+	transf_e = np.array([ev_list[0][0] *exp(covar_par[2]*time_var), ev_list[0][1] *exp(covar_par[3]*time_var)]).T
+	Q_list=[]
+	for i in range(len(transf_d)):
+		D=0
+		[d1,d2] = transf_d[i] # d1 A->B; d2 B->A;
+		[e1,e2] = transf_e[i]
+		Q= np.array([
+			[D, 0, 0, 0 ],
+#			[D, d1, d2, 0 ],
+			[e1,D, 0, d1],
+			[e2,0, D, d2],
+			[0 ,e1,e2,D ]	
+		])
+		# fill diagonal values
+		np.fill_diagonal(Q, -np.sum(Q,axis=1))
+		Q_list.append(Q)
+	return Q_list
 
 def make_Q3A(dv,ev): # construct Q matrix
 	D=0
@@ -210,7 +229,7 @@ def transform_Array_Tuple(A): # works ONLY for 2 areas
 	z = translation[A]
 	return z
 
-def parse_input_data(input_file_name,RHO_sampling=np.ones(2),verbose=0,n_sampled_bins=0):
+def parse_input_data(input_file_name,RHO_sampling=np.ones(2),verbose=0,n_sampled_bins=0,reduce_data=0):
 	try:
 		DATA = np.loadtxt(input_file_name)
 	except:
@@ -220,7 +239,19 @@ def parse_input_data(input_file_name,RHO_sampling=np.ones(2),verbose=0,n_sampled
 		# remove empty taxa (absent throughout)
 		ind_keep = (np.sum(DATA,axis=1) != 0).nonzero()[0]
 		DATA = DATA[ind_keep]
-		
+		reduce_data = 1
+		if reduce_data==1: # KEEPS ONLY TAXA WITH OCCURRENCES IN BOTH AREAS
+			DATA_temp = []
+			print "\n\n\n",shape(DATA), "\n\n\n"
+			for i in range(np.shape(DATA)[0]):
+				d = DATA[i]
+				d=d[np.isfinite(d)]
+				areas = np.unique(d[d>0])
+				if len(areas)>0:
+					if len(areas)>1 or max(areas)==3:
+						DATA_temp.append(DATA[i])
+						print areas
+			DATA =  DATA_temp
 
 	time_series = DATA[0]
 	obs_area_series = transform_Array_Tuple(DATA[1:])
@@ -327,3 +358,19 @@ def parse_input_data(input_file_name,RHO_sampling=np.ones(2),verbose=0,n_sampled
 					
 	return nTaxa, Binned_time, binned_obs_area_series, binned_OrigTimeIndex
 
+
+
+def get_binned_continuous_variable(timebins, var_file):
+	var = np.loadtxt(var_file,skiprows=1)
+	times = var[:,0]
+	values = var[:,1]
+	mean_var=[]
+	for i in range(1,len(timebins)):
+		t_min= timebins[i-1]
+		t_max= timebins[i]
+		in_range_M = (times<=t_min).nonzero()[0]
+		in_range_m = (times>=t_max).nonzero()[0]
+		#times[np.intersect1d(in_range_M,in_range_m)]
+		mean_var.append(mean(values[np.intersect1d(in_range_M,in_range_m)]))
+	
+	return np.array(mean_var)
