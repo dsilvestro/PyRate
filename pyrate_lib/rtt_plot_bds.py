@@ -2,6 +2,7 @@ from numpy import *
 import numpy as np
 import os,platform
 import lib_utilities as util
+import csv 
 
 def get_marginal_rates(times,rates,grid):
 	mr = np.zeros(len(grid))
@@ -10,35 +11,6 @@ def get_marginal_rates(times,rates,grid):
 		mr[grid_ind.astype(int)] = rates[i]
 	return mr
 		
-#def print_R_vec(name,v):
-#	new_v=[]
-#	for j in range(0,len(v)): 
-#		value=v[j]
-#		if isnan(v[j]): value="NA"
-#		new_v.append(value)
-#	
-#	vec="%s=c(%s, " % (name,new_v[0])
-#	for j in range(1,len(v)-1): vec += "%s," % (new_v[j])
-#	vec += "%s)"  % (new_v[j+1])
-#	return vec
-#
-#def calcHPD(data, level) :
-#	assert (0 < level < 1)	
-#	d = list(data)
-#	d.sort()	
-#	nData = len(data)
-#	nIn = int(round(level * nData))
-#	if nIn < 2 :
-#		raise RuntimeError("not enough data")	
-#	i = 0
-#	r = d[i+nIn-1] - d[i]
-#	for k in range(len(d) - (nIn - 1)) :
-#		rk = d[k+nIn-1] - d[k]
-#		if rk < r :
-#			r = rk
-#			i = k
-#	assert 0 <= i <= i+nIn-1 < len(d)	
-#	return (d[i], d[i+nIn-1])
 
 def r_plot_code(res,wd,name_file,alpha=0.5,plot_title="RTT plot"):
 	data  = "library(scales)\ntrans=%s" % (alpha)
@@ -114,6 +86,23 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 	else: 
 		cmd="cd %s; Rscript %s/%s_RTT.r" % (wd,wd,name_file)
 	os.system(cmd)
+	
+	save_HR_log_file=1
+	if save_HR_log_file==1:
+		print "Saving log file..."
+		out="%s/%s_HR_marginal.log" % (wd,name_file)
+		logfile = open(out, "w") 
+		head = ["iteration"]+["l_%s" % (i) for i in range(n_bins)]
+		head +=["m_%s" % (i) for i in range(n_bins)]
+		wlog=csv.writer(logfile, delimiter='\t')
+		wlog.writerow(head)
+		for i in range(n_samples):
+			l = [i]+ list(m_sp_matrix[i,:]) + list(m_ex_matrix[i,:])
+			wlog.writerow(l)
+			logfile.flush()
+			
+	
+	
 	print "done\n"
 
 
