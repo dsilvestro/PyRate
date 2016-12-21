@@ -56,9 +56,10 @@ p = argparse.ArgumentParser() #description='<input file>')
 
 p.add_argument('-v',  action='version', version='%(prog)s')
 p.add_argument('-cite',      help='print DES citation', action='store_true', default=False)
-p.add_argument('-A',  type=int, help='algorithm: "0" parameter estimation, "1" TI', default=0, metavar=0) # 0: par estimation, 1: TI
+p.add_argument('-A',  type=int, help='algorithm - 0: parameter estimation, 1: TI, 2: MAP', default=0, metavar=0) # 0: par estimation, 1: TI
 p.add_argument('-k',  type=int,   help='TI - no. scaling factors', default=10, metavar=10)
 p.add_argument('-a',  type=float, help='TI - shape beta distribution', default=.3, metavar=.3)
+p.add_argument('-hp',      help='Use hyper-prior on rates', action='store_true', default=False)
 
 p.add_argument('-d',  type=str, help='input data set',   default="", metavar="<input file>")
 p.add_argument('-n',      type=int, help='mcmc generations',default=100000, metavar=100000)
@@ -72,7 +73,9 @@ p.add_argument('-qtimes',  type=float, help='shift time (Q)',  default=[], metav
 p.add_argument('-sum',  type=str, help='Summarize results (provide log file)',  default="", metavar="log file")
 p.add_argument('-symd',      help='symmetric dispersal rates', action='store_true', default=False)
 p.add_argument('-syme',      help='symmetric extinction rates', action='store_true', default=False)
+p.add_argument('-symq',      help='symmetric preservation rates', action='store_true', default=False)
 p.add_argument('-data_in_area', type=int,  help='if data only in area 1 set to 1 (set to 2 if data only in area 2)', default=0)
+p.add_argument('-red', type=int,  help='if -red 1: reduce dataset to taxa with occs in both areas', default=0)
 
 
 ### simulation settings ###
@@ -110,10 +113,20 @@ if output_wd=="": output_wd= self_path
 
 equal_d = args.symd
 equal_e = args.syme
+equal_q = args.symq
 
 ### MCMC SETTINGS
-update_freq     = [.3,.6,.9]
-n_generations   = args.n
+if args.A ==2: 
+	runMCMC = 0 # approximate MAP estimation
+	n_generations   = 100000
+	update_freq     = [.33,.66,1]
+else: 
+	runMCMC = 1
+	n_generations   = args.n
+	update_freq     = [.33,.66,1]
+	if args.hp == True: 
+		update_freq = [.3,.6,.9]
+
 sampling_freq   = args.s
 print_freq      = args.p
 hp_alpha        = 2.
@@ -189,7 +202,7 @@ if input_data=="":
 else:
 	print "parsing input data..."
 	RHO_sampling= np.ones(2)
-	nTaxa, time_series, obs_area_series, OrigTimeIndex = parse_input_data(input_data,RHO_sampling,verbose,n_sampled_bins=0)
+	nTaxa, time_series, obs_area_series, OrigTimeIndex = parse_input_data(input_data,RHO_sampling,verbose,n_sampled_bins=0,reduce_data=args.red)
 	name_file = os.path.splitext(os.path.basename(input_data))[0]
 	if len(Q_times)>0: Q_times_str = "_q_" + '_'.join(Q_times.astype("str"))
 	else: Q_times_str=""
@@ -200,6 +213,8 @@ else:
 	model_tag=""
 	if equal_d is True: model_tag+= "_symd"
 	if equal_e is True: model_tag+= "_syme"
+	if equal_q is True: model_tag+= "_symq"
+	if runMCMC == 0: model_tag+= "_MAP"
 	out_log ="%s/%s_%s%s%s%s.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag,model_tag)
 	time_series = np.sort(time_series)[::-1] # the order of the time vector is only used to assign the different Q matrices
 	                                         # to the correct time bin. Q_list[0] = root age, Q_list[n] = most recent
@@ -247,9 +262,8 @@ r_vec= np.array([0]+list(np.zeros(nareas)+0.001) +[1])
 
 
 
-if args.A==0:
-	scal_fac_TI=np.ones(1)
-elif args.A==1:
+scal_fac_TI=np.ones(1)
+if args.A==1:
 	# parameters for TI are currently hard-coded (K=10, alpha=0.3)
 	scal_fac_TI=get_temp_TI(args.k,args.a)
 
@@ -344,7 +358,7 @@ if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
 start_time=time.time()
 
 update_rate_freq = max(0.2, 1./sum(np.shape(dis_rate_vec)))
-print "HERE::::::", OrigTimeIndex, delta_t # update_rate_freq, update_freq
+print "Origination time (binned):", OrigTimeIndex, delta_t # update_rate_freq, update_freq
 l=1
 recursive = np.arange(OrigTimeIndex[l],len(delta_t))[::-1]
 print recursive
@@ -368,8 +382,8 @@ for it in range(n_generations * len(scal_fac_TI)):
 	r_vec=        r_vec_A
 	hasting = 0
 	gibbs_sample = 0
-	if it>0: r= np.random.random()
-	else: r = 2
+	if it>=0: r= np.random.random()
+	#else: r = 2
 	if r < update_freq[0]: 
 		if equal_d is True:
 			d_temp,hasting = update_multiplier_proposal_freq(dis_rate_vec_A[:,0],d=1.1,f=update_rate_freq)
@@ -385,6 +399,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	elif r<=update_freq[2]: 
 		r_vec=update_parameter_uni_2d_freq(r_vec_A,d=0.1,f=update_rate_freq)
 		r_vec[:,0]=0
+		if equal_q is True: r_vec[:,2] = r_vec[:,1]
 		r_vec[:,3]=1
 		# CHECK THIS: CHANGE TO VALUE CLOSE TO 1? i.e. for 'ghost' area 
 		if args.data_in_area == 1: r_vec[:,2] = small_number 
@@ -441,12 +456,21 @@ for it in range(n_generations * len(scal_fac_TI)):
 	
 	if np.isfinite((lik_alter+prior+hasting)) == True:
 		if it==0: likA=lik_alter+0.
-		if (lik_alter-(likA* scal_fac_TI[scal_fac_ind]) + prior-priorA +hasting >= log(np.random.uniform(0,1))) or (gibbs_sample == 1) :
-			dis_rate_vec_A= dis_rate_vec
-			ext_rate_vec_A= ext_rate_vec
-			r_vec_A=        r_vec
-			likA=lik
-			priorA=prior
+		if runMCMC == 1:
+			if (lik_alter-(likA* scal_fac_TI[scal_fac_ind]) + prior-priorA +hasting >= log(np.random.uniform(0,1))) or (gibbs_sample == 1) :
+				dis_rate_vec_A= dis_rate_vec
+				ext_rate_vec_A= ext_rate_vec
+				r_vec_A=        r_vec
+				likA=lik
+				priorA=prior
+		else:
+			# MAP (approx maximum a posteriori algorithm)
+			if (lik_alter-(likA* scal_fac_TI[scal_fac_ind]) + prior-priorA >= log(np.random.uniform(0.99,1))):
+				dis_rate_vec_A= dis_rate_vec
+				ext_rate_vec_A= ext_rate_vec
+				r_vec_A=        r_vec
+				likA=lik
+				priorA=prior
 		
 	if it % print_freq == 0:
 		sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
