@@ -15,7 +15,7 @@ DESin <- function(x, recent, bin.size, reps = 1, verbose = T) {
   
   if(! "midpointAge" %in% names(dat)){
     dat$midpointAge <- (dat$earliestAge + dat$latestAge)/2
-    warning("column midpointAge not found, calculating from earliestAge and latestAge")
+    #warning("column midpointAge not found, calculating from earliestAge and latestAge")
   }
   
   
@@ -32,8 +32,8 @@ DESin <- function(x, recent, bin.size, reps = 1, verbose = T) {
   }
   
   rece$higherGeography <- as.character(rece$higherGeography)
-  rece[rece$higherGeography == unique(rece$higherGeography)[1], "higherGeography"] <- 1
-  rece[rece$higherGeography == unique(rece$higherGeography)[2], "higherGeography"] <- 2
+  rece[rece$higherGeography == sort(unique(rece$higherGeography))[1], "higherGeography"] <- 1
+  rece[rece$higherGeography == sort(unique(rece$higherGeography))[2], "higherGeography"] <- 2
   rece <- unique(rece)
   rece$higherGeography <- as.numeric(rece$higherGeography)
   rece <- aggregate(higherGeography ~ scientificName, data = rece, sum)
@@ -59,12 +59,12 @@ DESin <- function(x, recent, bin.size, reps = 1, verbose = T) {
     binned <- lapply(dat.list, function(x) {
       dat.out <- data.frame(timebin = cutter, higherGeography1 = rep(0, length(cutter)), 
                             higherGeography2 = rep(0, length(cutter)))
-      if (length(x$higherGeography == unique(dat$higherGeography)[1]) > 0) {
-        dat.out[dat.out$timebin %in% x[x$higherGeography == unique(dat$higherGeography)[1], 
+      if (length(x$higherGeography == sort(unique(dat$higherGeography))[1]) > 0) {
+        dat.out[dat.out$timebin %in% x[x$higherGeography == sort(unique(dat$higherGeography))[1], 
                                        "timeint"], "higherGeography1"] <- 1
       }
-      if (length(x$higherGeography == unique(dat$higherGeography)[2]) > 0) {
-        dat.out[dat.out$timebin %in% x[x$higherGeography == unique(dat$higherGeography)[2], 
+      if (length(x$higherGeography == sort(unique(dat$higherGeography))[2]) > 0) {
+        dat.out[dat.out$timebin %in% x[x$higherGeography == sort(unique(dat$higherGeography))[2], 
                                        "timeint"], "higherGeography2"] <- 2
       }
       presence <- rowSums(dat.out[, 2:3])
