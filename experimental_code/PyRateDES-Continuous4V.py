@@ -56,7 +56,7 @@ p = argparse.ArgumentParser() #description='<input file>')
 
 p.add_argument('-v',  action='version', version='%(prog)s')
 p.add_argument('-cite',      help='print DES citation', action='store_true', default=False)
-p.add_argument('-A',  type=int, help='algorithm: "0" parameter estimation, "1" TI', default=0, metavar=0) # 0: par estimation, 1: TI
+p.add_argument('-A',  type=int, help='algorithm - 0: parameter estimation, 1: TI, 2: MAP', default=0, metavar=0) # 0: par estimation, 1: TI
 p.add_argument('-k',  type=int,   help='TI - no. scaling factors', default=10, metavar=10)
 p.add_argument('-a',  type=float, help='TI - shape beta distribution', default=.3, metavar=.3)
 
@@ -72,8 +72,10 @@ p.add_argument('-qtimes',  type=float, help='shift time (Q)',  default=[], metav
 p.add_argument('-sum',  type=str, help='Summarize results (provide log file)',  default="", metavar="log file")
 p.add_argument('-symd',      help='symmetric dispersal rates', action='store_true', default=False)
 p.add_argument('-syme',      help='symmetric extinction rates', action='store_true', default=False)
+p.add_argument('-symq',      help='symmetric preservation rates', action='store_true', default=False)
 p.add_argument('-data_in_area', type=int,  help='if data only in area 1 set to 1 (set to 2 if data only in area 2)', default=0)
 p.add_argument('-var',  type=str, help='Time variable file (e.g. PhanerozoicTempSmooth.txt)',  default="", metavar="")
+p.add_argument('-red', type=int,  help='if -red 1: reduce dataset to taxa with occs in both areas', default=0)
 
 
 ### simulation settings ###
@@ -111,12 +113,18 @@ if output_wd=="": output_wd= self_path
 
 equal_d = args.symd
 equal_e = args.syme
+equal_q = args.symq
 
 ### MCMC SETTINGS
-runMCMC = 0
-if runMCMC == 1: update_freq     = [.3,.6,.9]
-else: update_freq     = [.33,.66,1]
-n_generations   = args.n
+if args.A ==2: 
+	runMCMC = 0 # approximate MAP estimation
+	n_generations   = 100000
+	update_freq     = [.33,.66,1]
+else: 
+	runMCMC = 1
+	n_generations   = args.n
+	update_freq     = [.3,.6,0.9]
+
 sampling_freq   = args.s
 print_freq      = args.p
 hp_alpha        = 2.
@@ -185,14 +193,14 @@ if input_data=="":
 	nTaxa, time_series, obs_area_series, OrigTimeIndex = parse_input_data(input_data,RHO_sampling,verbose,n_sampled_bins=n_bins)
 	if args.A==1: ti_tag ="_TI"
 	else: ti_tag=""
-	out_log = "%s/sim_%s_b_%s_q_%s_mcmc_%s_%s_%s_%s_%s_%s_%s%s.log" \
+	out_log = "%s/simContinuous_%s_b_%s_q_%s_mcmc_%s_%s_%s_%s_%s_%s_%s%s.log" \
 	% (output_wd,simulation_no,n_bins,q_rate[0],n_taxa,sim_d_rate[0],sim_d_rate[1],sim_e_rate[0],sim_e_rate[1],q_rate[0],q_rate[1],ti_tag)
 	time_series = np.sort(time_series)[::-1]
 	
 else:
 	print "parsing input data..."
 	RHO_sampling= np.ones(2)
-	nTaxa, time_series, obs_area_series, OrigTimeIndex = parse_input_data(input_data,RHO_sampling,verbose,n_sampled_bins=0)
+	nTaxa, time_series, obs_area_series, OrigTimeIndex = parse_input_data(input_data,RHO_sampling,verbose,n_sampled_bins=0,reduce_data=args.red)
 	name_file = os.path.splitext(os.path.basename(input_data))[0]
 	if len(Q_times)>0: Q_times_str = "_q_" + '_'.join(Q_times.astype("str"))
 	else: Q_times_str=""
@@ -203,7 +211,9 @@ else:
 	model_tag=""
 	if equal_d is True: model_tag+= "_symd"
 	if equal_e is True: model_tag+= "_syme"
-	out_log ="%s/%s_%s%s%s%s.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag,model_tag)
+	if equal_q is True: model_tag+= "_symq"
+	if runMCMC == 0: model_tag+= "_MAP"
+	out_log ="%s/%sContinuous_%s%s%s%s.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag,model_tag)
 	time_series = np.sort(time_series)[::-1] # the order of the time vector is only used to assign the different Q matrices
 	                                         # to the correct time bin. Q_list[0] = root age, Q_list[n] = most recent
 
@@ -250,12 +260,10 @@ r_vec= np.array([0]+list(np.zeros(nareas)+0.001) +[1])
 
 
 
-if args.A==0:
-	scal_fac_TI=np.ones(1)
-elif args.A==1:
+scal_fac_TI=np.ones(1)
+if args.A==1:
 	# parameters for TI are currently hard-coded (K=10, alpha=0.3)
 	scal_fac_TI=get_temp_TI(args.k,args.a)
-
 
 
 #############################################
@@ -332,7 +340,7 @@ head="it\tposterior\tprior\tlikelihood"
 for i in range(len(dis_rate_vec)): head+= "\td12_t%s\td21_t%s" % (i,i)
 for i in range(len(ext_rate_vec)): head+= "\te1_t%s\te2_t%s" % (i,i)
 for i in range(n_Q_times): head+= "\tq1_t%s\tq2_t%s" % (i,i)
-head += "\tcov_d\tcov_e" 
+head += "\tcov_d12\tcov_d21\tcov_e1\tcov_e2" 
 head+="\thp_rate\tbeta"
 
 head=head.split("\t")
@@ -354,13 +362,11 @@ recursive = np.arange(OrigTimeIndex[l],len(delta_t))[::-1]
 print recursive
 print shape(r_vec_indexes_LIST[l]),shape(sign_list_LIST[l])
 #quit()
-covar_par_A =np.zeros(2)
+covar_par_A =np.zeros(4)
 
 #############################################
 #####    time variable Q (no shifts)    #####
 #############################################
-time_var_temp = np.ones(len(delta_t)) # replace with a 'time-continous' variable	
-
 var_file = args.var
 time_var_temp = get_binned_continuous_variable(time_series, var_file)
 
@@ -393,7 +399,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	else: r = 2
 	if r < update_freq[0]: 
 		if np.random.random()< .5: 
-			covar_par=update_parameter_uni_2d_freq(covar_par_A,d=0.1,f=1,m=-3,M=3)
+			covar_par=update_parameter_uni_2d_freq(covar_par_A,d=0.1,f=0.5,m=-3,M=3)
 		else:
 			if equal_d is True:
 				d_temp,hasting = update_multiplier_proposal_freq(dis_rate_vec_A[:,0],d=1.1,f=update_rate_freq)
@@ -402,7 +408,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 				dis_rate_vec,hasting=update_multiplier_proposal_freq(dis_rate_vec_A,d=1.1,f=update_rate_freq)
 	elif r < update_freq[1]: 
 		if np.random.random()< .5: 
-			covar_par=update_parameter_uni_2d_freq(covar_par_A,d=0.1,f=1,m=-3,M=3)
+			covar_par=update_parameter_uni_2d_freq(covar_par_A,d=0.1,f=0.5,m=-3,M=3)
 		else:
 			if equal_e is True:
 				e_temp,hasting = update_multiplier_proposal_freq(ext_rate_vec_A[:,0],d=1.1,f=update_rate_freq)
@@ -412,6 +418,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	elif r<=update_freq[2]: 
 		r_vec=update_parameter_uni_2d_freq(r_vec_A,d=0.1,f=update_rate_freq)
 		r_vec[:,0]=0
+		if equal_q is True: r_vec[:,2] = r_vec[:,1]
 		r_vec[:,3]=1
 		# CHECK THIS: CHANGE TO VALUE CLOSE TO 1? i.e. for 'ghost' area 
 		if args.data_in_area == 1: r_vec[:,2] = small_number 
@@ -424,7 +431,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	#print "Q1",Q_list
 	
 	# TRANSFORM Q MATRIX	
-	Q_list= make_Q_Covar(dis_rate_vec,ext_rate_vec,time_var,covar_par)
+	Q_list= make_Q_Covar4V(dis_rate_vec,ext_rate_vec,time_var,covar_par)
 	#print "Q2", Q_list[0], covar_par
 	#print Q_list[3]
 	
@@ -474,7 +481,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 
 
 		
-	prior= sum(prior_exp(dis_rate_vec,prior_exp_rate))+sum(prior_exp(ext_rate_vec,prior_exp_rate))+prior_normal(covar_par,0,0.5)
+	prior= sum(prior_exp(dis_rate_vec,prior_exp_rate))+sum(prior_exp(ext_rate_vec,prior_exp_rate))+prior_normal(covar_par,0,1)
 	
 	lik_alter = lik * scal_fac_TI[scal_fac_ind]
 	
@@ -491,7 +498,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 				covar_par_A=covar_par
 		else:
 			# MAP (approx maximum a posteriori algorithm)
-			if (lik_alter-(likA* scal_fac_TI[scal_fac_ind]) + prior-priorA >= log(np.random.uniform(0.9,1))):
+			if (lik_alter-(likA* scal_fac_TI[scal_fac_ind]) + prior-priorA >= log(np.random.uniform(0.99,1))):
 				dis_rate_vec_A= dis_rate_vec
 				ext_rate_vec_A= ext_rate_vec
 				r_vec_A=        r_vec
