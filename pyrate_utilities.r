@@ -57,10 +57,10 @@ for (j in 1:replicates){
 	
 	dat[dat$min_age == 0,3] <- 0.001
 	
-	if (any(dat[,4] < dat[,3])){
-		cat("\nWarning: the min age is older than the max age for at least one record\n")
-		cat ("\nlines:",1+as.numeric(which(dat[,4] < dat[,3])),sep=" ")
-	}
+	#if (any(dat[,4] < dat[,3])){
+	#	cat("\nWarning: the min age is older than the max age for at least one record\n")
+	#	cat ("\nlines:",1+as.numeric(which(dat[,4] < dat[,3])),sep=" ")
+	#}
 	
 	if (isTRUE(rnd)){
 			dat$new_age <- round(runif(length(dat[,1]), min=apply(dat[,3:4],FUN=min,1), max=apply(dat[,3:4],FUN=max,1)), digits=6)
@@ -196,4 +196,28 @@ extract.ages.pbdb <- function(file = NULL,sep=",", extant_species = c(), replica
 }
 
 
+extract.ages.tbl <- function(file = NULL,sep="\t", extant_species = c(), replicates = 1, cutoff = NULL, random = TRUE){
+	tbl = read.table(file=file,h=T,sep=sep,stringsAsFactors =F)
+		
+	new_tbl = NULL # ADD EXTANT SPECIES
+	
+	for (i in 1:dim(tbl)[1]){
+		if (tbl[i,1] %in% extant_species){
+			status="extant"
+		}else{status="extinct"}
+		species_name = gsub(" ", "_", tbl[i,1])
+		new_tbl = rbind(new_tbl,c(species_name,status,tbl[i,2:dim(tbl)[2]]))
+	}
+	if (dim(new_tbl)[2]==4){
+		colnames(new_tbl) = c("Species","Status","min_age","max_age")
+	}else{
+		colnames(new_tbl) = c("Species","Status","min_age","max_age","trait")
+	}
+	
+	
+	output_file = file.path(dirname(file),strsplit(basename(file), "\\.")[[1]][1])
+	output_file = paste(output_file,".txt",sep="")
+	write.table(file=output_file,new_tbl,quote=F,row.names = F,sep="\t")
+	extract.ages(file=output_file,replicates = replicates, cutoff = cutoff, random = random)
+}
 
