@@ -12,6 +12,7 @@ import random as rand
 np.set_printoptions(suppress=True) # prints floats, no scientific notation
 np.set_printoptions(precision=3) # rounds all array elements to 3rd digit
 import math
+small_number= 1e-5
 
 def update_positive_rate_vec(i, d):
 	I=np.random.choice(len(i))

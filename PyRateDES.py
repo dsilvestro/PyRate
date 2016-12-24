@@ -56,10 +56,11 @@ p = argparse.ArgumentParser() #description='<input file>')
 
 p.add_argument('-v',  action='version', version='%(prog)s')
 p.add_argument('-cite',      help='print DES citation', action='store_true', default=False)
-p.add_argument('-A',  type=int, help='algorithm - 0: parameter estimation, 1: TI, 2: MAP', default=0, metavar=0) # 0: par estimation, 1: TI
+p.add_argument('-A',  type=int, help='algorithm - 0: parameter estimation, 1: TI, 2: ML', default=0, metavar=0) # 0: par estimation, 1: TI
 p.add_argument('-k',  type=int,   help='TI - no. scaling factors', default=10, metavar=10)
 p.add_argument('-a',  type=float, help='TI - shape beta distribution', default=.3, metavar=.3)
 p.add_argument('-hp',      help='Use hyper-prior on rates', action='store_true', default=False)
+p.add_argument('-pw',  type=float, help='Exponent acceptance ratio (ML)', default=58, metavar=58) # accept 0.95 post ratio with 5% prob
 
 p.add_argument('-d',  type=str, help='input data set',   default="", metavar="<input file>")
 p.add_argument('-n',      type=int, help='mcmc generations',default=100000, metavar=100000)
@@ -117,18 +118,23 @@ equal_q = args.symq
 
 ### MCMC SETTINGS
 if args.A ==2: 
-	runMCMC = 0 # approximate MAP estimation
-	n_generations   = 100000
+	runMCMC = 0 # approximate ML estimation
+	n_generations   = 10000
 	update_freq     = [.33,.66,1]
+	sampling_freq   = 10
+	print_freq      = 10
+	max_ML_iterations = 250
+	
 else: 
 	runMCMC = 1
 	n_generations   = args.n
 	update_freq     = [.33,.66,1]
 	if args.hp == True: 
 		update_freq = [.3,.6,.9]
+	sampling_freq   = args.s
+	print_freq      = args.p
 
-sampling_freq   = args.s
-print_freq      = args.p
+map_power       = args.pw
 hp_alpha        = 2.
 hp_beta         = 2.
 use_Pade_approx = args.pade
@@ -214,7 +220,7 @@ else:
 	if equal_d is True: model_tag+= "_symd"
 	if equal_e is True: model_tag+= "_syme"
 	if equal_q is True: model_tag+= "_symq"
-	if runMCMC == 0: model_tag+= "_MAP"
+	if runMCMC == 0: model_tag+= "_ML"
 	out_log ="%s/%s_%s%s%s%s.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag,model_tag)
 	time_series = np.sort(time_series)[::-1] # the order of the time vector is only used to assign the different Q matrices
 	                                         # to the correct time bin. Q_list[0] = root age, Q_list[n] = most recent
@@ -437,7 +443,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		if use_Pade_approx==0:
 			#t1= time.time()
 			w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
-			args_mt_lik = [ [delta_t,r_vec,w_list,vl_list,vl_inv_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index] for l in list_taxa_index ]
+			args_mt_lik = [ [delta_t,r_vec,w_list,vl_list,vl_inv_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index] for l in list_taxa_index ]
 			lik= sum(np.array(pool_lik.map(calc_likelihood_mQ_eigen, args_mt_lik)))
 			#print "l3",lik
 			#print "elapsed time:", time.time()-t1
@@ -455,7 +461,10 @@ for it in range(n_generations * len(scal_fac_TI)):
 	lik_alter = lik * scal_fac_TI[scal_fac_ind]
 	
 	if np.isfinite((lik_alter+prior+hasting)) == True:
-		if it==0: likA=lik_alter+0.
+		if it==0: 
+			likA=lik_alter+0.
+			MLik=likA
+			ml_it=0
 		if runMCMC == 1:
 			if (lik_alter-(likA* scal_fac_TI[scal_fac_ind]) + prior-priorA +hasting >= log(np.random.uniform(0,1))) or (gibbs_sample == 1) :
 				dis_rate_vec_A= dis_rate_vec
@@ -464,8 +473,8 @@ for it in range(n_generations * len(scal_fac_TI)):
 				likA=lik
 				priorA=prior
 		else:
-			# MAP (approx maximum a posteriori algorithm)
-			if (lik_alter-(likA* scal_fac_TI[scal_fac_ind]) + prior-priorA >= log(np.random.uniform(0.99,1))):
+			# ML (approx maximum a posteriori algorithm)
+			if ((lik_alter-(likA* scal_fac_TI[scal_fac_ind]))*map_power >= log(np.random.uniform(0,1))):
 				dis_rate_vec_A= dis_rate_vec
 				ext_rate_vec_A= ext_rate_vec
 				r_vec_A=        r_vec
@@ -476,13 +485,28 @@ for it in range(n_generations * len(scal_fac_TI)):
 		sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
 		q_rates = -log(sampling_prob)/bin_size
 		print it,"\t",likA,"\t",  dis_rate_vec_A.flatten(),ext_rate_vec_A.flatten(),scal_fac_TI[scal_fac_ind], q_rates
-	if it % sampling_freq == 0 and it >= burnin:
+	if it % sampling_freq == 0 and it >= burnin and runMCMC == 1:
 		sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
 		q_rates = -log(sampling_prob)/bin_size
 		log_state= [it,likA+priorA, priorA,likA]+list(dis_rate_vec_A.flatten())+list(ext_rate_vec_A.flatten())+ list(q_rates) +[prior_exp_rate]+[scal_fac_TI[scal_fac_ind]]
 		wlog.writerow(log_state)
 		logfile.flush()
 		os.fsync(logfile)
+	if runMCMC == 0:
+		if likA>MLik:
+			sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
+			q_rates = -log(sampling_prob)/bin_size
+			log_state= [it,likA+priorA, priorA,likA]+list(dis_rate_vec_A.flatten())+list(ext_rate_vec_A.flatten())+ list(q_rates) +[prior_exp_rate]+[scal_fac_TI[scal_fac_ind]]
+			wlog.writerow(log_state)
+			logfile.flush()
+			os.fsync(logfile)
+			MLik=likA
+			ml_it=0
+		else:	ml_it +=1
+	if ml_it>max_ML_iterations:
+		msg= "Convergence reached. ML = %s" % (round(MLik,3))
+		sys.exit(msg)
+			
 
 
 print "elapsed time:", time.time()-start_time
