@@ -1,0 +1,320 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<style>
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+blockquote {
+    margin: 0;
+    padding: 0;
+}
+body {
+    font-family: "Helvetica Neue", Helvetica, "Hiragino Sans GB", Arial, sans-serif;
+    font-size: 13px;
+    line-height: 18px;
+    color: #737373;
+    background-color: white;
+    margin: 10px 13px 10px 13px;
+}
+table {
+	margin: 10px 0 15px 0;
+	border-collapse: collapse;
+}
+td,th {	
+	border: 1px solid #ddd;
+	padding: 3px 10px;
+}
+th {
+	padding: 5px 10px;	
+}
+
+a {
+    color: #0069d6;
+}
+a:hover {
+    color: #0050a3;
+    text-decoration: none;
+}
+a img {
+    border: none;
+}
+p {
+    margin-bottom: 9px;
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: #404040;
+    line-height: 36px;
+}
+h1 {
+    margin-bottom: 18px;
+    font-size: 30px;
+}
+h2 {
+    font-size: 24px;
+}
+h3 {
+    font-size: 18px;
+}
+h4 {
+    font-size: 16px;
+}
+h5 {
+    font-size: 14px;
+}
+h6 {
+    font-size: 13px;
+}
+hr {
+    margin: 0 0 19px;
+    border: 0;
+    border-bottom: 1px solid #ccc;
+}
+blockquote {
+    padding: 13px 13px 21px 15px;
+    margin-bottom: 18px;
+    font-family:georgia,serif;
+    font-style: italic;
+}
+blockquote:before {
+    content:"\201C";
+    font-size:40px;
+    margin-left:-10px;
+    font-family:georgia,serif;
+    color:#eee;
+}
+blockquote p {
+    font-size: 14px;
+    font-weight: 300;
+    line-height: 18px;
+    margin-bottom: 0;
+    font-style: italic;
+}
+code, pre {
+    font-family: Monaco, Andale Mono, Courier New, monospace;
+}
+code {
+    background-color: #fee9cc;
+    color: rgba(0, 0, 0, 0.75);
+    padding: 1px 3px;
+    font-size: 12px;
+    -webkit-border-radius: 3px;
+    -moz-border-radius: 3px;
+    border-radius: 3px;
+}
+pre {
+    display: block;
+    padding: 14px;
+    margin: 0 0 18px;
+    line-height: 16px;
+    font-size: 11px;
+    border: 1px solid #d9d9d9;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+pre code {
+    background-color: #fff;
+    color:#737373;
+    font-size: 11px;
+    padding: 0;
+}
+sup {
+    font-size: 0.83em;
+    vertical-align: super;
+    line-height: 0;
+}
+* {
+	-webkit-print-color-adjust: exact;
+}
+@media screen and (min-width: 914px) {
+    body {
+        width: 854px;
+        margin:10px auto;
+    }
+}
+@media print {
+	body,code,pre code,h1,h2,h3,h4,h5,h6 {
+		color: black;
+	}
+	table, pre {
+		page-break-inside: avoid;
+	}
+}
+</style>
+<title>PyRate Tutorial \#1</title>
+
+</head>
+<body>
+<h1>PyRate Tutorial #1</h1>
+
+<h4>Daniele Silvestro – Jan 2017</h4>
+
+<hr />
+
+<p>Useful links:<br/>
+<a href="https://github.com/dsilvestro/PyRate">PyRate code</a><br/>
+<a href="https://github.com/dsilvestro/PyRate/wiki">PyRate wiki</a><br/>
+<a href="https://paleobiodb.org">Paleobiology Database</a><br/>
+<a href="http://tree.bio.ed.ac.uk/software/tracer/">Tracer</a></p>
+
+<hr />
+
+<h2>Generate PyRate input file (option 1)</h2>
+
+<ol>
+<li><p><strong>Download fossil occurrences</strong> for a clade from the Paleobiology Database. E.g. search for the genus <em>Canis</em> and save it as a cvs file, e.g. using the file name <em>Canis_pbdb_data.csv</em>. Before downloading the file, check the box "Show accepted names only" in the "Select by taxonomy" section, and uncheck the box "Include fmetadata at the beginning of the output" in the "Choose output options" section.</p></li>
+<li><p><strong>Launch R</strong> by opening a Terminal window and typing <code>R</code> then hit Enter. On Mac or Windows you can use the R GUI app or RStudio.</p></li>
+<li><p><strong>Load the <em>pyrate_utilities.r</em> file</strong> e.g. by typing:<br/>
+<code>source(".../PyRate-master/pyrate_utilities.r")</code>. Note that the full path of a file is here indicated as <code>.../</code> for simplicity. In most operating systems you can drag and drop the <em>pyrate_utilities.r</em> file onto the R console to paste the full path.</p></li>
+<li><p><strong>Check which species are extant today</strong> (if any), as this information must be provided when running a diversification rate analysis. All species unless otherwise specified will be considered as extinct. Define a vector of extant species by typing in R: <br/>
+<code>extant_dogs = c("Canis rufus","Canis lupus","Canis aureus","Canis latrans","Canis mesomelas","Canis anthus","Pseudalopex gymnocercus","Canis adustus","Canis familiaris")</code></p></li>
+<li><p><strong>Parse the raw data and generate PyRate input file</strong>. Here we are going to use an automated function to extract fossil occurrence data from PBDB raw table and save it in a PyRate-compatible input file. Type in R: <br/>
+<code>extract.ages.pbdb(file=
+".../Canis_pbdb_data.csv",extant_species=extant_dogs)</code><br/>
+<strong>IMPORTANT NOTE:</strong> this function does not check for synonyms, typos, etc. You can specify two additional options.  The option <code>replicates</code> (by default set to 1) resamples the ages of each fossil occurrence from the respective temporal range. If you use <code>replicates=10</code>, ten replicated datasets will be saved in a single PyRate input file. These replicates can then be analyzed (individually) and the combined results will account for age uncertainties in the fossil record. The option <code>cutoff</code> can be used to remove occurrences with an age range greater than a given temporal range. For instance using <code>cutoff=10</code> will remove all occurrences in which the difference between max age and min age is larwger than 10 Myr.</p></li>
+<li><p><strong>Check PyRate input files.</strong> The previous step generated two files: a text file (*_SpeciesList.txt) containing the list of all species included in the dataset and a python file (*_PyRate.py) with all occurrences formatted for a PyRate analysis. We can check the python file directly in PyRate to get a few summary statistics:</p>
+
+<ol type="a">
+<li>Open a Terminal window</li>
+<li>Browse to the Pyrate folder, e.g.:<br/>
+<code>cd ".../PyRate-master"</code></li>
+<li>Launch PyRate with the following arguments:<br/>
+<code>python PyRate.py '.../Canis_pbdb_data_PyRate.py' -data_info</code></li>
+</ol>
+</li>
+</ol>
+
+
+<hr />
+
+<h2>Generate PyRate input file (option 2)</h2>
+
+<ol>
+<li><p><strong>Prepare fossil occurrence table.</strong> You can prepare a table with fossil occurrence data in a text editor or a spreadsheet editor. The table must include 4 columns including 1) Taxon name, 2) Status specifying whether the taxon is "extinct" or "extant", 3) Minimum age, and 4) Maximum age. The table should have a header (first row) and <strong>one row for each fossil occurrence</strong>. Min and max ages represent the age ranges of each fossil occurrence, typically based on stratigraphic boundaries. One additional column can be included in the table indicating a trait value (e.g. estimated body mass) that can be used PyRate analyses.</p></li>
+<li><p><strong>Launch R</strong> as explained above.</p></li>
+<li><p><strong>Load the <em>pyrate_utilities.r</em> file</strong> as explained above.</p></li>
+<li><p><strong>Parse the raw data and generate PyRate input file</strong>. Here we are going to use an automated function to extract fossil occurrence data from PBDB raw table and save it in a PyRate-compatible input file. Type in R: <br/>
+<code>extract.ages(file=".../Canis_pbdb_data.csv",extant_species=extant_dogs,
+replicates=10)</code></p></li>
+</ol>
+
+
+<hr />
+
+<h2>Estimation of speciation/extinction rates through time</h2>
+
+<h4>Defining the preservation model</h4>
+
+<p>In a typical analysis we should use the <strong>Gamma model</strong>, which enables us to account for heterogeneity in the preservation rate across lineages. This option only adds a single parameter to the model and should be used for all empirical data sets. To set the Gamma model we add the flag <code>-mG</code>:</p>
+
+<p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -mG</code></p>
+
+<p>Note that, by default, PyRate assumes a <strong>non-homogeneous Poisson process of preservation</strong> (NHPP). In some cases, e.g. when analyzing data at the genus level, you may want to use a <strong>homogeneous Poisson process (HPP)</strong> instead. This is set by the command <code>-mHPP</code>, which can be again paired with a Gamma model of rate heterogeneity:</p>
+
+<p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -mHPP -mG</code></p>
+
+<p><strong>Time-variable Poisson process (TPP)</strong>. An alternative model of preservation assumes that preservation rates are constant within a predefined time frame, but can vary across time frames (e.g. geological epochs). This model is particularly useful if we expect rate heterogeneity to occur mostly through time, rather than among lineages.</p>
+
+<p>We can set up a model in which preservation rates are estimated independently within each geological epoch by using the command <code>-qShift</code> and providing a file containing the times that delimit the different epochs (an example is provided in <code>PyRate-master/example_files/epochs_q.txt</code>):</p>
+
+<p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -qShift .../epochs_q.txt</code></p>
+
+<p>Formal <strong>model testing between preservation models</strong> is currently not implemented in PyRate.</p>
+
+<h4>Analysis setup</h4>
+
+<p>Here we describe the main settings for a standard analysis of fossil occurrence data using PyRate. The analysis will estimate:</p>
+
+<ol>
+<li><strong>origination and extinction times</strong> of each lineage</li>
+<li><strong>preservation rate</strong> and its level of <strong>heterogeneity</strong></li>
+<li><strong>speciation and extinction rates</strong> through time.</li>
+</ol>
+
+
+<p>Temporal rate variation is introduced by rate shifts. The number and temporal placement of shifts are estimated from the data using the BDMCMC algorithm.</p>
+
+<p>The analysis requires a <strong>PyRate input file</strong> generated by the R function described above. The first argument we need to provide is the input file:</p>
+
+<p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py</code></p>
+
+<p>In most operating systems (including Mac OS, Windows, and Ubuntu) you can drag and drop the input file onto the terminal window to paste the full path and file name.</p>
+
+<pre><code>    PyRate includes default settings for all parameters except for the input file. While most of the parameters should be changed only when experiencing convergence issues,  there are a few that are very important as they change the basic model assumptions or the length of the analyses - see below.
+</code></pre>
+
+<p>Since the input file generated in the previous steps included 10 randomized replicates of the fossil ages, we can specify which replicate we want to analyze. <strong>Ideally, we should analyze multiple randomized replicates and combine the results to incorporate dating uncertainties</strong> in our rate estimates. To specify the which replicate we want to analyze, we use the flag <code>-j</code> followed by the replicate number. For instance using:</p>
+
+<p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -mHPP -mG -j 1</code></p>
+
+<p>we set the analysis to consider the first replicate.</p>
+
+<p>The BDMCMC algorithm is the default setting in PyRate and we do not need to specify any additional parameters to estimate speciation and extinction rates through time. We can (and in some cases should) however change the number of BDMCMC iterations and the sampling frequency. By default PyRate will run 10,000,000 iterations and sample the parameters every 1,000 iterations. Depending on the size of the data set you may have to <strong>increase the number iterations to reach convergence</strong> (in which case it might be a good idea to sample the chain less frequently to reduce the size of the output files). This is done using the commands <code>-n</code> and <code>-s</code>:</p>
+
+<p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -mG -n 20000000 -s 5000</code></p>
+
+<p>Under these settings PyRate will run for 20 million iterations sampling every 5,000. Thus the resulting log files (see below) will include 4,000 posterior samples.</p>
+
+<h4>Output files</h4>
+
+<p>The PyRate analysis described above produces three output files, saved in a folder named <em>pyrate_mcmc_logs</em> in the same directory as the input file:</p>
+
+<h6>sum.txt</h6>
+
+<p>   Text file providing the complete list of settings used in the analysis.</p>
+
+<h6>mcmc.log</h6>
+
+<p>Tab-separated table with the MCMC samples of the posterior, prior, likelihoods of the preservation process and of the birth-death (indicated by <em>PP_lik</em> and <em>BD_lik</em>, respectively), the preservation rate (<em>q_rate</em>), the shape parameter of its gamma-distributed heterogeneity (<em>alpha</em>), the number of sampled rate shifts (<em>k_birth</em>, <em>k_death</em>), the time of origin of the oldest lineage (<em>root_age</em>), the total branch length (<em>tot_length</em>), and the times of speciation and extinction of all taxa in the data set (<em>*_TS</em> and <em>*_TE</em>, respectively). When using the TPP model of preservation, the preservation rates between shifts are indicated as <em>q_0, q_1, ... q_n</em> (from older to younger).</p>
+
+<h6>marginal_rates.log</h6>
+
+<p>Tab-separated table with the posterior samples of the marginal rates of speciation, extinction, and net diversification, calculated within 1 time unit (typically Myr).</p>
+
+<h4>Summarize the results</h4>
+
+<p>The log files can be opened in the program <strong>Tracer</strong> to check if the MCMC has converged and determine the proportion of burnin.</p>
+
+<p>The <strong>mcmc.log</strong> file can be used to calculate the sampling frequencies of birth-death models with different number of rate shifts. This is done by using the PyRate command <code>-mProb</code> followed by the log file:</p>
+
+<p><code>python PyRate.py -mProb .../Canis_pbdb_data_mcmc.log -b 200</code></p>
+
+<p>where the flag <code>-b 200</code> indicates that the first 200 samples will be removed (i.e. the first 200,000 iterations, if the sampling frequency was set to 1,000). This command will provide a table with the relative probabilities of birth-death models with different number of rate shifts.</p>
+
+<p>The <strong>marginal_rates.log</strong> file can be used to generate rates-through-time plots using the function <code>-plot</code>:</p>
+
+<p><code>python PyRate.py -plot .../Canis_pbdb_data_marginal_rates.log -b 200</code></p>
+
+<p>This will generate an R script and a PDF file with the RTT plots showing speciation, extinction, and net diversification through time. A slightly different flavor of the RTT plot can be obtained using the flag <code>-plot2</code> instead of <code>-plot</code>.</p>
+
+<hr />
+
+<h2>Speciation/extinction rates within fixed time bins</h2>
+
+<h4>Analysis setup</h4>
+
+<p>PyRate can also fit birth-death models in which the <strong>number and temporal placement of rate shifts is fixed a priori</strong>, e.g. based on geological epochs. In this case a file with the predefined times of rate shifts must be provided using the command <code>-fixShift</code>. The format of this file is very simple and an example is available here: <code>.../PyRate-master/example_files/epochs.txt</code>. This model assumes half-Cauchy prior distributions for speciation and extinction rates between shifts, with a hyper-prior on the respective scale parameter to reduce the risk of over parameterization.
+To enforce fixed times of rate shifts we use the following command:</p>
+
+<p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -fixShift .../epochs.txt</code></p>
+
+<p>The other options described above to set preservation model, length of the MCMC, and sampling frequency are also available in this case.</p>
+
+<h4>Summarize the results</h4>
+
+<p>Running PyRate with fixed times of rate shifts produces the same 3 output files described in the previous analysis. The main difference is in the <em>mcmc.log</em> file where we will no longer have the estimate number of rate shifts (<em>k_birth</em>, <em>k_death</em>) as these are fixed. However, the log file now includes speciation/ extinction rates between shifts (named <em>lambda_0, lambda_1,</em> ... and  <em>mu_0, mu_1, ...</em>, respectively), and the estimated scale parameters of the half-Cauchy prior distributions assigned to speciation and extinction rates, indicated by <em>hypL</em> and <em>hypM</em>, respectively.</p>
+
+<p>RTT plots can be generated as in the previous analysis using the command <code>-plot</code> (or <code>-plot2</code>) followed by the path to the <em>marginal_rates.log</em> file and setting the number of samples be discarded as burnin (e.g. <code>-b 100</code>).</p>
+</body>
+</html>
