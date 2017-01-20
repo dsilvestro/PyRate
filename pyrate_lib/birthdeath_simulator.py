@@ -2,9 +2,7 @@
 # Created by Daniele Silvestro on 20/01/2017 => daniele.silvestro@bioenv.gu.se
 from numpy import *
 import numpy as np
-import random as rand
 import sys, os
-from scipy.special import gdtr, gdtrix
 print "Birth-Death Sampler 18\n"
 
 
@@ -27,7 +25,7 @@ shift_extinction = [5]       # specify times of rate shifts (extinction)
 speciation_rates = [0.4,0.2] # if using rate shifts, the first rate is that closest to the root age
 extinction_rates = [0.1,0.3] # 
 
-# SETTINGS for RANDOM SIMUATIONS
+# SETTINGS for RANDOM SIMULATIONS
 randomSettings=0 # set to 1 to use random settings (see below)
 poiL = 1 # expected number of shifts (if 0: constant rate BD; if -1 use empirical Prob vec)
 poiM = 1 # expected number of shifts (if 0: constant rate BD; if -1 use empirical Prob vec)
