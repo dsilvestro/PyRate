@@ -12,7 +12,7 @@ print "Birth-Death Sampler 18\n"
 
 n_reps = 10 # number of simulations
 
-# CONSTRAINTS on DATA SIZE
+# CONSTRAINTS on DATA SIZE (simulations will run until size requirements are met)
 s_species=4   # number of starting species
 minSP=200     # min size data set
 maxSP=300     # max size data set
