@@ -2602,6 +2602,7 @@ if path_dir_log_files != "":
 		# plot each file separately
 		print root_plot 
 		if file_stem == "":
+			path_dir_log_files = os.path.abspath(path_dir_log_files)
 			direct="%s/*marginal_rates.log" % path_dir_log_files
 			files=glob.glob(direct)
 			files=sort(files)		
