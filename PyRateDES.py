@@ -122,9 +122,7 @@ if args.A ==2:
 	n_generations   = 10000
 	update_freq     = [.33,.66,1]
 	sampling_freq   = 10
-	print_freq      = 10
-	max_ML_iterations = 250
-	
+	max_ML_iterations = 250	
 else: 
 	runMCMC = 1
 	n_generations   = args.n
@@ -132,8 +130,7 @@ else:
 	if args.hp == True: 
 		update_freq = [.3,.6,.9]
 	sampling_freq   = args.s
-	print_freq      = args.p
-
+print_freq      = args.p
 map_power       = args.pw
 hp_alpha        = 2.
 hp_beta         = 2.
@@ -392,8 +389,23 @@ for it in range(n_generations * len(scal_fac_TI)):
 	#else: r = 2
 	if r < update_freq[0]: 
 		if equal_d is True:
-			d_temp,hasting = update_multiplier_proposal_freq(dis_rate_vec_A[:,0],d=1.1,f=update_rate_freq)
-			dis_rate_vec = array([d_temp,d_temp]).T
+			#--> SYMMETRIC DISPERSAL
+			# d_temp,hasting = update_multiplier_proposal_freq(dis_rate_vec_A[:,0],d=1.1,f=update_rate_freq)
+			# dis_rate_vec = array([d_temp,d_temp]).T
+			#--> CONSTANT DISPERSAL IN AREA 2
+			# d_temp,hasting = update_multiplier_proposal_freq(dis_rate_vec_A,d=1.1,f=update_rate_freq)
+			# d_temp[:,1] = d_temp[0,1]
+			# dis_rate_vec = d_temp
+			#--> CONSTANT DISPERSAL IN AREA 2, 0 in the Miocene
+			# d_temp,hasting = update_multiplier_proposal_freq(dis_rate_vec_A,d=1.1,f=update_rate_freq)
+			# d_temp[:,1] = d_temp[2,1]
+			# d_temp[0,1] = small_number
+			# dis_rate_vec = d_temp
+			#--> 0 DISPERSAL in Miocene and Pliocene
+			# d_temp,hasting = update_multiplier_proposal_freq(dis_rate_vec_A,d=1.1,f=update_rate_freq)
+			# d_temp[0,:] = small_number
+			# d_temp[1,:] = small_number
+			# dis_rate_vec = d_temp
 		else:
 			dis_rate_vec,hasting=update_multiplier_proposal_freq(dis_rate_vec_A,d=1.1,f=update_rate_freq)
 	elif r < update_freq[1]: 
@@ -405,7 +417,11 @@ for it in range(n_generations * len(scal_fac_TI)):
 	elif r<=update_freq[2]: 
 		r_vec=update_parameter_uni_2d_freq(r_vec_A,d=0.1,f=update_rate_freq)
 		r_vec[:,0]=0
+		#--> SYMMETRIC SAMPLING
 		if equal_q is True: r_vec[:,2] = r_vec[:,1]
+		#--> CONSTANT Q IN AREA 2
+                # if equal_q is True: r_vec[:,2] = r_vec[1,2]
+		
 		r_vec[:,3]=1
 		# CHECK THIS: CHANGE TO VALUE CLOSE TO 1? i.e. for 'ghost' area 
 		if args.data_in_area == 1: r_vec[:,2] = small_number 
@@ -503,9 +519,10 @@ for it in range(n_generations * len(scal_fac_TI)):
 			MLik=likA
 			ml_it=0
 		else:	ml_it +=1
-	if ml_it>max_ML_iterations:
-		msg= "Convergence reached. ML = %s" % (round(MLik,3))
-		sys.exit(msg)
+		# exit when ML convergence reached
+		if ml_it>max_ML_iterations:
+			msg= "Convergence reached. ML = %s" % (round(MLik,3))
+			sys.exit(msg)
 			
 
 
