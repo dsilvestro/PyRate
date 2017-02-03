@@ -75,6 +75,7 @@ p.add_argument('-sum',  type=str, help='Summarize results (provide log file)',  
 p.add_argument('-symd',      help='symmetric dispersal rates', action='store_true', default=False)
 p.add_argument('-syme',      help='symmetric extinction rates', action='store_true', default=False)
 p.add_argument('-symq',      help='symmetric preservation rates', action='store_true', default=False)
+p.add_argument('-constr',  type=int, help='Contraints on covar parameters',  default=[], metavar=0, nargs='+') # '*'
 p.add_argument('-data_in_area', type=int,  help='if data only in area 1 set to 1 (set to 2 if data only in area 2)', default=0)
 p.add_argument('-var',  type=str, help='Time variable file (e.g. PhanerozoicTempSmooth.txt)',  default="", metavar="")
 p.add_argument('-red', type=int,  help='if -red 1: reduce dataset to taxa with occs in both areas', default=0)
@@ -116,6 +117,7 @@ if output_wd=="": output_wd= self_path
 equal_d = args.symd
 equal_e = args.syme
 equal_q = args.symq
+constraints_covar = np.array(args.constr)
 
 ### MCMC SETTINGS
 if args.A ==2: 
@@ -123,7 +125,6 @@ if args.A ==2:
 	n_generations   = 10000
 	update_freq     = [.33,.66,1]
 	sampling_freq   = 10
-	print_freq      = 10
 	max_ML_iterations = 250
 else: 
 	runMCMC = 1
@@ -132,8 +133,8 @@ else:
 	if args.hp == True: 
 		update_freq = [.3,.6,.9]
 	sampling_freq   = args.s
-	print_freq      = args.p
 
+print_freq      = args.p
 map_power       = args.pw
 hp_alpha        = 2.
 hp_beta         = 2.
@@ -221,6 +222,9 @@ else:
 	if equal_e is True: model_tag+= "_syme"
 	if equal_q is True: model_tag+= "_symq"
 	if runMCMC == 0: model_tag+= "_ML"
+	if len(constraints_covar)>0: model_tag+= "_constr"
+	for i in constraints_covar: model_tag+= "_%s" % (i)
+		
 	out_log ="%s/%sContinuous_%s%s%s%s.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag,model_tag)
 	time_series = np.sort(time_series)[::-1] # the order of the time vector is only used to assign the different Q matrices
 	                                         # to the correct time bin. Q_list[0] = root age, Q_list[n] = most recent
@@ -393,7 +397,12 @@ for it in range(n_generations * len(scal_fac_TI)):
 	if it ==0: 
 		dis_rate_vec_A= dis_rate_vec
 		ext_rate_vec_A= ext_rate_vec
-		r_vec_A=        r_vec
+		r_vec_A= r_vec 
+		# fixed starting values 
+		# dis_rate_vec_A= np.array([[0.032924117],[0.045818755]]).T #dis_rate_vec
+		# ext_rate_vec_A= np.array([[0.446553889],[0.199597008]]).T #ext_rate_vec
+		# covar_par_A=np.array([-0.076944388,-0.100211345,-0.161531353,-0.059495477])
+		# r_vec_A=     exp(-np.array([0,1.548902792,1.477082486,1,0,1.767267039,1.981165598,1,0,2.726853331,3.048116889,1])*.5).reshape(3,4) # r_vec  
 		likA=-inf
 		priorA=-inf
 
@@ -434,7 +443,11 @@ for it in range(n_generations * len(scal_fac_TI)):
 	else:
 		gibbs_sample = 1
 		prior_exp_rate = gibbs_sampler_hp(np.concatenate((dis_rate_vec,ext_rate_vec)),hp_alpha,hp_beta)
-
+	
+	# enforce constraints if any
+	if len(constraints_covar)>0:
+		covar_par[constraints_covar] = 0
+	
 	Q_list_old= make_Q_list(dis_rate_vec,ext_rate_vec)
 	#print "Q1",Q_list
 	
@@ -522,7 +535,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
 		q_rates = -log(sampling_prob)/bin_size
 		print it,"\t",likA,"\t",  dis_rate_vec_A.flatten(),ext_rate_vec_A.flatten(),scal_fac_TI[scal_fac_ind], q_rates, \
-		"covar",covar_par_A,dis_rate_vec_A.flatten()*exp(covar_par_A[0]*time_var[0])
+		"covar",covar_par_A #,dis_rate_vec_A.flatten()*exp(covar_par_A[0]*time_var[0])
 	if it % sampling_freq == 0 and it >= burnin and runMCMC == 1:
 		sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
 		q_rates = -log(sampling_prob)/bin_size
@@ -543,9 +556,10 @@ for it in range(n_generations * len(scal_fac_TI)):
 			MLik=likA
 			ml_it=0
 		else:	ml_it +=1
-	if ml_it>max_ML_iterations:
-		msg= "Convergence reached. ML = %s" % (round(MLik,3))
-		sys.exit(msg)
+		# exit when ML convergence reached
+		if ml_it>max_ML_iterations:
+			msg= "Convergence reached. ML = %s" % (round(MLik,3))
+			sys.exit(msg)
 
 
 print "elapsed time:", time.time()-start_time
