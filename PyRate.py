@@ -4,7 +4,7 @@ import argparse, os,sys, platform, time, csv, glob
 import random as rand
 import warnings
 version= "PyRate"
-build  = "20170203"
+build  = "20170209"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
@@ -659,7 +659,7 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 def get_gamma_rates(a):
 	b=a
 	m = gdtrix(b,a,YangGammaQuant) # user defined categories
-	s=args.ncat/sum(m) # multiplier to scale the so that the mean of the discrete distribution is one
+	s=pp_gamma_ncat/sum(m) # multiplier to scale the so that the mean of the discrete distribution is one
 	return array(m)*s # SCALED VALUES
 
 def init_ts_te(FA,LO):
@@ -782,7 +782,6 @@ def update_q_multiplier(q,d=1.1,f=0.75):
 	U=sum(log(m))
 	return new_q,U
 
-
 def update_times(times, max_time,min_time, mod_d4,a,b):
 	rS= times+zeros(len(times))
 	rS[0]=max_time
@@ -794,30 +793,6 @@ def update_times(times, max_time,min_time, mod_d4,a,b):
 	y=sort(-rS)
 	y=-1*y
 	return y
-
-
-def update_ts_te_old(ts, te, d1):
-	tsn, ten= zeros(len(ts)), zeros(len(te))
-	f1=np.random.random_integers(1,frac1) #int(frac1*len(FA)) #-np.random.random_integers(0,frac1*len(FA)-1)) 
-	ind=np.random.choice(SP_in_window,f1) # update only values in SP/EX_in_window
-	#ind=np.random.random_integers(0,len(ts)-1,f1) 
-	tsn[ind]=np.random.uniform(-d1,d1,len(tsn[ind]))
-	tsn = abs(tsn+ts)		                         # reflection at min boundary (0)
-	ind=(tsn<FA).nonzero()					 # indices of ts<FA (not allowed)
-	tsn[ind] = abs(tsn[ind]-FA[ind])+FA[ind]         # reflection at max boundary (FA)
-	tsn=abs(tsn)
-
-	ind=np.random.choice(EX_in_window,f1)
-	#ind=np.random.random_integers(0,len(ts)-1,f1) 
-	ten[ind]=np.random.uniform(-d1,d1,len(ten[ind]))
-	ten=abs(ten+te)		                         # reflection at min boundary (0)
-	ind2=(ten>LO).nonzero()                          
-	ten[ind2] = abs(LO[ind2]-(ten[ind2]-LO[ind2]))   # reflection at max boundary (LO)
-	ind2=(ten>LO).nonzero()                          
-	ten[ind2] = te[ind2]                             # reflection at max boundary (LO)
-	ind=(LO==0).nonzero()                            # indices of LO==0 (extant species)
-	ten[ind]=0
-	return tsn,ten
 
 def update_ts_te(ts, te, d1):
 	tsn, ten= zeros(len(ts))+ts, zeros(len(te))+te
@@ -1250,7 +1225,7 @@ def PoiD_partial_lik(arg):
 
 # PRESERVATION 
 def HPP_vec_lik(arg):
-	[te,ts,time_frames,q_rates,i]=arg	
+	[te,ts,time_frames,q_rates,i,alpha]=arg	
 	i=int(i) # species number
 	k_vec = occs_sp_bin[i] # no. occurrences per time bin per species
 	# e.g. k_vec = [0,0,1,12.,3,0]
@@ -1265,11 +1240,20 @@ def HPP_vec_lik(arg):
 	t = t[t>te]
 	t2 = np.array([ts]+list(t)+[te])
 	d = abs(np.diff(t2))
-	lik = sum(-q_rates[ind]*d + log(q_rates[ind])*k_vec[ind]) - log(1-exp(sum(-q_rates[ind]*d))) -sum(log(np.arange(1,sum(k_vec)+1))) 
-	q=q_rates[0]
-	k=sum(k_vec)
-	#print -q*(ts-te) + log(q)*k - sum(log(np.arange(1,k+1))) - log(1-exp(-q*(ts-te))), lik
-	#print -q*(ts-te) + log(q)*k,  sum(-q_rates[ind]*d + log(q_rates[ind])*k_vec[ind])
+	
+	if argsG is True and sum(k_vec)>1: # for singletons no Gamma
+		# loop over gamma categories
+		YangGamma=get_gamma_rates(alpha)
+		lik_vec = np.zeros(pp_gamma_ncat)
+		for i in range(pp_gamma_ncat):
+			qGamma= YangGamma[i]*q_rates
+			lik_vec[i] = sum(-qGamma[ind]*d + log(qGamma[ind])*k_vec[ind]) - log(1-exp(sum(-qGamma[ind]*d))) -sum(log(np.arange(1,sum(k_vec)+1))) 
+	
+		#print lik_vec
+		lik2= lik_vec-np.max(lik_vec)
+		lik = sum(log(sum(exp(lik2))/pp_gamma_ncat)+np.max(lik_vec))
+	else:
+		lik = sum(-q_rates[ind]*d + log(q_rates[ind])*k_vec[ind]) - log(1-exp(sum(-q_rates[ind]*d))) -sum(log(np.arange(1,sum(k_vec)+1))) 
 	return lik
 
 def HPP_vec_lik_(arg):
@@ -1314,7 +1298,7 @@ def HOMPP_lik(arg):
 		qGamma= YangGamma*q
 		lik1= -qGamma*(br_length) + log(qGamma)*k - sum(log(np.arange(1,k+1)))  -log(1-exp(-qGamma*(br_length)))
 		lik2= lik1-max(lik1)
-		lik=log(sum(exp(lik2)*(1./args.ncat)))+max(lik1)
+		lik=log(sum(exp(lik2)*(1./pp_gamma_ncat)))+max(lik1)
 		return lik
 	else: 	return -q*(br_length) + log(q)*k - sum(log(np.arange(1,k+1))) - log(1-exp(-q*(br_length)))
 
@@ -1390,15 +1374,15 @@ def NHPPgamma(arg):
 		a = 1+ (4*(C-m))/(M-m)
 		b = 1+ (4*(-C+M))/(M-m)
 		W=PERT4_density(M,m,a,b,x)
-		PERT4_den=np.append(W, [W]*(args.ncat-1)).reshape(args.ncat,len(W)).T 
-		#lik=log( sum( (exp(-qGamma*(M-m)) * np.prod((PERT4_den*qGamma), axis=0) / (1-exp(-qGamma*(M-m))))*(1./args.ncat)) )
+		PERT4_den=np.append(W, [W]*(pp_gamma_ncat-1)).reshape(pp_gamma_ncat,len(W)).T 
+		#lik=log( sum( (exp(-qGamma*(M-m)) * np.prod((PERT4_den*qGamma), axis=0) / (1-exp(-qGamma*(M-m))))*(1./pp_gamma_ncat)) )
 		tempL=exp(-qGamma*(M-m))
 		if max(tempL)<1:
 			L=log(1-tempL)
 			if np.isfinite(sum(L)):
 				lik1=-qGamma*(M-m) + np.sum(log(PERT4_den*qGamma), axis=0) - L
 				lik2=lik1-max(lik1)
-				lik=log(sum(exp(lik2)*(1./args.ncat)))+max(lik1)
+				lik=log(sum(exp(lik2)*(1./pp_gamma_ncat)))+max(lik1)
 			else: lik=-100000
 		else: lik=-100000
 	elif m==0 and use_DA is False: lik = HOMPP_lik(arg)
@@ -1778,6 +1762,7 @@ def MCMC(all_arg):
 			alpha_par_Dir_M = np.random.uniform(0,1) # init concentration parameters
 		
 		q_ratesA,cov_parA = init_q_rates() # use 1 for symmetric PERT
+		alpha_pp_gammaA = 1.
 		if multiHPP is True: # init multiple q rates
 			q_ratesA = np.zeros(time_framesQ)+q_ratesA[1]
 		if restore_chain is True: q_ratesA = restore_init_values[2]
@@ -1851,6 +1836,7 @@ def MCMC(all_arg):
 		if it>0 and (it-burnin) % (I_effective/len(temperatures)) == 0 and it>burnin or it==I-1: rr=1.5 # no updates when changing temp
 
 		q_rates=zeros(len(q_ratesA))
+		alpha_pp_gamma=alpha_pp_gammaA
 		cov_par=zeros(3)
 		L,M=zeros(len(LA)),zeros(len(MA))
 		tot_L=sum(tsA-teA)
@@ -1868,7 +1854,10 @@ def MCMC(all_arg):
 			tot_L=sum(ts-te)
 		elif rr<f_update_q: # q/alpha
 			q_rates=np.zeros(len(q_ratesA))+q_ratesA
-			if multiHPP is True: q_rates, hasting = update_q_multiplier(q_ratesA,d=1.1,f=0.5)
+			if multiHPP is True: 
+				q_rates, hasting = update_q_multiplier(q_ratesA,d=1.1,f=0.5)
+				if np.random.random()>.5 and argsG is True:
+					alpha_pp_gamma, hasting = update_multiplier_proposal(alpha_pp_gammaA,d2[0]) # shape prm Gamma
 			elif np.random.random()>.5 and argsG is True: 
 				q_rates[0], hasting=update_multiplier_proposal(q_ratesA[0],d2[0]) # shape prm Gamma
 			else:
@@ -1949,7 +1938,7 @@ def MCMC(all_arg):
 				if num_processes_ts==0:
 					for j in range(len(ind1)):
 						i=ind1[j] # which species' lik
-						if multiHPP is True:  lik_fossil[i] = HPP_vec_lik([te[i],ts[i],q_time_frames,q_rates,i])
+						if multiHPP is True:  lik_fossil[i] = HPP_vec_lik([te[i],ts[i],q_time_frames,q_rates,i,alpha_pp_gamma])
 						else:
 							if argsHPP is True or  frac1==0: lik_fossil[i] = HOMPP_lik(args[j])
 							elif argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
@@ -2055,7 +2044,7 @@ def MCMC(all_arg):
 						if num_processes_ts==0:
 							for j in range(len(ind1)):
 								i=ind1[j] # which species' lik
-								if multiHPP is True:  lik_fossil[i] = HPP_vec_lik([te[i],ts[i],q_time_frames,q_rates,i])
+								if multiHPP is True:  lik_fossil[i] = HPP_vec_lik([te[i],ts[i],q_time_frames,q_rates,i,alpha_pp_gamma])
 								else:
 									if argsHPP is True or  frac1==0: lik_fossil[i] = HOMPP_lik(args[j])
 									elif argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
@@ -2139,6 +2128,7 @@ def MCMC(all_arg):
 				tsA,teA=ts,te
 				SA=sum(tsA-teA)
 				q_ratesA=q_rates
+				alpha_pp_gammaA=alpha_pp_gamma
 				lik_fossilA=lik_fossil
 				cov_parA=cov_par
 				W_shapeA=W_shape
@@ -2176,7 +2166,8 @@ def MCMC(all_arg):
 					print "\tcov. (sp/ex/q):", cov_parA
 					if est_COVAR_prior is True: print "\tHP_covar:",round(covar_prior,3) 
  				if fix_SE ==False: 
-					if multiHPP is True: print "\tq.rates:", q_ratesA
+					if multiHPP is True: 
+						print "\tq.rates:", q_ratesA, "\n\tGamma.prm:", round(alpha_pp_gammaA,3)
 					else: print "\tq.rate:", round(q_ratesA[1], 3), "\tGamma.prm:", round(q_ratesA[0], 3)
 					print "\tts:", tsA[0:5], "..."
 					print "\tte:", teA[0:5], "..."
@@ -2188,7 +2179,7 @@ def MCMC(all_arg):
 			s_max=max(tsA)
 			if fix_SE ==False:
 				if multiHPP is False: log_state = [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), q_ratesA[1], q_ratesA[0]]
-				else: log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA)] + list(q_ratesA)
+				else: log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA)] + list(q_ratesA) + [alpha_pp_gammaA]
 			else:
 				log_state= [it,PostA, priorA, likA-sum(lik_fossilA)]
 
@@ -2402,8 +2393,9 @@ time_framesL=args.mL          # no. (starting) time frames (lambda)
 time_framesM=args.mM          # no. (starting) time frames (mu)
 constrain_time_frames=args.mC # True/False
 argsG=args.mG                 # gamma rates
+pp_gamma_ncat=args.ncat		      # args.ncat
 if argsG is True:             # number of gamma categories
-	YangGammaQuant=(np.linspace(0,1,args.ncat+1)-np.linspace(0,1,args.ncat+1)[1]/2)[1:]
+	YangGammaQuant=(np.linspace(0,1,pp_gamma_ncat+1)-np.linspace(0,1,pp_gamma_ncat+1)[1]/2)[1:]
 model_cov=args.mCov           # boolean 0: no covariance 1: covariance (speciation,extinction) 2: covariance (speciation,extinction,preservation)
 
 argsHPP=args.mHPP
@@ -3170,6 +3162,7 @@ if fix_SE == False:
 	else: 
 		head="it\tposterior\tprior\tPP_lik\tBD_lik\t"
 		for i in range(time_framesQ): head += "q_%s\t" % (i)
+		head += "alpha\t"
 else: 
 	head="it\tposterior\tprior\tBD_lik\t"
 	
