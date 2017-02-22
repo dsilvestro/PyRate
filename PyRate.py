@@ -4,7 +4,7 @@ import argparse, os,sys, platform, time, csv, glob
 import random as rand
 import warnings
 version= "PyRate"
-build  = "20170209"
+build  = "20170222"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
@@ -391,11 +391,14 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0, plot_type=
 	Rfile="# %s files combined:\n" % (len(files))
 	for f in files: Rfile+="# \t%s\n" % (f)	
 	Rfile+= """\n# 95% HPDs calculated using code from Biopy (https://www.cs.auckland.ac.nz/~yhel002/biopy/)"""
-		
+	
+	if plot_type==1: n_plots=4
+	else: n_plots=3
+	
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		Rfile+= "\n\npdf(file='%s\%s_RTT.pdf',width=0.6*9, height=0.6*21)\npar(mfrow=c(3,1))" % (wd,name_file) # 9
+		Rfile+= "\n\npdf(file='%s\%s_RTT.pdf',width=0.6*9, height=%s)\npar(mfrow=c(%s,1))" % (wd,name_file,0.6*7*n_plots,n_plots) # 9
 	else: 
-		Rfile+= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*9, height=0.6*21)\npar(mfrow=c(3,1))" % (wd,name_file) # 9
+		Rfile+= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*9, height=%s)\npar(mfrow=c(%s,1))" % (wd,name_file,0.6*7*n_plots,n_plots) # 9
 
 	Rfile+= "\nlibrary(scales)"
 	
@@ -456,11 +459,16 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0, plot_type=
 					plot_L += """\nplot_RTT(age,L_hpd_M95,L_hpd_m95,L_mean,"#4c4cec")"""
 					plot_M += """\nplot_RTT(age,M_hpd_M95,M_hpd_m95,M_mean,"#e34a33")"""
 					plot_R += """\nplot_RTT(age,R_hpd_M95,R_hpd_m95,R_mean,"#504A4B")"""
-				
-					
-		
+			
 			count+=1
+		
 		R_code=data+plot_L+plot_M+plot_R
+		
+		if plot_type==1:
+			R_code += "\nplot(age,age,type = 'n', ylim = c(0, max(1/M_hpd_m95)), xlim = c(%s,%s), ylab = 'Longevity (Myr)', xlab = 'Ma' )" % (max_x_axis,min_x_axis)
+			R_code += """\nlines(rev(age), rev(1/M_mean), col = "#504A4B", lwd=3)""" 
+			R_code += """\npolygon(c(age, rev(age)), c((1/M_hpd_m95), rev(1/M_hpd_M95)), col = alpha("#504A4B",trans), border = NA)"""
+		
 		return R_code
 
 	Rfile += RTT_plot_in_R([hpds95,mean_rates],.5) # ,hpds50
@@ -488,6 +496,11 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
 	j=np.arange(j_max)
 	ts = tbl[:,2+2*j]*rescale
 	te = tbl[:,3+2*j]*rescale
+	
+	if EXT_RATE==0:		
+		EXT_RATE = len(te[te>0])/sum(ts-te) # estimator for overall extinction rate
+		print "estimated extinction rate:", EXT_RATE
+	
 	wd = "%s" % os.path.dirname(tste_file)
 	# create out file
 	out_file_name = os.path.splitext(os.path.basename(tste_file))[0]
@@ -568,7 +581,7 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
 	R_script = """
 	setwd("%s")
 	tbl = read.table(file = "%s_stats.txt",header = T)
-	pdf(file='f%s_stats.pdf',width=12, height=9)
+	pdf(file='%s_stats.pdf',width=12, height=9)
 	time = -tbl$time
 	par(mfrow=c(2,2))
 	library(scales)
@@ -2635,9 +2648,10 @@ if len(args.SE_stats)>0:
 	if use_se_tbl is False: sys.exit("\nProvide an SE table using command -d\n")
 	if len(args.SE_stats)<1: sys.exit("\nAt least 1 argument required: Extinction rate at the present or *marginal_rates.log file\n")
 	else:
-		EXT_RATE  = args.SE_stats[0]
+		EXT_RATE  = float(args.SE_stats[0])
+		if EXT_RATE==0: print "\nExtinction rate set to 0: using estimator instead.\n"
 		if len(args.SE_stats)>1: step_size = args.SE_stats[1]
-		else: step_size = 5
+		else: step_size = 1
 		if len(args.SE_stats)>2: no_sim_ex_time = args.SE_stats[2]
 		else: no_sim_ex_time = 100
 		plot_tste_stats(se_tbl_file, EXT_RATE, step_size,no_sim_ex_time,burnin,args.rescale)
