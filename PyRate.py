@@ -465,9 +465,9 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0, plot_type=
 		R_code=data+plot_L+plot_M+plot_R
 		
 		if plot_type==1:
-			R_code += "\nplot(age,age,type = 'n', ylim = c(0, max(1/M_hpd_m95)), xlim = c(%s,%s), ylab = 'Longevity (Myr)', xlab = 'Ma' )" % (max_x_axis,min_x_axis)
+			R_code += "\nplot(age,age,type = 'n', ylim = c(0, max(1/M_mean)), xlim = c(%s,%s), ylab = 'Longevity (Myr)', xlab = 'Ma' )" % (max_x_axis,min_x_axis)
 			R_code += """\nlines(rev(age), rev(1/M_mean), col = "#504A4B", lwd=3)""" 
-			R_code += """\npolygon(c(age, rev(age)), c((1/M_hpd_m95), rev(1/M_hpd_M95)), col = alpha("#504A4B",trans), border = NA)"""
+			#R_code += """\npolygon(c(age, rev(age)), c((1/M_hpd_m95), rev(1/M_hpd_M95)), col = alpha("#504A4B",trans), border = NA)"""
 		
 		return R_code
 
@@ -3130,8 +3130,8 @@ except(OSError): pass
 suff_out=out_name
 if TDI<=1: suff_out+= "BD%s-%s" % (args.mL,args.mM)
 if TDI==1: suff_out+= "_TI"
-if TDI==3: suff_out+= "_dpp"
-if TDI==4: suff_out+= "_rj"
+if TDI==3: suff_out+= "dpp"
+if TDI==4: suff_out+= "rj"
 
 # OUTPUT 0 SUMMARY AND SETTINGS
 o0 = "\n%s build %s\n" % (version, build)
