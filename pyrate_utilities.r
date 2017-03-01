@@ -30,6 +30,8 @@ if (any(is.na(dat1[,1:4]))){
 
 if (!is.null(q)){
 		dat <- dat1[!(dat1[,4] - dat1[,3] >= q),]
+		cat("\n\nExcluded ", 100-round(100*dim(dat)[1]/dim(dat1)[1]), "% occurrences")
+		hist(dat1[,4] - dat1[,3])
 	} else { 
 		dat <- dat1 
 }
@@ -138,7 +140,7 @@ if ("trait" %in% colnames(dat)){
 	cat(STR, file=outfile, append=TRUE, sep="\n")
 }
 
-splistout <- paste(dirname(file), "/", fname, "_SpeciesList.txt", sep="")
+splistout <- paste(dirname(file), "/", fname, "_TaxonList.txt", sep="")
 lookup <- as.data.frame(taxa)
 lookup$status  <- "extinct"
 

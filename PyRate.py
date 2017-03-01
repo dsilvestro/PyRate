@@ -974,6 +974,7 @@ def BPD_lik_vec_times(arg):
 		for i in range(len(time_frames)-1):
 			up, lo = time_frames[i], time_frames[i+1]	
 			len_sp_events=ss1[i]
+			if i==0: len_sp_events = len_sp_events-no_starting_lineages
 			len_ex_events=ee2[i]
 			inTS = np.fmin(ts,up)
 			inTE = np.fmax(te,lo)
@@ -1033,7 +1034,10 @@ def BD_partial_lik(arg):
 		r=exp(log(rate)+cov_par*(con_trait-parGAUS[0])) # exp(log(rate)+cov_par*(con_trait-mean(con_trait[all_inframe])))
 		lik= sum(log(r[i_events])) + sum(-r[n_all_inframe]*n_S) #, cov_par
 	else:           # constant rate model
-		lik= log(rate)*len(i_events) -rate*sum(n_S) #log(rate)*len(i_events) +sum(-rate*n_S)
+		no_events = len(i_events)
+		if par=="l" and up==max_age_fixed_ts:
+			no_events = no_events-no_starting_lineages
+		lik= log(rate)*no_events -rate*sum(n_S) #log(rate)*len(i_events) +sum(-rate*n_S)
 	return lik
 
 
@@ -1693,18 +1697,32 @@ def get_rate_HP(n,target_k,hp_gamma_shape):
 
 ####### END FUNCTIONS for DIRICHLET PROCESS PRIOR #######
 
-def get_init_values(mcmc_log_file):
+def get_init_values(mcmc_log_file,taxa_names):
 	tbl = np.loadtxt(mcmc_log_file,skiprows=1)
 	last_row = np.shape(tbl)[0]-1
 	head = next(open(mcmc_log_file)).split()
-	ts_index = [head.index(i) for i in head if "_TS" in i]
-	te_index = [head.index(i) for i in head if "_TE" in i]
+	ts_index_temp = [head.index(i) for i in head if "_TS" in i]
+	te_index_temp = [head.index(i) for i in head if "_TE" in i]
+	ts_index,te_index = [],[]
+	for ts_i in ts_index_temp:
+		sp=head[ts_i].split("_TS")[0]
+		if sp in taxa_names: ts_index.append(ts_i)
+	for te_i in te_index_temp:
+		sp=head[te_i].split("_TE")[0]
+		if sp in taxa_names: te_index.append(te_i)
+	if len(ts_index) != len(ts_index_temp):
+		print "Excluded", len(ts_index) - len(ts_index_temp), "taxa"
+	
+	alpha_pp=1
 	try:
 		q_rates_index = [head.index("alpha"), head.index("q_rate")]
 		q_rates = tbl[last_row,q_rates_index]
 	except:
 		q_rates_index = [head.index(i) for i in head if "q_" in i]
 		q_rates = tbl[last_row,q_rates_index]	
+		try:
+			alpha_pp = tbl[last_row,head.index("alpha")]
+		except: pass
 	ts = tbl[last_row,ts_index]
 	te = tbl[last_row,te_index]
 	if len(fixed_times_of_shift)>0: # fixShift
@@ -1723,7 +1741,7 @@ def get_init_values(mcmc_log_file):
 		lam = np.array([float(len(ts))/(ts-te)      ])    # const rate ML estimator
 		mu  = np.array([float(len(te[te>0]))/(ts-te)])    # const rate ML estimator
 		hyp = np.ones(2)	
-	return [ts,te,q_rates,lam,mu,hyp]
+	return [ts,te,q_rates,lam,mu,hyp,alpha_pp]
 
 
 
@@ -1737,7 +1755,14 @@ def MCMC(all_arg):
 		print("initializing chain...")
 		if fix_SE is True: tsA, teA = fixed_ts, fixed_te
 		else: tsA, teA = init_ts_te(FA,LO)
-		if restore_chain is True: tsA, teA = restore_init_values[0], restore_init_values[1]
+		if restore_chain is True: 
+			tsA_temp, teA_temp = init_ts_te(FA,LO)
+			tsA, teA = restore_init_values[0], restore_init_values[1]
+			# avoid incompatibilities due to age randomizations
+			# print len(tsA[tsA<FA]),len(tsA)
+			tsA[tsA<FA]=FA[tsA<FA]+1
+			teA[teA>LO]=LO[teA>LO]-1
+			teA[teA<0]=teA_temp[teA<0]
 		timesLA, timesMA = init_times(max(tsA),time_framesL,time_framesM, min(teA))
 		if len(fixed_times_of_shift)>0: timesLA[1:-1],timesMA[1:-1]=fixed_times_of_shift,fixed_times_of_shift
 		if fix_edgeShift is True: 
@@ -1791,6 +1816,7 @@ def MCMC(all_arg):
 		if restore_chain is True: hyperPA = restore_init_values[5]
 		
 		if argsG is False and multiHPP is False: q_ratesA[0]=1
+		if argsG is True and multiHPP is True and restore_chain is True: alpha_pp_gammaA=restore_init_values[6]
 		SA=sum(tsA-teA)
 		W_shapeA=1.
 
@@ -1957,6 +1983,7 @@ def MCMC(all_arg):
 							elif argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
 							else: lik_fossil[i] = NHPP_lik(args[j])
 				else:
+					if multiHPP is True: sys.exit("multiHPP model can only run on a signle processor")
 					if argsHPP is True or  frac1==0: lik_fossil[ind1] = array(pool_ts.map(HOMPP_lik, args))
 					elif argsG is True: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args)) 
 					else: lik_fossil[ind1] = array(pool_ts.map(NHPP_lik, args))
@@ -2063,6 +2090,7 @@ def MCMC(all_arg):
 									elif argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
 									else: lik_fossil[i] = NHPP_lik(args[j])
 						else:
+							if multiHPP is True: sys.exit("multiHPP model can only run on a signle processor")
 							if argsHPP is True or frac1==0: lik_fossil[ind1] = array(pool_ts.map(HOMPP_lik, args))
 							elif argsG is True: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args))
 							else: lik_fossil[ind1] = array(pool_ts.map(NHPP_lik, args))
@@ -2303,6 +2331,7 @@ p.add_argument('-trait_file',type=str,help="Load trait table",metavar='<input fi
 p.add_argument('-restore_mcmc',type=str,help="Load mcmc.log file",metavar='<input file>',default="")
 p.add_argument('-filter',     type=float,help="Filter lineages with all occurrences within time range ",default=[inf,0], metavar=inf, nargs=2)
 p.add_argument('-filter_taxa',type=str,help="Filter lineages within list (drop all others) ",default="", metavar="taxa_file")
+p.add_argument('-initDiv',     type=int, help='Number of initial lineages (option only available with -d SE_table or -fixSE)', default=0, metavar=0)
 
 # PLOTS AND OUTPUT
 p.add_argument('-plot',       metavar='<input file>', type=str,help="RTT plot (type 1): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
@@ -2659,11 +2688,6 @@ if len(args.SE_stats)>0:
 
 
 
-if args.restore_mcmc != "":
-	restore_init_values = get_init_values(args.restore_mcmc)
-	restore_chain = True
-else: restore_chain = False
-
 ############################ LOAD INPUT DATA ############################
 match_taxa_trait = False
 if use_se_tbl==False:
@@ -2767,9 +2791,29 @@ else:
 	out_name="%s_%s_%s"  % (os.path.splitext(os.path.basename(se_tbl_file))[0],j,args.out)
 	if focus_clade>=0: out_name+= "_c%s" % (focus_clade)
 	
-	
-	
-	
+
+if args.restore_mcmc != "":
+	restore_init_values = get_init_values(args.restore_mcmc,taxa_names)
+	restore_chain = True
+else: restore_chain = False
+
+###### SET UP BD MODEL WITH STARTING NUMBER OF LINEAGES > 1
+no_starting_lineages = args.initDiv
+max_age_fixed_ts = max(FA)
+
+if no_starting_lineages>0: 
+	if use_se_tbl==False: 
+		sys.exit("Starting lineages > 1 only allowed with -d option")	
+	if model_cov>=1:
+		sys.exit("Starting lineages > 1 only allowed with -d option")	
+	#print sort(fixed_ts)
+	fixed_ts_ordered = np.sort(fixed_ts+0.)[::-1]
+	fixed_ts_ordered_not_speciation = fixed_ts_ordered[0:no_starting_lineages]
+	ind = np.array([i for i in range(len(fixed_ts)) if fixed_ts[i] in fixed_ts_ordered_not_speciation])
+	fixed_ts[ind] = max_age_fixed_ts
+	#print sort(fixed_ts)
+
+################	
 
 if argsG is True: out_name += "_G"
 
@@ -3261,6 +3305,7 @@ if fix_SE is True and fix_Shift is True:
 	time_frames  = sort(np.array(list(fixed_times_of_shift) + [0,max(fixed_ts)]))
 	B = sort(time_frames)+0.000001 # add small number to avoid counting extant species as extinct
 	ss1 = np.histogram(fixed_ts,bins=B)[0][::-1]
+	ss1[0] = ss1[0]-no_starting_lineages
 	ee2 = np.histogram(fixed_te,bins=B)[0][::-1]
 	len_SS1,len_EE1 = list(),list()
 	S_time_frame =list()

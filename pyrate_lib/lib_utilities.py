@@ -11,6 +11,12 @@ from scipy import stats
 import lib_DD_likelihood
 self_path=os.getcwd()
 
+def rescale_vec_to_range(x, r=1., m=0):
+        temp = (x-min(x))/(max(x)-min(x))
+        temp = temp*r # rescale
+        temp = temp+m # shift
+        return(temp)
+
 def calcHPD(data, level=0.95) :
 	assert (0 < level < 1)	
 	d = list(data)
@@ -476,6 +482,7 @@ def check_taxa_names(SpeciesList_file):
 
 
 def reduce_log_file(log_file,burnin=1): # written by Tobias Hofmann (tobias.hofmann@bioenv.gu.se)
+	print log_file
 	target_columns = ["it","posterior","prior","PP_lik","BD_lik","q_rate","alpha","k_birth","k_death","root_age","death_age"]
 	workdir = os.path.dirname(log_file)
 	if workdir=="": workdir= self_path
@@ -487,8 +494,10 @@ def reduce_log_file(log_file,burnin=1): # written by Tobias Hofmann (tobias.hofm
 	print "Parsing header..."
 	head = next(open(log_file)).split()
 	w=[head.index(x) for x in head if x in target_columns]
-	#print w
+	print w
 	print "Reading mcmc log file..."
+	#log_file = "%s" % (log_file)
+	print log_file
 	tbl = np.loadtxt(log_file,skiprows=burnin,usecols=(w))
 	print np.shape(tbl)	
 	outlog.writerow(target_columns)
