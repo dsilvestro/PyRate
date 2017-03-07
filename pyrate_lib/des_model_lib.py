@@ -14,6 +14,7 @@ def powerset(iterable):
 
 
 def build_rho_index_vec(obs_state,nareas,possible_areas,verbose=0):
+	#verbose=1
 	obs_state=set(obs_state)
 	r_vec_index=[]
 	r_neg_index=np.zeros((len(possible_areas),nareas))
@@ -45,6 +46,7 @@ def build_rho_index_vec(obs_state,nareas,possible_areas,verbose=0):
 			print anc_state,"\t",obs_state,"\t",temp,"\t",r_neg_index[i], abs(r_neg_index[i]-r_vec[temp]),np.prod(abs(r_neg_index[i]-r_vec[temp]))
 		r_vec_index.append(temp)	
 	#print "\nFINAL",np.array(r_vec_index),r_neg_index	, "\nEND"
+	#quit()
 	return np.array(r_vec_index),r_neg_index
 
 def build_list_rho_index_vec(obs_area_series,nareas,possible_areas,verbose=0):
@@ -120,7 +122,7 @@ def make_Q_Covar4V(dv_list,ev_list,time_var,covar_par=np.zeros(4)): # construct 
 		[e1,e2] = transf_e[i]
 		Q= np.array([
 			[D, 0, 0, 0 ],
-#			[D, d1, d2, 0 ],
+			# [D, d1, d2, 0 ],
 			[e1,D, 0, d1],
 			[e2,0, D, d2],
 			[0 ,e1,e2,D ]	
@@ -129,6 +131,34 @@ def make_Q_Covar4V(dv_list,ev_list,time_var,covar_par=np.zeros(4)): # construct 
 		np.fill_diagonal(Q, -np.sum(Q,axis=1))
 		Q_list.append(Q)
 	return Q_list
+
+
+def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par=np.zeros(4),transf_d=1,transf_e=1): # Dispersal dependent Extinction
+	if transf_d==1:
+		transf_d = np.array([dv_list[0][0] *exp(covar_par[0]*time_var_d1), dv_list[0][1] *exp(covar_par[1]*time_var_d2)]).T
+	else: # time-dependent-dispersal
+		transf_d = dv_list
+	if transf_e==1:
+		transf_e = np.array([ev_list[0][0] *exp(covar_par[2]*time_var_e1), ev_list[0][1] *exp(covar_par[3]*time_var_e2)]).T
+	else:
+		transf_e = ev_list
+	Q_list=[]
+	for i in range(len(transf_d)):
+		D=0
+		[d1,d2] = transf_d[i] # d1 A->B; d2 B->A;
+		[e1,e2] = transf_e[i]
+		Q= np.array([
+			[D, 0, 0, 0 ],
+			# [D, d1, d2, 0 ],
+			[e1,D, 0, d1],
+			[e2,0, D, d2],
+			[0 ,e1,e2,D ]	
+		])
+		# fill diagonal values
+		np.fill_diagonal(Q, -np.sum(Q,axis=1))
+		Q_list.append(Q)
+	return Q_list
+
 
 def make_Q3A(dv,ev): # construct Q matrix
 	D=0
@@ -301,9 +331,9 @@ def parse_input_data(input_file_name,RHO_sampling=np.ones(2),verbose=0,n_sampled
 		new_obs2[-1]=new_obs[-1] # present state is always sampled
 
 		sampled_data.append(new_obs2)
-		#_ print "TAXON" ,l
-		#_ print new_obs
-		#_ print new_obs2
+		#print "TAXON" ,l,
+		##print obs
+		#print new_obs2
 		#_ print "ORIG",OrigTimeIndex[l], new_obs2[int(OrigTimeIndex[l])]
 		
 	# code data into binned time
