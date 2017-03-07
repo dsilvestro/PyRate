@@ -26,24 +26,24 @@ speciation_rates = [0.4,0.2] # if using rate shifts, the first rate is that clos
 extinction_rates = [0.1,0.3] # 
 
 # SETTINGS for DIVERSITY DEPENDENT SIMULATIONS
-useDD = 1 # set to 1 to use model diversity dependence
+useDD = 0 # set to 1 to use model diversity dependence
 baseline_speciation_rate = [1.5] # Baseline rates are the initial rates when diversity = 0. 
 baseline_extinction_rate = [0.1] # The following transformation is applied for rate at a given 
 DDl = -0.02                       # diversity D (DD parameters for speciation and extinction are DDl and DDm,
 DDm =  0.02                       # respectively): rate_D = max(0, baseline_rate + baseline_rate * (DDl * D))
 
 # SETTINGS for RANDOM SIMULATIONS
-randomSettings=0 # set to 1 to use random settings (see below)
-poiL = 1 # expected number of shifts (if 0: constant rate BD; if -1 use empirical Prob vec)
-poiM = 1 # expected number of shifts (if 0: constant rate BD; if -1 use empirical Prob vec)
+randomSettings = 0 # set to 1 to use random settings (see below)
+poiL = -1          # expected number of shifts (if 0: constant rate BD; if -1 use empirical Prob vec)
+poiM = -1          # expected number of shifts (if 0: constant rate BD; if -1 use empirical Prob vec)
 root_r=np.array([30.,30.]) # range root ages
-minL,maxL = 0.4 , 0.4
-minM,maxM = 0.3 , 0.3
+minL,maxL = 0.4 , 0.6
+minM,maxM = 0.2 , 0.3
 # To assign specific probabilities to the random birth-death configurations
 # you can define the probabilities through probability vectors
 # (these are not used unless 'poiL = -1' and/or 'poiL = -1'): 
-p_vec_l = np.array([0.569,0.254,0.136,0.040])
-p_vec_m = np.array([0.440,0.343,0.189,0.029])
+p_vec_l = np.array([0.569,0.254,0.136,0.040]) # the first value of the array represents the Pr of a 
+p_vec_m = np.array([0.440,0.343,0.189,0.029]) # constant rate model
 
 scale=100.
 
@@ -151,7 +151,7 @@ def get_random_settings(root,poiL,poiM):
 # select random element based on fixed probabilities
 def random_choice_P(vector):
 	probDeath=np.cumsum(vector/sum(vector)) # cumulative prob (used to randomly sample one 
-	r=rand.random()                          # parameter based on its deathRate)
+	r=np.random.random()                          # parameter based on its deathRate)
 	probDeath=sort(append(probDeath, r))
 	ind=np.where(probDeath==r)[0][0] # just in case r==1
 	return [vector[ind], ind]
