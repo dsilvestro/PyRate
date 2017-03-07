@@ -2373,7 +2373,8 @@ p.add_argument('-a',        type=float, help='TI - shape beta distribution', def
 p.add_argument('-dpp_f',    type=float, help='DPP - frequency ', default=500, metavar=500)
 p.add_argument('-dpp_hp',   type=float, help='DPP - shape of gamma HP on concentration parameter', default=2., metavar=2.)
 p.add_argument('-dpp_eK',   type=float, help='DPP - expected number of rate categories', default=2., metavar=2.)
-p.add_argument('-dpp_grid', type=float, help='DPP - size of time frames',default=1.5, metavar=1.5)
+p.add_argument('-dpp_grid', type=float, help='DPP - size of time bins',default=1.5, metavar=1.5)
+p.add_argument('-dpp_nB',   type=float, help='DPP - number of time bins',default=0, metavar=0)
 
 # PRIORS
 p.add_argument('-pL',      type=float, help='Prior - speciation rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.1, 1.1], metavar=1.1, nargs=2)
@@ -2826,10 +2827,15 @@ else: tot_extant = -1
 
 if len(fixed_times_of_shift)>0: 
 	fixed_times_of_shift=fixed_times_of_shift[fixed_times_of_shift<max(FA)]
+	# fixed number of dpp bins
+	if args.dpp_nB>0: 
+		t_bin_set = np.linspace(0,max(FA),args.dpp_nB+1)[::-1]
+		fixed_times_of_shift = t_bin_set[1:len(t_bin_set)-1]
 	time_framesL=len(fixed_times_of_shift)+1
 	time_framesM=len(fixed_times_of_shift)+1
 	# estimate DPP hyperprior
 	hp_gamma_rate  = get_rate_HP(time_framesL,target_k,hp_gamma_shape)
+				
 
 
 if args.fixSE != "" or use_se_tbl==True:          # fix TS, TE
