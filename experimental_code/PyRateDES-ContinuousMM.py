@@ -75,12 +75,16 @@ p.add_argument('-sum',  type=str, help='Summarize results (provide log file)',  
 p.add_argument('-symd',      help='symmetric dispersal rates', action='store_true', default=False)
 p.add_argument('-syme',      help='symmetric extinction rates', action='store_true', default=False)
 p.add_argument('-symq',      help='symmetric preservation rates', action='store_true', default=False)
+p.add_argument('-constq',    type=int,  help='if 1 (or 2): constant q in area 1 (or 2)', default=0)
 p.add_argument('-constr',  type=int, help='Contraints on covar parameters',  default=[], metavar=0, nargs='+') # '*'
 p.add_argument('-data_in_area', type=int,  help='if data only in area 1 set to 1 (set to 2 if data only in area 2)', default=0)
 p.add_argument('-var',  type=str, help='Time variable file (e.g. PhanerozoicTempSmooth.txt)',  default="", metavar="")
 p.add_argument('-red', type=int,  help='if -red 1: reduce dataset to taxa with occs in both areas', default=0)
 p.add_argument('-DdE',      help='Use Dispersal dependent Extinction', action='store_true', default=False)
 p.add_argument('-DivdE',      help='Use Diversity dependent Extinction', action='store_true', default=False)
+p.add_argument('-DivdD',      help='Use Diversity dependent Dispersal', action='store_true', default=False)
+p.add_argument('-TdD',      help='Use Time dependent Dispersal', action='store_true', default=False)
+p.add_argument('-TdE',      help='Use Time dependent Extinction', action='store_true', default=False)
 
 ### simulation settings ###
 p.add_argument('-sim_d',  type=float, help='dispersal rates',  default=[.4, .1], metavar=1.1, nargs=2)
@@ -119,14 +123,15 @@ equal_d = args.symd
 equal_e = args.syme
 equal_q = args.symq
 constraints_covar = np.array(args.constr)
+const_q = args.constq
 
 ### MCMC SETTINGS
 if args.A ==2: 
 	runMCMC = 0 # approximate ML estimation
-	n_generations   = 10000
+	n_generations   = 100000
 	update_freq     = [.33,.66,1]
 	sampling_freq   = 10
-	max_ML_iterations = 250
+	max_ML_iterations = 5000
 else: 
 	runMCMC = 1
 	n_generations   = args.n
@@ -220,10 +225,17 @@ else:
 	output_wd = os.path.dirname(input_data)
 	if output_wd=="": output_wd= self_path
 	model_tag=""
-	if args.DivdE: model_tag+= "_DivdE"
+	if args.TdD: model_tag+= "_TdD"
+	elif args.DivdD: model_tag+= "_DivdD"
+	else: model_tag+= "_Dtemp"
+	if args.TdE: model_tag+= "_TdE"
+	elif args.DivdE: model_tag+= "_DivdE"
+	elif args.DdE: model_tag+= "_DdE"
+	else: model_tag+= "_Etemp"
 	if equal_d is True: model_tag+= "_symd"
 	if equal_e is True: model_tag+= "_syme"
 	if equal_q is True: model_tag+= "_symq"
+	if const_q > 0: model_tag+= "_constq%s" % (const_q)
 	if runMCMC == 0: model_tag+= "_ML"
 	if len(constraints_covar)>0: model_tag+= "_constr"
 	for i in constraints_covar: model_tag+= "_%s" % (i)
@@ -299,7 +311,13 @@ NOTE that Q_list[0] = root age, Q_list[n] = most recent
 # INIT PARAMETERS
 n_Q_times=len(Q_times)+1
 dis_rate_vec=np.random.uniform(0.1,0.2,nareas*1).reshape(1,nareas)
+if args.TdD: 
+	dis_rate_vec=np.random.uniform(0.1,0.2,nareas*n_Q_times).reshape(n_Q_times,nareas)
+	dis_rate_vec = np.array([0.194,0.032,0.007,0.066,0.156,0.073]).reshape(n_Q_times,nareas)
 ext_rate_vec=np.random.uniform(0.01,0.05,nareas*1).reshape(1,nareas)
+if args.TdE: 
+	ext_rate_vec=np.random.uniform(0.01,0.05,nareas*n_Q_times).reshape(n_Q_times,nareas)
+	ext_rate_vec = np.array([0.222,0.200,0.080,0.225,0.216,0.435]).reshape(n_Q_times,nareas)
 if equal_d is True:
 	d_temp=dis_rate_vec[:,0]
 	dis_rate_vec = array([d_temp,d_temp]).T
@@ -310,6 +328,11 @@ if equal_e is True:
 r_vec= np.zeros((n_Q_times,nareas+2)) 
 r_vec[:,1:3]=0.25
 r_vec[:,3]=1
+#q_rate_vec = np.array([0.317,1.826,1.987,1.886,2.902,2.648])
+#r_vec_temp  = exp(-q_rate_vec*bin_size).reshape(n_Q_times,nareas)
+#r_vec[:,1:3]=r_vec_temp
+
+
 # where r[1] = prob not obs in A; r[2] = prob not obs in B
 # r[0] = 0 (for impossible ranges); r[3] = 1 (for obs ranges)
 #for i in range(len(time_series)):
@@ -477,7 +500,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	else: r = 2
 	
 	if r < update_freq[0]: 
-		if np.random.random()< .5: 
+		if args.TdD is False and np.random.random()< .5: 
 			covar_par=update_parameter_uni_2d_freq(covar_par_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)
 		else:
 			if equal_d is True:
@@ -486,7 +509,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 			else:
 				dis_rate_vec,hasting=update_multiplier_proposal_freq(dis_rate_vec_A,d=1+.1*scale_proposal,f=update_rate_freq)
 	elif r < update_freq[1]: 
-		if np.random.random()< .5: 
+		if args.TdE is False and np.random.random()< .5: 
 			covar_par=update_parameter_uni_2d_freq(covar_par_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)
 		else:
 			if equal_e is True:
@@ -497,8 +520,14 @@ for it in range(n_generations * len(scal_fac_TI)):
 	elif r<=update_freq[2]: 
 		r_vec=update_parameter_uni_2d_freq(r_vec_A,d=0.1*scale_proposal,f=update_rate_freq)
 		r_vec[:,0]=0
-		if equal_q is True: r_vec[:,2] = r_vec[:,1]
+		#--> CONSTANT Q IN AREA 2
+                if const_q ==1: r_vec[:,1] = r_vec[1,1]
+		#--> CONSTANT Q IN AREA 2
+                if const_q ==2: r_vec[:,2] = r_vec[1,2]
+		#--> SYMMETRIC SAMPLING
+		if equal_q is True: r_vec[:,2] = r_vec[:,1]		
 		r_vec[:,3]=1
+		
 		# CHECK THIS: CHANGE TO VALUE CLOSE TO 1? i.e. for 'ghost' area 
 		if args.data_in_area == 1: r_vec[:,2] = small_number 
 		elif  args.data_in_area == 2: r_vec[:,1] = small_number		
@@ -515,28 +544,79 @@ for it in range(n_generations * len(scal_fac_TI)):
 		covar_par[2:4]=0
 	
 	# GET LIST OF Q MATRICES 
+	
+	
+	
+	
+	
+	
 	# Q_list_old= make_Q_list(dis_rate_vec,ext_rate_vec)
 	#print "Q1",Q_list
-	if args.DdE:
-		# TRANSFORM Q MATRIX DeE MODEL	
+	if args.TdD: # time dependent D
+		covar_par[0:2]=0
+		dis_vec = dis_rate_vec[Q_index,:]
+		dis_vec = dis_vec[0:-1]
+		transf_d=0
+		time_var_d1,time_var_d2=time_var,time_var
+	elif args.DivdD: # Diversity dependent D
+		transf_d=1
+		dis_vec = dis_rate_vec
+		time_var_d1,time_var_d2 = get_est_div_traj(r_vec)
+	else: # temp dependent D	
+		transf_d=1
+		dis_vec = dis_rate_vec
+		time_var_d1,time_var_d2=time_var,time_var
+	if args.DdE: # Dispersal dep Extinction
 		# NOTE THAT no. dispersals from 1=>2 affects extinction in 2 and vice versa
+		transf_e=1
  		time_var_e2,time_var_e1 = get_num_dispersals(dis_rate_vec,r_vec)
-		#print time_var_e1,time_var_e2
-		Q_list= make_Q_Covar4VDdE(dis_rate_vec,ext_rate_vec,time_var,time_var_e1,time_var_e2,covar_par)
-		#for i in [1,10,20]:
-		#	print Q_list[i]
-		#quit()
-	if args.DivdE:
-		# TRANSFORM Q MATRIX DeE MODEL	
+		ext_vec = ext_rate_vec
+	elif args.DivdE: # Diversity dep Extinction
 		# NOTE THAT extinction in 1 depends diversity in 1
+		transf_e=1
  		time_var_e1,time_var_e2 = get_est_div_traj(r_vec)
-		#print time_var_e1,time_var_e2
-		Q_list= make_Q_Covar4VDdE(dis_rate_vec,ext_rate_vec,time_var,time_var_e1,time_var_e2,covar_par)
-	else:
-		# TRANSFORM Q MATRIX	
-		Q_list= make_Q_Covar4V(dis_rate_vec,ext_rate_vec,time_var,covar_par)
-		#print "Q2", Q_list[0], covar_par
-		#print Q_list[3]
+		ext_vec = ext_rate_vec
+	elif args.TdE: # Time dep Extinction
+		covar_par[2:4]=0
+		ext_vec = ext_rate_vec[Q_index,:]
+		ext_vec = ext_vec[0:-1]
+		transf_e=0
+		time_var_e1,time_var_e2=time_var,time_var
+	else: # Temp dependent Extinction
+		ext_vec = ext_rate_vec
+		transf_e=1
+		time_var_e1,time_var_e2=time_var,time_var
+	
+	Q_list= make_Q_Covar4VDdE(dis_vec,ext_vec,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par,transf_d,transf_e)	
+		
+	#__      
+	#__      
+	#__      
+	#__      else:
+	#__      		time_var_e1,time_var_e2 = get_est_div_traj(r_vec) # diversity dependent extinction
+	#__      		Q_list= make_Q_Covar4VDdE(dis_vec[0:-1],ext_rate_vec,time_var,time_var_e1,time_var_e2,covar_par,transf_d=0)	
+	#__      	
+	#__      	
+	#__      elif args.DdE:
+	#__      	# TRANSFORM Q MATRIX DeE MODEL	
+	#__      	# NOTE THAT no. dispersals from 1=>2 affects extinction in 2 and vice versa
+ 	#__      	time_var_e2,time_var_e1 = get_num_dispersals(dis_rate_vec,r_vec)
+	#__      	#print time_var_e1,time_var_e2
+	#__      	Q_list= make_Q_Covar4VDdE(dis_rate_vec,ext_rate_vec,time_var,time_var_e1,time_var_e2,covar_par)
+	#__      	#for i in [1,10,20]:
+	#__      	#	print Q_list[i]
+	#__      	#quit()
+	#__      elif args.DivdE:
+	#__      	# TRANSFORM Q MATRIX DeE MODEL	
+	#__      	# NOTE THAT extinction in 1 depends diversity in 1
+ 	#__      	time_var_e1,time_var_e2 = get_est_div_traj(r_vec)
+	#__      	#print time_var_e1,time_var_e2
+	#__      	Q_list= make_Q_Covar4VDdE(dis_rate_vec,ext_rate_vec,time_var,time_var_e1,time_var_e2,covar_par)
+	#__      else:
+	#__      	# TRANSFORM Q MATRIX	
+	#__      	Q_list= make_Q_Covar4V(dis_rate_vec,ext_rate_vec,time_var,covar_par)
+	#__      	#print "Q2", Q_list[0], covar_par
+	#__      	#print Q_list[3]
 	
 	
 	#if it % print_freq == 0: 
@@ -569,6 +649,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		
 			
 	else: # multi=processing
+		sys.exit("Multi-threading not available")
 		if use_Pade_approx==0:
 			#t1= time.time()
 			w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
@@ -594,7 +675,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	if np.isfinite((lik_alter+prior+hasting)) == True:
 		if it==0: 
 			likA=lik_alter+0.
-			MLik=likA
+			MLik=likA-1
 			ml_it=0
 		if runMCMC == 1:
 			# MCMC
@@ -620,7 +701,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
 		q_rates = -log(sampling_prob)/bin_size
 		print it,"\t",likA,lik,"\t",  dis_rate_vec_A.flatten(),ext_rate_vec_A.flatten(),scal_fac_TI[scal_fac_ind], \
-		"covar",covar_par_A #,dis_rate_vec_A.flatten()*exp(covar_par_A[0]*time_var[0])
+		"covar",covar_par_A,q_rates #,dis_rate_vec_A.flatten()*exp(covar_par_A[0]*time_var[0])
 	if it % sampling_freq == 0 and it >= burnin and runMCMC == 1:
 		sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
 		q_rates = -log(sampling_prob)/bin_size
@@ -647,7 +728,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 			ml_it=0
 		else:	ml_it +=1
 		# exit when ML convergence reached
-		if ml_it>100:
+		if ml_it==100:
 			print "restore ML estimates", MLik, likA+0.
 			dis_rate_vec_A = ML_dis_rate_vec
 			ext_rate_vec_A = ML_ext_rate_vec
@@ -665,7 +746,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		#	scale_proposal = 0 
 		#	print lik, likA, MLik
 		if ml_it>max_ML_iterations:
-			msg= "Convergence reached. ML = %s" % (round(MLik,3))
+			msg= "Convergence reached. ML = %s (%s iterations)" % (round(MLik,3),it)
 			sys.exit(msg)
 
 print "elapsed time:", time.time()-start_time
