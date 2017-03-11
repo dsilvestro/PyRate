@@ -3077,7 +3077,9 @@ if args.qShift != "":
 	try: 
 		try: times_q_shift=np.sort(np.loadtxt(args.qShift))[::-1]
 		except(IndexError): times_q_shift=np.array([np.loadtxt(args.qShift)])		
-		times_q_shift=list(times_q_shift[times_q_shift<max(FA)])
+		# filter qShift times based on observed time frame 
+		times_q_shift=times_q_shift[times_q_shift<max(FA)]
+		times_q_shift=list(times_q_shift[times_q_shift>min(LO)])
 		time_framesQ=len(times_q_shift)+1
 		occs_sp_bin =list()
 		temp_times_q_shift = np.array(list(times_q_shift)+[max(FA)+1]+[0])
