@@ -50,13 +50,15 @@ replicates=10)`
 ## Estimation of speciation/extinction rates through time
 
 #### Defining the preservation model
-In a typical analysis we should use the **Gamma model**, which enables us to account for heterogeneity in the preservation rate across lineages. This option only adds a single parameter to the model and should be used for all empirical data sets. To set the Gamma model we add the flag `-mG`:
+By default, PyRate assumes a **non-homogeneous Poisson process of preservation** (NHPP) in which preservation rates change during the lifespan of each lineage following a bell-shaped distribution (Silvestro et al. 2014 Syst Biol). Alternatively, a **homogeneous Poisson process (HPP)**, in which the preservation rate is constant through time, is also available, using the command `-mHPP`:
 
-`python PyRate.py .../Canis_pbdb_data_PyRate.py -mG`
+`python PyRate.py .../Canis_pbdb_data_PyRate.py -mHPP`
 
-Note that, by default, PyRate assumes a **non-homogeneous Poisson process of preservation** (NHPP). In some cases, e.g. when analyzing data at the genus level, you may want to use a **homogeneous Poisson process (HPP)** instead. This is set by the command `-mHPP`, which can be again paired with a Gamma model of rate heterogeneity:
+Both NHPP and HPP models can be again paired with a **Gamma model of rate heterogeneity**, which enables us to account for heterogeneity in the preservation rate across lineages. This option only adds a single parameter to the model and should be used for all empirical data sets. To set the Gamma model we add the flag `-mG`:
 
-`python PyRate.py .../Canis_pbdb_data_PyRate.py -mHPP -mG`
+`python PyRate.py .../Canis_pbdb_data_PyRate.py -mG` [NHPP model]  
+`python PyRate.py .../Canis_pbdb_data_PyRate.py -mHPP -mG` [HPP model]
+
 
 **Time-variable Poisson process (TPP)**. An alternative model of preservation assumes that preservation rates are constant within a predefined time frame, but can vary across time frames (e.g. geological epochs). This model is particularly useful if we expect rate heterogeneity to occur mostly through time, rather than among lineages.
 
@@ -64,7 +66,12 @@ We can set up a model in which preservation rates are estimated independently wi
 
 `python PyRate.py .../Canis_pbdb_data_PyRate.py -qShift .../epochs_q.txt`  
 
-Formal **model testing between preservation models** is currently not implemented in PyRate.
+Finally, a **TPP + Gamma model** can be used to **incorporate both temporal and across-lineages variation in the preservation rates**. This is perhaps the most realistic preservation model currently available in PyRate and is set with the following commands:
+
+`python PyRate.py .../Canis_pbdb_data_PyRate.py -qShift .../epochs_q.txt -mG`  
+
+
+Note that formal **model testing between preservation models** is currently not implemented in PyRate.
 
 
 #### Analysis setup
