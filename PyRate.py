@@ -1561,28 +1561,67 @@ def Alg_3_1(arg):
 ######	END FUNCTIONS for BDMCMC ######
 
 ####### BEGIN FUNCTIONS for RJMCMC #######
-def add_shift_RJ(rates,times):
-	r_time, r_time_ind = random_choice_P(np.diff(times))
+def random_choice(vector):
+	ind = np.random.choice(range(len(vector)))
+	return [vector[ind], ind]
+
+# RANDOM GAMMA PROPOSALS (RJ)
+def add_shift_RJ_rand_gamma(rates,times):
+	r_time, r_time_ind = random_choice(np.diff(times))
 	delta_t_prime      = np.random.uniform(0,r_time)
 	t_prime            = times[r_time_ind] + delta_t_prime
 	times_prime        = np.sort(np.array(list(times)+[t_prime]))[::-1]
 	a,b                = 1,0.2
 	rate_prime         = np.random.gamma(a,b)
-	log_q_prob         = -prior_gamma(rate_prime,a,b) -log(max(times)-min(times)) # log(/prob(proposing_prime_values)) + log(1/timespan)
+	log_q_prob         = -prior_gamma(rate_prime,a,b) -log(abs(r_time)) # prob latent parameters: Gamma pdf, Uniform pdf
 	rates_prime        = np.insert(rates,r_time_ind+1,rate_prime)
-	return rates_prime,times_prime,log_q_prob
+	Jacobian           = 0 # log(1)
+	return rates_prime,times_prime,log_q_prob+Jacobian
 
-def remove_shift_RJ(rates,times):
+def remove_shift_RJ_rand_gamma(rates,times):
 	rm_shift_ind  = np.random.choice(range(1,len(times)-1))
 	rm_shift_time = times[rm_shift_ind]
+	dT            = abs(times[rm_shift_ind+1]-times[rm_shift_ind-1]) # if rm t_i: U[t_i-1, t_i+1]
 	times_prime   = times[times != rm_shift_time]
 	rm_rate       = rates[rm_shift_ind]
 	a,b           = 1,0.2
-	log_q_prob    = prior_gamma(rm_rate,a,b) +log(max(times)-min(times)) # log(prob(proposing_prime_values)) - log(timespan)
+	log_q_prob    = prior_gamma(rm_rate,a,b) +log(dT) # log_q_prob_rm = 1/(log_q_prob_add)
+	rates_prime   = rates[rates != rm_rate]  
+	Jacobian      = 0 # log(1)
+	return rates_prime,times_prime,log_q_prob+Jacobian
+
+
+def add_shift_RJ_const(rates,times):
+	r_time, r_time_ind = random_choice(np.diff(times))
+	delta_t_prime      = np.random.uniform(0,r_time)
+	t_prime            = times[r_time_ind] + delta_t_prime
+	times_prime        = np.sort(np.array(list(times)+[t_prime]))[::-1]
+	rate_prime         = rates[r_time_ind]
+	log_q_prob         = -log(r_time) # prob latent parameters: Gamma pdf
+	rates_prime        = np.insert(rates,r_time_ind+1,rate_prime)
+	return rates_prime,times_prime,log_q_prob
+
+def remove_shift_RJ_const(rates,times):
+	rm_shift_ind  = np.random.choice(range(1,len(times)-1))
+	rm_shift_time = times[rm_shift_ind]
+	dT            = times[rm_shift_ind+1]-times[rm_shift_ind-1] # if rm t_i: U[t_i-1, t_i+1]
+	times_prime   = times[times != rm_shift_time]
+	rm_rate       = rates[rm_shift_ind]
+	a,b           = 1,0.2
+	log_q_prob    = prior_gamma(rm_rate,a,b) +log(dT) # log_q_prob_rm = 1/(log_q_prob_add)
 	rates_prime   = rates[rates != rm_rate]
 	return rates_prime,times_prime,log_q_prob
-	
 
+
+# TURN THIS INTO USER-DEFINED OPTION
+rj_proposal=0
+if rj_proposal == 0: 
+	add_shift_RJ    = add_shift_RJ_rand_gamma
+	remove_shift_RJ = remove_shift_RJ_rand_gamma
+elif rj_proposal == 1: 	
+	pass
+	
+	
 def RJMCMC(arg):
 	[L,M, timesL, timesM]=arg
 	r=np.random.random(2)
@@ -1601,6 +1640,32 @@ def RJMCMC(arg):
 		elif len(M)>1: newM,newtimesM,log_q_probM = remove_shift_RJ(M,timesM) 
 	
 	return newL,newtimesL,newM,newtimesM,log_q_probL+log_q_probM
+
+
+##### MULTIPLIER PROPOSALS (RJ)
+def add_shift_RJ_multi(rates,times):
+	r_time, r_time_ind = random_choice(np.diff(times))
+	delta_t_prime      = np.random.uniform(0,r_time)
+	t_prime            = times[r_time_ind] + delta_t_prime
+	times_prime        = np.sort(np.array(list(times)+[t_prime]))[::-1]
+	a,b                = 1.5,3.
+	rate_prime         = np.random.gamma(a,scale=1./b)
+	log_q_prob         = -prior_gamma(rate_prime,a,b) -log(r_time) # prob latent parameters: Gamma pdf, Uniform pdf
+	rates_prime        = np.insert(rates,r_time_ind+1,rate_prime)
+	return rates_prime,times_prime,log_q_prob
+
+def remove_shift_RJ_multi(rates,times):
+	rm_shift_ind  = np.random.choice(range(1,len(times)-1))
+	rm_shift_time = times[rm_shift_ind]
+	dT            = times[rm_shift_ind-1]-times[rm_shift_ind+1] # if rm t_i: U[t_i-1, t_i+1]
+	times_prime   = times[times != rm_shift_time]
+	rm_rate       = rates[rm_shift_ind]
+	a,b           = 1.5,3.
+	log_q_prob    = prior_gamma(rm_rate,a,b) +log(dT) # log_q_prob_rm = 1/(log_q_prob_add)
+	rates_prime   = rates[rates != rm_rate]
+	return rates_prime,times_prime,log_q_prob
+	
+
 
 
 ####### BEGIN FUNCTIONS for DIRICHLET PROCESS PRIOR #######
@@ -2090,7 +2155,7 @@ def MCMC(all_arg):
 									elif argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
 									else: lik_fossil[i] = NHPP_lik(args[j])
 						else:
-							if multiHPP is True: sys.exit("multiHPP model can only run on a signle processor")
+							if multiHPP is True: sys.exit("multiHPP model can only run on a single processor")
 							if argsHPP is True or frac1==0: lik_fossil[ind1] = array(pool_ts.map(HOMPP_lik, args))
 							elif argsG is True: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args))
 							else: lik_fossil[ind1] = array(pool_ts.map(NHPP_lik, args))
@@ -2128,8 +2193,11 @@ def MCMC(all_arg):
 			prior += sum(prior_times_frames(timesL, max(ts),min(te), lam_s))
 			prior += sum(prior_times_frames(timesM, max(ts),min(te), lam_s))
 		if TDI ==4: 
-			prior += -log(max(ts)-max(te))*len(L-1)  #sum(prior_times_frames(timesL, max(ts),min(te), 1))
-			prior += -log(max(ts)-max(te))*len(M-1)  #sum(prior_times_frames(timesM, max(ts),min(te), 1))
+			#prior_old = -log(max(ts)-max(te))*len(L-1)  #sum(prior_times_frames(timesL, max(ts),min(te), 1))
+			#prior_old += -log(max(ts)-max(te))*len(M-1)  #sum(prior_times_frames(timesM, max(ts),min(te), 1))
+			prior += -log(max(ts)-min(te))*(len(L)-1+len(M)-1)
+			#if it % 100 ==0: print len(L),len(M), prior_old, -log(max(ts)-min(te))*(len(L)-1+len(M)-1), hasting
+			if min(abs(np.diff(timesL)))<=min_allowed_t or min(abs(np.diff(timesM)))<=min_allowed_t: prior = -np.inf			
 		
 		priorBD= get_hyper_priorBD(timesL,timesM,L,M,T,hyperP)
 		if use_ADE_model is True:
@@ -2364,7 +2432,7 @@ p.add_argument("-use_DA",   help='Use data augmentation for NHPP likelihood opf 
 p.add_argument('-r',        type=int,   help='MC3 - no. MCMC chains', default=1, metavar=1)
 p.add_argument('-t',        type=float, help='MC3 - temperature', default=.03, metavar=.03)
 p.add_argument('-sw',       type=float, help='MC3 - swap frequency', default=100, metavar=100)
-p.add_argument('-M',        type=int,   help='BDMCMC - frequency of model update', default=10, metavar=10)
+p.add_argument('-M',        type=int,   help='BDMCMC/RJMCMC - frequency of model update', default=10, metavar=10)
 p.add_argument('-B',        type=int,   help='BDMCMC - birth rate', default=1, metavar=1)
 p.add_argument('-T',        type=float, help='BDMCMC - time of model update', default=1.0, metavar=1.0)
 p.add_argument('-S',        type=int,   help='BDMCMC - start model update', default=1000, metavar=1000)
