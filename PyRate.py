@@ -879,7 +879,7 @@ def prior_times_frames(t, root, tip_age,a): # un-normalized Dirichlet (truncated
 		t_rel=diff_t/root
 		return (a-1)*log(t_rel)
 
-def prior_beta(x,a): 
+def prior_sym_beta(x,a): 
 	# return log(x)*(a-1)+log(1-x)*(a-1) # un-normalized beta
 	return scipy.stats.beta.logpdf(x, a,a)
 	
@@ -1571,8 +1571,8 @@ def add_shift_RJ_rand_gamma(rates,times):
 	delta_t_prime      = np.random.uniform(0,r_time)
 	t_prime            = times[r_time_ind] + delta_t_prime
 	times_prime        = np.sort(np.array(list(times)+[t_prime]))[::-1]
-	a,b                = 1,0.2
-	rate_prime         = np.random.gamma(a,b)
+	a,b                = 1.5,3.
+	rate_prime         = np.random.gamma(a,scale=1./b)
 	log_q_prob         = -prior_gamma(rate_prime,a,b) -log(abs(r_time)) # prob latent parameters: Gamma pdf, Uniform pdf
 	rates_prime        = np.insert(rates,r_time_ind+1,rate_prime)
 	Jacobian           = 0 # log(1)
@@ -1583,8 +1583,8 @@ def remove_shift_RJ_rand_gamma(rates,times):
 	rm_shift_time = times[rm_shift_ind]
 	dT            = abs(times[rm_shift_ind+1]-times[rm_shift_ind-1]) # if rm t_i: U[t_i-1, t_i+1]
 	times_prime   = times[times != rm_shift_time]
-	rm_rate       = rates[rm_shift_ind]
-	a,b           = 1,0.2
+	rm_rate       = rates[rm_shift_ind] ## CHECK THIS: could also be rates[rm_shift_ind-1] ???
+	a,b           = 1.5,3.
 	log_q_prob    = prior_gamma(rm_rate,a,b) +log(dT) # log_q_prob_rm = 1/(log_q_prob_add)
 	rates_prime   = rates[rates != rm_rate]  
 	Jacobian      = 0 # log(1)
@@ -1613,13 +1613,66 @@ def remove_shift_RJ_const(rates,times):
 	return rates_prime,times_prime,log_q_prob
 
 
+
+def add_shift_RJ_weighted_mean(rates,times):
+	r_time, r_time_ind      = random_choice(np.diff(times))
+	delta_t_prime           = np.random.uniform(0,r_time)
+	t_prime                 = times[r_time_ind] + delta_t_prime
+	times_prime             = np.sort(np.array(list(times)+[t_prime]))[::-1]
+	time_i1                 = times[r_time_ind]
+	time_i2                 = times[r_time_ind+1]
+	p1 = (time_i1-t_prime)/(time_i1-time_i2)
+	p2 = (t_prime-time_i2)/(time_i1-time_i2)
+	u = np.random.beta(shape_beta,shape_beta)  #np.random.random()
+	rate_i                  = rates[r_time_ind]
+	rates_prime1            = exp( log(rate_i)-p2*log((1-u)/u) )
+	rates_prime2            = exp( log(rate_i)+p1*log((1-u)/u) )	
+	rates_prime             = np.insert(rates,r_time_ind+1,rates_prime2)
+	#print p1+p2
+	#print u,rates_prime1, rate_i,rates_prime2
+	#print time_i1,times_prime,time_i2
+	rates_prime[r_time_ind] = rates_prime1
+	log_q_prob              = -log(abs(r_time))-prior_sym_beta(u,shape_beta) # prob latent parameters: Gamma pdf
+	Jacobian                = (rates_prime1+rates_prime2)/rate_i
+	return rates_prime,times_prime,log_q_prob+Jacobian
+
+def remove_shift_RJ_weighted_mean(rates,times):
+	rm_shift_ind  = np.random.choice(range(1,len(times)-1))
+	t_prime       = times[rm_shift_ind]
+	time_i1       = times[rm_shift_ind-1]
+	time_i2       = times[rm_shift_ind+1]
+	dT            = abs(times[rm_shift_ind+1]-times[rm_shift_ind-1]) # if rm t_i: U[t_i-1, t_i+1]
+	times_prime   = times[times != t_prime]	
+	p1 = (time_i1-t_prime)/(time_i1-time_i2)
+	p2 = (t_prime-time_i2)/(time_i1-time_i2)	
+	rate_i1       = rates[rm_shift_ind-1]
+	rate_i2       = rates[rm_shift_ind]
+	rate_prime    = exp(p1 *log(rate_i1) + p2 *log(rate_i2))	
+	#print p1,p2
+	#print rate_i1, rate_i2,rate_prime
+	#print t_prime, times_prime
+	rm_rate       = rates[rm_shift_ind]
+	rates_prime   = rates[rates != rm_rate]
+	rates_prime[rm_shift_ind-1] = rate_prime	
+	#print rates
+	#print rates_prime
+	u             = 1./(1+rate_i2/rate_i1) # == rate_i1/(rate_i1+rate_i2)
+	log_q_prob    = log(dT)+prior_sym_beta(u,shape_beta) # log_q_prob_rm = 1/(log_q_prob_add)
+	Jacobian      = rate_prime/(rate_i1+rate_i2)
+	return rates_prime,times_prime,log_q_prob+Jacobian
+
+
+
+
 # TURN THIS INTO USER-DEFINED OPTION
-rj_proposal=0
+shape_beta=1
+rj_proposal=1
 if rj_proposal == 0: 
 	add_shift_RJ    = add_shift_RJ_rand_gamma
 	remove_shift_RJ = remove_shift_RJ_rand_gamma
 elif rj_proposal == 1: 	
-	pass
+	add_shift_RJ    = add_shift_RJ_weighted_mean
+	remove_shift_RJ = remove_shift_RJ_weighted_mean
 	
 	
 def RJMCMC(arg):
@@ -1640,32 +1693,6 @@ def RJMCMC(arg):
 		elif len(M)>1: newM,newtimesM,log_q_probM = remove_shift_RJ(M,timesM) 
 	
 	return newL,newtimesL,newM,newtimesM,log_q_probL+log_q_probM
-
-
-##### MULTIPLIER PROPOSALS (RJ)
-def add_shift_RJ_multi(rates,times):
-	r_time, r_time_ind = random_choice(np.diff(times))
-	delta_t_prime      = np.random.uniform(0,r_time)
-	t_prime            = times[r_time_ind] + delta_t_prime
-	times_prime        = np.sort(np.array(list(times)+[t_prime]))[::-1]
-	a,b                = 1.5,3.
-	rate_prime         = np.random.gamma(a,scale=1./b)
-	log_q_prob         = -prior_gamma(rate_prime,a,b) -log(r_time) # prob latent parameters: Gamma pdf, Uniform pdf
-	rates_prime        = np.insert(rates,r_time_ind+1,rate_prime)
-	return rates_prime,times_prime,log_q_prob
-
-def remove_shift_RJ_multi(rates,times):
-	rm_shift_ind  = np.random.choice(range(1,len(times)-1))
-	rm_shift_time = times[rm_shift_ind]
-	dT            = times[rm_shift_ind-1]-times[rm_shift_ind+1] # if rm t_i: U[t_i-1, t_i+1]
-	times_prime   = times[times != rm_shift_time]
-	rm_rate       = rates[rm_shift_ind]
-	a,b           = 1.5,3.
-	log_q_prob    = prior_gamma(rm_rate,a,b) +log(dT) # log_q_prob_rm = 1/(log_q_prob_add)
-	rates_prime   = rates[rates != rm_rate]
-	return rates_prime,times_prime,log_q_prob
-	
-
 
 
 ####### BEGIN FUNCTIONS for DIRICHLET PROCESS PRIOR #######
