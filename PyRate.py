@@ -1573,7 +1573,8 @@ def add_shift_RJ_rand_gamma(rates,times):
 	times_prime        = np.sort(np.array(list(times)+[t_prime]))[::-1]
 	a,b                = 1.5,3.
 	rate_prime         = np.random.gamma(a,scale=1./b)
-	log_q_prob         = -prior_gamma(rate_prime,a,b) -log(abs(r_time)) # prob latent parameters: Gamma pdf, Uniform pdf
+	log_q_prob         = -prior_gamma(rate_prime,a,b) +log(abs(r_time)) # prob latent parameters: Gamma pdf, - (Uniform pdf )
+	#print "PROB Q", prior_gamma(rate_prime,a,b), -log(1/abs(r_time))
 	rates_prime        = np.insert(rates,r_time_ind+1,rate_prime)
 	Jacobian           = 0 # log(1)
 	return rates_prime,times_prime,log_q_prob+Jacobian
@@ -1585,7 +1586,7 @@ def remove_shift_RJ_rand_gamma(rates,times):
 	times_prime   = times[times != rm_shift_time]
 	rm_rate       = rates[rm_shift_ind] ## CHECK THIS: could also be rates[rm_shift_ind-1] ???
 	a,b           = 1.5,3.
-	log_q_prob    = prior_gamma(rm_rate,a,b) +log(dT) # log_q_prob_rm = 1/(log_q_prob_add)
+	log_q_prob    = prior_gamma(rm_rate,a,b) -log(dT) # log_q_prob_rm = 1/(log_q_prob_add)
 	rates_prime   = rates[rates != rm_rate]  
 	Jacobian      = 0 # log(1)
 	return rates_prime,times_prime,log_q_prob+Jacobian
@@ -1632,8 +1633,8 @@ def add_shift_RJ_weighted_mean(rates,times):
 	#print u,rates_prime1, rate_i,rates_prime2
 	#print time_i1,times_prime,time_i2
 	rates_prime[r_time_ind] = rates_prime1
-	log_q_prob              = -log(abs(r_time))-prior_sym_beta(u,shape_beta) # prob latent parameters: Gamma pdf
-	Jacobian                = (rates_prime1+rates_prime2)/rate_i
+	log_q_prob              = log(abs(r_time))-prior_sym_beta(u,shape_beta) # prob latent parameters: Gamma pdf
+	Jacobian                = log(rates_prime1+rates_prime2)-log(rate_i)
 	return rates_prime,times_prime,log_q_prob+Jacobian
 
 def remove_shift_RJ_weighted_mean(rates,times):
@@ -1657,16 +1658,16 @@ def remove_shift_RJ_weighted_mean(rates,times):
 	#print rates
 	#print rates_prime
 	u             = 1./(1+rate_i2/rate_i1) # == rate_i1/(rate_i1+rate_i2)
-	log_q_prob    = log(dT)+prior_sym_beta(u,shape_beta) # log_q_prob_rm = 1/(log_q_prob_add)
-	Jacobian      = rate_prime/(rate_i1+rate_i2)
+	log_q_prob    = -log(dT)+prior_sym_beta(u,shape_beta) # log_q_prob_rm = 1/(log_q_prob_add)
+	Jacobian      = log(rate_prime)-log(rate_i1+rate_i2)
 	return rates_prime,times_prime,log_q_prob+Jacobian
 
 
 
 
 # TURN THIS INTO USER-DEFINED OPTION
-shape_beta=1
-rj_proposal=1
+shape_beta=10
+rj_proposal=0
 if rj_proposal == 0: 
 	add_shift_RJ    = add_shift_RJ_rand_gamma
 	remove_shift_RJ = remove_shift_RJ_rand_gamma
@@ -2210,7 +2211,7 @@ def MCMC(all_arg):
 							i+=1
 					# multi-thread computation of lik and prior (rates)
 					else: likBDtemp = array(pool_lik.map(BPD_partial_lik, args))
-					#print sum(likBDtempA), sum(likBDtemp)
+					#print sum(likBDtemp)-sum(likBDtempA),hasting,get_hyper_priorBD(timesL,timesM,L,M,T,hyperP)+(-log(max(ts)-min(te))*(len(L)-1+len(M)-1))-(get_hyper_priorBD(timesLA,timesMA,LA,MA,T,hyperP)+(-log(max(tsA)-min(teA))*(len(LA)-1+len(MA)-1))), len(L),len(M)
 					
 		
 		lik= sum(lik_fossil) + sum(likBDtemp) + PoiD_const
