@@ -4,7 +4,7 @@ import argparse, os,sys, platform, time, csv, glob
 import random as rand
 import warnings
 version= "PyRate"
-build  = "20170222"
+build  = "20170323"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
