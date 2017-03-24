@@ -1609,7 +1609,7 @@ def add_shift_RJ_weighted_mean(rates,times):
 	#print time_i1,times_prime,time_i2
 	rates_prime[r_time_ind] = rates_prime1
 	log_q_prob              = log(abs(r_time))-prior_sym_beta(u,shape_beta_RJ) # prob latent parameters: Gamma pdf
-	Jacobian                = log(rates_prime1+rates_prime2)-log(rate_i)
+	Jacobian                = 2*log(rates_prime1+rates_prime2)-log(rate_i)
 	return rates_prime,times_prime,log_q_prob+Jacobian
 
 def remove_shift_RJ_weighted_mean(rates,times):
@@ -1634,7 +1634,7 @@ def remove_shift_RJ_weighted_mean(rates,times):
 	#print rates_prime
 	u             = 1./(1+rate_i2/rate_i1) # == rate_i1/(rate_i1+rate_i2)
 	log_q_prob    = -log(dT)+prior_sym_beta(u,shape_beta_RJ) # log_q_prob_rm = 1/(log_q_prob_add)
-	Jacobian      = log(rate_prime)-log(rate_i1+rate_i2)
+	Jacobian      = log(rate_prime)-(2*log(rate_i1+rate_i2))
 	return rates_prime,times_prime,log_q_prob+Jacobian
 	
 def RJMCMC(arg):
@@ -1656,6 +1656,18 @@ def RJMCMC(arg):
 	
 	return newL,newtimesL,newM,newtimesM,log_q_probL+log_q_probM
 
+def get_post_rj_HP(xl,xm):
+	G_shape_rjHP = 2. # 1.1
+	G_rate_rjHP  = 1. # 0.1 # mode at 1
+	n = 2 # sp, ex
+	a = G_shape_rjHP + xl + xm
+	b = G_rate_rjHP + n
+	Poi_lambda_rjHP = np.random.gamma(a,1./b)
+	#print "Mean Poi_lambda:", a/b
+	return Poi_lambda_rjHP
+
+def Poisson_prior(k,rate):
+	return k*log(rate) - rate - sum(log(np.arange(1,k+1)))
 
 ####### BEGIN FUNCTIONS for DIRICHLET PROCESS PRIOR #######
 
@@ -1845,13 +1857,17 @@ def MCMC(all_arg):
 				LA = init_BD(len(lengths_B_events)+1)
 				MA = init_BD(len(lengths_D_events)+1)
 				
-		else : ### DPP
+		elif TDI==3 : ### DPP
 			LA = init_BD(1) # init 1 rate
 			MA = init_BD(1) # init 1 rate
 			indDPP_L = np.zeros(len(timesLA)-1).astype(int) # init category indexes
 			indDPP_M = np.zeros(len(timesLA)-1).astype(int) # init category indexes
 			alpha_par_Dir_L = np.random.uniform(0,1) # init concentration parameters
 			alpha_par_Dir_M = np.random.uniform(0,1) # init concentration parameters
+		else: 
+			LA = init_BD(len(timesLA))
+			MA = init_BD(len(timesMA))
+			rj_cat_HP= 1
 		
 		q_ratesA,cov_parA = init_q_rates() # use 1 for symmetric PERT
 		alpha_pp_gammaA = 1.
@@ -2075,6 +2091,10 @@ def MCMC(all_arg):
 		### DPP end
 		
 		else:
+			if TDI==4 and np.random.random()<0.01:
+				rj_cat_HP = get_post_rj_HP(len(LA),len(MA)) # est Poisson hyperprior on number of rates (RJMCMC)
+				stop_update=inf
+			
 			# Birth-Death Lik: construct 2D array (args partial likelihood)
 			# parameters of each partial likelihood and prior (l)
 			if stop_update != inf:
@@ -2152,6 +2172,7 @@ def MCMC(all_arg):
 					sys.stderr = original_stderr
 				
 				elif TDI==4: # run RJMCMC
+					stop_update = 0
 					L,timesL,M,timesM,hasting = RJMCMC([LA,MA, timesLA, timesMA])
 					#print  L,timesL,M,timesM #,hasting
 					args=list()
@@ -2185,6 +2206,7 @@ def MCMC(all_arg):
 			#prior_old = -log(max(ts)-max(te))*len(L-1)  #sum(prior_times_frames(timesL, max(ts),min(te), 1))
 			#prior_old += -log(max(ts)-max(te))*len(M-1)  #sum(prior_times_frames(timesM, max(ts),min(te), 1))
 			prior += -log(max(ts)-min(te))*(len(L)-1+len(M)-1)
+			prior += Poisson_prior(len(L),rj_cat_HP)+Poisson_prior(len(L),rj_cat_HP)
 			#if it % 100 ==0: print len(L),len(M), prior_old, -log(max(ts)-min(te))*(len(L)-1+len(M)-1), hasting
 			if min(abs(np.diff(timesL)))<=min_allowed_t or min(abs(np.diff(timesM)))<=min_allowed_t: prior = -np.inf			
 		
@@ -2214,7 +2236,7 @@ def MCMC(all_arg):
 		
 		#print Post, PostA, q_ratesA, sum(lik_fossil), sum(likBDtemp),  prior
 		if Post>-inf and Post<inf:
-			if Post*tempMC3-PostA*tempMC3 + hasting >= log(np.random.random()) or stop_update==inf and TDI in [2,3]: # 
+			if Post*tempMC3-PostA*tempMC3 + hasting >= log(np.random.random()) or stop_update==inf and TDI in [2,3,4]: # 
 				likBDtempA=likBDtemp
 				PostA=Post
 				priorA=prior
@@ -2296,10 +2318,12 @@ def MCMC(all_arg):
 				if fix_Shift== False:
 					log_state += list(timesLA[1:-1])
 					log_state += list(timesMA[1:-1])
-			elif TDI in [2,4]: # BD-MCMC
+			elif TDI == 2: # BD-MCMC
 				log_state+= [len(LA), len(MA), s_max,min(teA)]
-			else: # DPP
+			elif TDI == 3: # DPP
 				log_state+= [len(LA), len(MA), alpha_par_Dir_L,alpha_par_Dir_M, s_max,min(teA)]
+			elif TDI ==4: # RJMCMC
+				log_state+= [len(LA), len(MA),rj_cat_HP, s_max,min(teA)]
 			 					
 			if useDiscreteTraitModel is True: 
 				for i in range(len(lengths_B_events)): log_state += [sum(tsA[ind_trait_species==i]-teA[ind_trait_species==i])]
@@ -2524,7 +2548,6 @@ if use_seq_lik is True: num_processes,num_processes_ts=0,0
 min_allowed_t=1.
 
 # RJ arguments
-# TURN THIS INTO USER-DEFINED OPTION
 addrm_proposal_RJ = args.rj_pr      # 0: random Gamma; 1: weighted mean
 shape_gamma_RJ    = args.rj_Ga      
 rate_gamma_RJ     = args.rj_Gb      
@@ -3332,8 +3355,9 @@ if TDI<2:
 	if fix_Shift== False:
 		for i in range(1,time_framesL): head += "shift_sp_%s\t" % (i)
 		for i in range(1,time_framesM): head += "shift_ex_%s\t" % (i)
-elif TDI in [2,4]: head+="k_birth\tk_death\troot_age\tdeath_age\t"
-else:        head+="k_birth\tk_death\tDPP_alpha_L\tDPP_alpha_M\troot_age\tdeath_age\t"
+elif TDI == 2: head+="k_birth\tk_death\troot_age\tdeath_age\t"
+elif TDI == 3: head+="k_birth\tk_death\tDPP_alpha_L\tDPP_alpha_M\troot_age\tdeath_age\t"
+elif TDI == 4: head+="k_birth\tk_death\tRJ_hp\troot_age\tdeath_age\t"
 
 
 if useDiscreteTraitModel is True: 
