@@ -34,7 +34,9 @@ p.add_argument('-p', type=int,   help='print freq.', default=5000, metavar=5000)
 p.add_argument('-j', type=int,   help='replicate', default=0, metavar=0)
 p.add_argument('-c', type=int,   help='clade', default=0, metavar=0)
 p.add_argument('-b', type=float, help='shape parameter (beta) of Be hyper=prior pn indicators', default=1, metavar=1)
-p.add_argument('-T', type=float, help='Max time slice', default=np.inf, metavar=np.inf)
+p.add_argument('-T0', type=float, help='Max time slice', default=np.inf, metavar=np.inf)
+p.add_argument('-T1', type=float, help='Min time slice', default=0, metavar=0)
+p.add_argument('-min_taxa', type=float, help='Min clade size', default=0, metavar=0)
 
 
 args = p.parse_args()
@@ -51,6 +53,65 @@ clade_ID=t_file[:,0]
 clade_ID=clade_ID.astype(int)
 ts=t_file[:,2+2*args.j]
 te=t_file[:,3+2*args.j]
+n_original_clades = len(np.unique(clade_ID))
+
+
+start_time = args.T0
+end_time   = args.T1
+
+if start_time == np.inf: start_time = max(ts)
+
+# remove older lineages
+not_older_lineages = (te<start_time).nonzero()[0]
+ts = ts[not_older_lineages]
+te = te[not_older_lineages]
+clade_ID = clade_ID[not_older_lineages]
+
+# remove younger lineages
+younger_lineages = (ts>end_time).nonzero()[0]
+ts = ts[younger_lineages]
+te = te[younger_lineages]
+clade_ID = clade_ID[younger_lineages]
+
+# remove clades with n. species < threshold
+min_number_of_lineages=args.min_taxa
+rm_clade=[]
+for i in np.unique(clade_ID):
+	if len(clade_ID[clade_ID==i])<min_number_of_lineages:
+		rm_clade.append(i)
+
+for i in rm_clade:
+	ts =ts[clade_ID != i]
+	te =te[clade_ID != i]
+	clade_ID =clade_ID[clade_ID != i]
+
+
+
+# some clades might disappear altogether
+original_clade_ID = clade_ID+0
+unique_original_clade_ID = np.unique(original_clade_ID)
+n_clades_left = len(np.unique(clade_ID))
+j=0
+for i in range(n_original_clades):
+	if i in np.unique(clade_ID):
+		clade_ID[clade_ID==i] = j
+		j+=1
+# shift data
+ts = ts-end_time
+te = te-end_time
+
+# set extant lineages
+te[te<0] = 0
+
+
+# define lineages originating before start_time
+argsT = start_time-end_time # ts > argsT are set equal to argsT and not treated as originations
+
+print sort(ts)[::-1]+end_time
+print sort(te)[::-1]+end_time
+print original_clade_ID
+print clade_ID
+
 
 constr=args.m
 
@@ -91,10 +152,10 @@ for i in range(n_clades):
 s_or_e_array= np.array(s_or_e_list)
 unsorted_events= np.array(unsorted_events)
 s_or_e_array[unsorted_events==0] = 3
-s_or_e_array[unsorted_events>args.T] = 4
-unsorted_events[unsorted_events>args.T] = args.T
-""" so now: s_or_e_array = 1 (s events), s_or_e_array = 2 (e events), s_or_e_array = 3 (e=0 events), s_or_e_array = 3 (s>T events)"""
-
+s_or_e_array[unsorted_events>argsT] = 4
+unsorted_events[unsorted_events>argsT] = argsT
+""" so now: s_or_e_array = 1 (s events), s_or_e_array = 2 (e events), s_or_e_array = 3 (e=0 events), s_or_e_array = 4 (s>T events)"""
+print max(s_or_e_array), min(s_or_e_array)
 
 """ concatenate everything:
                           1st row: all events  2nd row index s,e     3rd row clade index """
@@ -122,9 +183,9 @@ for i in range(n_clades): # make trajectory curves for each clade
 	
 	#ext_eve_clade_i = all_time_eve[idx_e[i]]
 	#print ext_eve_clade_i
-	print "clade: %s\n%s species, %s ts, %s te, %s extant" % (i, len(ind_clade_i)/2, len(idx_s[i]), len(idx_e[i]), len(ind_extant_clade_i) )
+	print "\nclade: %s\n%s species, %s ts, %s te, %s extant" % (unique_original_clade_ID[i], len(ind_clade_i)/2, len(idx_s[i]), len(idx_e[i]), len(ind_extant_clade_i) )
 #####
-
+print "\n\n"
 scale_factor = 1./np.max(Dtraj)
 MAX_G = 0.30/scale_factor
 
@@ -143,13 +204,13 @@ wlog=csv.writer(logfile, delimiter='\t')
 lik_head=""
 for i in range(n_clades): lik_head+="\tlik_%s" % (i)
 head="it\tposterior\tlikelihood%s\tprior" % (lik_head)
-for i in range(n_clades): head+="\tl%s" % (i)
-for i in range(n_clades): head+="\tm%s" % (i)
+for i in range(n_clades): head+="\tl%s" % (unique_original_clade_ID[i])
+for i in range(n_clades): head+="\tm%s" % (unique_original_clade_ID[i])
 for i in range(n_clades): 
 	for j in range(n_clades): 
-		head+="\tGl%s_%s" % (i,j)
+		head+="\tGl%s_%s" % (unique_original_clade_ID[i],unique_original_clade_ID[j])
 	for j in range(n_clades): 
-		head+="\tGm%s_%s" % (i,j)
+		head+="\tGm%s_%s" % (unique_original_clade_ID[i],unique_original_clade_ID[j])
 for j in range(n_clades): 
 	head+="\thypZ%s" % (j)
 		
