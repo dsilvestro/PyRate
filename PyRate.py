@@ -4,7 +4,7 @@ import argparse, os,sys, platform, time, csv, glob
 import random as rand
 import warnings
 version= "PyRate"
-build  = "20170323"
+build  = "v2.0 - 20170504"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
@@ -91,6 +91,34 @@ np.set_printoptions(precision=3) # rounds all array elements to 3rd digit
 original_stderr = sys.stderr
 NO_WARN = original_stderr #open('pyrate_warnings.log', 'w')
 small_number= 1e-50
+
+
+# Search for the module
+hasFoundPyRateC = False
+try:
+	self_path= os.path.dirname(sys.argv[0])
+	if platform.system()=="Darwin": os_spec_lib="macOS"
+	elif platform.system() == "Windows" or platform.system() == "Microsoft": os_spec_lib="Windows"
+	else: os_spec_lib = "Other"
+	
+	c_lib_path = "pyrate_lib/fastPyRateC/%s" % (os_spec_lib)
+	sys.path.append(os.path.join(self_path,c_lib_path))
+	#print self_path, sys.path
+	
+	from _FastPyRateC import PyRateC_BD_partial_lik, PyRateC_HOMPP_lik, PyRateC_setFossils, \
+                           PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
+													 PyRateC_NHPP_lik
+	hasFoundPyRateC = True
+  # Set that to true to enable sanity check (comparing python and c++ results)
+	sanityCheckForPyRateC = False
+	sanityCheckThreshold = 1e-10
+	if sanityCheckForPyRateC is True:
+		print "Sanity check for FastPyRateC is enabled."
+		print "Python and C results will be compared and any divergence greater than ", sanityCheckThreshold, " will be reported."
+except ImportError:
+	print("Module FastPyRateC was not found.")
+	hasFoundPyRateC = False
+	sanityCheckForPyRateC = False
 
 ########################## CALC PROBS ##############################
 def calcHPD(data, level) :
@@ -857,8 +885,11 @@ def get_post_sd(N,HP_shape=2,HP_rate=2,mean_Norm=0): # get sd of Normal from sam
 ########################## PRIORS #######################################
 try: 
 	scipy.stats.gamma.logpdf(1, 1, scale=1./1,loc=0) 
-	def prior_gamma(L,a,b): 
-		return scipy.stats.gamma.logpdf(L, a, scale=1./b,loc=0)
+	def prior_gamma(L,a,b):
+		if hasFoundPyRateC:
+			return PyRateC_getLogGammaPDF(L, a, 1./b)#scipy.stats.gamma.logpdf(L, a, scale=1./b,loc=0)
+		else:
+			return scipy.stats.gamma.logpdf(L, a, scale=1./b,loc=0)
 	def prior_normal(L,sd): 
 		return scipy.stats.norm.logpdf(L,loc=0,scale=sd)
 	def prior_cauchy(x,s):
@@ -1264,7 +1295,7 @@ def HPP_vec_lik(arg):
 		lik_vec = np.zeros(pp_gamma_ncat)
 		for i in range(pp_gamma_ncat):
 			qGamma= YangGamma[i]*q_rates
-			lik_vec[i] = sum(-qGamma[ind]*d + log(qGamma[ind])*k_vec[ind]) - log(1-exp(sum(-qGamma[ind]*d))) -sum(log(np.arange(1,sum(k_vec)+1))) 
+			lik_vec[i] = sum(-qGamma[ind]*d + log(qGamma[ind])*k_vec[ind]) - log(1-exp(sum(-qGamma[ind]*d))) -sum(log(np.arange(1,sum(k_vec)+1)))
 	
 		#print lik_vec
 		lik2= lik_vec-np.max(lik_vec)
@@ -1314,10 +1345,11 @@ def HOMPP_lik(arg):
 		YangGamma=get_gamma_rates(shapeGamma)
 		qGamma= YangGamma*q
 		lik1= -qGamma*(br_length) + log(qGamma)*k - sum(log(np.arange(1,k+1)))  -log(1-exp(-qGamma*(br_length)))
-		lik2= lik1-max(lik1)
-		lik=log(sum(exp(lik2)*(1./pp_gamma_ncat)))+max(lik1)
+		maxLik1 = max(lik1)
+		lik2= lik1-maxLik1
+		lik=log(sum(exp(lik2)*(1./pp_gamma_ncat)))+maxLik1
 		return lik
-	else: 	return -q*(br_length) + log(q)*k - sum(log(np.arange(1,k+1))) - log(1-exp(-q*(br_length)))
+	else:	return -q*(br_length) + log(q)*k - sum(log(np.arange(1,k+1))) - log(1-exp(-q*(br_length)))
 
 def NHPP_lik(arg):
 	[m,M,shapeGamma,q_rate,i,cov_par, ex_rate]=arg
@@ -1358,8 +1390,9 @@ def NHPP_lik(arg):
 			# LOG TRANSF
 			log_lik_temp = (-(int_q) + np.sum((logPERT4_density(MM,z[:,0:k],aa,bb,X)+log(q)), axis=1) )  \
 			+ log(G_density(-GM,1,l)/den) - log(1-exp(-int_q))
-			log_lik_temp_scaled = log_lik_temp-max(log_lik_temp)
-			lik = log(sum(exp(log_lik_temp_scaled))/ len(GM))+max(log_lik_temp)
+			maxLogLikTemp = max(log_lik_temp)
+			log_lik_temp_scaled = log_lik_temp-maxLogLikTemp
+			lik = log(sum(exp(log_lik_temp_scaled))/ len(GM))+maxLogLikTemp
 		else: lik= sum(-(int_q) + np.sum((logPERT4_density(MM,z[:,0:k],aa,bb,X)+log(q)), axis=1))
 	elif m==0: lik = HOMPP_lik(arg)		
 	else:
@@ -1398,8 +1431,9 @@ def NHPPgamma(arg):
 			L=log(1-tempL)
 			if np.isfinite(sum(L)):
 				lik1=-qGamma*(M-m) + np.sum(log(PERT4_den*qGamma), axis=0) - L
-				lik2=lik1-max(lik1)
-				lik=log(sum(exp(lik2)*(1./pp_gamma_ncat)))+max(lik1)
+				maxLogLik1 = max(lik1)
+				lik2=lik1-maxLogLik1
+				lik=log(sum(exp(lik2)*(1./pp_gamma_ncat)))+maxLogLik1
 			else: lik=-100000
 		else: lik=-100000
 	elif m==0 and use_DA is False: lik = HOMPP_lik(arg)
@@ -1829,7 +1863,8 @@ def MCMC(all_arg):
 			tsA[tsA<FA]=FA[tsA<FA]+1
 			teA[teA>LO]=LO[teA>LO]-1
 			teA[teA<0]=teA_temp[teA<0]
-		timesLA, timesMA = init_times(max(tsA),time_framesL,time_framesM, min(teA))
+		maxTSA = max(tsA)
+		timesLA, timesMA = init_times(maxTSA,time_framesL,time_framesM, min(teA))
 		if len(fixed_times_of_shift)>0: timesLA[1:-1],timesMA[1:-1]=fixed_times_of_shift,fixed_times_of_shift
 		if fix_edgeShift is True: 
 			if len(edgeShifts)==1: 
@@ -1837,7 +1872,7 @@ def MCMC(all_arg):
 				timesLA[1],timesMA[1]= edgeShifts[0],edgeShifts[0]
 			if len(edgeShifts)>1: 
 				timesLA, timesMA = init_times(edgeShifts[0],time_framesL,time_framesM, edgeShifts[1]) # starting shift tims within allowed window
-				timesLA[0],timesMA[0]= max(tsA),max(tsA)
+				timesLA[0],timesMA[0]= maxTSA,maxTSA
 				timesLA[1],timesMA[1]= edgeShifts[0],edgeShifts[0]
 				timesLA[-2],timesMA[-2]= edgeShifts[1],edgeShifts[1]
 				print timesLA
@@ -1983,8 +2018,10 @@ def MCMC(all_arg):
 						timesM=update_times(timesMA, edgeShifts[0],min(te),mod_d4,2,len(timesM)-1)
 						
 				else:
-					timesL=update_times(timesLA, max(ts),min(te),mod_d4,1,len(timesL))
-					timesM=update_times(timesMA, max(ts),min(te),mod_d4,1,len(timesM))
+					maxTS = max(ts)
+					minTE = min(te)
+					timesL=update_times(timesLA, maxTS,minTE,mod_d4,1,len(timesL))
+					timesM=update_times(timesMA, maxTS,minTE,mod_d4,1,len(timesM))
 			else: 
 				if TDI<2: # 
 					if np.random.random()<.95 or est_hyperP is False or fix_hyperP is True:
@@ -2044,24 +2081,83 @@ def MCMC(all_arg):
 				z[:,6]=M[len(M)-1] # ex rate
 				if useDiscreteTraitModel is True: z[:,6] = mean(M)
 				args=list(z[ind1])
-				if num_processes_ts==0:
-					for j in range(len(ind1)):
-						i=ind1[j] # which species' lik
-						if multiHPP is True:  lik_fossil[i] = HPP_vec_lik([te[i],ts[i],q_time_frames,q_rates,i,alpha_pp_gamma])
-						else:
-							if argsHPP is True or  frac1==0: lik_fossil[i] = HOMPP_lik(args[j])
-							elif argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
-							else: lik_fossil[i] = NHPP_lik(args[j])
+
+				if hasFoundPyRateC:
+					if multiHPP is True:
+						# This uses the median for gamma rates
+						YangGamma = [1]
+						if argsG :
+							YangGamma=get_gamma_rates(alpha_pp_gamma)
+
+						lik_fossil = np.array(PyRateC_HPP_vec_lik(ind1, ts, te, q_time_frames, q_rates, YangGamma))
+						# This uses the mean for gamma rates
+						#lik_fossil2 = np.array(PyRateC_HPP_vec_lik(ind1, ts, te, q_time_frames, q_rates, pp_gamma_ncat, alpha_pp_gamma))
+	
+						# Check correctness of results by comparing with python version
+						if sanityCheckForPyRateC is True:
+							lik_fossil2 = zeros(len(fossil))
+							for j in range(len(ind1)):
+								i=ind1[j] # which species' lik
+								lik_fossil2[i] = HPP_vec_lik([te[i],ts[i],q_time_frames,q_rates,i,alpha_pp_gamma])
+
+							absDivergence = abs(sum(lik_fossil2) - sum(lik_fossil))
+							if absDivergence > sanityCheckThreshold:
+								print "[WARNING] HPP_vec_lik diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")"
+
+					elif argsHPP is True:
+						YangGamma = [1]
+						if argsG :
+							YangGamma=get_gamma_rates(q_rates[0])
+
+						lik_fossil = np.array(PyRateC_HOMPP_lik(ind1, ts, te, q_rates[1], YangGamma, cov_par[2], M[len(M)-1]))
+
+						# Check correctness of results by comparing with python version
+						if sanityCheckForPyRateC is True:
+							lik_fossil2 = zeros(len(fossil))
+							for j in range(len(ind1)):
+								i=ind1[j] # which species' lik
+								lik_fossil2[i] = HOMPP_lik(args[j])
+
+							absDivergence = abs(sum(lik_fossil2) - sum(lik_fossil))
+							if absDivergence > sanityCheckThreshold:
+								print "[WARNING] PyRateC_HOMPP_lik diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")"
+
+					else:
+						YangGamma = [1]
+						if argsG :
+							YangGamma=get_gamma_rates(q_rates[0])
+
+						lik_fossil = np.array(PyRateC_NHPP_lik(use_DA, ind1, ts, te, q_rates[1], YangGamma, cov_par[2], M[len(M)-1]))
+
+						# Check correctness of results by comparing with python version
+						if sanityCheckForPyRateC is True:
+							lik_fossil2 = zeros(len(fossil))
+							for j in range(len(ind1)):
+								i=ind1[j] # which species' lik
+								if argsG is True: lik_fossil2[i] = NHPPgamma(args[j]) 
+								else: lik_fossil2[i] = NHPP_lik(args[j])
+
+							absDivergence = abs(sum(lik_fossil2) - sum(lik_fossil))
+							if absDivergence > sanityCheckThreshold:
+								print "[WARNING] PyRateC_NHPP_lik diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")"
+
 				else:
-					if multiHPP is True: sys.exit("multiHPP model can only run on a signle processor")
-					if argsHPP is True or  frac1==0: lik_fossil[ind1] = array(pool_ts.map(HOMPP_lik, args))
-					elif argsG is True: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args)) 
-					else: lik_fossil[ind1] = array(pool_ts.map(NHPP_lik, args))
+					if num_processes_ts==0:
+						for j in range(len(ind1)):
+							i=ind1[j] # which species' lik
+							if multiHPP is True:  lik_fossil[i] = HPP_vec_lik([te[i],ts[i],q_time_frames,q_rates,i,alpha_pp_gamma])
+							else:
+								if argsHPP is True or  frac1==0: lik_fossil[i] = HOMPP_lik(args[j])
+								elif argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
+								else: lik_fossil[i] = NHPP_lik(args[j])
+					else:
+						if multiHPP is True: sys.exit("multiHPP model can only run on a signle processor")
+						if argsHPP is True or  frac1==0: lik_fossil[ind1] = array(pool_ts.map(HOMPP_lik, args))
+						elif argsG is True: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args)) 
+						else: lik_fossil[ind1] = array(pool_ts.map(NHPP_lik, args))
 
-		
-			if it>0: lik_fossil[ind2] = lik_fossilA[ind2]
-
-
+			if it>0: 
+				lik_fossil[ind2] = lik_fossilA[ind2]
 
 		else: lik_fossil=zeros(1)
 
@@ -2122,14 +2218,30 @@ def MCMC(all_arg):
 						elif use_ADE_model is True:
 							args.append([ts, te, up, lo, m, 'm', cov_par[1],W_shape,q_rates[1]])
 			
-					if num_processes==0:
-						likBDtemp=np.zeros(len(args))
-						i=0
-						for i in range(len(args)):
-							likBDtemp[i]=BPD_partial_lik(args[i])
-							i+=1
-					# multi-thread computation of lik and prior (rates)
-					else: likBDtemp = array(pool_lik.map(BPD_partial_lik, args))
+					if hasFoundPyRateC:
+						likBDtemp = PyRateC_BD_partial_lik(ts, te, timesL, timesM, L, M)
+
+						# Check correctness of results by comparing with python version
+						if sanityCheckForPyRateC is True:
+							likBDtemp2=np.zeros(len(args))
+							i=0
+							for i in range(len(args)):
+								likBDtemp2[i]=BPD_partial_lik(args[i])
+								i+=1
+
+							absDivergence = abs(sum(likBDtemp) - sum(likBDtemp2))
+							if absDivergence > sanityCheckThreshold:
+								print "[WARNING] BPD_partial_lik diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")"
+
+					else:
+						if num_processes==0:
+							likBDtemp=np.zeros(len(args))
+							i=0
+							for i in range(len(args)):
+								likBDtemp[i]=BPD_partial_lik(args[i])
+								i+=1
+						# multi-thread computation of lik and prior (rates)
+						else: likBDtemp = array(pool_lik.map(BPD_partial_lik, args))
 					likBDtemp = likBDtemp
 					#print likBDtemp - BD_lik_vec_times([ts,te,timesL,L,M])
 
@@ -2138,37 +2250,6 @@ def MCMC(all_arg):
 					sys.stderr = NO_WARN
 					args=[it, likBDtempA,tsA, teA, LA,MA, timesLA, timesMA, cov_parA,len(LA)]
 					likBDtemp, L,M, timesL, timesM, cov_par = Alg_3_1(args)
-			
-					# NHPP Lik: needs to be recalculated after Alg 3.1
-					if fix_SE is False:
-						# NHPP calculated only if not -fixSE
-						# generate args lik (ts, te)
-						ind1=range(0,len(fossil))
-						lik_fossil=zeros(len(fossil))
-						# generate args lik (ts, te)
-						z=zeros(len(fossil)*7).reshape(len(fossil),7)
-						z[:,0]=te
-						z[:,1]=ts
-						z[:,2]=q_rates[0]   # shape prm Gamma
-						z[:,3]=q_rates[1]   # baseline foss rate (q)
-						z[:,4]=range(len(fossil))
-						z[:,5]=cov_par[2]  # covariance baseline foss rate
-						z[:,6]=M[len(M)-1] # ex rate
-						args=list(z[ind1])
-						if num_processes_ts==0:
-							for j in range(len(ind1)):
-								i=ind1[j] # which species' lik
-								if multiHPP is True:  lik_fossil[i] = HPP_vec_lik([te[i],ts[i],q_time_frames,q_rates,i,alpha_pp_gamma])
-								else:
-									if argsHPP is True or  frac1==0: lik_fossil[i] = HOMPP_lik(args[j])
-									elif argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
-									else: lik_fossil[i] = NHPP_lik(args[j])
-						else:
-							if multiHPP is True: sys.exit("multiHPP model can only run on a single processor")
-							if argsHPP is True or frac1==0: lik_fossil[ind1] = array(pool_ts.map(HOMPP_lik, args))
-							elif argsG is True: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args))
-							else: lik_fossil[ind1] = array(pool_ts.map(NHPP_lik, args))
-			
 					sys.stderr = original_stderr
 				
 				elif TDI==4: # run RJMCMC
@@ -2185,32 +2266,76 @@ def MCMC(all_arg):
 						m = M[temp_m]
 						args.append([ts, te, up, lo, m, 'm', cov_par[1],1])			
 					
-					if num_processes==0:
-						likBDtemp=np.zeros(len(args))
-						i=0
-						for i in range(len(args)):
-							likBDtemp[i]=BPD_partial_lik(args[i])
-							i+=1
-					# multi-thread computation of lik and prior (rates)
-					else: likBDtemp = array(pool_lik.map(BPD_partial_lik, args))
-					#print sum(likBDtemp)-sum(likBDtempA),hasting,get_hyper_priorBD(timesL,timesM,L,M,T,hyperP)+(-log(max(ts)-min(te))*(len(L)-1+len(M)-1))-(get_hyper_priorBD(timesLA,timesMA,LA,MA,T,hyperP)+(-log(max(tsA)-min(teA))*(len(LA)-1+len(MA)-1))), len(L),len(M)
-					
+					if hasFoundPyRateC:
+						likBDtemp = PyRateC_BD_partial_lik(ts, te, timesL, timesM, L, M)
+
+						# Check correctness of results by comparing with python version
+						if sanityCheckForPyRateC is True:
+							likBDtemp2=np.zeros(len(args))
+							i=0
+							for i in range(len(args)):
+								likBDtemp2[i]=BPD_partial_lik(args[i])
+								i+=1
+
+							absDivergence = abs(sum(likBDtemp) - sum(likBDtemp2))
+							if absDivergence > sanityCheckThreshold:
+								print "[WARNING] BPD_partial_lik diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")"
+
+					else:
+						if num_processes==0:
+							likBDtemp=np.zeros(len(args))
+							i=0
+							for i in range(len(args)):
+								likBDtemp[i]=BPD_partial_lik(args[i])
+								i+=1
+						# multi-thread computation of lik and prior (rates)
+						else: likBDtemp = array(pool_lik.map(BPD_partial_lik, args))
+						#print sum(likBDtemp)-sum(likBDtempA),hasting,get_hyper_priorBD(timesL,timesM,L,M,T,hyperP)+(-log(max(ts)\
+						# -min(te))*(len(L)-1+len(M)-1))-(get_hyper_priorBD(timesLA,timesMA,LA,MA,T,hyperP)+(-log(max(tsA)\
+						# -min(teA))*(len(LA)-1+len(MA)-1))), len(L),len(M)
+				
+				# NHPP Lik: needs to be recalculated after Alg 3.1 or RJ (but only if NHPP+DA)
+				if fix_SE is False and multiHPP is False and argsHPP is False and use_DA is True:
+					# NHPP calculated only if not -fixSE
+					# generate args lik (ts, te)
+					ind1=range(0,len(fossil))
+					lik_fossil=zeros(len(fossil))
+					# generate args lik (ts, te)
+					z=zeros(len(fossil)*7).reshape(len(fossil),7)
+					z[:,0]=te
+					z[:,1]=ts
+					z[:,2]=q_rates[0]   # shape prm Gamma
+					z[:,3]=q_rates[1]   # baseline foss rate (q)
+					z[:,4]=range(len(fossil))
+					z[:,5]=cov_par[2]  # covariance baseline foss rate
+					z[:,6]=M[len(M)-1] # ex rate
+					args=list(z[ind1])
+					if num_processes_ts==0:
+						for j in range(len(ind1)):
+							i=ind1[j] # which species' lik
+							if argsG is True: lik_fossil[i] = NHPPgamma(args[j]) 
+							else: lik_fossil[i] = NHPP_lik(args[j])
+					else:
+						if argsG is True: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args))
+						else: lik_fossil[ind1] = array(pool_ts.map(NHPP_lik, args))
+				
 		
 		lik= sum(lik_fossil) + sum(likBDtemp) + PoiD_const
 
-		T= max(ts)
+		maxTs= max(ts)
+		minTe= min(te)
 		if TDI < 3:
-			prior += sum(prior_times_frames(timesL, max(ts),min(te), lam_s))
-			prior += sum(prior_times_frames(timesM, max(ts),min(te), lam_s))
+			prior += sum(prior_times_frames(timesL, maxTs, minTe, lam_s))
+			prior += sum(prior_times_frames(timesM, maxTs, minTe, lam_s))
 		if TDI ==4: 
 			#prior_old = -log(max(ts)-max(te))*len(L-1)  #sum(prior_times_frames(timesL, max(ts),min(te), 1))
 			#prior_old += -log(max(ts)-max(te))*len(M-1)  #sum(prior_times_frames(timesM, max(ts),min(te), 1))
-			prior += -log(max(ts)-min(te))*(len(L)-1+len(M)-1)
+			prior += -log(maxTs-minTe)*(len(L)-1+len(M)-1)
 			prior += Poisson_prior(len(L),rj_cat_HP)+Poisson_prior(len(L),rj_cat_HP)
 			#if it % 100 ==0: print len(L),len(M), prior_old, -log(max(ts)-min(te))*(len(L)-1+len(M)-1), hasting
 			if min(abs(np.diff(timesL)))<=min_allowed_t or min(abs(np.diff(timesM)))<=min_allowed_t: prior = -np.inf			
 		
-		priorBD= get_hyper_priorBD(timesL,timesM,L,M,T,hyperP)
+		priorBD= get_hyper_priorBD(timesL,timesM,L,M,maxTs,hyperP)
 		if use_ADE_model is True:
 			# M in this case is the vector of Weibull scales
 			priorBD+= sum(prior_normal(log(W_shape),2)) # Normal prior on log(W_shape): highest prior pr at W_shape=1
@@ -2221,7 +2346,8 @@ def MCMC(all_arg):
 		if model_cov >0: prior+=sum(prior_normal(cov_par,covar_prior))
 
 		# exponential prior on root age
-		prior += prior_root_age(max(ts),max(FA),max(FA))
+		maxFA = max(FA)
+		prior += prior_root_age(maxTs,maxFA,maxFA)
 		
 		if temperature==1: 
 			tempMC3=1./(1+n_proc*temp_pr)
@@ -2394,6 +2520,8 @@ self_path=os.getcwd()
 p = argparse.ArgumentParser() #description='<input file>') 
 
 p.add_argument('-v',         action='version', version=version_details)
+p.add_argument('-seed',      type=int, help='random seed', default=-1,metavar=-1)
+p.add_argument('-useCPPlib', type=int, help='Use C++ library if available (boolean)', default=1,metavar=1)
 p.add_argument('-cite',      help='print PyRate citation', action='store_true', default=False)
 p.add_argument('input_data', metavar='<input file>', type=str,help='Input python file - see template',default=[],nargs='*')
 p.add_argument('-j',         type=int, help='number of data set in input file', default=1, metavar=1)
@@ -2440,7 +2568,7 @@ p.add_argument('-b',      type=float, help='burnin', default=0, metavar=0)
 p.add_argument('-thread', type=int, help='no. threads used for BD and NHPP likelihood respectively (set to 0 to bypass multi-threading)', default=[0,0], metavar=4, nargs=2)
 
 # MCMC ALGORITHMS
-p.add_argument('-A',        type=int, help='0) parameter estimation, 1) marginal likelihood, 2) BDMCMC', default=2, metavar=2)
+p.add_argument('-A',        type=int, help='0) parameter estimation, 1) marginal likelihood, 2) BDMCMC, 3) DPP, 4) RJMCMC', default=2, metavar=2)
 p.add_argument("-use_DA",   help='Use data augmentation for NHPP likelihood opf extant taxa', action='store_true', default=False)
 p.add_argument('-r',        type=int,   help='MC3 - no. MCMC chains', default=1, metavar=1)
 p.add_argument('-t',        type=float, help='MC3 - temperature', default=.03, metavar=.03)
@@ -2505,6 +2633,21 @@ p.add_argument('-tHP',    type=float, help='Tuning - window sizes hyperpriors on
 
 args = p.parse_args()
 t1=time.time()
+
+if args.seed==-1:
+	rseed=np.random.randint(0,9999)
+else: rseed=args.seed	
+rand.seed(rseed)  # set as argument/ use get seed function to get it and save it to sum.txt file
+random.seed(rseed)
+np.random.seed(rseed)
+	
+if args.useCPPlib==1 and hasFoundPyRateC is True: 
+	hasFoundPyRateC=True
+	print("Using module FastPyRateC")
+	CPPlib="\nUsing module FastPyRateC"
+else: 
+	hasFoundPyRateC=False
+	CPPlib=""
 
 if args.cite is True:
 	sys.exit(citation)
@@ -2935,7 +3078,7 @@ if len(fixed_times_of_shift)>0:
 	time_framesM=len(fixed_times_of_shift)+1
 	# estimate DPP hyperprior
 	hp_gamma_rate  = get_rate_HP(time_framesL,target_k,hp_gamma_shape)
-				
+
 
 
 if args.fixSE != "" or use_se_tbl==True:          # fix TS, TE
@@ -3271,6 +3414,13 @@ if args.data_info is True:
 	sys.exit("\n")
 	
 
+if hasFoundPyRateC:
+	PyRateC_setFossils(fossil) # saving all fossil data as C vector
+
+	if args.qShift != "":  # q_shift times
+		tmpEpochs = np.sort(np.array(list(times_q_shift)+[max(FA)+1]+[0]))[::-1]
+		PyRateC_initEpochs(tmpEpochs)
+
 ############################ MCMC OUTPUT ############################
 try: os.mkdir(output_wd)
 except(OSError): pass
@@ -3310,8 +3460,11 @@ Feedback and support: pyrate.help@gmail.com
 OS: %s %s
 Python version: %s\n
 Numpy version: %s
-Scipy version: %s
-""" % (citation,platform.system(), platform.release(), sys.version, np.version.version, scipy.version.version)
+Scipy version: %s\n
+Random seed: %s %s
+""" % (citation,platform.system(), platform.release(), sys.version, np.version.version, scipy.version.version,rseed,CPPlib)
+
+
 
 o=''.join([o0,o1,o2,version_notes])
 out_sum = "%s/%s_sum.txt" % (path_dir,suff_out)
