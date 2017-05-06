@@ -109,6 +109,7 @@ try:
                            PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
 													 PyRateC_NHPP_lik
 	hasFoundPyRateC = True
+	print("Using FastPyRateC module.")
   # Set that to true to enable sanity check (comparing python and c++ results)
 	sanityCheckForPyRateC = False
 	sanityCheckThreshold = 1e-10
