@@ -4,7 +4,7 @@ import argparse, os,sys, platform, time, csv, glob
 import random as rand
 import warnings
 version= "PyRate"
-build  = "v2.0 - 20170504"
+build  = "v2.0 - 20170506"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
@@ -21,7 +21,7 @@ comprehensive Bayesian analysis of the fossil record. New Phytologist,
 doi:10.1111/nph.13247. 
 """
 print("""
-                      %s - %s
+                   %s - %s
 
              Bayesian estimation of origination,
               extinction and preservation rates
