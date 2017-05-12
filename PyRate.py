@@ -2532,7 +2532,8 @@ p.add_argument('-trait_file',type=str,help="Load trait table",metavar='<input fi
 p.add_argument('-restore_mcmc',type=str,help="Load mcmc.log file",metavar='<input file>',default="")
 p.add_argument('-filter',     type=float,help="Filter lineages with all occurrences within time range ",default=[inf,0], metavar=inf, nargs=2)
 p.add_argument('-filter_taxa',type=str,help="Filter lineages within list (drop all others) ",default="", metavar="taxa_file")
-p.add_argument('-initDiv',     type=int, help='Number of initial lineages (option only available with -d SE_table or -fixSE)', default=0, metavar=0)
+p.add_argument('-initDiv',    type=int, help='Number of initial lineages (option only available with -d SE_table or -fixSE)', default=0, metavar=0)
+p.add_argument('-PPmodeltest',help='Likelihood testing among preservation models', action='store_true', default=False)
 
 # PLOTS AND OUTPUT
 p.add_argument('-plot',       metavar='<input file>', type=str,help="RTT plot (type 1): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
@@ -2722,31 +2723,17 @@ else:
 
 
 if args.ginput != "" or args.check_names != "" or args.reduceLog != "":
-	import imp
 	try:
-		self_path= os.path.dirname(sys.argv[0])
-		try: 
-			print "attempt 1"
-			lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
-			lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
-		except:
-			print "attempt 2"
-			lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s\pyrate_lib\lib_DD_likelihood.py" % (self_path))
-			lib_utilities = imp.load_source("lib_utilities", "%s\pyrate_lib\lib_utilities.py" % (self_path))
-	except: 
-		self_path=os.getcwd()
-		try: 
-			print "attempt 3"
-			lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
-			lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
-		except:
-			print "attempt 4"
-			lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s\pyrate_lib\lib_DD_likelihood.py" % (self_path))
-			lib_utilities = imp.load_source("lib_utilities", "%s\pyrate_lib\lib_utilities.py" % (self_path))
-						
-		
-	#	sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
-	#You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
+	 	self_path= os.path.dirname(sys.argv[0])
+	 	pyrate_lib_path = "pyrate_lib"
+	 	sys.path.append(os.path.join(self_path,pyrate_lib_path)) 	
+		import lib_DD_likelihood
+		import lib_utilities
+	
+ 	except:
+		sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
+		You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
+	 
 	if args.ginput != "":
 		lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=-1,burnin=int(burnin)+1)
 	elif args.check_names != "":
@@ -3404,7 +3391,18 @@ if args.data_info is True:
 	#for i in range(len(hist)): print "%s\t%s\t%s" % (i+1,int(hist[i]),"*"*int(hist2[i]))
 	sys.exit("\n")
 	
+# RUN PP-MODEL TEST
+if args.PPmodeltest==True:
+ 	self_path= os.path.dirname(sys.argv[0])
+ 	pyrate_lib_path = "pyrate_lib"
+ 	sys.path.append(os.path.join(self_path,pyrate_lib_path)) 	
+	import PPmodeltest
+	if multiHPP==False: times_q_shift = 0
+	PPmodeltest.run_model_testing(fossil,q_shift=times_q_shift,min_n_fossils=2,verbose=1)
+	quit()
 
+
+# CREATE C++ OBJECTS
 if hasFoundPyRateC:
 	if use_se_tbl==True:
 		fossil = [np.array([0])]
