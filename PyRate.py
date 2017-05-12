@@ -1135,7 +1135,6 @@ def BD_bd_rates_ADE_lik(arg):
 	death_lik_wte = sum(-m0*cdf_WR(W_shape,W_scale, d)) # log probability of waiting time until death event
 	lik = birth_lik + death_lik_de + death_lik_wte
 	return lik
-
 	
 def BD_age_partial_lik(arg): 
 	[ts,te,up,lo, rate,par,  cov_par,   W_shape,q]=arg
@@ -1179,7 +1178,6 @@ def get_fraction_per_bin(ts,te,time_frames):
 		in_bin_br[:,i]= in_bin_i_br
 	return in_bin_br.T/tot_br
 
-
 def BD_age_lik_vec_times(arg): 
 	[ts,te,time_frames,W_shape,W_scales,q_rates,q_time_frames]=arg
 	len_time_intervals=len(time_frames)-1
@@ -1213,7 +1211,6 @@ def BD_age_lik_vec_times(arg):
 	lik_extinct = sum(lik1-lik2[te>0])
 	lik = lik_extinct + sum(lik_extant)
 	return lik	
-
 
 def pure_death_shift(arg):
 	[ts,te,time_frames,L,M,Q]=arg
@@ -1327,8 +1324,6 @@ def HPP_vec_lik_(arg):
 	#print ts-te
 	#print -q*(ts-te) + log(q)*k,  sum(-q_rates[ind]*d + log(q_rates[ind])*k_vec[ind])
 	return lik
-
-
 
 def HOMPP_lik(arg):
 	[m,M,shapeGamma,q_rate,i,cov_par, ex_rate]=arg
@@ -1522,7 +1517,6 @@ def estimate_delta(likBDtemp, R,par,times, ts, te, cov_par, ind,deathRate,n_likB
 		D=min(tempL-sum(likBDtemp[ind:ind+len(R)]), 100) # to avoid overflows
 		deathRate[temp_l]=exp(D)
 	return deathRate #, n_likBD
-
 
 def Alg_3_1(arg):
 	[it,likBDtemp, ts, te, L,M, timesL, timesM, cov_par,len_L]=arg
@@ -1843,9 +1837,6 @@ def get_init_values(mcmc_log_file,taxa_names):
 		mu  = np.array([float(len(te[te>0]))/(ts-te)])    # const rate ML estimator
 		hyp = np.ones(2)	
 	return [ts,te,q_rates,lam,mu,hyp,alpha_pp]
-
-
-
 
 
 ########################## MCMC #########################################
@@ -2641,10 +2632,10 @@ else: rseed=args.seed
 rand.seed(rseed)  # set as argument/ use get seed function to get it and save it to sum.txt file
 random.seed(rseed)
 np.random.seed(rseed)
-	
+
+
 if args.useCPPlib==1 and hasFoundPyRateC is True: 
-	hasFoundPyRateC=True
-	print("Using module FastPyRateC")
+	print("Loaded module FastPyRateC")
 	CPPlib="\nUsing module FastPyRateC"
 else: 
 	hasFoundPyRateC=False
@@ -3035,7 +3026,6 @@ else:
 	if output_wd=="": output_wd= self_path
 	out_name="%s_%s_%s"  % (os.path.splitext(os.path.basename(se_tbl_file))[0],j,args.out)
 	if focus_clade>=0: out_name+= "_c%s" % (focus_clade)
-	
 
 if args.restore_mcmc != "":
 	restore_init_values = get_init_values(args.restore_mcmc,taxa_names)
@@ -3416,6 +3406,9 @@ if args.data_info is True:
 	
 
 if hasFoundPyRateC:
+	if use_se_tbl==True:
+		fossil = [np.array([0])]
+	
 	PyRateC_setFossils(fossil) # saving all fossil data as C vector
 
 	if args.qShift != "":  # q_shift times
