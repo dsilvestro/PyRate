@@ -109,7 +109,7 @@ try:
                            PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
 													 PyRateC_NHPP_lik
 	hasFoundPyRateC = True
-	print("Using FastPyRateC module.")
+	print("Module FastPyRateC was loaded.")
   # Set that to true to enable sanity check (comparing python and c++ results)
 	sanityCheckForPyRateC = False
 	sanityCheckThreshold = 1e-10
@@ -984,6 +984,23 @@ def HPBD3(timesL,timesM,L,M,T,s):
 	return pNtvar([all_t_frames,Ln,Mn,tot_extant])
 
 # BIRTH-DEATH MODELS
+
+#---- reconstructed BD 
+def p0(t,l,m,rho): 
+	return 1 - (rho*(l-m) / (rho*l + (l*(1-rho) -m) * exp(-(l-m)*t)))
+
+def p1(t,l,m,rho): 
+	return  rho*(l-m)**2 * exp(-(l-m)*t)/(rho*l + (l*(1-rho) -m)*exp(-(l-m)*t))**2
+
+def treeBDlikelihood(x,l,m,rho,root=1,survival=1):
+	lik = (root + 1) * log(p1(x[0], l, m, rho))
+	for i in range(1, len(x)) :
+	    lik = lik + log(l * p1(x[i], l, m, rho))
+	if survival == 1:
+		lik = lik - (root + 1) * log(1 - p0(x[0], l, m, rho))
+	return lik
+#----
+
 def BD_lik_discrete_trait(arg):
 	[ts,te,L,M]=arg
 	S = ts-te
@@ -993,6 +1010,18 @@ def BD_lik_discrete_trait(arg):
 	lik2 =  sum(log(M)*lengths_D_events)                                        # Trait specific extinction
 	lik3 = -sum([M[i]*sum(S[ind_trait_species==i]) for i in range(len(M))]) # only species with a trait state can go extinct
 	return sum(lik0+lik1+lik2+lik3)
+
+def BD_lik_discrete_trait_continuous(arg):
+	[ts,te,L,M,cov_par]=arg
+	S = ts-te
+	# speciation
+	sp_rate=exp(log(L)+cov_par[0]*(con_trait-parGAUS[0])) 
+	lik01 = sum(log(sp_rate)) + sum(-sp_rate*S) #, cov_par
+	# extinction	
+	ex_rate = exp(log(M[ind_trait_species])+cov_par[0]*(con_trait-parGAUS[0])) 
+	lik2 =  sum(log(ex_rate[te>0]))   # only count extinct species
+	lik3 = -sum([M[i]*sum(S[ind_trait_species==i]) for i in range(len(M))]) # only species with a trait state can go extinct
+	return sum(lik01+lik2+lik3)
 
 
 def BPD_lik_vec_times(arg):
@@ -1916,6 +1945,11 @@ def MCMC(all_arg):
 		if argsG is True and multiHPP is True and restore_chain is True: alpha_pp_gammaA=restore_init_values[6]
 		SA=sum(tsA-teA)
 		W_shapeA=1.
+		
+		if analyze_tree ==1:
+			r_treeA = np.random.random()
+			m_treeA = np.random.random()
+		
 
 	else: # restore values
 		[itt, n_proc_,PostA, likA, priorA,tsA,teA,timesLA,timesMA,LA,MA,q_ratesA, cov_parA, lik_fossilA,likBDtempA]=arg
@@ -2187,7 +2221,10 @@ def MCMC(all_arg):
 			# parameters of each partial likelihood and prior (l)
 			if stop_update != inf:
 				if useDiscreteTraitModel is True:
-					likBDtemp = BD_lik_discrete_trait([ts,te,L,M])
+					if twotraitBD is True:
+						likBDtemp = BD_lik_discrete_trait_continuous([ts,te,L,M,cov_par])
+					else:
+						likBDtemp = BD_lik_discrete_trait([ts,te,L,M])
 						
 				elif use_ADE_model is True and multiHPP is True: 
 					likBDtemp = BD_age_lik_vec_times([ts,te,timesL,W_shape,M,q_rates,q_time_frames])
@@ -2210,7 +2247,7 @@ def MCMC(all_arg):
 						elif use_ADE_model is True:
 							args.append([ts, te, up, lo, m, 'm', cov_par[1],W_shape,q_rates[1]])
 			
-					if hasFoundPyRateC:
+					if hasFoundPyRateC and model_cov==0:
 						likBDtemp = PyRateC_BD_partial_lik(ts, te, timesL, timesM, L, M)
 
 						# Check correctness of results by comparing with python version
@@ -2258,7 +2295,7 @@ def MCMC(all_arg):
 						m = M[temp_m]
 						args.append([ts, te, up, lo, m, 'm', cov_par[1],1])			
 					
-					if hasFoundPyRateC:
+					if hasFoundPyRateC and model_cov==0:
 						likBDtemp = PyRateC_BD_partial_lik(ts, te, timesL, timesM, L, M)
 
 						# Check correctness of results by comparing with python version
@@ -2341,13 +2378,23 @@ def MCMC(all_arg):
 		maxFA = max(FA)
 		prior += prior_root_age(maxTs,maxFA,maxFA)
 		
+		# add tree likelihood
+		if analyze_tree ==1:
+			r_tree, h1 = update_multiplier_proposal(r_treeA,1.1) # net diversification
+			m_tree, h2 = update_multiplier_proposal(m_treeA,1.1) # extinction rate
+			l_tree = m_tree+r_tree
+			tree_lik = treeBDlikelihood(tree_node_ages,l_tree,m_tree,rho=tree_sampling_frac)
+			hasting = hasting+h1+h2
+		else: 
+			tree_lik = 0
+		
 		if temperature==1: 
 			tempMC3=1./(1+n_proc*temp_pr)
 			lik_alter=lik
 		else: 
 			tempMC3=1
 			lik_alter=(sum(lik_fossil)+ PoiD_const) + (sum(likBDtemp)+ PoiD_const)*temperature
-		Post=lik_alter+prior
+		Post=lik_alter+prior+tree_lik
 		if it==0: PostA=Post
 		if it>0 and (it-burnin) % (I_effective/len(temperatures)) == 0 and it>burnin or it==I-1: 
 			PostA=Post # when temperature changes always accept first iteration
@@ -2370,6 +2417,11 @@ def MCMC(all_arg):
 				lik_fossilA=lik_fossil
 				cov_parA=cov_par
 				W_shapeA=W_shape
+				tree_likA = tree_lik
+				if analyze_tree ==1:
+					r_treeA = r_tree
+					m_treeA = m_tree
+					
 			
 		if it % print_freq ==0 or it==burnin:
 			try: l=[round(y, 2) for y in [PostA, likA, priorA, SA]]
@@ -2397,6 +2449,9 @@ def MCMC(all_arg):
 				else: 
 					print "\tsp.rates:", LA
 					print "\tex.rates:", MA
+				if analyze_tree ==1:
+					print np.array([tree_likA, r_treeA+m_treeA, m_treeA])
+				
 				if est_hyperP is True: print "\thyper.prior.par", hyperPA
 
 				
@@ -2436,6 +2491,9 @@ def MCMC(all_arg):
 				if fix_Shift== False:
 					log_state += list(timesLA[1:-1])
 					log_state += list(timesMA[1:-1])
+				if analyze_tree ==1:
+					log_state += [tree_likA, r_treeA+m_treeA, m_treeA]
+				
 			elif TDI == 2: # BD-MCMC
 				log_state+= [len(LA), len(MA), s_max,min(teA)]
 			elif TDI == 3: # DPP
@@ -2534,6 +2592,9 @@ p.add_argument('-filter',     type=float,help="Filter lineages with all occurren
 p.add_argument('-filter_taxa',type=str,help="Filter lineages within list (drop all others) ",default="", metavar="taxa_file")
 p.add_argument('-initDiv',    type=int, help='Number of initial lineages (option only available with -d SE_table or -fixSE)', default=0, metavar=0)
 p.add_argument('-PPmodeltest',help='Likelihood testing among preservation models', action='store_true', default=False)
+# phylo test
+p.add_argument('-tree',       type=str,help="Tree file (NEXUS format)",default="", metavar="")
+p.add_argument('-sampling',   type=float,help="Taxon sampling (phylogeny)",default=1., metavar=1.)
 
 # PLOTS AND OUTPUT
 p.add_argument('-plot',       metavar='<input file>', type=str,help="RTT plot (type 1): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
@@ -2607,6 +2668,7 @@ p.add_argument('-qShift',  metavar='<input file>', type=str,help="Poisson proces
 p.add_argument('-fixSE',   metavar='<input file>', type=str,help="Input mcmc.log file",default="")
 p.add_argument('-ADE',     type=int, help='ADE model: 0) no age dependence 1) estimated age dep', default=0, metavar=0)
 p.add_argument('-discrete',help='Discrete-trait-dependent BD model (requires -trait_file)', action='store_true', default=False)
+p.add_argument('-twotrait',help='Discrete-trait-dependent extinction + Covar', action='store_true', default=False)
 p.add_argument('-bound',   type=float, help='Bounded BD model', default=[np.inf, 0], metavar=0, nargs=2)
 p.add_argument('-edgeShift',type=float, help='Fixed times of shifts at the edges (when -mL/-mM > 3)', default=[np.inf, 0], metavar=0, nargs=2)
 
@@ -3075,6 +3137,9 @@ if args.bound[0] != np.inf or args.bound[1] != 0:
 boundMax = max(args.bound) # if not specified it is set to Inf
 boundMin = min(args.bound) # if not specified it is set to 0
 
+twotraitBD = False
+if args.twotrait is True:
+	twotraitBD = True
 
 # Get trait values (COVAR and DISCRETE models)
 if model_cov>=1 or useDiscreteTraitModel is True or useBounded_BD is True:
@@ -3129,6 +3194,12 @@ if model_cov>=1 or useDiscreteTraitModel is True or useBounded_BD is True:
 			
 		else:             # Trait data from .py file
 			trait_values=input_data_module.get_continuous(max(args.trait-1,0))
+		
+		# 
+		if twotraitBD is True:
+			trait_values=input_data_module.get_continuous(0)
+			discrete_trait=input_data_module.get_continuous(1)
+		
 		if model_cov>=1:
 			if args.logT==0: pass
 			elif args.logT==1: trait_values = log(trait_values)
@@ -3168,8 +3239,9 @@ if model_cov>=1 or useDiscreteTraitModel is True or useBounded_BD is True:
 		#print con_trait
 		if est_COVAR_prior is True: out_name += "_COVhp"
 		else: out_name += "_COV"
-	elif useDiscreteTraitModel is True: 
-		con_trait = trait_values
+	if useDiscreteTraitModel is True: 
+		if twotraitBD is False: 
+			discrete_trait = trait_values
 		ind_nan_trait= (np.isfinite(trait_values)==False).nonzero()
 		regression_trait= "\n\nDiscrete trait data for %s of %s taxa" \
 		% (len(trait_values)-len(ind_nan_trait[0]), len(trait_values))
@@ -3178,15 +3250,15 @@ if model_cov>=1 or useDiscreteTraitModel is True or useBounded_BD is True:
 		
 
 if useDiscreteTraitModel is True:
-	ind_trait_species = con_trait
+	ind_trait_species = discrete_trait
 	ind_trait_species[np.isnan(ind_trait_species)]=np.nanmax(ind_trait_species)+1
 	ind_trait_species = ind_trait_species.astype(int)
-	len_trait_values = len(np.unique(con_trait)) 
+	len_trait_values = len(np.unique(discrete_trait)) 
 	lengths_B_events=[]
 	lengths_D_events=[]
 	for i in range(len_trait_values):
-		lengths_B_events.append(len(con_trait[con_trait==i]))
-		lo_temp = LO[con_trait==i]
+		lengths_B_events.append(len(discrete_trait[discrete_trait==i]))
+		lo_temp = LO[discrete_trait==i]
 		lengths_D_events.append(len(lo_temp[lo_temp>0]))
 	lengths_B_events = np.array([sum(lengths_B_events)]) # ASSUME CONST BIRTH RATE
 	#lengths_B_events = np.array(lengths_D_events)
@@ -3346,6 +3418,30 @@ if use_poiD is True:
 		BPD_partial_lik = BD_partial_lik
 		PoiD_const = 0
 
+#### ANALYZE PHYLOGENY
+analyze_tree = 0
+if args.tree != "":
+	try:
+		import dendropy
+	except:
+		sys.exit("Library 'dendropy' not found!\n")
+	try:
+		tree_list = dendropy.TreeList.get_from_path(args.tree, schema="nexus", preserve_underscores=True) 
+		tree=tree_list[0]
+		tree.resolve_polytomies(update_bipartitions=True)
+		#tree_node_ages = sort(tree.calc_node_ages(ultrametricity_precision=0.001,is_return_internal_node_ages_only=True))[::-1]
+		tree.calc_node_ages(ultrametricity_precision=0.001) # 
+		nd= tree.ageorder_node_iter(include_leaves=False, filter_fn=None, descending=True)
+		ages=list()
+		for n, node in enumerate(nd): ages.append(node.age)
+		tree_node_ages = sort(np.array(ages))[::-1]
+	except:
+		sys.exit("Tree format not recognized (NEXUS file required). \n")
+	tree_sampling_frac = args.sampling
+	analyze_tree = 1
+	TDI = 0
+
+
 
 
 # GET DATA SUMMARY INFO
@@ -3500,6 +3596,10 @@ if TDI<2:
 	if fix_Shift== False:
 		for i in range(1,time_framesL): head += "shift_sp_%s\t" % (i)
 		for i in range(1,time_framesM): head += "shift_ex_%s\t" % (i)
+	
+	if analyze_tree ==1:
+		head += "tree_lik\ttree_sp\ttree_ex\t"
+
 elif TDI == 2: head+="k_birth\tk_death\troot_age\tdeath_age\t"
 elif TDI == 3: head+="k_birth\tk_death\tDPP_alpha_L\tDPP_alpha_M\troot_age\tdeath_age\t"
 elif TDI == 4: head+="k_birth\tk_death\tRJ_hp\troot_age\tdeath_age\t"
