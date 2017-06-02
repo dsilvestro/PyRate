@@ -2025,9 +2025,10 @@ def MCMC(all_arg):
 		elif rr<f_update_q: # q/alpha
 			q_rates=np.zeros(len(q_ratesA))+q_ratesA
 			if multiHPP is True: 
-				q_rates, hasting = update_q_multiplier(q_ratesA,d=1.1,f=0.5)
-				if np.random.random()>.5 and argsG is True:
-					alpha_pp_gamma, hasting = update_multiplier_proposal(alpha_pp_gammaA,d2[0]) # shape prm Gamma
+				q_rates, hasting = update_q_multiplier(q_ratesA,d=d2[1],f=0.5)
+				if np.random.random()> 1./len(q_rates) and argsG is True:
+					alpha_pp_gamma, hasting2 = update_multiplier_proposal(alpha_pp_gammaA,d2[0]) # shape prm Gamma
+					hasting += hasting2
 			elif np.random.random()>.5 and argsG is True: 
 				q_rates[0], hasting=update_multiplier_proposal(q_ratesA[0],d2[0]) # shape prm Gamma
 			else:
@@ -2676,13 +2677,13 @@ p.add_argument('-edgeShift',type=float, help='Fixed times of shifts at the edges
 # TUNING
 p.add_argument('-tT',     type=float, help='Tuning - window size (ts, te)', default=1., metavar=1.)
 p.add_argument('-nT',     type=int,   help='Tuning - max number updated values (ts, te)', default=5, metavar=5)
-p.add_argument('-tQ',     type=float, help='Tuning - window sizes (q/alpha)', default=[1.2,1.2], nargs=2)
+p.add_argument('-tQ',     type=float, help='Tuning - window sizes (q/alpha: 1.2 1.2)', default=[1.2,1.2], nargs=2)
 p.add_argument('-tR',     type=float, help='Tuning - window size (rates)', default=1.2, metavar=1.2)
 p.add_argument('-tS',     type=float, help='Tuning - window size (time of shift)', default=1., metavar=1.)
 p.add_argument('-fR',     type=float, help='Tuning - fraction of updated values (rates)', default=1., metavar=1.)
 p.add_argument('-fS',     type=float, help='Tuning - fraction of updated values (shifts)', default=.7, metavar=.7)
 p.add_argument('-tC',     type=float, help='Tuning - window sizes cov parameters (l,m,q)', default=[.2, .2, .15], nargs=3)
-p.add_argument('-fU',     type=float, help='Tuning - update freq. (q/alpha,l/m,cov)', default=[.02, .18, .08], nargs=3)
+p.add_argument('-fU',     type=float, help='Tuning - update freq. (q: .02, l/m: .18, cov: .08)', default=[.02, .18, .08], nargs=3)
 p.add_argument('-multiR', type=int,   help='Tuning - Proposals for l/m: 0) sliding win 1) muliplier ', default=1, metavar=1)
 p.add_argument('-tHP',    type=float, help='Tuning - window sizes hyperpriors on l and m', default=[1.2, 1.2], nargs=2)
 
@@ -2781,7 +2782,7 @@ if multiR==0:
 	update_rates =  update_rates_sliding_win
 else:
 	update_rates = update_rates_multiplier
-	d3 = max(args.tR,1.05) # avoid win size < 1
+	d3 = max(args.tR,1.01) # avoid win size < 1
 
 
 if args.ginput != "" or args.check_names != "" or args.reduceLog != "":
