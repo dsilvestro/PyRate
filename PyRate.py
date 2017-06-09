@@ -1101,7 +1101,6 @@ def BD_partial_lik(arg):
 		lik= log(rate)*no_events -rate*sum(n_S) #log(rate)*len(i_events) +sum(-rate*n_S)
 	return lik
 
-
 def BD_partial_lik_bounded(arg):
 	[ts,te,up,lo,rate,par, cov_par,n_frames_L]=arg
 	# indexes of the species within time frame
@@ -1858,13 +1857,15 @@ def get_init_values(mcmc_log_file,taxa_names):
 			mu  = tbl[last_row,m_index]
 			hyp = tbl[last_row,hyp_index]
 		except: 
-			lam = np.array([float(len(ts))/(ts-te)      ])    # const rate ML estimator
-			mu  = np.array([float(len(te[te>0]))/(ts-te)])    # const rate ML estimator
+			lam = np.array([float(len(ts))/sum(ts-te)      ])    # const rate ML estimator
+			mu  = np.array([float(len(te[te>0]))/sum(ts-te)])    # const rate ML estimator
 			hyp = np.ones(2)	
 	else:
-		lam = np.array([float(len(ts))/(ts-te)      ])    # const rate ML estimator
-		mu  = np.array([float(len(te[te>0]))/(ts-te)])    # const rate ML estimator
+		lam = np.array([float(len(ts))/sum(ts-te)      ])    # const rate ML estimator
+		mu  = np.array([float(len(te[te>0]))/sum(ts-te)])    # const rate ML estimator
 		hyp = np.ones(2)	
+	#print 
+	
 	return [ts,te,q_rates,lam,mu,hyp,alpha_pp]
 
 
@@ -1929,7 +1930,12 @@ def MCMC(all_arg):
 		alpha_pp_gammaA = 1.
 		if multiHPP is True: # init multiple q rates
 			q_ratesA = np.zeros(time_framesQ)+q_ratesA[1]
-		if restore_chain is True: q_ratesA = restore_init_values[2]
+		if restore_chain is True: 
+			q_ratesA = restore_init_values[2]
+			if len(q_ratesA) != time_framesQ:
+				q_ratesA=np.zeros(time_framesQ)+mean(q_ratesA)
+		print q_ratesA, time_framesQ
+			
 		
 		if est_COVAR_prior is True: 
 			covar_prior = 1.
@@ -2826,7 +2832,7 @@ else: est_COVAR_prior = False
 if args.fixShift != "" or TDI==3:     # fix times of rate shift or DPP
 	try: 
 		try: fixed_times_of_shift=sort(np.loadtxt(args.fixShift))[::-1]
-		except(IndexError): fixed_times_of_shift=np.array([np.loadtxt(args.fixShift)])
+		except: fixed_times_of_shift=np.array([np.loadtxt(args.fixShift)])
 		f_shift=0
 		time_framesL=len(fixed_times_of_shift)+1
 		time_framesM=len(fixed_times_of_shift)+1
