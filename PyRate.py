@@ -1933,9 +1933,7 @@ def MCMC(all_arg):
 		if restore_chain is True: 
 			q_ratesA = restore_init_values[2]
 			if len(q_ratesA) != time_framesQ:
-				q_ratesA=np.zeros(time_framesQ)+mean(q_ratesA)
-		print q_ratesA, time_framesQ
-			
+				q_ratesA=np.zeros(time_framesQ)+mean(q_ratesA)			
 		
 		if est_COVAR_prior is True: 
 			covar_prior = 1.
