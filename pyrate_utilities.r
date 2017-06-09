@@ -25,6 +25,7 @@ if (replicates > 1){
 }
 
 if (any(is.na(dat1[,1:4]))){
+	print(c(which(is.na(dat1[,1])),which(is.na(dat1[,2])),which(is.na(dat1[,3])),which(is.na(dat1[,4]))  )   )
 	stop("the input file contains missing data in species names, status or ages)\n")
 }
 
