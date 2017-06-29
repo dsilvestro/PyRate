@@ -695,7 +695,10 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 	
 	with open(outfile, 'wb') as f:
 		f.write(head)
-		np.savetxt(f, comb, delimiter="\t",fmt=fmt_list,newline="\r") #)
+		if platform.system() == "Windows" or platform.system() == "Microsoft":
+			np.savetxt(f, comb, delimiter="\t",fmt=fmt_list,newline="\r") #)
+		else:
+			np.savetxt(f, comb, delimiter="\t",fmt=fmt_list,newline="\n") #)
 
 ########################## INITIALIZE MCMC ##############################
 def get_gamma_rates(a):
@@ -1868,7 +1871,6 @@ def get_init_values(mcmc_log_file,taxa_names):
 	
 	return [ts,te,q_rates,lam,mu,hyp,alpha_pp]
 
-
 ########################## MCMC #########################################
 
 def MCMC(all_arg):
@@ -1953,11 +1955,11 @@ def MCMC(all_arg):
 		if analyze_tree ==1:
 			r_treeA = np.random.random()
 			m_treeA = np.random.random()
-		
 
 	else: # restore values
 		[itt, n_proc_,PostA, likA, priorA,tsA,teA,timesLA,timesMA,LA,MA,q_ratesA, cov_parA, lik_fossilA,likBDtempA]=arg
 		SA=sum(tsA-teA)
+		
 	# start threads
 	if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
 	if frac1>=0 and num_processes_ts>0: pool_ts = multiprocessing.Pool(num_processes_ts) # update ts, te
@@ -2568,7 +2570,6 @@ def marginal_likelihood(marginal_file, l, t):
 	o= "\n Marginal likelihood: %s\n\nlogL: %s\nbeta: %s" % (mL,l,t)
 	marginal_file.writelines(o)
 	marginal_file.close()
-
 
 ########################## PARSE ARGUMENTS #######################################
 self_path=os.getcwd()
@@ -3374,7 +3375,7 @@ if use_ADE_model is True:
 if args.qShift != "":
 	try: 
 		try: times_q_shift=np.sort(np.loadtxt(args.qShift))[::-1]
-		except(IndexError): times_q_shift=np.array([np.loadtxt(args.qShift)])		
+		except: times_q_shift=np.array([np.loadtxt(args.qShift)])		
 		# filter qShift times based on observed time frame 
 		times_q_shift=times_q_shift[times_q_shift<max(FA)]
 		times_q_shift=list(times_q_shift[times_q_shift>min(LO)])
