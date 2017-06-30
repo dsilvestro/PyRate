@@ -265,18 +265,18 @@ if summary_file != "":
 	hpd_array_L= np.zeros((2,np.shape(marginal_L)[1]))
 	hpd_array_M= np.zeros((2,np.shape(marginal_L)[1]))
 	for i in range(np.shape(marginal_L)[1]):
-		l_vec[i] = np.mean(marginal_L[:,i])
-		m_vec[i] = np.mean(marginal_M[:,i])
+		l_vec[i] = np.median(marginal_L[:,i])
+		m_vec[i] = np.median(marginal_M[:,i])
 		hpd_array_L[:,i] = calcHPD(marginal_L[:,i])
 		hpd_array_M[:,i] = calcHPD(marginal_M[:,i])
 	print "done"	
 	# write R file
 	print "\ngenerating R file...",
-	out="%s/%s_RTT.r" % (output_wd,name_file)
+	out="%s/%s_%s_RTT.r" % (output_wd,name_file,head_cov_file[1])
 	newfile = open(out, "wb") 	
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		r_script= "\n\npdf(file='%s\%s_RTT.pdf',width=0.6*20, height=0.6*20)\nlibrary(scales)\n" % (output_wd,name_file)
-	else: r_script= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*20, height=0.6*20)\nlibrary(scales)\n" % (output_wd,name_file)
+		r_script= "\n\npdf(file='%s\%s_%s_RTT.pdf',width=0.6*20, height=0.6*20)\nlibrary(scales)\n" % (output_wd,name_file,head_cov_file[1])
+	else: r_script= "\n\npdf(file='%s/%s_%s_RTT.pdf',width=0.6*20, height=0.6*20)\nlibrary(scales)\n" % (output_wd,name_file,head_cov_file[1])
 
 	r_script += print_R_vec("\n\nt",  age_vec)
 	r_script += "\ntime = -t"
@@ -305,9 +305,9 @@ if summary_file != "":
 	newfile.close()
 	print "\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, output_wd)
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		cmd="cd %s; Rscript %s\%s_RTT.r" % (output_wd,output_wd,name_file)
+		cmd="cd %s; Rscript %s\%s_%s_RTT.r" % (output_wd,output_wd,name_file,head_cov_file[1])
 	else: 
-		cmd="cd %s; Rscript %s/%s_RTT.r" % (output_wd,output_wd,name_file)
+		cmd="cd %s; Rscript %s/%s_%s_RTT.r" % (output_wd,output_wd,name_file,head_cov_file[1])
 	os.system(cmd)
 	print "done\n"
 	
