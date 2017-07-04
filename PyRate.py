@@ -513,8 +513,6 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0, plot_type=
 	os.system(cmd)
 	print "done\n"
 
-
-
 ########################## PLOT TS/TE STAT ##############################
 def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale):
 	step_size=int(step_size)
@@ -1625,6 +1623,34 @@ def random_choice(vector):
 	ind = np.random.choice(range(len(vector)))
 	return [vector[ind], ind]
 
+def add_DoubleShift_RJ_rand_gamma(rates,times):
+	r_time, r_time_ind = random_choice(np.diff(times))
+	delta_t_prime      = np.random.uniform(0,r_time,2)
+	t_prime            = times[r_time_ind] + delta_t_prime
+	times_prime        = np.sort(np.array(list(times)+list(t_prime)))[::-1]
+	a,b                = shape_gamma_RJ,rate_gamma_RJ
+	rate_prime         = np.random.gamma(a,scale=1./b,size=2)
+	log_q_prob         = -sum(prior_gamma(rate_prime,a,b)) +log(abs(r_time)) # prob latent parameters: Gamma pdf, - (Uniform pdf )
+	#print "PROB Q", prior_gamma(rate_prime,a,b), -log(1/abs(r_time))
+	rates_prime        = np.insert(rates,r_time_ind+1,rate_prime)
+	Jacobian           = 0 # log(1)
+	return rates_prime,times_prime,log_q_prob+Jacobian
+
+def remove_DoubleShift_RJ_rand_gamma(rates,times):
+	rm_shift_ind  = np.random.choice(range(2,len(times)-1))
+	rm_shift_ind  = np.array([rm_shift_ind-1,rm_shift_ind])
+	rm_shift_time = times[rm_shift_ind]
+	dT            = abs(times[rm_shift_ind[1]+1]-times[rm_shift_ind[0]-1]) # if rm t_i: U[t_i-1, t_i+1]
+	times_prime   = np.setdiff1d(times, rm_shift_time)[::-1]
+	rm_rate       = rates[rm_shift_ind] 
+	a,b           = shape_gamma_RJ,rate_gamma_RJ
+	log_q_prob    = sum(prior_gamma(rm_rate,a,b)) -log(dT) # log_q_prob_rm = 1/(log_q_prob_add)
+	rates_prime   = np.delete(rates,rm_shift_ind)
+	Jacobian      = 0 # log(1)
+	return rates_prime,times_prime,log_q_prob+Jacobian
+
+
+
 def add_shift_RJ_rand_gamma(rates,times):
 	r_time, r_time_ind = random_choice(np.diff(times))
 	delta_t_prime      = np.random.uniform(0,r_time)
@@ -1699,20 +1725,36 @@ def remove_shift_RJ_weighted_mean(rates,times):
 	
 def RJMCMC(arg):
 	[L,M, timesL, timesM]=arg
-	r=np.random.random(2)
+	r=np.random.random(3)
 	newL,newtimesL,log_q_probL = L,timesL,0
 	newM,newtimesM,log_q_probM = M,timesM,0
 	
-	if np.random.random()>0.5:
+	if r[0]>0.5:
 		# ADD/REMOVE SHIFT LAMBDA
-		if r[0]>0.5: newL,newtimesL,log_q_probL = add_shift_RJ(L,timesL)
+		if r[1]>0.5: 
+			if r[2]>0.5 or allow_double_move==0:
+				newL,newtimesL,log_q_probL = add_shift_RJ(L,timesL)
+			else: 
+				newL,newtimesL,log_q_probL = add_DoubleShift_RJ_rand_gamma(L,timesL)
 		# if 1-rate model this won't do anything, keeping the frequency of add/remove equal
-		elif len(L)>1: newL,newtimesL,log_q_probL = remove_shift_RJ(L,timesL) 
+		elif len(L)>1: 
+			if r[2]>0.5 or allow_double_move==0:
+				newL,newtimesL,log_q_probL = remove_shift_RJ(L,timesL) 
+			elif len(L)>2:
+				newL,newtimesL,log_q_probL = remove_DoubleShift_RJ_rand_gamma(L,timesL) 
 	else:
-		# ADD/REMOVE SHIFT LAMBDA
-		if r[1]>0.5: newM,newtimesM,log_q_probM = add_shift_RJ(M,timesM)
+		# ADD/REMOVE SHIFT MU
+		if r[1]>0.5: 
+			if r[2]>0.5 or allow_double_move==0:
+				newM,newtimesM,log_q_probM = add_shift_RJ(M,timesM)
+			else: 
+				newM,newtimesM,log_q_probM = add_DoubleShift_RJ_rand_gamma(M,timesM)
 		# if 1-rate model this won't do anything, keeping the frequency of add/remove equal
-		elif len(M)>1: newM,newtimesM,log_q_probM = remove_shift_RJ(M,timesM) 
+		elif len(M)>1: 
+			if r[2]>0.5 or allow_double_move==0:
+				newM,newtimesM,log_q_probM = remove_shift_RJ(M,timesM) 
+			elif len(M)>2:
+				newM,newtimesM,log_q_probM = remove_DoubleShift_RJ_rand_gamma(M,timesM)
 	
 	return newL,newtimesL,newM,newtimesM,log_q_probL+log_q_probM
 
@@ -2644,10 +2686,11 @@ p.add_argument('-dpp_hp',   type=float, help='DPP - shape of gamma HP on concent
 p.add_argument('-dpp_eK',   type=float, help='DPP - expected number of rate categories', default=2., metavar=2.)
 p.add_argument('-dpp_grid', type=float, help='DPP - size of time bins',default=1.5, metavar=1.5)
 p.add_argument('-dpp_nB',   type=float, help='DPP - number of time bins',default=0, metavar=0)
-p.add_argument('-rj_pr',   type=float, help='RJ - proposal (0: Gamma, 1: Weighted mean) ', default=0, metavar=0)
+p.add_argument('-rj_pr',   type=float, help='RJ - proposal (0: Gamma, 1: Weighted mean) ', default=1, metavar=1)
 p.add_argument('-rj_Ga',   type=float, help='RJ - shape of gamma proposal (if rj_pr 0)', default=1.5, metavar=1.5)
 p.add_argument('-rj_Gb',   type=float, help='RJ - rate of gamma proposal (if rj_pr 0)',  default=3., metavar=3.)
 p.add_argument('-rj_beta', type=float, help='RJ - shape of beta multiplier (if rj_pr 1)',default=10, metavar=10)
+p.add_argument('-rj_dm', type=float,   help='RJ - allow double moves (0: no, 1: yes)',default=0, metavar=0)
 
 # PRIORS
 p.add_argument('-pL',      type=float, help='Prior - speciation rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.1, 1.1], metavar=1.1, nargs=2)
@@ -2762,7 +2805,7 @@ if addrm_proposal_RJ == 0:
 elif addrm_proposal_RJ == 1: 	
 	add_shift_RJ    = add_shift_RJ_weighted_mean
 	remove_shift_RJ = remove_shift_RJ_weighted_mean
-	
+allow_double_move = args.rj_dm	
 
 
 
