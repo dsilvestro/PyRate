@@ -103,8 +103,10 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 			#if count==0:
 			head = next(open(f)).split()
 			w=[x for x in head if 'TS' in x]
+			#w=[x for x in head if 'ts_' in x]
 			ind_ts0 = head.index(w[0])
 			y=[x for x in head if 'TE' in x]
+			#y=[x for x in head if 'te_' in x]
 			ind_te0 = head.index(y[0])
 			print len(w), "species", np.shape(t_file)
 			j=0
@@ -216,7 +218,7 @@ def calc_marginal_likelihood(infile,burnin,extract_mcmc=1):
 	else: print "found", len(files), "log files...\n"	
 	out_file="%s/marginal_likelihoods.txt" % (infile)
 	newfile =open(out_file,'wb')
-	tbl_header = "file_name\treplicate\tmodel"
+	tbl_header = "file_name\tmodel\tdf"
 	for f in files:
 		try: 
 		#if 2>1:
@@ -225,7 +227,10 @@ def calc_marginal_likelihood(infile,burnin,extract_mcmc=1):
 			name_file = os.path.splitext(input_file)[0]
 			try: replicate = int(name_file.split('_')[-5])
 			except: replicate = 0
-			model = name_file.split('_')[-1]
+			#model = name_file.split('_')[-1]
+			if "exp.log" in f: model = "Exponential"
+			else: model = "Linear"
+			
 			head = np.array(next(open(f)).split()) # should be faster
 			head_l = list(head)
 			
@@ -262,7 +267,7 @@ def calc_marginal_likelihood(infile,burnin,extract_mcmc=1):
 				for i in range(len(l)-1): mL+=((l[i]+l[i+1])/2.)*(x[i]-x[i+1]) # Beerli and Palczewski 2010
 				#ml_str="\n%s\t%s\t%s\t%s%s%s" % (name_file,round(mL,3),replicate,model    ,l_str,s_str)
 				n_categories = len(x)
-				if like_index == min(L_index): ml_str="\n%s\t%s\t%s\t%s\t%s" % (name_file,replicate,model,n_categories,round(mL,3))
+				if like_index == min(L_index): ml_str="\n%s\t%s\t%s\t%s" % (name_file,model,n_categories,round(mL,3))
 				else: ml_str += "\t%s" % (round(mL,3))
 			newfile.writelines(ml_str)
 			
@@ -423,7 +428,7 @@ def get_score(a,b,max_length_diff):
 	return score, s_diff
 
 def check_taxa_names(SpeciesList_file):
-	w=np.genfromtxt(SpeciesList_file, dtype=str, skiprows=1)[:,0]
+	w=np.genfromtxt(SpeciesList_file, dtype=str)[:,0]
 	words = np.unique(w)
 	print "\nTaxa names with possible misspells (if any) will be listed below..."
 	word_combinations = itertools.combinations(words,2)
@@ -443,7 +448,7 @@ def check_taxa_names(SpeciesList_file):
 		b = taxon2.split("_")[0]
 		score_genus, diff_genus = get_score(a,b,max_length_diff)
 		# SPECIES
-		if len(taxon1.split("_")[0])>1 and len(taxon2.split("_")[0])>1:
+		if len(taxon1.split("_"))>1 and len(taxon2.split("_"))>1:
 			a = taxon1.split("_")[1]
 			b = taxon2.split("_")[1]
 			score_species, diff_species = get_score(a,b,max_length_diff)
