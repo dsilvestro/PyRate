@@ -55,6 +55,7 @@ p.add_argument('-ginput', type=str,help='generate input file from *mcmc.log', de
 p.add_argument('-tag', metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted",default="")
 p.add_argument('-mL',  type=str, help='calculate marginal likelihood',  default="", metavar="<path_to_log_files>")
 p.add_argument('-stimes',  type=float, help='shift times',  default=[], metavar=0, nargs='+') 
+p.add_argument('-slice',  type=float, help='ages of the time slice of interest (23 -> 23-0; 23 2 -> 23-2)',  default=[], metavar=0, nargs="+") 
 p.add_argument('-extract_mcmc', type=int, help='Extract "cold" chain in separate log file', default=1, metavar=1)
 p.add_argument("-DD",  help='Diversity Dependent Model', action='store_true', default=False)
 p.add_argument('-plot', type=str, help='Log file', default="", metavar="")
@@ -72,6 +73,13 @@ rescale_factor=args.r
 focus_clade=args.clade
 win_size=args.w
 s_times=np.sort(np.array(args.stimes))[::-1]
+if len(args.slice)>0:
+	index_slice_of_interest = 1
+	s_times=np.sort(np.array(args.slice))[::-1]
+	run_single_slice = 1
+else: 
+	run_single_slice = 0
+
 equal_g = args.equal_G
 
 if args.ginput != "":
@@ -198,6 +206,12 @@ Temp_at_events=scaled_temp
 #	print "%s\t%s" % (round(all_events[i],2),round(Temp_at_events[i],2))
 #quit()
 
+
+if run_single_slice == 1: # values rescaled between 0 and 1 within the slice
+	#print max(Temp_values)-min(Temp_values)
+	temp_values_slice= Temp_at_events[shift_ind==index_slice_of_interest] 
+	temp_values_slice= (temp_values_slice-temp_values_slice[0]) / (max(temp_values_slice)-min(temp_values_slice)) 
+	#print temp_values_slice, max(temp_values_slice)-min(temp_values_slice)
 
 
 for i in range(len(all_events)):
@@ -451,19 +465,27 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 	#__       +sum(log(m_e1a))-sum( abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(Dtraj[:,0][1:len(l_at_events)])) 
 
 	# partial likelihoods
-	lik_p=np.zeros(n_time_bins*2)
-	for i in range(n_time_bins):
-		v_1 = V1[i]
-		v_2 = V2[i]
-		l_s1a=l_at_events[V3[i]]
-		lik_p[i] = sum(log(l_s1a)) -sum( abs_diff[v_1] * l_at_events[v_1] * (Dtraj[v_2,0])) 
+	if run_single_slice == 0:
+		lik_p=np.zeros(n_time_bins*2)
+		for i in range(n_time_bins):
+			v_1 = V1[i]
+			v_2 = V2[i]
+			l_s1a=l_at_events[V3[i]]
+			lik_p[i] = sum(log(l_s1a)) -sum( abs_diff[v_1] * l_at_events[v_1] * (Dtraj[v_2,0])) 
 
-	for i in range(n_time_bins):
-		v_1 = V1[i]
-		v_2 = V2[i]
-		m_e1a=m_at_events[V4[i]]
-		lik_p[i+n_time_bins] = sum(log(m_e1a)) -sum( abs_diff[v_1] * m_at_events[v_1] * (Dtraj[v_2,0])) 
-		           
+		for i in range(n_time_bins):
+			v_1 = V1[i]
+			v_2 = V2[i]
+			m_e1a=m_at_events[V4[i]]
+			lik_p[i+n_time_bins] = sum(log(m_e1a)) -sum( abs_diff[v_1] * m_at_events[v_1] * (Dtraj[v_2,0])) 
+	else:
+		lik_p=np.zeros(n_time_bins*2)           
+		v_1 = V1[index_slice_of_interest]
+		v_2 = V2[index_slice_of_interest]
+		l_s1a=l_at_events[V3[index_slice_of_interest]]
+		lik_p[index_slice_of_interest] = sum(log(l_s1a)) -sum( abs_diff[v_1] * l_at_events[v_1] * (Dtraj[v_2,0])) 
+		m_e1a=m_at_events[V4[index_slice_of_interest]]
+		lik_p[index_slice_of_interest+n_time_bins] = sum(log(m_e1a)) -sum( abs_diff[v_1] * m_at_events[v_1] * (Dtraj[v_2,0])) 
 	
 	# Check likelihoods  
 	#__ if iteration % 100 ==0:
