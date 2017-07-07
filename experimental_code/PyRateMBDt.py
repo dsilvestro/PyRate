@@ -47,14 +47,9 @@ p.add_argument('-j', type=int,   help='replicate', default=0, metavar=0)
 p.add_argument('-c', type=int, help='clade', default=0, metavar=0)
 p.add_argument('-b', type=int, help='burnin (number of generations)', default=1, metavar=1)
 p.add_argument('-r', type=float, help='rescale values (0 to scale in [0,1], 0.1 to reduce range 10x, 1 to leave unchanged)', default=0, metavar=0)
-p.add_argument('-plot', type=str, help='Log file', default="", metavar="")
-p.add_argument('-plot2', type=str, help='Log file', default="", metavar="")
+p.add_argument('-plot',  type=str, help='Plot rates-through-time (Log file)', default="", metavar="")
 p.add_argument('-var', type=str, help='Directory to continuous variables (takes all files)', default="", metavar="")
 p.add_argument('-T', type=float, help='Max age', default=-1, metavar=-1)
-
-
-#p.add_argument('-T', type=float, help='Max time slice', default=np.inf, metavar=np.inf)
-
 
 args = p.parse_args()
 
@@ -75,7 +70,7 @@ clade_ID=clade_ID.astype(int)
 ts=t_file[:,2+2*args.j]
 te=t_file[:,3+2*args.j]
 
-if args.plot2 != "":
+if args.plot != "":
 	j = np.arange((np.shape(t_file)[1]-2)/2)
 	ts_all=t_file[:,2+2*j]
 	te_all=t_file[:,3+2*j]
@@ -95,7 +90,6 @@ fixed_focal_clade = args.c
 clade_name = "_c%s" % (fixed_focal_clade)
 
 burnin = args.b
-beta_value = "_hspCS"
 
 #print len(ts),len(te)
 #### ADD DATA FROM FILES
@@ -288,36 +282,35 @@ def sample_tau_mod(lam,beta,tau):
 #####
 scaling =0
 
-if scaling==0:	
+if scaling==0: # All trajectories are scaled to range between 0 and 1
 	scale_factor = 1.
-	MAX_G = np.inf #0.30/scale_factor # loc_shrinkage
+	scale_factor = 1./np.max(Dtraj, axis=0)
+	maxG = np.inf # boundaries to loc_shrinkage
 	if corr_model==0: trasfRate_general = trasfMultiRateND 
 	elif corr_model==1: trasfRate_general = trasfMultiRateND_exp
 elif scaling == 1:
 	scale_factor = 1./np.max(Dtraj)
-	MAX_G = 0.30/scale_factor
+	maxG = 0.30/scale_factor
 	trasfRate_general = trasfMultiRate
 elif scaling ==2:
 	scale_factor = 1./np.max(Dtraj, axis=0)
-	MAX_G = 10.
+	maxG = 10.
 	trasfRate_general = trasfMultiRateCladeScaling
 
-# print scale_factor, np.max(Dtraj)
-
-
-
+Dtraj = Dtraj*scale_factor
+#print scale_factor, np.max(Dtraj), np.max(Dtraj, axis=0)
 
 
 GarrayA=init_Garray(n_clades) # 3d array so:
-                                 # Garray[i,:,:] is the 2d G for one clade
-			         # Garray[0,0,:] is G_lambda, Garray[0,1,:] is G_mu for clade 0
-if plot_RTT is True or plot_RTT2 is True: 
+                              # Garray[i,:,:] is the 2d G for one clade
+			            # Garray[0,0,:] is G_lambda, Garray[0,1,:] is G_mu for clade 0
+if plot_RTT is True: 
 	# G estimates are given per species but Dtraj are rescaled when:  scaling > 0 (default: scaling = 1)
 	GarrayA[fixed_focal_clade,0,:] += Gl_focal_clade/scale_factor 
 	GarrayA[fixed_focal_clade,1,:] += Gm_focal_clade/scale_factor 
 else:
 	GarrayA[fixed_focal_clade,:,:] += np.random.normal(0,1,np.shape(GarrayA[fixed_focal_clade,:,:]))
-	out_file_name="%s_%s_%s_MCDD%s%s.log" % (dataset,args.j,model_name,clade_name,beta_value)
+	out_file_name="%s_%s_%s_MBD%s.log" % (dataset,args.j,model_name,args.out)
 	logfile = open(out_file_name , "wb") 
 	wlog=csv.writer(logfile, delimiter='\t')
 
@@ -353,7 +346,7 @@ Tau=TauA
 
 
 ########################## PLOT RTT ##############################
-if plot_RTT2 is True: # NEW FUNCTION 2
+if plot_RTT is True: # NEW FUNCTION 2
 	out="%s/%s_RTT.r" % (wd,name_file)
 	newfile = open(out, "wb") 
 	if model_name == "exp": model_type = "Exponential"
@@ -452,12 +445,12 @@ par(mfrow=c(1,2))
 YLIM = c(0,max(c(sp_hdp_M[clade_1>0],ex_hdp_M[clade_1>0])))
 XLIM = c(min(time[clade_1>0]),0)
 YLIMsmall = c(0,max(c(sp_hdp_M50[clade_1>0],ex_hdp_M50[clade_1>0])))
-plot(speciation[clade_1>0] ~ time[clade_1>0],type="l",col="#4c4cec", lwd=3,main="Speciation rates - Joint effects", ylim = YLIM,xlab="Time (Ma)",ylab="Speciation rates",xlim=XLIM)
+plot(speciation[clade_1>0] ~ time[clade_1>0],type="l",col="#4c4cec", lwd=3,main="Speciation rates - Combined effects", ylim = YLIM,xlab="Time (Ma)",ylab="Speciation rates",xlim=XLIM)
 mtext("%s correlations")
 polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(sp_hdp_M[clade_1>0], rev(sp_hdp_m[clade_1>0])), col = alpha("#4c4cec",0.1), border = NA)	
 polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(sp_hdp_M50[clade_1>0], rev(sp_hdp_m50[clade_1>0])), col = alpha("#4c4cec",0.3), border = NA)	
 abline(v=-c(65,200,251,367,445),lty=2,col="gray")
-plot(extinction[clade_1>0] ~ time[clade_1>0],type="l",col="#e34a33",  lwd=3,main="Extinction rates - Joint effects", ylim = YLIM,xlab="Time (Ma)",ylab="Extinction rates",xlim=XLIM)
+plot(extinction[clade_1>0] ~ time[clade_1>0],type="l",col="#e34a33",  lwd=3,main="Extinction rates - Combined effects", ylim = YLIM,xlab="Time (Ma)",ylab="Extinction rates",xlim=XLIM)
 mtext("%s correlations")
 polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(ex_hdp_M[clade_1>0], rev(ex_hdp_m[clade_1>0])), col = alpha("#e34a33",0.1), border = NA)	
 polygon(c(time[clade_1>0], rev(time[clade_1>0])), c(ex_hdp_M50[clade_1>0], rev(ex_hdp_m50[clade_1>0])), col = alpha("#e34a33",0.3), border = NA)	
@@ -479,65 +472,6 @@ abline(v=-c(65,200,251,367,445),lty=2,col="gray")
 			
 
 	r_script = "n<-dev.off()"
-	newfile.writelines(r_script)
-	newfile.close()
-	print "\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, wd)
-	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		cmd="cd %s; Rscript %s\%s_RTT.r" % (wd,wd,name_file)
-	else: 
-		cmd="cd %s; Rscript %s/%s_RTT.r" % (wd,wd,name_file)
-	os.system(cmd)
-	print "done\n"	
-	sys.exit("\n")
-
-
-if plot_RTT is True: # OLD FUNCTION 
-	print "\nGenerating R file...",
-	out="%s/%s_RTT.r" % (wd,name_file)
-	newfile = open(out, "wb") 
-	
-	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		r_script= "\n\npdf(file='%s\%s_RTT.pdf',width=0.6*20, height=0.6*10)\n" % (wd,name_file)
-	else: 
-		r_script= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*20, height=0.6*10)\n" % (wd,name_file)
-	
-	for i in range(n_clades):
-		r_script+=lib_utilities.print_R_vec("\nclade_%s", Dtraj[:,i]) % (i+1)
-	
-	l_at_events=trasfRate_general(baseline_L, GarrayA[fixed_focal_clade,0,:],Dtraj)
-	m_at_events=trasfRate_general(baseline_M, GarrayA[fixed_focal_clade,1,:],Dtraj)
-	
-	r_script += lib_utilities.print_R_vec("\n\nt",all_events)
-	r_script += "\ntime = -t"
-	r_script += lib_utilities.print_R_vec("\nspeciation",l_at_events)
-	r_script += lib_utilities.print_R_vec("\nextinction",m_at_events)
-	
-	r_script += """
-	plot(speciation[clade_1>0] ~ time[clade_1>0],type="l",col="darkblue", lwd=3,main="Diversification rates - Joint effects", ylim = c(0,max(c(speciation,extinction))),xlab="Time",ylab="Speciation and extinction rates",xlim=c(min(time),0))
-	lines(extinction[clade_1>0] ~ time[clade_1>0], col="darkred", lwd=3)
-	abline(v=-c(65,200,251,367,445),lty=2,col="gray")
-	""" #% (fixed_focal_clade+1,fixed_focal_clade+1,fixed_focal_clade+1,fixed_focal_clade+1)
-	
-	for i in range(n_clades):
-		G_temp = init_Garray(n_clades)
-		G_temp[fixed_focal_clade,:,i] += GarrayA[fixed_focal_clade,:,i]
-		#print "clade",i, G_temp
-		l_at_events=trasfRate_general(baseline_L, G_temp[fixed_focal_clade,0,:],Dtraj)
-		m_at_events=trasfRate_general(baseline_M, G_temp[fixed_focal_clade,1,:],Dtraj)
-		r_script += lib_utilities.print_R_vec("\nspeciation",l_at_events)
-		r_script += lib_utilities.print_R_vec("\nextinction",m_at_events)
-	
-		r_script += """
-		par(mfrow=c(1,2))
-		plot(speciation[clade_1>0] ~ time[clade_1>0],type="l",col="darkblue", lwd=3,main="Effect of: %s (wL = %s, wM = %s)", ylim = c(0,max(c(speciation,extinction))),xlab="Time",ylab="Speciation and extinction rates",xlim=c(min(time),0))
-		lines(extinction[clade_1>0] ~ time[clade_1>0], col="darkred", lwd=3)
-		abline(v=-c(65,200,251,367,445),lty=2,col="gray")
-		plot(clade_%s[clade_1>0] ~ time[clade_1>0],type="l", main = "Trajectory of variable: %s",xlab="Time",ylab="Rescaled value",xlim=c(min(time),0))
-		abline(v=-c(65,200,251,367,445),lty=2,col="gray")
-		""" % (variable_names[i],round(est_kl[i],2),round(est_km[i],2),
-		       i+1,variable_names[i])
-		
-	r_script+="n<-dev.off()"
 	newfile.writelines(r_script)
 	newfile.close()
 	print "\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, wd)
@@ -634,7 +568,7 @@ while True:
 			rate=G_hp_beta+sum(l0A)+sum(m0A)
 			hypRA = np.random.gamma(shape= g_shape, scale= 1./rate, size=1)
 		else: # update Garray (effect size) 
-			Garray_temp= update_parameter_normal_2d_freq((GarrayA[focal_clade,:,:]),.5,m=-MAX_G,M=MAX_G)
+			Garray_temp= update_parameter_normal_2d_freq((GarrayA[focal_clade,:,:]),.5,m=-maxG,M=maxG)
 			#Garray_temp,hasting= multiplier_normal_proposal_pos_neg_vec((GarrayA[focal_clade,:,:]),d1=.35,d2=1.4,f=.65)
 			
 			Garray=np.zeros(n_clades*n_clades*2).reshape(n_clades,2,n_clades)+GarrayA
