@@ -49,6 +49,7 @@ p.add_argument('-r',     type=float,   help='Data scaling (default option recomm
 p.add_argument('-plot',  type=str,     help='Plot rates-through-time (Log file)', default="", metavar="")
 p.add_argument('-var',   type=str,     help='Directory to continuous variables (takes all files)', default="", metavar="")
 p.add_argument('-T',     type=float,   help='Max age', default=-1, metavar=-1)
+p.add_argument('-out',   type=str,     help='tag added to output file', default="", metavar="")
 
 args = p.parse_args()
 
@@ -80,8 +81,8 @@ if args.plot != "":
 corr_model=args.m
 if corr_model ==0: model_name = "lin"
 else: model_name = "exp"	
-
-
+if args.out != "": out_tag = args.out + "_"
+else:  out_tag = ""
 root_age=max(ts)
 
 single_focal_clade = True
@@ -299,7 +300,8 @@ if plot_RTT is True:
 	GarrayA[fixed_focal_clade,1,:] += Gm_focal_clade/scale_factor 
 else:
 	GarrayA[fixed_focal_clade,:,:] += np.random.normal(0,1,np.shape(GarrayA[fixed_focal_clade,:,:]))
-	out_file_name="%s_%s_%s_MBD%s.log" % (dataset,args.j,model_name,args.out)
+	print dataset,args.j,model_name,out_tag
+	out_file_name="%s_%s_%s_%sMBD.log" % (dataset,args.j,model_name,out_tag)
 	logfile = open(out_file_name , "wb") 
 	wlog=csv.writer(logfile, delimiter='\t')
 
@@ -506,7 +508,6 @@ while True:
 	
 	lik_test=np.zeros(n_clades)	
 	
-	
 	if iteration==0:
 		uniq_eve=np.unique(all_events,return_index=True)[1]  # indexes of unique values
 		Garray_temp=Garray
@@ -535,9 +536,6 @@ while True:
 			else: 	
 				m0=np.zeros(n_clades)+m0A
 				m0[focal_clade],hasting=update_multiplier_proposal(m0A[focal_clade],1.2)
-			#if iteration> 2000:
-			#	Tau_t,hasting = update_multiplier_proposal(TauA,1.2)
-			#	Tau = np.zeros(1)+Tau_t
 
 		elif rr<sampling_freqs[1]: # update hypZ and hypR
 			gibbs_sampling=1
@@ -554,8 +552,6 @@ while True:
 			hypRA = np.random.gamma(shape= g_shape, scale= 1./rate, size=1)
 		else: # update Garray (effect size) 
 			Garray_temp= update_parameter_normal_2d_freq((GarrayA[focal_clade,:,:]),.5,m=-maxG,M=maxG)
-			#Garray_temp,hasting= multiplier_normal_proposal_pos_neg_vec((GarrayA[focal_clade,:,:]),d1=.35,d2=1.4,f=.65)
-			
 			Garray=np.zeros(n_clades*n_clades*2).reshape(n_clades,2,n_clades)+GarrayA
 			Garray[focal_clade,:,:]=Garray_temp
 			#print GarrayA[focal_clade,:,:]-Garray[focal_clade,:,:]
@@ -576,13 +572,6 @@ while True:
 			lik_clade = (sum(log(l_s1a)[index_included_sp_times])-sum((abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(dd_focus_clade[1:len(l_at_events)]))[index_events_included-1] ) \
 			            +sum(log(m_e1a)[index_included_ex_times])-sum((abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(dd_focus_clade[1:len(l_at_events)]))[index_events_included-1] ) )
 
-
-		#print len(log(l_s1a)), len((abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(dd_focus_clade[1:len(l_at_events)]))[index_events_included-1]), len(all_Times)
-		#print all_Times[10], all_Times[2000], len(all_Times[idx_s[i]])
-		#print all_Times[idx_s[i]]
-		#sp_tem = all_Times[idx_s[i]]
-		#print sp_tem[index_included_sp_times]
-		#quit()
 		ind_focal=np.ones(n_clades)
 		ind_focal[focal_clade]=0
 		lik = likA*ind_focal
