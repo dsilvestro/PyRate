@@ -19,6 +19,10 @@
 
 * Silvestro D., Pires M. M., Quental T., Salamin N. Bayesian estimation of 	multiple clade competition from fossil data. Evolutionary Ecology Research, 	17, [early edition](http://www.evolutionary-ecology.com/issues/forthcoming/ar3010.pdf).
 
-#### The DES method is described here:
+#### The DES model is described here:
 
 * Silvestro, D., Zizka A., Bacon C. D., Cascales-Minana B. and Salamin, N., Antonelli, A. (2016) Fossil Biogeography: A new model to infer dispersal, extinction and sampling from paleontological data. Phil. Trans. R. Soc. B 371: 20150225, in press.
+
+#### The MBD model is described here:
+
+* Lehtonen S., Silvestro D., Karger D. N., Scotese C., Tuomisto H., Kessler M., Peña C., Wahlberg N., Antonelli A. 2017. Environmentally driven extinction and opportunistic origination explain fern diversification patterns. Scientific Reports, 7:4831.
