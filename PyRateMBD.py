@@ -50,6 +50,7 @@ p.add_argument('-plot',  type=str,     help='Plot rates-through-time (Log file)'
 p.add_argument('-var',   type=str,     help='Directory to continuous variables (takes all files)', default="", metavar="")
 p.add_argument('-T',     type=float,   help='Max age', default=-1, metavar=-1)
 p.add_argument('-out',   type=str,     help='tag added to output file', default="", metavar="")
+p.add_argument('-bound', type=float,   help='absolute boundaries to local shrinkage', default=np.inf, metavar=np.inf)
 
 args = p.parse_args()
 
@@ -271,20 +272,19 @@ def sample_tau_mod(lam,beta,tau):
 
 #####
 scaling =args.r
-
+maxG = args.bound
 if scaling==0: # All trajectories are scaled to range between 0 and 1
+	Dtraj= np.sum((Dtraj, -np.min(Dtraj, axis=0)), axis=0)
 	scale_factor = 1.
-	scale_factor = 1./np.max(Dtraj, axis=0)
-	maxG = np.inf # boundaries to loc_shrinkage
+	scale_factor = 1./(np.max(Dtraj, axis=0)-np.min(Dtraj, axis=0))
 	if corr_model==0: trasfRate_general = trasfMultiRateND 
 	elif corr_model==1: trasfRate_general = trasfMultiRateND_exp
 elif scaling == 1: # all curves scaled to the max of the highest curve (useful if they are in the same unit, e.g. species)
 	scale_factor = 1./np.max(Dtraj)
-	maxG = 0.30/scale_factor
+	if maxG ==0: maxG = 0.30/scale_factor # as in Silvestro et al. 2015 PNAS
 	trasfRate_general = trasfMultiRate
 elif scaling ==2:
 	scale_factor = 1./np.max(Dtraj, axis=0)
-	maxG = 10.
 	trasfRate_general = trasfMultiRateCladeScaling
 
 Dtraj = Dtraj*scale_factor
@@ -299,7 +299,7 @@ if plot_RTT is True:
 	GarrayA[fixed_focal_clade,0,:] += Gl_focal_clade/scale_factor 
 	GarrayA[fixed_focal_clade,1,:] += Gm_focal_clade/scale_factor 
 else:
-	GarrayA[fixed_focal_clade,:,:] += np.random.normal(0,1,np.shape(GarrayA[fixed_focal_clade,:,:]))
+	GarrayA[fixed_focal_clade,:,:] += np.random.normal(0,0.1,np.shape(GarrayA[fixed_focal_clade,:,:]))
 	print dataset,args.j,model_name,out_tag
 	out_file_name="%s_%s_%s_%sMBD.log" % (dataset,args.j,model_name,out_tag)
 	logfile = open(out_file_name , "wb") 
@@ -551,7 +551,7 @@ while True:
 			rate=G_hp_beta+sum(l0A)+sum(m0A)
 			hypRA = np.random.gamma(shape= g_shape, scale= 1./rate, size=1)
 		else: # update Garray (effect size) 
-			Garray_temp= update_parameter_normal_2d_freq((GarrayA[focal_clade,:,:]),.5,m=-maxG,M=maxG)
+			Garray_temp= update_parameter_normal_2d_freq((GarrayA[focal_clade,:,:]),d=.5,f=.1,m=-maxG,M=maxG)
 			Garray=np.zeros(n_clades*n_clades*2).reshape(n_clades,2,n_clades)+GarrayA
 			Garray[focal_clade,:,:]=Garray_temp
 			#print GarrayA[focal_clade,:,:]-Garray[focal_clade,:,:]
