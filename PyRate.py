@@ -425,9 +425,9 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0, plot_type=
 	else: n_plots=3
 	
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		Rfile+= "\n\npdf(file='%s\%s_RTT.pdf',width=0.6*9, height=%s)\npar(mfrow=c(%s,1))" % (wd,name_file,0.6*7*n_plots,n_plots) # 9
+		Rfile+= "\n\npdf(file='%s\%s_RTT.pdf',width=10.8, height=8.4)\npar(mfrow=c(2,2))" % (wd,name_file)
 	else: 
-		Rfile+= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*9, height=%s)\npar(mfrow=c(%s,1))" % (wd,name_file,0.6*7*n_plots,n_plots) # 9
+		Rfile+= "\n\npdf(file='%s/%s_RTT.pdf',width=10.8, height=8.4)\npar(mfrow=c(2,2))" % (wd,name_file)
 
 	Rfile+= "\nlibrary(scales)"
 	
@@ -494,7 +494,7 @@ def plot_RTT(infile,burnin, file_stem="",one_file=False, root_plot=0, plot_type=
 		R_code=data+plot_L+plot_M+plot_R
 		
 		if plot_type==1:
-			R_code += "\nplot(age,age,type = 'n', ylim = c(0, max(1/M_mean)), xlim = c(%s,%s), ylab = 'Longevity (Myr)', xlab = 'Ma' )" % (max_x_axis,min_x_axis)
+			R_code += "\nplot(age,rev(1/M_mean),type = 'n', xlim = c(%s,%s), ylab = 'Longevity (Myr)', xlab = 'Ma' )" % (max_x_axis,min_x_axis)
 			R_code += """\nlines(rev(age), rev(1/M_mean), col = "#504A4B", lwd=3)""" 
 			#R_code += """\npolygon(c(age, rev(age)), c((1/M_hpd_m95), rev(1/M_hpd_M95)), col = alpha("#504A4B",trans), border = NA)"""
 		
@@ -2239,7 +2239,14 @@ def MCMC(all_arg):
 		if it>=stop_update or stop_update==inf: lik_fossil = lik_fossilA
 
 		# pert_prior defines gamma prior on q_rates[1] - fossilization rate
-		if multiHPP is True: prior = sum(prior_gamma(q_rates,pert_prior[0],pert_prior[1]))
+		if multiHPP is True: 
+			if pert_prior[1]>0:
+				prior = sum(prior_gamma(q_rates,pert_prior[0],pert_prior[1]))
+			else: # use hyperprior on Gamma rate on q
+				hpGammaQ_shape = 1.01 # hyperprior is essentially flat
+				hpGammaQ_rate =  0.1
+				post_rate_prm_Gq = np.random.gamma( shape=hpGammaQ_shape+pert_prior[0]*len(q_rates), scale=1./(hpGammaQ_rate+sum(q_rates)) )
+				prior = sum(prior_gamma(q_rates,pert_prior[0],post_rate_prm_Gq))
 		else: prior = prior_gamma(q_rates[1],pert_prior[0],pert_prior[1]) + prior_uniform(q_rates[0],0,20)			
 		if est_hyperP is True: prior += ( prior_uniform(hyperP[0],0,20)+prior_uniform(hyperP[1],0,20) )
 
@@ -2521,7 +2528,10 @@ def MCMC(all_arg):
 			s_max=max(tsA)
 			if fix_SE ==False:
 				if multiHPP is False: log_state = [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), q_ratesA[1], q_ratesA[0]]
-				else: log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA)] + list(q_ratesA) + [alpha_pp_gammaA]
+				else: 
+					log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA)] + list(q_ratesA) + [alpha_pp_gammaA]
+					if pert_prior[1]==0:
+						log_state += [post_rate_prm_Gq]
 			else:
 				log_state= [it,PostA, priorA, likA-sum(lik_fossilA)]
 
@@ -2728,7 +2738,7 @@ p.add_argument('-nT',     type=int,   help='Tuning - max number updated values (
 p.add_argument('-tQ',     type=float, help='Tuning - window sizes (q/alpha: 1.2 1.2)', default=[1.2,1.2], nargs=2)
 p.add_argument('-tR',     type=float, help='Tuning - window size (rates)', default=1.2, metavar=1.2)
 p.add_argument('-tS',     type=float, help='Tuning - window size (time of shift)', default=1., metavar=1.)
-p.add_argument('-fR',     type=float, help='Tuning - fraction of updated values (rates)', default=1., metavar=1.)
+p.add_argument('-fR',     type=float, help='Tuning - fraction of updated values (rates)', default=.5, metavar=.5)
 p.add_argument('-fS',     type=float, help='Tuning - fraction of updated values (shifts)', default=.7, metavar=.7)
 p.add_argument('-tC',     type=float, help='Tuning - window sizes cov parameters (l,m,q)', default=[.2, .2, .15], nargs=3)
 p.add_argument('-fU',     type=float, help='Tuning - update freq. (q: .02, l/m: .18, cov: .08)', default=[.02, .18, .08], nargs=3)
@@ -3619,6 +3629,7 @@ if fix_SE == False:
 		head="it\tposterior\tprior\tPP_lik\tBD_lik\t"
 		for i in range(time_framesQ): head += "q_%s\t" % (i)
 		head += "alpha\t"
+		if pert_prior[1]==0: head +="hypQ\t"
 else: 
 	head="it\tposterior\tprior\tBD_lik\t"
 	
