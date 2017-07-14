@@ -38,19 +38,19 @@ from lib_utilities import get_mode as get_mode
 #### DATA ###
 
 p = argparse.ArgumentParser() #description='<input file>') 
-p.add_argument('-d',     type=str,     help='data set', default=0, metavar=0)
+p.add_argument('-d',     type=str,     help='data set (s/e table)', default=0, metavar=0)
 p.add_argument('-m',     type=int,     help='model (0: linear (default), 1: exponential)', default=0, metavar=0)
-p.add_argument('-n',     type=int,     help='MCMC iterations', default=5000000, metavar=5000000)
+p.add_argument('-n',     type=int,     help='MCMC iterations', default=10000000, metavar=10000000)
 p.add_argument('-s',     type=int,     help='sampling freq.', default=5000, metavar=5000)
-p.add_argument('-p',     type=int,     help='print freq.', default=5000000, metavar=5000000)
+p.add_argument('-p',     type=int,     help='print freq.', default=5000, metavar=5000)
 p.add_argument('-j',     type=int,     help='replicate', default=0, metavar=0)
 p.add_argument('-b',     type=int,     help='burnin (number of generations)', default=1, metavar=1)
 p.add_argument('-r',     type=float,   help='Data scaling (default option recommended)', default=0, metavar=0)
 p.add_argument('-plot',  type=str,     help='Plot rates-through-time (Log file)', default="", metavar="")
 p.add_argument('-var',   type=str,     help='Directory to continuous variables (takes all files)', default="", metavar="")
-p.add_argument('-T',     type=float,   help='Max age', default=-1, metavar=-1)
+p.add_argument('-T',     type=float,   help='Max age (truncate data)', default=-1, metavar=-1)
 p.add_argument('-out',   type=str,     help='tag added to output file', default="", metavar="")
-p.add_argument('-bound', type=float,   help='absolute boundaries to local shrinkage', default=np.inf, metavar=np.inf)
+p.add_argument('-bound', type=float,   help='absolute boundaries to local shrinkage (0 +/- bound)', default=np.inf, metavar=np.inf)
 
 args = p.parse_args()
 
@@ -106,6 +106,7 @@ for i in range(len(list_files)):
 	print i, name_var_file
 
 # first item is empty because it's were the Dtraj goes
+print "Processing files..."
 for i in range(1,len(list_files)): # add data from curves
 	try: temp_tbl = np.loadtxt(list_files[i],skiprows=1)
 	except: sys.exit("Could not read file: %s" % (list_files[i]))
@@ -144,6 +145,7 @@ e_list = []
 s_or_e_list=[]
 clade_inx_list=[]
 unsorted_events = []
+print "Indexing events..."
 for i in range(n_clades):
 	"used for Dtraj"
 	s_list.append(ts[clade_ID==i])
@@ -184,6 +186,7 @@ all_time_eve=all_events_temp2[0]
 idx_s = []
 idx_e = []
 for i in range(n_clades): # make trajectory curves for each clade
+	print "\tparsing variable", i
 	if i==0:
 		dd_focus_clade=getDT(all_events_temp2[0],s_list[i],e_list[i]) + np.zeros(len(all_events_temp2[0]))
 		# dd_focus_clade: raw diversity trajectory (not rescaled 0 to 1) is used in the likelihood calculation
