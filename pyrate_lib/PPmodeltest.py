@@ -41,7 +41,7 @@ def optim_se_given_q_HPP(x,q,exp_se=0):
 def optim_se_given_q_NHPP(x,q):		
 	def NHPP_lik_ML(se):
 		s=abs(se[0])+max(x)
-		e=min(x)-abs(se[1])
+		e=max(min(x)-abs(se[1]), 0.0001) # avoid extinction in the future
 		k=len(x[x>0]) # no. fossils for species i
 		c=.5
 		C=s-c*(s-e)
@@ -60,7 +60,7 @@ def optim_se_given_q_NHPP(x,q):
 	e = min(x)-params[1]
 	return [lik,s,e]
 
-def exp_tpp(q,q_shift):
+def exp_tpp(q,q_shift): # expected value under a multi-Exp distributio
 	q_shift=sort(list(q_shift)+[0,inf])
 	pdf_sample = []
 	tot_samples = 10000
@@ -151,13 +151,18 @@ def est_s_e_q(fossil_complete,occs_sp_bin,model=0,exp_se=0,q_shift_times=[]):
 	lik= -(optValues[1])
 	return [lik, params]
 
+def calcAICc(lik,df,s):
+	return (2*df-2*lik + abs(2*df*(df+1)/(s-df-1.)))
+
 def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
 	# data are shifted by 100
-	fossil_complete=[Xdata[i]+100 for i in range(len(Xdata)) if min(Xdata[i])>0 and len(Xdata[i])>=min_n_fossils] # remove extant, and few occs
+	fossil_complete=[Xdata[i]+0 for i in range(len(Xdata)) if min(Xdata[i])>0 and len(Xdata[i])>=min_n_fossils] # remove extant, and few occs
 	fossil_complete=[fossil_complete[i] for i in range(len(fossil_complete)) if max(fossil_complete[i])-min(fossil_complete[i])>0.1] # remove too short branches
-	print "Using",len(fossil_complete),"species for model testing"
-
-	if len(fossil_complete)<10: sys.exit("Too few data for model testing!")
+	
+	if len(fossil_complete) > 1:
+		print "Using",len(fossil_complete),"species for model testing"
+	else:
+		sys.exit("The number of lineages meeting the requirements for model testing is insufficient.")
 	
 	max_time_range_fossils = max([max(i) for i in fossil_complete])
 	min_time_range_fossils = min([min(i) for i in fossil_complete])
@@ -165,7 +170,7 @@ def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
 	if q_shift==0: 
 		q_shift = [min_time_range_fossils+ (max_time_range_fossils-min_time_range_fossils)/2.]
 	else: 
-		q_shift = np.array(q_shift)+100
+		q_shift = np.array(q_shift)+0
 	
 	times_q_shift = np.sort(np.array(list(q_shift)+ [ max(max(q_shift),max_time_range_fossils)*10 ] +[0]))[::-1]
 	#print times_q_shift, [min_time_range_fossils+ (max_time_range_fossils-min_time_range_fossils)/2.]
@@ -213,7 +218,7 @@ def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
 			hast = hast1+hast2
 			lik = NHPP_lik(x,q,(max_ts+addts),(min_te-addte))		
 			r = log(np.random.random())
-			if lik - postA +hast >= r:
+			if lik - postA +hast >= r and (min_te-addte)>0: # only accept if te > 0
 				#print lik,hast, postA, r
 				postA=lik + 0
 				addteA=addte + 0
@@ -230,8 +235,49 @@ def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
 		#est_s = optim_se_given_q_NHPP(x,resNHPP[1])[1]
 		[ts,te] = get_TSTEvalues(x,q=resNHPP[1],n=10000)
 		liknhpp_Exp += NHPP_lik(x,resNHPP[1],ts,te)
-	if verbose ==1: print "NHPP* max likelihood:", liknhpp_Exp,"q rate:",abs(resNHPP[1]),"\n\n"
-
+	if verbose ==1: print "NHPP* max likelihood:", liknhpp_Exp,"q rate:",abs(resNHPP[1]),"\n"
 	
+	# get AICc scores
+	Liks = np.array([resHPPm[0],liknhpp_Exp,resTPPm[0]])
+	DFs  = np.array([1, 1, len(resTPPm[1])])
+	d_size = np.array([len(fossil_complete)]*3)
+	AICs = calcAICc(Liks,DFs,d_size)
+	models = np.array(["HPP","NHPP","TPP"])
+	best_model = models[AICs==min(AICs)]
+	other_models = models[models != best_model]
+	print "models:", models
+	print "AICc scores:", AICs
+	deltaAICs = AICs-min(AICs)
+	deltaAICs_ = deltaAICs[deltaAICs>0]
+	# empirical thresholds
+	dAIC_hpp  = [ [0,6.4,0],[0,17.4,0] ]
+	dAIC_nhpp = [ [3.8,0,0],[8.,0,0]   ]
+	dAIC_tpp  = [ [3.2,6.8,0],[10.6,23.3,0]]
+	
+	if best_model=="HPP":
+		if deltaAICs[1] > dAIC_hpp[1][1]: sig = ["***", "***"] # significance at 1% vs NHPP and TPP
+		elif deltaAICs[1] > dAIC_hpp[0][1]: sig = ["*", "***"]
+	if best_model=="NHPP":
+		if deltaAICs[0] > dAIC_nhpp[1][0]: sig = ["***", "***"] # significance at 1% vs HPP and TPP
+		elif deltaAICs[0] > dAIC_nhpp[0][0]: sig = ["*", "***"]
+	if best_model=="TPP":
+		if deltaAICs[0] > dAIC_tpp[1][0]: sig = ["***"] # significance at 1% vs HPP 
+		elif deltaAICs[0] > dAIC_tpp[0][0]: sig = ["*"]
+		
+		if deltaAICs[1] > dAIC_tpp[1][1]: sig += ["***"] # significance at 1% vs NHPP
+		elif deltaAICs[1] > dAIC_tpp[0][1]: sig += ["*"]
+	
+	print """
+	--------------------------------------
+	Best model: %s
+	
+	dAIC - %s: %s %s
+	dAIC - %s: %s %s
+	
+	*** indicates significance at P < 0.01
+	*   indicates significance at P < 0.05
+	--------------------------------------
+	""" % (best_model[0], other_models[0], round(deltaAICs_[0],3), sig[0], \
+	                      other_models[1], round(deltaAICs_[1],3), sig[1]  )
 	
 	
