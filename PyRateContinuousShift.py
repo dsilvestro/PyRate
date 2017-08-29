@@ -260,11 +260,18 @@ if summary_file != "":
 	marginal_M= list()
 	for j in range(shape(t)[0]):
 		L0,Gl,M0,Gm = np.zeros(n_rates),np.zeros(n_rates),np.zeros(n_rates),np.zeros(n_rates)
-		for i in range(n_rates):
-			L0[i] = t[j,L0_index[i]]
-			Gl[i] = t[j,Gl_index[i]]
-			M0[i] = t[j,M0_index[i]]
-			Gm[i] = t[j,Gm_index[i]]
+		if len(Gl_index)==len(L0_index):
+			for i in range(n_rates):
+				L0[i] = t[j,L0_index[i]]
+				Gl[i] = t[j,Gl_index[i]]
+				M0[i] = t[j,M0_index[i]]
+				Gm[i] = t[j,Gm_index[i]]
+		else: # plot when model is equal_G
+			for i in range(n_rates):
+				L0[i] = t[j,L0_index[i]]
+				Gl[i] = t[j,Gl_index[0]]
+				M0[i] = t[j,M0_index[i]]
+				Gm[i] = t[j,Gm_index[0]]
 		
 		Garray = np.array([Gl,Gm])
 		age_vec,l_vec,m_vec = get_marginal_rates(args.m,L0,M0,Garray,Temp_at_events,shift_ind,root_age)
@@ -354,10 +361,13 @@ for i in range(n_time_bins): head+="\tlik_L_%s" % (time_bin_label[i])
 for i in range(n_time_bins): head+="\tlik_M_%s" % (time_bin_label[i])
 for i in range(n_time_bins): head+="\tl0_t%s" % (time_bin_label[i])
 for i in range(n_time_bins): head+="\tm0_t%s" % (time_bin_label[i])
-for j in range(n_time_bins): 
-	head+="\tGl_t%s" % (time_bin_label[j])
-for j in range(n_time_bins): 
-	head+="\tGm_t%s" % (time_bin_label[j])
+if equal_g==0:
+	for j in range(n_time_bins): 
+		head+="\tGl_t%s" % (time_bin_label[j])
+	for j in range(n_time_bins): 
+		head+="\tGm_t%s" % (time_bin_label[j])
+else:
+	head+="\tGl\tGm" 
 head+="\thp_rate"
 head+="\thp_sig2"
 head+="\tbeta"
@@ -392,6 +402,7 @@ for i in range(n_time_bins):
 
 scal_fac_ind=0
 lik_pA=np.zeros(n_time_bins)
+freq_update_rate = 1./len(l0A)
 for iteration in range(mcmc_gen * len(scal_fac_TI)):	
 	
 	if (iteration+1) % (mcmc_gen+1) ==0: 
@@ -406,7 +417,7 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 	lik,priorBD=0,0
 	
 	# update values
-	sampling_freqs=[.25,.27] # 0: rates, 1: hyper-priors, (2: correlation params)
+	sampling_freqs=[.50,.52] # 0: rates, 1: hyper-priors, (2: correlation params)
 	rr=np.random.uniform(0,1,3)
 	if args.m== -1: rr[0]=0 # never update Garray
 	
@@ -414,9 +425,9 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 	if iteration>10:
 		if rr[0]<sampling_freqs[0] or iteration<1000:
 			if rr[1]>.5: 
-				l0,U=update_multiplier_proposal(l0A,d1)
+				l0,U=update_multiplier_freq(l0A,d=d1,f=freq_update_rate)
 			else: 	
-				m0,U=update_multiplier_proposal(m0A,d1)
+				m0,U=update_multiplier_freq(m0A,d=d1,f=freq_update_rate)
 			hasting=U
 		elif rr[0]<sampling_freqs[1]:# Gibbs sampling
 			GIBBS = 1
@@ -445,7 +456,7 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 				if equal_g==0:
 					Garray[1]=update_parameter_normal_2d(Garray[1],list_d2[scal_fac_ind]) 
 				else:
-					Garray[1,:]=update_parameter_normal(Garray[0,0],list_d2[scal_fac_ind])[0]
+					Garray[1,:]=update_parameter_normal(Garray[1,0],list_d2[scal_fac_ind])[0]
 			
 	if args.m==0: 
 		l_at_events=trasfMultipleRateTemp(l0, Garray[0],Temp_at_events,shift_ind)
@@ -509,7 +520,10 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 		print iteration, array([postA, likA,lik,prior]), hasting, scal_fac_TI[scal_fac_ind]
 		print "l:",l0A, "\nm:", m0A, "\nG:", GarrayA
 	if iteration % sampling_freq ==0:
-		log_state=[iteration,postA,likA,priorA] + list(lik_pA) + list(l0A) + list(m0A) +list(GarrayA.flatten()) + [hypRA,hypGA] + [scal_fac_TI[scal_fac_ind]]
+		if equal_g==0:
+			g_vec_write = list(GarrayA.flatten())
+		else: g_vec_write = [GarrayA[0,0],GarrayA[1,0]]
+		log_state=[iteration,postA,likA,priorA] + list(lik_pA) + list(l0A) + list(m0A) +g_vec_write + [hypRA,hypGA] + [scal_fac_TI[scal_fac_ind]]
 		wlog.writerow(log_state)
 		logfile.flush()
 
