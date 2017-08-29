@@ -66,6 +66,17 @@ def update_multiplier_proposal(i,d,f=.65):
 	U=sum(log(m))
 	return ii, U
 
+def update_multiplier_freq(q,d=1.1,f=0.25):
+	S=np.shape(q)
+	ff=np.random.binomial(1,f,S)
+	u = np.random.uniform(0,1,S)
+	l = 2*log(d)
+	m = exp(l*(u-.5))
+	m[ff==0] = 1.
+ 	new_q = q * m
+	U=sum(log(m))
+	return new_q,U
+
 
 def update_parameter_normal_2d(L, d):
 	ii = np.random.normal(L.flatten(),d,size(L)).reshape(shape(L))
