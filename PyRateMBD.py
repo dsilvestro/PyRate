@@ -292,7 +292,7 @@ elif scaling ==2:
 
 Dtraj = Dtraj*scale_factor
 #print scale_factor, np.max(Dtraj), np.max(Dtraj, axis=0)
-
+print maxG, scale_factor
 
 GarrayA=init_Garray(n_clades) # 3d array so:
                               # Garray[i,:,:] is the 2d G for one clade
@@ -302,7 +302,7 @@ if plot_RTT is True:
 	GarrayA[fixed_focal_clade,0,:] += Gl_focal_clade/scale_factor 
 	GarrayA[fixed_focal_clade,1,:] += Gm_focal_clade/scale_factor 
 else:
-	GarrayA[fixed_focal_clade,:,:] += np.random.normal(0,0.1,np.shape(GarrayA[fixed_focal_clade,:,:]))
+	GarrayA[fixed_focal_clade,:,:] += np.random.normal(0,0.001,np.shape(GarrayA[fixed_focal_clade,:,:]))
 	print dataset,args.j,model_name,out_tag
 	out_file_name="%s_%s_%s_%sMBD.log" % (dataset,args.j,model_name,out_tag)
 	logfile = open(out_file_name , "wb") 
@@ -550,9 +550,13 @@ while True:
 				LAM[focal_clade,1,:] = sample_lam_mod(LAM[focal_clade,1,:],GarrayA[focal_clade,1,:],Tau)
 			# Gibbs sampler (Exponential + Gamma[2,2])
 			G_hp_alpha,G_hp_beta=1.,.01
-			g_shape=G_hp_alpha+len(l0A)+len(m0A)
-			rate=G_hp_beta+sum(l0A)+sum(m0A)
-			hypRA = np.random.gamma(shape= g_shape, scale= 1./rate, size=1)
+			#_  g_shape=G_hp_alpha+len(l0A)+len(m0A)
+			#_  rate=G_hp_beta+sum(l0A)+sum(m0A)
+			#_  hypRA = np.random.gamma(shape= g_shape, scale= 1./rate, size=1)
+			fixed_shape = 2.
+			post_rate_prm_Gamma_prior = np.random.gamma( shape=G_hp_alpha+fixed_shape*(len(l0A)+len(m0A)), scale=1./(G_hp_beta+sum(l0A)+sum(m0A)), size=1)
+			hypRA = post_rate_prm_Gamma_prior
+			
 		else: # update Garray (effect size) 
 			Garray_temp= update_parameter_normal_2d_freq((GarrayA[focal_clade,:,:]),d=.5,f=.1,m=-maxG,M=maxG)
 			Garray=np.zeros(n_clades*n_clades*2).reshape(n_clades,2,n_clades)+GarrayA
@@ -595,7 +599,9 @@ while True:
 	prior = sum(pdf_normal(Garray[fixed_focal_clade,:,:],sd=LAM[fixed_focal_clade,:,:]*Tau ))
 	prior +=sum(pdf_cauchy(LAM[fixed_focal_clade,:,:]))
 	prior +=sum(pdf_cauchy(Tau))	
-	prior += prior_exponential(l0,hypRA)+prior_exponential(m0,hypRA)
+	#_ prior += prior_exponential(l0,hypRA)+prior_exponential(m0,hypRA)
+	fixed_shape = 2.
+	prior += prior_gamma(l0,fixed_shape,hypRA)+prior_gamma(m0,fixed_shape,hypRA)
 	
 	if (sum(lik) + prior) - postA + hasting >= log(np.random.random()) or iteration==0 or gibbs_sampling==1:
 		postA=sum(lik)+prior
