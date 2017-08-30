@@ -316,7 +316,7 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0, plot_type=1):
 	file_n=0
 	for f in files:
 		file_name =  os.path.splitext(os.path.basename(f))[0]
-		#print file_name
+		print file_name
 		try: 
 			t=loadtxt(f, skiprows=max(1,burnin))
 			sys.stdout.write(".")
@@ -344,7 +344,6 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0, plot_type=1):
 				R_tbl=np.concatenate((R_tbl,t[:,r_ind]),axis=0)
 		except: 
 			print "skipping file:", f
-	print(shape(R_tbl))
 
 	########################################################
 	######               CALCULATE HPDs               ######
@@ -1934,17 +1933,32 @@ def MCMC(all_arg):
 		maxTSA = max(tsA)
 		timesLA, timesMA = init_times(maxTSA,time_framesL,time_framesM, min(teA))
 		if len(fixed_times_of_shift)>0: timesLA[1:-1],timesMA[1:-1]=fixed_times_of_shift,fixed_times_of_shift
-		if fix_edgeShift == 1: 
-			if len(edgeShifts)==1: 
-				timesLA, timesMA = init_times(edgeShifts[0],time_framesL,time_framesM, 0) # starting shift tims within allowed window
-				timesLA[1],timesMA[1]= edgeShifts[0],edgeShifts[0]
-			if len(edgeShifts)>1: 
+		if fix_edgeShift > 0:
+			if fix_edgeShift == 1:
 				timesLA, timesMA = init_times(edgeShifts[0],time_framesL,time_framesM, edgeShifts[1]) # starting shift tims within allowed window
 				timesLA[0],timesMA[0]= maxTSA,maxTSA
 				timesLA[1],timesMA[1]= edgeShifts[0],edgeShifts[0]
 				timesLA[-2],timesMA[-2]= edgeShifts[1],edgeShifts[1]
-				print timesLA
-				print timesMA
+			elif fix_edgeShift == 2: # max age edge shift
+				timesLA, timesMA = init_times(edgeShifts[0],time_framesL,time_framesM, 0) # starting shift tims within allowed window
+				timesLA[1],timesMA[1]= edgeShifts[0],edgeShifts[0]
+			elif fix_edgeShift == 3: # min age edge shift
+				timesLA, timesMA = init_times(maxTSA,time_framesL,time_framesM, edgeShifts[0]) # starting shift tims within allowed window
+				timesLA[-2],timesMA[-2]= edgeShifts[0],edgeShifts[0]					
+			# if len(edgeShifts)==1:
+			# 	if args.edgeShifts[0] < np.inf:
+			# 		timesLA, timesMA = init_times(edgeShifts[0],time_framesL,time_framesM, 0) # starting shift tims within allowed window
+			# 		timesLA[1],timesMA[1]= edgeShifts[0],edgeShifts[0]
+			# 	else:
+			# 		timesLA, timesMA = init_times(maxTSA,time_framesL,time_framesM, edgeShifts[0]) # starting shift tims within allowed window
+			# 		timesLA[1],timesMA[1]= edgeShifts[0],edgeShifts[0]
+			# if len(edgeShifts)>1:
+			# 	timesLA, timesMA = init_times(edgeShifts[0],time_framesL,time_framesM, edgeShifts[1]) # starting shift tims within allowed window
+			# 	timesLA[0],timesMA[0]= maxTSA,maxTSA
+			# 	timesLA[1],timesMA[1]= edgeShifts[0],edgeShifts[0]
+			# 	timesLA[-2],timesMA[-2]= edgeShifts[1],edgeShifts[1]
+			print "times", timesLA
+			print "times", timesMA
 				#quit()
 		if TDI<3:
 			LA = init_BD(len(timesLA))
@@ -2086,13 +2100,16 @@ def MCMC(all_arg):
 
 		elif rr < f_update_lm: # l/m
 			if np.random.random()<f_shift and len(LA)+len(MA)>2: 
-				if fix_edgeShift == 1:
-					if len(edgeShifts)>1:
+				if fix_edgeShift > 0:
+					if fix_edgeShift == 1:
 						timesL=update_times(timesLA, edgeShifts[0],edgeShifts[1],mod_d4,2,len(timesL)-2)
 						timesM=update_times(timesMA, edgeShifts[0],edgeShifts[1],mod_d4,2,len(timesM)-2)
-					else:
+					elif fix_edgeShift == 2: # max age edge shift
 						timesL=update_times(timesLA, edgeShifts[0],min(te),mod_d4,2,len(timesL)-1)
 						timesM=update_times(timesMA, edgeShifts[0],min(te),mod_d4,2,len(timesM)-1)
+					elif fix_edgeShift == 3: # min age edge shift
+						timesL=update_times(timesLA,max(ts),edgeShifts[0],mod_d4,1,len(timesL)-2)
+						timesM=update_times(timesMA,max(ts),edgeShifts[0],mod_d4,1,len(timesM)-2)
 						
 				else:
 					maxTS = max(ts)
@@ -2732,7 +2749,7 @@ p.add_argument('-discrete',help='Discrete-trait-dependent BD model (requires -tr
 p.add_argument('-twotrait',help='Discrete-trait-dependent extinction + Covar', action='store_true', default=False)
 p.add_argument('-bound',   type=float, help='Bounded BD model', default=[np.inf, 0], metavar=0, nargs=2)
 p.add_argument('-edgeShift',type=float, help='Fixed times of shifts at the edges (when -mL/-mM > 3)', default=[np.inf, 0], metavar=0, nargs=2)
-p.add_argument('-qfilter', type=int, help='if set to zero all shifts in preservation rates are kept, even if outside observed timerange', default=1, metavar=1)
+p.add_argument('-qFilter', type=int, help='if set to zero all shifts in preservation rates are kept, even if outside observed timerange', default=1, metavar=1)
 
 
 # TUNING
@@ -2910,10 +2927,17 @@ if args.fixShift != "" or TDI==3:     # fix times of rate shift or DPP
 else: 
 	fixed_times_of_shift=[]
 	fix_Shift = 0
-if args.edgeShift[0] != np.inf: # and args.edgeShift[1] != 0:
+
+if args.edgeShift[0] != np.inf or args.edgeShift[1] != 0:
 	fix_edgeShift = 1
-	if args.edgeShift[1] != 0: edgeShifts = args.edgeShift
-	else: edgeShifts = [args.edgeShift[0]]
+	edgeShifts = []
+	if args.edgeShift[0] != np.inf: 
+		edgeShifts.append(args.edgeShift[0])
+		fix_edgeShift = 2
+	if args.edgeShift[1] != 0: 
+		edgeShifts.append(args.edgeShift[1])
+		fix_edgeShift = 3
+	#else: edgeShifts = [args.edgeShift[0]]
 else: fix_edgeShift = 0
 # BDMCMC & MCMC SETTINGS
 runs=args.r              # no. parallel MCMCs (MC3)
@@ -3431,7 +3455,7 @@ if use_ADE_model == 1:
 	tot_extant = -1
 	d_hyperprior[0]=1 # first hyper-prior on sp.rates is not used under ADE, thus not updated (multiplier update =1)
 
-qFilter=args.qfilter # if set to zero all times of shifts (and preservation rates) are kept, even if they don't have occurrences
+qFilter=args.qFilter # if set to zero all times of shifts (and preservation rates) are kept, even if they don't have occurrences
 if args.qShift != "":
 	if 2>1: #try: 
 		try: times_q_shift=np.sort(np.loadtxt(args.qShift))[::-1]*args.rescale
