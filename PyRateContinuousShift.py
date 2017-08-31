@@ -43,6 +43,7 @@ p.add_argument('-d', type=str, help='data set', default="", metavar="<file>")
 p.add_argument('-c', type=str, help='covariate data set', default="", metavar="<file>")
 p.add_argument('-j', type=int, help='replicate', default=0, metavar=0)
 p.add_argument('-m', type=int, help='model: "-1" constant rate, "0" exponential, "1" linear', default=0, metavar=0)
+p.add_argument('-mSpEx', type=int, help='Speciation/Extinction models: "-1" constant rate, "0" exponential, "1" linear', default=[-np.inf,-np.inf], metavar=-np.inf,nargs=2)
 p.add_argument('-equal_G', type=int, help='model: "0" unconstrained G, "1" constrained G', default=0, metavar=0)
 p.add_argument('-n', type=int, help='mcmc generations',default=1050000, metavar=1050000)
 p.add_argument('-s', type=int, help='sample freq.', default=1000, metavar=1000)
@@ -59,6 +60,8 @@ p.add_argument('-slice',  type=float, help='ages of the time slice of interest (
 p.add_argument('-extract_mcmc', type=int, help='Extract "cold" chain in separate log file', default=1, metavar=1)
 p.add_argument("-DD",  help='Diversity Dependent Model', action='store_true', default=False)
 p.add_argument('-plot', type=str, help='Log file', default="", metavar="")
+p.add_argument("-rescale",   type=float, help='Rescale time axis (e.g. -rescale 1000: 1 -> 1000, time unit = 1Ky)', default=1, metavar=1)
+p.add_argument('-use_hp', type=int, help='Use hyperpriors on rates and correlation parameters (0/1)', default=1, metavar=1)
 
 
 
@@ -90,11 +93,12 @@ if args.mL != "":
 	lib_utilities.calc_marginal_likelihood(infile=args.mL,burnin=int(args.b),extract_mcmc=args.extract_mcmc)
 	quit()
 
+useHP = args.use_hp
 #t_file=np.genfromtxt(dataset, names=True, delimiter='\t', dtype=float)
 t_file=np.loadtxt(dataset, skiprows=1)
 
-ts=t_file[:,2+2*args.j]
-te=t_file[:,3+2*args.j]
+ts=t_file[:,2+2*args.j]*args.rescale
+te=t_file[:,3+2*args.j]*args.rescale
 
 # assign short branch length to singletons (ts=te)
 ind_singletons=(ts==te).nonzero()[0]
@@ -125,7 +129,7 @@ if args.DD is True:
 else:
 	tempfile=loadtxt(cov_file,skiprows=1)
 	head_cov_file = next(open(cov_file)).split()
-	times_of_T_change= tempfile[:,0] # array of times of Temp change
+	times_of_T_change= tempfile[:,0]*args.rescale # array of times of Temp change
 	Temp_values=       tempfile[:,1] # array of Temp values at times_of_T_change
 
 # Temp_values= (Temp_values-Temp_values[0]) # so l0 and m0 are rates at the present
@@ -348,6 +352,10 @@ if args.m==  0: out_file_name="%s/%s_%s_%s_%sexp%s.log"    % (output_wd,os.path.
 if args.m==  1: out_file_name="%s/%s_%s_%s_%slinear%s.log" % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str,add_equal_g)
 
 
+if max(args.mSpEx) > -np.inf:
+	out_file_name="%s/%s_%s_%s_%smSpEx%s%s_%s.log" % \
+	(output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str,args.mSpEx[0],args.mSpEx[1],add_equal_g)
+
 
 logfile = open(out_file_name , "wb") 
 wlog=csv.writer(logfile, delimiter='\t')
@@ -429,7 +437,7 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 			else: 	
 				m0,U=update_multiplier_freq(m0A,d=d1,f=freq_update_rate)
 			hasting=U
-		elif rr[0]<sampling_freqs[1]:# Gibbs sampling
+		elif rr[0]<sampling_freqs[1] and useHP ==1:# Gibbs sampling (only if set true)
 			GIBBS = 1
 			# Gibbs sampler - Exponential + Gamma
 			G_hp_alpha,G_hp_beta=2.,2.
@@ -447,26 +455,40 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 			g_rate=G_hp_beta + sum((GarrayA.flatten()-0)**2)/2.
 			hypGA = 1./np.random.gamma(shape= g_shape, scale= 1./g_rate)
 		else:
-			if rr[2]>.5:
+			if rr[2]>.5 and args.mSpEx[0]> -1:
 				if equal_g==0:
 					Garray[0]=update_parameter_normal_2d(Garray[0],list_d2[scal_fac_ind]) 
 				else:
 					Garray[0,:]=update_parameter_normal(Garray[0,0],list_d2[scal_fac_ind])[0]
-			else:
+			elif args.mSpEx[1]> -1:
 				if equal_g==0:
 					Garray[1]=update_parameter_normal_2d(Garray[1],list_d2[scal_fac_ind]) 
 				else:
 					Garray[1,:]=update_parameter_normal(Garray[1,0],list_d2[scal_fac_ind])[0]
-			
-	if args.m==0: 
-		l_at_events=trasfMultipleRateTemp(l0, Garray[0],Temp_at_events,shift_ind)
-		m_at_events=trasfMultipleRateTemp(m0, Garray[1],Temp_at_events,shift_ind)
-	if args.m==1: 
-		l_at_events=trasfMultipleRateTempLinear(l0, Garray[0],Temp_at_events,shift_ind)
-		m_at_events=trasfMultipleRateTempLinear(m0, Garray[1],Temp_at_events,shift_ind)
-	if args.m== -1: 
-		l_at_events=np.repeat(l0,len(Temp_at_events))
-		m_at_events=np.repeat(m0,len(Temp_at_events))
+		
+	if max(args.mSpEx) > -np.inf: # specific models for sp and ex
+		if args.mSpEx[0]==0: 
+			l_at_events=trasfMultipleRateTemp(l0, Garray[0],Temp_at_events,shift_ind)
+		if args.mSpEx[1]==0: 
+			m_at_events=trasfMultipleRateTemp(m0, Garray[1],Temp_at_events,shift_ind)
+		if args.mSpEx[0]==1: 
+			l_at_events=trasfMultipleRateTempLinear(l0, Garray[0],Temp_at_events,shift_ind)
+		if args.mSpEx[1]==1: 
+			m_at_events=trasfMultipleRateTempLinear(m0, Garray[1],Temp_at_events,shift_ind)
+		if args.mSpEx[0]== -1: 
+			l_at_events=np.repeat(l0,len(Temp_at_events))
+		if args.mSpEx[1]== -1: 
+			m_at_events=np.repeat(m0,len(Temp_at_events))
+	else:
+		if args.m==0: 
+			l_at_events=trasfMultipleRateTemp(l0, Garray[0],Temp_at_events,shift_ind)
+			m_at_events=trasfMultipleRateTemp(m0, Garray[1],Temp_at_events,shift_ind)
+		if args.m==1: 
+			l_at_events=trasfMultipleRateTempLinear(l0, Garray[0],Temp_at_events,shift_ind)
+			m_at_events=trasfMultipleRateTempLinear(m0, Garray[1],Temp_at_events,shift_ind)
+		if args.m== -1: 
+			l_at_events=np.repeat(l0,len(Temp_at_events))
+			m_at_events=np.repeat(m0,len(Temp_at_events))
 	
 	# Global likelihood
 	#__ l_s1a=l_at_events[ind_s]
