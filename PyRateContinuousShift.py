@@ -62,7 +62,7 @@ p.add_argument("-DD",  help='Diversity Dependent Model', action='store_true', de
 p.add_argument('-plot', type=str, help='Log file', default="", metavar="")
 p.add_argument("-rescale",   type=float, help='Rescale time axis (e.g. -rescale 1000: 1 -> 1000, time unit = 1Ky)', default=1, metavar=1)
 p.add_argument('-use_hp', type=int, help='Use hyperpriors on rates and correlation parameters (0/1)', default=1, metavar=1)
-p.add_argument("-pG",   type=float, help='St. dev. of normal prior on correlation parameters (only if -use_hp 0)', default=1, metavar=1)
+p.add_argument("-pG",   type=float, help='St. dev. of normal prior on correlation parameters (only if -use_hp 0) | use negative values to set symmetric uniform prior', default=1, metavar=1)
 
 
 
@@ -227,7 +227,12 @@ for i in range(len(all_events)):
 n_time_bins=len(np.unique(shift_ind))
 GarrayA=np.zeros((2,n_time_bins)) # correlation parameters with Temp of lambda (GarrayA[0]) and mu (GarrayA[1])
 l0A,m0A= init_BD(n_time_bins),init_BD(n_time_bins)
-hypRA,hypGA= 1.,args.pG**2 # variance of normal prior
+hypRA = 1.
+
+if args.pG>0:
+	hypGA= args.pG**2 # variance of normal prior
+else:
+	hypGA= args.pG # if negative use uniform prior
 
 ### PLOT RTT
 def get_marginal_rates(model,l0,m0,Garray,Temp_at_events,shift_ind,root_age):
@@ -348,16 +353,22 @@ else: s_times_str=""
 if equal_g==1: add_equal_g="EG"
 else: add_equal_g=""
 
-if args.m== -1: out_file_name="%s/%s_%s_%s_%sconst%s.log"  % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str,add_equal_g)
-if args.m==  0: out_file_name="%s/%s_%s_%s_%sexp%s.log"    % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str,add_equal_g)
-if args.m==  1: out_file_name="%s/%s_%s_%s_%slinear%s.log" % (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str,add_equal_g)
-
-
 if max(args.mSpEx) > -np.inf:
-	out_file_name="%s/%s_%s_%s_%smSpEx%s%s_%s.log" % \
-	(output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str,args.mSpEx[0],args.mSpEx[1],add_equal_g)
+ 	args_mSpEx = args.mSpEx
+else:
+	if args.m== -1: args_mSpEx = [-1,-1]
+	if args.m==  0: args_mSpEx = [0,0]
+	if args.m==  1: args_mSpEx = [1,1]
 
 
+out_model = ["const","exp","lin"]
+out_file_name="%s/%s_%s_%s_%s%sSp_%sEx%s.log" % \
+(output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]],add_equal_g)
+
+
+
+	
+	
 logfile = open(out_file_name , "wb") 
 wlog=csv.writer(logfile, delimiter='\t')
 
@@ -456,40 +467,30 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 			g_rate=G_hp_beta + sum((GarrayA.flatten()-0)**2)/2.
 			hypGA = 1./np.random.gamma(shape= g_shape, scale= 1./g_rate)
 		else:
-			if rr[2]>.5 and args.mSpEx[0]> -1:
+			if rr[2]>.5 and args_mSpEx[0]> -1:
 				if equal_g==0:
 					Garray[0]=update_parameter_normal_2d(Garray[0],list_d2[scal_fac_ind]) 
 				else:
 					Garray[0,:]=update_parameter_normal(Garray[0,0],list_d2[scal_fac_ind])[0]
-			elif args.mSpEx[1]> -1:
+			elif args_mSpEx[1]> -1:
 				if equal_g==0:
 					Garray[1]=update_parameter_normal_2d(Garray[1],list_d2[scal_fac_ind]) 
 				else:
 					Garray[1,:]=update_parameter_normal(Garray[1,0],list_d2[scal_fac_ind])[0]
 		
-	if max(args.mSpEx) > -np.inf: # specific models for sp and ex
-		if args.mSpEx[0]==0: 
-			l_at_events=trasfMultipleRateTemp(l0, Garray[0],Temp_at_events,shift_ind)
-		if args.mSpEx[1]==0: 
-			m_at_events=trasfMultipleRateTemp(m0, Garray[1],Temp_at_events,shift_ind)
-		if args.mSpEx[0]==1: 
-			l_at_events=trasfMultipleRateTempLinear(l0, Garray[0],Temp_at_events,shift_ind)
-		if args.mSpEx[1]==1: 
-			m_at_events=trasfMultipleRateTempLinear(m0, Garray[1],Temp_at_events,shift_ind)
-		if args.mSpEx[0]== -1: 
-			l_at_events=np.repeat(l0,len(Temp_at_events))
-		if args.mSpEx[1]== -1: 
-			m_at_events=np.repeat(m0,len(Temp_at_events))
-	else:
-		if args.m==0: 
-			l_at_events=trasfMultipleRateTemp(l0, Garray[0],Temp_at_events,shift_ind)
-			m_at_events=trasfMultipleRateTemp(m0, Garray[1],Temp_at_events,shift_ind)
-		if args.m==1: 
-			l_at_events=trasfMultipleRateTempLinear(l0, Garray[0],Temp_at_events,shift_ind)
-			m_at_events=trasfMultipleRateTempLinear(m0, Garray[1],Temp_at_events,shift_ind)
-		if args.m== -1: 
-			l_at_events=np.repeat(l0,len(Temp_at_events))
-			m_at_events=np.repeat(m0,len(Temp_at_events))
+	if args_mSpEx[0]==0: 
+		l_at_events=trasfMultipleRateTemp(l0, Garray[0],Temp_at_events,shift_ind)
+	if args_mSpEx[0]==1: 
+		l_at_events=trasfMultipleRateTempLinear(l0, Garray[0],Temp_at_events,shift_ind)
+	if args_mSpEx[0]== -1: 
+		l_at_events=np.repeat(l0,len(Temp_at_events))
+	
+	if args_mSpEx[1]==0: 
+		m_at_events=trasfMultipleRateTemp(m0, Garray[1],Temp_at_events,shift_ind)
+	if args_mSpEx[1]==1: 
+		m_at_events=trasfMultipleRateTempLinear(m0, Garray[1],Temp_at_events,shift_ind)
+	if args_mSpEx[1]== -1: 
+		m_at_events=np.repeat(m0,len(Temp_at_events))
 	
 	# Global likelihood
 	#__ l_s1a=l_at_events[ind_s]
@@ -529,7 +530,15 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 	lik_alter = lik * scal_fac_TI[scal_fac_ind]
 	
 	# Add hyper-prior + Gibbs sampling 
-	prior= prior_normal(Garray,scale=sqrt(hypGA)) + prior_exponential(l0,rate=hypRA) + prior_exponential(m0,rate=hypRA)  # prior_normal_tau(Garray,precision=hypGA)
+	#print np.amax(abs(Garray)), -hypGA
+	if hypGA>0: # use normal prior on G par
+		prior = prior_normal(Garray,scale=sqrt(hypGA)) 
+	else: # use uniform prior on G par
+		if np.amax(abs(Garray)) > -hypGA:
+			prior = -np.inf
+		else: 
+			prior = 0
+	prior += prior_exponential(l0,rate=hypRA) + prior_exponential(m0,rate=hypRA)  # prior_normal_tau(Garray,precision=hypGA)
 	
 	if (lik_alter + prior + hasting) - postA >= log(rand.random()) or iteration==0 or GIBBS == 1:
 		postA=lik_alter+prior
@@ -541,7 +550,7 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 		GarrayA=Garray
 	if iteration % print_freq ==0: 
 		print iteration, array([postA, likA,lik,prior]), hasting, scal_fac_TI[scal_fac_ind]
-		print "l:",l0A, "\nm:", m0A, "\nG:", GarrayA
+		print "l:",l0A, "\nm:", m0A, "\nG:", GarrayA.flatten()
 	if iteration % sampling_freq ==0:
 		if equal_g==0:
 			g_vec_write = list(GarrayA.flatten())
