@@ -62,6 +62,7 @@ p.add_argument("-DD",  help='Diversity Dependent Model', action='store_true', de
 p.add_argument('-plot', type=str, help='Log file', default="", metavar="")
 p.add_argument("-rescale",   type=float, help='Rescale time axis (e.g. -rescale 1000: 1 -> 1000, time unit = 1Ky)', default=1, metavar=1)
 p.add_argument('-use_hp', type=int, help='Use hyperpriors on rates and correlation parameters (0/1)', default=1, metavar=1)
+p.add_argument("-pG",   type=float, help='St. dev. of normal prior on correlation parameters (only if -use_hp 0)', default=1, metavar=1)
 
 
 
@@ -226,7 +227,7 @@ for i in range(len(all_events)):
 n_time_bins=len(np.unique(shift_ind))
 GarrayA=np.zeros((2,n_time_bins)) # correlation parameters with Temp of lambda (GarrayA[0]) and mu (GarrayA[1])
 l0A,m0A= init_BD(n_time_bins),init_BD(n_time_bins)
-hypRA,hypGA= 1.,1.
+hypRA,hypGA= 1.,args.pG**2 # variance of normal prior
 
 ### PLOT RTT
 def get_marginal_rates(model,l0,m0,Garray,Temp_at_events,shift_ind,root_age):
