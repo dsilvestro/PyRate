@@ -2470,13 +2470,18 @@ def MCMC(all_arg):
 			tempMC3=1
 			lik_alter=(sum(lik_fossil)+ PoiD_const) + (sum(likBDtemp)+ PoiD_const)*temperature
 		Post=lik_alter+prior+tree_lik
-		if it==0: PostA=Post
+		accept_it = 0
+		if it==0: 
+			accept_it = 1
+			PostA = Post
 		if it>0 and (it-burnin) % (I_effective/len(temperatures)) == 0 and it>burnin or it==I-1: 
-			PostA=Post # when temperature changes always accept first iteration
+			accept_it = 1 # when temperature changes always accept first iteration
+			PostA = Post
 		
 		#print Post, PostA, q_ratesA, sum(lik_fossil), sum(likBDtemp),  prior
 		if Post>-inf and Post<inf:
-			if Post*tempMC3-PostA*tempMC3 + hasting >= log(np.random.random()) or stop_update==inf and TDI in [2,3,4]: # 
+			r_acc = log(np.random.random())
+			if Post*tempMC3-PostA*tempMC3 + hasting >= r_acc or stop_update==inf and TDI in [2,3,4] or accept_it==1: # 
 				likBDtempA=likBDtemp
 				PostA=Post
 				priorA=prior
@@ -2502,7 +2507,7 @@ def MCMC(all_arg):
 			try: l=[round(y, 2) for y in [PostA, likA, priorA, SA]]
 			except: 
 				print "An error occurred."
-				print PostA,lik, prior, prior_root_age(max(ts),max(FA),max(FA)), priorBD, max(ts),max(FA)
+				print PostA,Post,lik, prior, prior_root_age(max(ts),max(FA),max(FA)), priorBD, max(ts),max(FA)
 				print prior_gamma(q_rates[1],pert_prior[0],pert_prior[1]) + prior_uniform(q_rates[0],0,20)
 				quit()
 			if it>burnin and n_proc==0:
@@ -3624,14 +3629,14 @@ o2 = "\n\nPyRate was called as follows:\n%s\n" % (args)
 if model_cov>=1 or useDiscreteTraitModel == 1: o2 += regression_trait
 if TDI==3: o2 += "\n\nHyper-prior on concentration parameter (Gamma shape, rate): %s, %s\n" % (hp_gamma_shape, hp_gamma_rate)
 if len(fixed_times_of_shift)>0:
-	o2 += "\nUsing the following fixed time frames: "
+	o2 += "\nUsing birth-death model with fixed times of rate shift: "
 	for i in fixed_times_of_shift: o2 += "%s " % (i)
 o2+= "\n"+prior_setting
 if argsHPP == 1: 
 	if TPP_model == 0: 
 		o2+="Using Homogeneous Poisson Process of preservation (HPP)."
 	else: 
-		o2 += "\nUsing Homogeneous Poisson Process of preservation with shifts (HPPS) at: "
+		o2 += "\nUsing Time-variable Poisson Process of preservation (TPP) at: "
 		for i in times_q_shift: o2 += "%s " % (i)
 	
 else: o2+="Using Non-Homogeneous Poisson Process of preservation (NHPP)."
