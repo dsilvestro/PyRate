@@ -424,7 +424,8 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0, plot_type=1):
 	else: n_plots=3
 	
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		Rfile+= "\n\npdf(file='%s\%s_RTT.pdf',width=10.8, height=8.4)\npar(mfrow=c(2,2))" % (wd,name_file)
+	    wd_forward = wd.replace('\\', '/')
+	    Rfile+= "\n\npdf(file='%s/%s_RTT.pdf',width=10.8, height=8.4)\npar(mfrow=c(2,2))" % (wd_forward,name_file)
 	else: 
 		Rfile+= "\n\npdf(file='%s/%s_RTT.pdf',width=10.8, height=8.4)\npar(mfrow=c(2,2))" % (wd,name_file)
 
@@ -504,9 +505,9 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0, plot_type=1):
 	Rfile += "\nn <- dev.off()"
 	newfile.writelines(Rfile)
 	newfile.close()
-	print "\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, wd)
+	print "\nAn R script with the source for the RTT plot was saved as: %s_RTT.r\n(in %s)" % (name_file, wd)
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		cmd="cd %s; Rscript %s\%s_RTT.r" % (wd,wd,name_file)
+	    cmd="cd %s & Rscript %s_RTT.r" % (wd,name_file)
 	else: 
 		cmd="cd %s; Rscript %s/%s_RTT.r" % (wd,wd,name_file)
 	os.system(cmd)
