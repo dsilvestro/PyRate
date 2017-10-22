@@ -1,10 +1,12 @@
 ### PyRate is a Python program to estimate speciation, extinction, and preservation rates from fossil occurrence data using a Bayesian framework. 
 
+
+ProvenanceFinder is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-affero-general-public-license-v3-(agpl-3.0)#summary).
+
 #### The program's documentation is avaiable here: 
 * Detailed command list: https://github.com/dsilvestro/PyRate/wiki
 * Tutorials (work in progress): https://github.com/dsilvestro/PyRate/tree/master/tutorials
 * For questions, suggestions or bugs [contact us](mailto:pyrate.help@gmail.com)
-
 
 
 #### The main methods are described here:
