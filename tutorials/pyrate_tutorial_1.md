@@ -1,6 +1,6 @@
 # PyRate Tutorial \#1
 #### Daniele Silvestro – Jan 2017
-***  
+***
 Useful links:  
 [PyRate code](https://github.com/dsilvestro/PyRate)  
 [PyRate wiki](https://github.com/dsilvestro/PyRate/wiki)  
@@ -12,41 +12,36 @@ Useful links:
 1. **Download fossil occurrences** for a clade from the Paleobiology Database. E.g. search for the genus *Canis* and save it as a cvs file, e.g. using the file name *Canis_pbdb_data.csv*. Before downloading the file, check the box "Show accepted names only" in the "Select by taxonomy" section, and uncheck the box "Include fmetadata at the beginning of the output" in the "Choose output options" section.
 
 2. **Launch R** by opening a Terminal window and typing `R` then hit Enter. On Mac or Windows you can use the R GUI app or RStudio. 
- 
+
 3. **Load the *pyrate_utilities.r* file** e.g. by typing:  
   `source(".../PyRate-master/pyrate_utilities.r")`. Note that the full path of a file is here indicated as `.../` for simplicity. In most operating systems you can drag and drop the *pyrate_utilities.r* file onto the R console to paste the full path. 
 
 4. **Check which species are extant today** (if any), as this information must be provided when running a diversification rate analysis. All species unless otherwise specified will be considered as extinct. Define a vector of extant species by typing in R:   
-`extant_dogs = c("Canis rufus","Canis lupus","Canis aureus","Canis latrans","Canis mesomelas","Canis anthus","Pseudalopex gymnocercus","Canis adustus","Canis familiaris")`
+  `extant_dogs = c("Canis rufus","Canis lupus","Canis aureus","Canis latrans","Canis mesomelas","Canis anthus","Pseudalopex gymnocercus","Canis adustus","Canis familiaris")`
 
 5. **Parse the raw data and generate PyRate input file**. Here we are going to use an automated function to extract fossil occurrence data from PBDB raw table and save it in a PyRate-compatible input file. Type in R:   
-`extract.ages.pbdb(file=
-".../Canis_pbdb_data.csv",extant_species=extant_dogs)`  
-**IMPORTANT NOTE:** this function does not check for synonyms, typos, etc. You can specify two additional options.  The option `replicates` (by default set to 1) resamples the ages of each fossil occurrence from the respective temporal range. If you use `replicates=10`, ten replicated datasets will be saved in a single PyRate input file. These replicates can then be analyzed (individually) and the combined results will account for age uncertainties in the fossil record. The option `cutoff` can be used to remove occurrences with an age range greater than a given temporal range. For instance using `cutoff=10` will remove all occurrences in which the difference between max age and min age is larwger than 10 Myr. 
+  `extract.ages.pbdb(file= ".../Canis_pbdb_data.csv",extant_species=extant_dogs)`  
+  **IMPORTANT NOTE:** this function does not check for synonyms, typos, etc. You can specify two additional options.  The option `replicates` (by default set to 1) resamples the ages of each fossil occurrence from the respective temporal range. If you use `replicates=10`, ten replicated datasets will be saved in a single PyRate input file. These replicates can then be analyzed (individually) and the combined results will account for age uncertainties in the fossil record. The option `cutoff` can be used to remove occurrences with an age range greater than a given temporal range. For instance using `cutoff=10` will remove all occurrences in which the difference between max age and min age is larwger than 10 Myr. 
 
 6. **Check PyRate input files.** The previous step generated two files: a text file (\*\_SpeciesList.txt) containing the list of all species included in the dataset and a python file (\*\_PyRate.py) with all occurrences formatted for a PyRate analysis. We can check the python file directly in PyRate to get a few summary statistics:  
-	a. Open a Terminal window
-	b. Browse to the Pyrate folder, e.g.:  
-	  `cd ".../PyRate-master"`
-	c. Launch PyRate with the following arguments:  
-	`python PyRate.py '.../Canis_pbdb_data_PyRate.py' -data_info`  
+  a. Open a Terminal window
+  b. Browse to the Pyrate folder, e.g.:  
+    `cd ".../PyRate-master"`
+  c. Launch PyRate with the following arguments:  
+  `python PyRate.py '.../Canis_pbdb_data_PyRate.py' -data_info`  
 ***
 
 ## Generate PyRate input file (option 2)
 1. **Prepare fossil occurrence table.** You can prepare a table with fossil occurrence data in a text editor or a spreadsheet editor. The table must include 4 columns including 1) Taxon name, 2) Status specifying whether the taxon is "extinct" or "extant", 3) Minimum age, and 4) Maximum age. The table should have a header (first row) and **one row for each fossil occurrence**. Min and max ages represent the age ranges of each fossil occurrence, typically based on stratigraphic boundaries. One additional column can be included in the table indicating a trait value (e.g. estimated body mass) that can be used PyRate analyses.  
-
 2. **Launch R** as explained above. 
- 
 3. **Load the *pyrate_utilities.r* file** as explained above.  
-
-4. **Parse the raw data and generate PyRate input file**. Here we are going to use an automated function to extract fossil occurrence data from PBDB raw table and save it in a PyRate-compatible input file. Type in R:   
-`extract.ages(file=".../Canis_pbdb_data.csv",extant_species=extant_dogs,
-replicates=10)`  
+4. **Parse the raw data and generate PyRate input file**. Type in R:   
+  `extract.ages(file="…/PyRate/example_files/Ursidae.txt", replicates=10)` This function includes `replicates` and `cutoff` options as the `extract.ages.pbdb()` function described above (option 1). 
 
 
 
- 
-***      
+
+***
 ## Estimation of speciation/extinction rates through time
 
 #### Defining the preservation model
@@ -71,12 +66,11 @@ Finally, a **TPP + Gamma model** can be used to **incorporate both temporal and 
 `python PyRate.py .../Canis_pbdb_data_PyRate.py -qShift .../epochs_q.txt -mG`  
 
 
-Note that formal **model testing between preservation models** is currently not implemented in PyRate.
 
 
 #### Analysis setup
 Here we describe the main settings for a standard analysis of fossil occurrence data using PyRate. The analysis will estimate:
-  
+
 1. **origination and extinction times** of each lineage  
 2. **preservation rate** and its level of **heterogeneity**  
 3. **speciation and extinction rates** through time. 
@@ -129,7 +123,7 @@ The **marginal_rates.log** file can be used to generate rates-through-time plots
 `python PyRate.py -plot .../Canis_pbdb_data_marginal_rates.log -b 200`
 
 This will generate an R script and a PDF file with the RTT plots showing speciation, extinction, and net diversification through time. A slightly different flavor of the RTT plot can be obtained using the flag `-plot2` instead of `-plot`. 
-    
+​    
 ***
 ## Speciation/extinction rates within fixed time bins
 #### Analysis setup
