@@ -218,18 +218,27 @@ def calc_marginal_likelihood(infile,burnin,extract_mcmc=1):
 	else: print "found", len(files), "log files...\n"	
 	out_file="%s/marginal_likelihoods.txt" % (infile)
 	newfile =open(out_file,'wb')
-	tbl_header = "file_name\tmodel\tdf"
+	tbl_header = "file_name\tmodel\tTI_categories\treplicate"
 	for f in files:
 		try: 
 		#if 2>1:
 			t=loadtxt(f, skiprows=max(1,burnin))
 			input_file = os.path.basename(f)
 			name_file = os.path.splitext(input_file)[0]
-			try: replicate = int(name_file.split('_')[-5])
-			except: replicate = 0
+			
+			try:
+				replicate = 0
+				model = "NA"
+				for i in name_file.split('_'):
+					if "BD" in i or "lin" in i or "exp" in i:
+						model = i
+					try: 
+						replicate = int(i)
+					except: pass
+			except: replicate =0 
 			#model = name_file.split('_')[-1]
-			if "exp.log" in f: model = "Exponential"
-			else: model = "Linear"
+			#if "exp.log" in f: model = "Exponential"
+			#else: model = "Linear"
 			
 			head = np.array(next(open(f)).split()) # should be faster
 			head_l = list(head)
@@ -267,10 +276,10 @@ def calc_marginal_likelihood(infile,burnin,extract_mcmc=1):
 				for i in range(len(l)-1): mL+=((l[i]+l[i+1])/2.)*(x[i]-x[i+1]) # Beerli and Palczewski 2010
 				#ml_str="\n%s\t%s\t%s\t%s%s%s" % (name_file,round(mL,3),replicate,model    ,l_str,s_str)
 				n_categories = len(x)
-				if like_index == min(L_index): ml_str="\n%s\t%s\t%s\t%s" % (name_file,model,n_categories,round(mL,3))
+				if like_index == min(L_index): ml_str="\n%s\t%s\t%s\t%s\t%s" % (name_file,model,n_categories,replicate,round(mL,3))
 				else: ml_str += "\t%s" % (round(mL,3))
 			newfile.writelines(ml_str)
-			
+			newfile.flush()
 			if extract_mcmc==1:
 				out_name="%s/%s_cold.log" % (infile,name_file)
 				newfile2 =open(out_name,'wb')

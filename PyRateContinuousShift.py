@@ -63,6 +63,7 @@ p.add_argument('-plot', type=str, help='Log file', default="", metavar="")
 p.add_argument("-rescale",   type=float, help='Rescale time axis (e.g. -rescale 1000: 1 -> 1000, time unit = 1Ky)', default=1, metavar=1)
 p.add_argument('-use_hp', type=int, help='Use hyperpriors on rates and correlation parameters (0/1)', default=1, metavar=1)
 p.add_argument("-pG",   type=float, help='St. dev. of normal prior on correlation parameters (only if -use_hp 0) | use negative values to set symmetric uniform prior', default=1, metavar=1)
+p.add_argument("-verbose",  help='Print curve trajectory', action='store_true', default=False)
 
 
 
@@ -76,6 +77,8 @@ cov_file=args.c
 rescale_factor=args.r
 focus_clade=args.clade
 win_size=args.w
+rep_j=max(args.j-1,0)
+
 s_times=np.sort(np.array(args.stimes))[::-1]
 if len(args.slice)>0:
 	index_slice_of_interest = 1
@@ -98,8 +101,8 @@ useHP = args.use_hp
 #t_file=np.genfromtxt(dataset, names=True, delimiter='\t', dtype=float)
 t_file=np.loadtxt(dataset, skiprows=1)
 
-ts=t_file[:,2+2*args.j]*args.rescale
-te=t_file[:,3+2*args.j]*args.rescale
+ts=t_file[:,2+2*rep_j]*args.rescale
+te=t_file[:,3+2*rep_j]*args.rescale
 
 # assign short branch length to singletons (ts=te)
 ind_singletons=(ts==te).nonzero()[0]
@@ -219,8 +222,16 @@ if run_single_slice == 1: # values rescaled between 0 and 1 within the slice
 	#print temp_values_slice, max(temp_values_slice)-min(temp_values_slice)
 
 
-for i in range(len(all_events)):
-	print all_events[i],Temp_at_events[i], Dtraj[i,0]
+
+if args.verbose is True:
+	print "total branch length:" , sum(ts-te)
+	print "raw range: %s (%s-%s)"       % (max(tempfile[:,1])-min(tempfile[:,1]), max(tempfile[:,1]), min(tempfile[:,1]))
+	print "rescaled range: %s (%s-%s)" % (max(Temp_values)-min(Temp_values), max(Temp_values), min(Temp_values))
+	print "max diversity:", max(Dtraj)
+	print "rescaling factor:", curve_scale_factor
+	print "\ntime\tvar.value\tdiversity"
+	for i in range(len(all_events)):
+		print "%s\t%s\t%s" %  (all_events[i],Temp_at_events[i], Dtraj[i,0])
 
 
 ### INIT PARAMS
@@ -363,7 +374,7 @@ else:
 
 out_model = ["const","exp","lin"]
 out_file_name="%s/%s_%s_%s_%s%sSp_%sEx%s.log" % \
-(output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],args.j,s_times_str,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]],add_equal_g)
+(output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],rep_j,s_times_str,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]],add_equal_g)
 
 
 
@@ -462,7 +473,7 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 			#__ g_rate=G_hp_beta + sum((GarrayA.flatten()-0)**2)/2.
 			#__ hypGA = np.random.gamma(shape= g_shape, scale= 1./g_rate)
 			# Gibbs sampler - Normal(loc=0, sig2) + InvGamma
-			G_hp_alpha,G_hp_beta=1.,1.
+			G_hp_alpha,G_hp_beta=1.,.1
 			g_shape=G_hp_alpha + len(GarrayA.flatten())/2.
 			g_rate=G_hp_beta + sum((GarrayA.flatten()-0)**2)/2.
 			hypGA = 1./np.random.gamma(shape= g_shape, scale= 1./g_rate)

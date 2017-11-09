@@ -74,7 +74,7 @@ def exp_tpp(q,q_shift): # expected value under a multi-Exp distributio
 
 def optim_se_given_q_TPP(x,q,occs_sp_bin_i,times_q_shift=[inf,0],exp_se=0):
 	fa,la=max(x),min(x)
-	# USE EXPECTED s,e: | WHATS THE EXPECTATION UNDER TPP???
+	# USE EXPECTED s,e
 	if exp_se==1:
 		# speciation time
 		qS_ts = times_q_shift[times_q_shift>=fa]
