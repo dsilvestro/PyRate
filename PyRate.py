@@ -664,14 +664,19 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 			head_temp = next(open(f)).split() # should be faster
 			sp_ind_list=[]
 			for TAG in col_tag:
-				sp_ind_list+=[head_temp.index(s) for s in head_temp if s == TAG]
+				if TAG in head_temp:
+					sp_ind_list+=[head_temp.index(s) for s in head_temp if s == TAG]
 			
-			sp_ind= np.array(sp_ind_list)
+			try: 
+				col_tag_ind = np.array([int(tag_i) for tag_i in col_tag])
+				sp_ind= np.array(col_tag_ind)
+			except:
+				sp_ind= np.array(sp_ind_list)
 			#print "INDEXES",sp_ind
 			if j==0: 
 				head_temp= np.array(head_temp)
 				head_t= ["%s\t" % (i) for i in head_temp[sp_ind]]
-				head=""
+				head="it\t"
 				for i in head_t: head+=i
 				head+="\n"
 				print "found", len(head_t), "columns"
@@ -682,14 +687,20 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 		j+=1
 
 	#print shape(comb)	
-	if col_tag == "":
+	if len(col_tag) == 0:
 		sampling_freq= comb[1,0]-comb[0,0]
 		comb[:,0] = (np.arange(0,len(comb))+1)*sampling_freq
 		fmt_list=['%i']
-	else: fmt_list=['%i']
-	for i in range(1,np.shape(comb)[1]): fmt_list.append('%4f')
+		for i in range(1,np.shape(comb)[1]): fmt_list.append('%4f')
+	else: 
+		fmt_list=['%i']
+		for i in range(1,np.shape(comb)[1]+1): fmt_list.append('%4f')
+		comb = np.concatenate((np.zeros((len(comb[:,0]),1)),comb),axis=1)
+	comb[:,0] = (np.arange(0,len(comb)))
+
+	print np.shape(comb), len(fmt_list)
+	
 	outfile = "%s/combined_%s%s_files.log" % (infile,len(files),tag)
-	comb[:,0] = np.arange(len(comb[:,0]))
 	
 	with open(outfile, 'wb') as f:
 		f.write(head)
@@ -1304,6 +1315,8 @@ def HPP_vec_lik(arg):
 	i=int(i) # species number
 	k_vec = occs_sp_bin[i] # no. occurrences per time bin per species
 	# e.g. k_vec = [0,0,1,12.,3,0]
+	if ts in time_frames and ts != time_frames[0]: # if max(ts)<max(q_shift), ignore max(ts)
+		time_frames = time_frames[time_frames != ts]
 	h = np.histogram(np.array([ts,te]),bins=sort(time_frames))[0][::-1]
 	ind_tste= (h).nonzero()[0]
 	ind_min=min(ind_tste)
@@ -2151,8 +2164,7 @@ def MCMC(all_arg):
 		timesM[0]=max_ts
 		if fix_SE == 0:
 			if TPP_model == 1: 
-				if it==0:  q_time_frames = np.sort(np.array([max_ts,0]+times_q_shift))[::-1]
-				else: q_time_frames[0]= max_ts
+				q_time_frames = np.sort(np.array([max_ts,0]+times_q_shift))[::-1]
 
 		# NHPP Lik: multi-thread computation (ts, te)
 		# generate args lik (ts, te)
@@ -3547,15 +3559,15 @@ if args.tree != "":
 # GET DATA SUMMARY INFO
 if args.data_info == 1:
 	print "\nDATA SUMMARY\n"
-	if len(singletons_excluded)>0: print "%s species excluded as singletons (observed life span < %s Myr)" % (len(singletons_excluded), args.singleton)
-	print "%s species included in the data set" % (len(fossil))
+	if len(singletons_excluded)>0: print "%s taxa excluded" % (len(singletons_excluded))
+	print "%s taxa included in the analysis" % (len(fossil))
 	one_occ_sp,all_occ,extant_sp,n_occs_list  = 0,0,0,list()
 	for i in fossil:
 		if len(i[i>0])==1: one_occ_sp+=1
 		all_occ += len(i[i>0])
 		n_occs_list.append(len(i[i>0]))
 		if min(i)==0: extant_sp+=1
-	print "%s species have a single occurrence, %s species are extant" % (one_occ_sp,extant_sp)
+	print "%s taxa have a single occurrence, %s taxa are extant" % (one_occ_sp,extant_sp)
 	j=0
 	m_ages,M_ages=[],[]
 	while True:
