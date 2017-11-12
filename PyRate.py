@@ -642,7 +642,7 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 	j=0
 	burnin = int(burnin)
 	for f in files:
-		if 2>1: #try:
+		try:
 			file_name =  os.path.splitext(os.path.basename(f))[0]
 			print file_name,
 			t_file=loadtxt(f, skiprows=max(1,int(burnin)))
@@ -653,7 +653,7 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 				r_ind= sort(np.random.randint(0,shape_f[0],resample))
 				t_file = t_file[r_ind,:]
 
-		#except: print "ERROR in",f		
+		except: print "ERROR in",f		
 		if len(col_tag) == 0:
 			if j==0: 
 				head = next(open(f))#.split()

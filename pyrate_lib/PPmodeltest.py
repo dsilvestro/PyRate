@@ -251,7 +251,7 @@ def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
 	deltaAICs_ = deltaAICs[deltaAICs>0]
 	# empirical thresholds
 	dAIC_hpp  = [ [0,6.4,0],[0,17.4,0] ]
-	dAIC_nhpp = [ [3.8,0,0],[8.,0,0]   ]
+	dAIC_nhpp = [ [3.8,0,0],[8.,0,2.4]   ]
 	dAIC_tpp  = [ [3.2,6.8,0],[10.6,23.3,0]]
 	
 	if best_model=="HPP":
