@@ -3574,10 +3574,13 @@ if args.data_info == 1:
 		try: fossil_complete=input_data_module.get_data(j)
 		except(IndexError): break
 		min_age, max_age = np.inf, 0
+		sp_indtemp = 0
 		for i in fossil_complete:
-			a,b = min(i[i>0]), max(i)
-			if a < min_age: min_age=a
-			if b > max_age: max_age=b
+			if sp_indtemp in taxa_included:
+				a,b = min(i[i>0]), max(i)
+				if a < min_age: min_age=a
+				if b > max_age: max_age=b
+			sp_indtemp+=1
 		m_ages.append(min_age)
 		M_ages.append(max_age)
 		j+=1
