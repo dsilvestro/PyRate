@@ -67,7 +67,7 @@ def make_Q(dv,ev): # construct Q matrix
 		[D, 0, 0, 0 ],
 		[e1,D, 0, d1],
 		[e2,0, D, d2],
-		[0 ,e1,e2,D ]	
+		[0 ,e2,e1,D ]  	
 	])
 	# fill diagonal values
 	np.fill_diagonal(Q, -np.sum(Q,axis=1))
@@ -85,7 +85,7 @@ def make_Q_list(dv_list,ev_list): # construct list of Q matrices
 #			[D, d1, d2, 0 ],
 			[e1,D, 0, d1],
 			[e2,0, D, d2],
-			[0 ,e1,e2,D ]	
+			[0 ,e2,e1,D ]  	
 		])
 		# fill diagonal values
 		np.fill_diagonal(Q, -np.sum(Q,axis=1))
@@ -105,7 +105,7 @@ def make_Q_Covar(dv_list,ev_list,time_var,covar_par=np.zeros(2)): # construct li
 #			[D, d1, d2, 0 ],
 			[e1,D, 0, d1],
 			[e2,0, D, d2],
-			[0 ,e1,e2,D ]	
+			[0 ,e2,e1,D ]   	
 		])
 		# fill diagonal values
 		np.fill_diagonal(Q, -np.sum(Q,axis=1))
@@ -125,7 +125,7 @@ def make_Q_Covar4V(dv_list,ev_list,time_var,covar_par=np.zeros(4)): # construct 
 			# [D, d1, d2, 0 ],
 			[e1,D, 0, d1],
 			[e2,0, D, d2],
-			[0 ,e1,e2,D ]	
+			[0 ,e2,e1,D ]  	
 		])
 		# fill diagonal values
 		np.fill_diagonal(Q, -np.sum(Q,axis=1))
@@ -152,7 +152,7 @@ def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_v
 			# [D, d1, d2, 0 ],
 			[e1,D, 0, d1],
 			[e2,0, D, d2],
-			[0 ,e1,e2,D ]	
+			[0 ,e2,e1,D ] 	
 		])
 		# fill diagonal values
 		np.fill_diagonal(Q, -np.sum(Q,axis=1))
@@ -234,6 +234,74 @@ def simulate_dataset(no_sim,d,e,n_taxa,n_bins=20,wd=""):
 			if t < max(Times_mod): # did not exceed max length
 				Qrow = Q[current_state]+0
 				Qrow[Qrow<0]=0
+				[rate, ind] = random_choice_P(Qrow)
+				current_state = ind
+				#print rate, ind, current_state
+				#__ if ind == 0: # lineage is extinct
+				#__ 	break
+			else: 
+				log_state=list(SimStates)
+				wlog.writerow(log_state)
+				newfile.flush()
+				J+=1
+				break
+	os.fsync(newfile)
+	newfile.close()
+
+ 
+def simulate_dataset_1area(no_sim,d,e,n_taxa,n_bins=20,wd="", area = 2):
+        n_bins +=1
+	def random_choice_P(vector):
+		probDeath=np.cumsum(vector/sum(vector)) # cumulative prob (used to randomly sample one 
+		r=rand.random()                          # parameter based on its deathRate)
+		probDeath=sort(append(probDeath, r))
+		ind=np.where(probDeath==r)[0][0] # just in case r==1
+		return [vector[ind], ind]
+	
+	Q = make_Q(d,e)
+	D = -np.diagonal(Q) # waiting times
+	
+	outfile="%s/sim_%s_%s_%s_%s_%s_%s.txt" % (wd,no_sim,n_taxa,d[0],d[1],e[0],e[1]) 
+	newfile = open(outfile, "wb") 
+	wlog=csv.writer(newfile, delimiter='\t')
+	
+	TimeSpan = 14 #50
+	# origin age of taxa
+	OrigTimes = np.zeros(n_taxa) # all extant at the present TH: Isn't it all species present since the beginning?
+	#OrigTimes = np.random.geometric(0.3,n_taxa)-1 # geometric distrib 
+	#OrigTimes = np.random.uniform(0,TimeSpan,n_taxa) # uniform distribution of speciation times
+	#OrigTimes[OrigTimes>45]=0 # avoid taxa appearing later than 5 Ma 
+	
+	#Times = sort(np.random.uniform(0,50,10))  #
+	Times_mod = sort(np.linspace(0,TimeSpan,n_bins))
+	SimStates = np.zeros(n_bins) + nan
+	#deltaTimes= np.diff(Times)
+	#Times_mod = sort(np.append(Times,0))
+	wlog.writerow(list(Times_mod))
+	newfile.flush()
+
+	J=0
+	while J < n_taxa:
+                if area == 1:
+		        AncState = 2 # 0 -> 0, 1 -> A, 2 -> B, 3 -> AB
+                else:
+                        AncState = 1
+		current_state=AncState
+		SimStates[0] = current_state
+		t = OrigTimes[J]
+		SimStates[np.nonzero(Times_mod < t)[0]] = nan # Should not be needed because all species present since the 1st bin
+		while True:
+			#print J
+			if D[current_state]>0: rand_t = np.random.exponential(1/D[current_state])
+			else: rand_t = inf # lineage extinct
+			passed_ind = np.intersect1d(np.nonzero(Times_mod < t+rand_t)[0],np.nonzero(Times_mod > t)[0])
+			#print t, rand_t
+			t += rand_t
+			SimStates[passed_ind] = current_state
+	
+			if t < max(Times_mod): # did not exceed max length
+				Qrow = Q[current_state]+0
+				Qrow[Qrow<0]=0 # No probability for the diagonal
 				[rate, ind] = random_choice_P(Qrow)
 				current_state = ind
 				#print rate, ind, current_state
