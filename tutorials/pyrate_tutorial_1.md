@@ -1,5 +1,5 @@
 # PyRate Tutorial \#1
-#### Daniele Silvestro – Jan 2017
+#### Daniele Silvestro – Nov 2017
 ***
 Useful links:  
 [PyRate code](https://github.com/dsilvestro/PyRate)  
@@ -97,6 +97,10 @@ The BDMCMC algorithm is the default setting in PyRate and we do not need to spec
 
 Under these settings PyRate will run for 20 million iterations sampling every 5,000. Thus the resulting log files (see below) will include 4,000 posterior samples.  
 
+**Another algorithm available uses Reversible Jump MCMC (RJMCMC) to look for rate shifts. Preliminary simulations show that RJMCMC outperforms BDMCMC (paper in preparation) in accuracy and power.** Using the RJMCMC algorithm requires adding the flag `-A 4` when launching a PyRate analysis, e.g.:
+
+`python PyRate.py .../Canis_pbdb_data_PyRate.py -A 4 -mHPP -mG -j 1`
+
 #### Output files
 The PyRate analysis described above produces three output files, saved in a folder named *pyrate_mcmc_logs* in the same directory as the input file:
 
@@ -141,4 +145,19 @@ RTT plots can be generated as in the previous analysis using the command `-plot`
 
 
 
+## Setting fixed shifts at the boundaries, while searching for rate shifts within
 
+Sometimes fossil data sets are truncated by max and min boundaries (for instance because occurrences are only available within a time window). This can cause apparent rate shifts at the edges of the time range, which reflect the sampling bias. In this case you can fix _a priori_ times of rate shift based on the known temporal boundaries of the data set and estimate the rates within the time window, ignoring what happens beyond the boundaries.  This feature can be combined with the RJMCMC algorithm (`-A 4`) to infer rate shifts within the allowed time window:
+
+`python PyRate.py <data_set> -A 4 -useCPPlib 0 -edgeShift 18 2`
+
+where -A 4 sets the RJMCMC algorithm (that looks for rate shifts), -useCPPlib 0 specifies that the analysis should run using the Python version (the feature is not yet implemented in the C++ library), and  -edgeShift 18 2 sets fixed times of shifts at times 18 and 2. With these settings the algorithm will only search for shifts within this time range.
+You can also set only a max age boundary shift using:
+
+`python PyRate.py <data_set> -A 4 -useCPPlib 0 -edgeShift 18 0`
+
+or a min age boundary shift using:
+
+`python PyRate.py <data_set> -A 4 -useCPPlib 0 -edgeShift inf 0`
+
+When summarizing the results, only rates estimated within the time window should be considered.
