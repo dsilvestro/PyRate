@@ -1134,7 +1134,7 @@ def BD_partial_lik_bounded(arg):
 def cdf_WR(W_shape,W_scale,x):
 	return (x/W_scale)**(W_shape)
 
-def log_wr(t,W_shape,W_scale):
+def log_wr(t,W_shape,W_scale): # return log extinction rate at time t based on ADE model
 	return log(W_shape/W_scale)+(W_shape-1)*log(t/W_scale)
 
 def log_wei_pdf(x,W_shape,W_scale): # log pdf Weibull 
@@ -1948,6 +1948,7 @@ def MCMC(all_arg):
 		timesLA, timesMA = init_times(maxTSA,time_framesL,time_framesM, min(teA))
 		if len(fixed_times_of_shift)>0: timesLA[1:-1],timesMA[1:-1]=fixed_times_of_shift,fixed_times_of_shift
 		if fix_edgeShift > 0:
+			print "HERE",edgeShifts,fix_edgeShift
 			if fix_edgeShift == 1:
 				timesLA, timesMA = init_times(edgeShifts[0],time_framesL,time_framesM, edgeShifts[1]) # starting shift tims within allowed window
 				timesLA[0],timesMA[0]= maxTSA,maxTSA
@@ -2947,15 +2948,15 @@ else:
 	fix_Shift = 0
 
 if args.edgeShift[0] != np.inf or args.edgeShift[1] != 0:
-	fix_edgeShift = 1
 	edgeShifts = []
-	if args.edgeShift[0] != np.inf: 
+	if args.edgeShift[0] != np.inf: # max boundary
 		edgeShifts.append(args.edgeShift[0])
 		fix_edgeShift = 2
-	if args.edgeShift[1] != 0: 
+	if args.edgeShift[1] != 0: # min boundary
 		edgeShifts.append(args.edgeShift[1])
 		fix_edgeShift = 3
-	#else: edgeShifts = [args.edgeShift[0]]
+	if len(edgeShifts)==2: # min and max boundaries
+		fix_edgeShift = 1 
 else: fix_edgeShift = 0
 # BDMCMC & MCMC SETTINGS
 runs=args.r              # no. parallel MCMCs (MC3)
