@@ -2996,6 +2996,8 @@ if args.edgeShift[0] != np.inf or args.edgeShift[1] != 0:
 	if len(edgeShifts)==2: # min and max boundaries
 		fix_edgeShift = 1 
 		min_allowed_n_rates = 3
+	time_framesL = max(min_allowed_n_rates,args.mL) # change number of starting rates based on edgeShifts
+	time_framesM = max(min_allowed_n_rates,args.mM) # change number of starting rates based on edgeShifts
 else: 
 	fix_edgeShift = 0
 	min_allowed_n_rates = 1 
