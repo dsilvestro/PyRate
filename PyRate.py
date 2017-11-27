@@ -1667,7 +1667,17 @@ def remove_DoubleShift_RJ_rand_gamma(rates,times):
 
 
 def add_shift_RJ_rand_gamma(rates,times):
-	r_time, r_time_ind = random_choice(np.diff(times))
+	if fix_edgeShift==1: # min and max bounds
+		random_indx = np.random.choice(range(1,len(times)-2))
+		r_time, r_time_ind = np.diff(times)[random_indx],random_indx
+	elif fix_edgeShift==2: # max bound
+		random_indx = np.random.choice(range(1,len(times)-1))
+		r_time, r_time_ind = np.diff(times)[random_indx],random_indx
+	elif fix_edgeShift==3: # min bound
+		random_indx = np.random.choice(range(0,len(times)-2))
+		r_time, r_time_ind = np.diff(times)[random_indx],random_indx
+	else:
+		r_time, r_time_ind = random_choice(np.diff(times))
 	delta_t_prime      = np.random.uniform(0,r_time)
 	t_prime            = times[r_time_ind] + delta_t_prime
 	times_prime        = np.sort(np.array(list(times)+[t_prime]))[::-1]
@@ -1680,7 +1690,15 @@ def add_shift_RJ_rand_gamma(rates,times):
 	return rates_prime,times_prime,log_q_prob+Jacobian
 
 def remove_shift_RJ_rand_gamma(rates,times):
-	rm_shift_ind  = np.random.choice(range(1,len(times)-1))
+	if fix_edgeShift==1:  # min and max bounds
+		random_indx = np.random.choice(range(2,len(times)-2))
+	elif fix_edgeShift==2: # max bound
+		random_indx = np.random.choice(range(2,len(times)-1))
+	elif fix_edgeShift==3: # min bound
+		random_indx = np.random.choice(range(1,len(times)-2))
+	else:
+		random_indx = np.random.choice(range(1,len(times)-1))
+	rm_shift_ind  = random_indx
 	rm_shift_time = times[rm_shift_ind]
 	dT            = abs(times[rm_shift_ind+1]-times[rm_shift_ind-1]) # if rm t_i: U[t_i-1, t_i+1]
 	times_prime   = times[times != rm_shift_time]
@@ -1691,8 +1709,18 @@ def remove_shift_RJ_rand_gamma(rates,times):
 	Jacobian      = 0 # log(1)
 	return rates_prime,times_prime,log_q_prob+Jacobian
 
-def add_shift_RJ_weighted_mean(rates,times):
-	r_time, r_time_ind      = random_choice(np.diff(times))
+def add_shift_RJ_weighted_mean(rates,times ):
+	if fix_edgeShift==1: # min and max bounds
+		random_indx = np.random.choice(range(1,len(times)-2))
+		r_time, r_time_ind = np.diff(times)[random_indx],random_indx
+	elif fix_edgeShift==2: # max bound
+		random_indx = np.random.choice(range(1,len(times)-1))
+		r_time, r_time_ind = np.diff(times)[random_indx],random_indx
+	elif fix_edgeShift==3: # min bound
+		random_indx = np.random.choice(range(0,len(times)-2))
+		r_time, r_time_ind = np.diff(times)[random_indx],random_indx
+	else:
+		r_time, r_time_ind = random_choice(np.diff(times))
 	delta_t_prime           = np.random.uniform(0,r_time)
 	t_prime                 = times[r_time_ind] + delta_t_prime
 	times_prime             = np.sort(np.array(list(times)+[t_prime]))[::-1]
@@ -1714,7 +1742,15 @@ def add_shift_RJ_weighted_mean(rates,times):
 	return rates_prime,times_prime,log_q_prob+Jacobian
 
 def remove_shift_RJ_weighted_mean(rates,times):
-	rm_shift_ind  = np.random.choice(range(1,len(times)-1))
+	if fix_edgeShift==1:  # min and max bounds
+		random_indx = np.random.choice(range(2,len(times)-2))
+	elif fix_edgeShift==2: # max bound
+		random_indx = np.random.choice(range(2,len(times)-1))
+	elif fix_edgeShift==3: # min bound
+		random_indx = np.random.choice(range(1,len(times)-2))
+	else:
+		random_indx = np.random.choice(range(1,len(times)-1))
+	rm_shift_ind  = random_indx
 	t_prime       = times[rm_shift_ind]
 	time_i1       = times[rm_shift_ind-1]
 	time_i2       = times[rm_shift_ind+1]
@@ -1752,7 +1788,7 @@ def RJMCMC(arg):
 			else: 
 				newL,newtimesL,log_q_probL = add_DoubleShift_RJ_rand_gamma(L,timesL)
 		# if 1-rate model this won't do anything, keeping the frequency of add/remove equal
-		elif len(L)>1: 
+		elif len(L)> min_allowed_n_rates: # defined for the edgeShift model
 			if r[2]>0.5 or allow_double_move==0:
 				newL,newtimesL,log_q_probL = remove_shift_RJ(L,timesL) 
 			elif len(L)>2:
@@ -1765,7 +1801,7 @@ def RJMCMC(arg):
 			else: 
 				newM,newtimesM,log_q_probM = add_DoubleShift_RJ_rand_gamma(M,timesM)
 		# if 1-rate model this won't do anything, keeping the frequency of add/remove equal
-		elif len(M)>1: 
+		elif len(M)> min_allowed_n_rates: # defined for the edgeShift model
 			if r[2]>0.5 or allow_double_move==0:
 				newM,newtimesM,log_q_probM = remove_shift_RJ(M,timesM) 
 			elif len(M)>2:
@@ -2952,12 +2988,17 @@ if args.edgeShift[0] != np.inf or args.edgeShift[1] != 0:
 	if args.edgeShift[0] != np.inf: # max boundary
 		edgeShifts.append(args.edgeShift[0])
 		fix_edgeShift = 2
+		min_allowed_n_rates = 2
 	if args.edgeShift[1] != 0: # min boundary
 		edgeShifts.append(args.edgeShift[1])
 		fix_edgeShift = 3
+		min_allowed_n_rates = 2
 	if len(edgeShifts)==2: # min and max boundaries
 		fix_edgeShift = 1 
-else: fix_edgeShift = 0
+		min_allowed_n_rates = 3
+else: 
+	fix_edgeShift = 0
+	min_allowed_n_rates = 1 
 # BDMCMC & MCMC SETTINGS
 runs=args.r              # no. parallel MCMCs (MC3)
 if runs>1 and TDI>0: 
