@@ -127,7 +127,22 @@ The **marginal_rates.log** file can be used to generate rates-through-time plots
 `python PyRate.py -plot .../Canis_pbdb_data_marginal_rates.log -b 200`
 
 This will generate an R script and a PDF file with the RTT plots showing speciation, extinction, and net diversification through time. A slightly different flavor of the RTT plot can be obtained using the flag `-plot2` instead of `-plot`. 
-​    
+
+
+
+#### Combine log files across replicates
+To combine log files from different replicates into one you can use the command:
+
+`PyRate.py -combLog path_to_your_log_files -tag mcmc -b 100`
+
+where `path_to_your_log_files` specifies the directory where the log files are; `-tag mcmc` sets PyRate to combine all files that contain _mcmc.log_ in the file name (you can use different tags if you need); and `-b 100` specifies that the first 100 samples from each log file should be excluded as burnin – the appropriate number of burnin samples to be excluded should be determined after inspecting the log files, e.g. using Tracer.
+
+To generate a rates-through-time plot that combines all replicates, you can use the command:
+
+`PyRate.py -plot path_to_your_log_files -tag marginal_rates -b 100`
+
+This will combine all the _marginal_rates.log_ files in the specified directory and combine the results in a single plot.​ Different tags can be used to determine which files are to be combined.    
+
 ***
 ## Speciation/extinction rates within fixed time bins
 #### Analysis setup
