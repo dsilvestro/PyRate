@@ -116,7 +116,7 @@ try:
 	if sanityCheckForPyRateC == 1:
 		print "Sanity check for FastPyRateC is enabled."
 		print "Python and C results will be compared and any divergence greater than ", sanityCheckThreshold, " will be reported."
-except ImportError:
+except:
 	print("Module FastPyRateC was not found.")
 	hasFoundPyRateC = 0
 	sanityCheckForPyRateC = 0
