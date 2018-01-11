@@ -340,12 +340,16 @@ print np.shape(ext_rate_vec)
 #############################################
 ######               MCMC              ######
 #############################################
+# define time labels for log file
+time_slices = sort([max(time_series)+1,0] + list(Q_times))[::-1]
+time_bin_label=[]
+for i in range(1,len(time_slices)): time_bin_label.append("%s-%s" % (round(time_slices[i-1],1),round(time_slices[i],1)))
 
 logfile = open(out_log , "w",0) 
 head="it\tposterior\tprior\tlikelihood"
-for i in range(n_Q_times): head+= "\td12_t%s\td21_t%s" % (i,i)
-for i in range(n_Q_times): head+= "\te1_t%s\te2_t%s" % (i,i)
-for i in range(n_Q_times): head+= "\tq1_t%s\tq2_t%s" % (i,i)
+for i in range(n_Q_times): head+= "\td12_%s\td21_%s" % (time_bin_label[i],time_bin_label[i])
+for i in range(n_Q_times): head+= "\te1_%s\te2_%s" %   (time_bin_label[i],time_bin_label[i])
+for i in range(n_Q_times): head+= "\tq1_%s\tq2_%s" %   (time_bin_label[i],time_bin_label[i])
 head+="\thp_rate\tbeta"
 
 head=head.split("\t")
@@ -390,8 +394,8 @@ for it in range(n_generations * len(scal_fac_TI)):
 	if r < update_freq[0]: 
 		if equal_d is True:
 			#--> SYMMETRIC DISPERSAL
-			# d_temp,hasting = update_multiplier_proposal_freq(dis_rate_vec_A[:,0],d=1.1,f=update_rate_freq)
-			# dis_rate_vec = array([d_temp,d_temp]).T
+			d_temp,hasting = update_multiplier_proposal_freq(dis_rate_vec_A[:,0],d=1.1,f=update_rate_freq)
+			dis_rate_vec = array([d_temp,d_temp]).T
 			#--> CONSTANT DISPERSAL IN AREA 2
 			# d_temp,hasting = update_multiplier_proposal_freq(dis_rate_vec_A,d=1.1,f=update_rate_freq)
 			# d_temp[:,1] = d_temp[0,1]
