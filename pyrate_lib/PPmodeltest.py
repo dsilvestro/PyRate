@@ -254,12 +254,15 @@ def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
 	dAIC_nhpp = [ [3.8,0,0],[8.,0,2.4]   ]
 	dAIC_tpp  = [ [3.2,6.8,0],[10.6,23.3,0]]
 	
+	sig = ["",""]
 	if best_model=="HPP":
 		if deltaAICs[1] > dAIC_hpp[1][1]: sig = ["***", "***"] # significance at 1% vs NHPP and TPP
 		elif deltaAICs[1] > dAIC_hpp[0][1]: sig = ["*", "***"]
+		else: sig = ["","***"]
 	if best_model=="NHPP":
 		if deltaAICs[0] > dAIC_nhpp[1][0]: sig = ["***", "***"] # significance at 1% vs HPP and TPP
 		elif deltaAICs[0] > dAIC_nhpp[0][0]: sig = ["*", "***"]
+		else: sig = ["","***"]
 	if best_model=="TPP":
 		if deltaAICs[0] > dAIC_tpp[1][0]: sig = ["***"] # significance at 1% vs HPP 
 		elif deltaAICs[0] > dAIC_tpp[0][0]: sig = ["*"]
