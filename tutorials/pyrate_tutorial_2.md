@@ -1,6 +1,6 @@
 # PyRate Tutorial \#2
 
-#### Daniele Silvestro – Jan 2017
+#### Daniele Silvestro – Jan 2018
 ***  
 Useful links:  
 [PyRate code](https://github.com/dsilvestro/PyRate)  
@@ -23,10 +23,46 @@ The program does not model preservation and assumes that the times of originatio
 
 where the command `-b 100` indicates that the first 100 samples should be discarded as burnin. This command generates 3 output files, which are saved in the same directory as the "Canidae_1_G_mcmc.log" file:  
   
-1. A text file containing the **estimated times of origination and extinction** that will be used as input file in PyRateContinuous (e.g. "Canidae_1_G_se_est.txt")
-2. A PDF file plotting the duration of each lineage and the diversity trajectory of the clade (**lineage through time plot**)
+1. A text file containing the **estimated times of origination and extinction** that will be used as input file in PyRateContinuous (e.g. "Canidae\_1\_G\_se\_est.txt")
+2. A PDF file plotting the duration of each lineage and the diversity trajectory of the clade (**lineage through time plot**, see also option below)
 3. The R script generating the PDF file above.
 
+
+**Additional options.**
+You can also provide the `-ginput` command with the path to a directory containing the log files:
+
+`python PyRate.py -ginput .../path_to_log_files -b 100`
+
+in which case each file with extension `*_mcmc.log` will be processed separately.
+
+Finally, the additional flag `-tag` can be used to identify files that should be combined in a single `...se_ext.txt` file, e.g. resulting from replicated analyses. For instance, with the following command 	
+
+`python PyRate.py -ginput .../path_to_log_files -tag Canidae -b 100`  
+
+all log files conaining `Canidae` in the file name and the extension `*_mcmc.log` will be compbined into a single `...se_ext.txt`, with columns with the origin and extinction of each species given for each replicate.
+
+#### Plot range-through diversity (lineage through time plot)
+The `...se_ext.txt` file can be used to produce lineage through time (LTT) plots based on range-through diversity. To do this, we need to provide the `...se_ext.txt` file using the `-d` command and use the flag `-ltt ` followed by a number to choose between different options:
+
+`python PyRate.py -d Canidae_1_G_se_est.txt -ltt 1`
+
+This plots the mean diversity through time, with the min and max range inferred from the replicates and shown as shaded area. When using
+
+`python PyRate.py -d Canidae_1_G_se_est.txt -ltt 2`
+
+you obtain a similar plot but with log10-transformed diversity.
+Finally, with 
+
+`python PyRate.py -d Canidae_1_G_se_est.txt -ltt 3`
+
+LTT plots from each replicate are shown as individual lines.
+
+By default, the LTT plot is based on diversity count within time bins the size of 1 time unit. To produce plots where the counts are based on a finer temporal resolution, you can use the command `-rescale`, which defines the number of time bins used for 1 time unit.
+For example with 
+
+`python PyRate.py -d Canidae_1_G_se_est.txt -ltt 1 -rescale 10`
+
+The time bins used to calculate and plot diversity are 0.1 Myr (10 bins for each Myr).
 
 #### Run a diversity-dependent birth-death model
 In diversity dependence models, origination and extinction rates may correlate linearly or exponentially to the clade's own sampled (range-through) diversity. To run an analysis with a diversity dependent birth-death model you can launch PyRateContinuous providing the input data (`-d` flag) and adding the flag `-DD`:  

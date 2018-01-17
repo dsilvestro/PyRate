@@ -160,7 +160,7 @@ RTT plots can be generated as in the previous analysis using the command `-plot`
 
 
 
-## Setting fixed shifts at the boundaries, while searching for rate shifts within
+## Setting fixed shifts at the boundaries, while searching for rate shifts between them
 
 Sometimes fossil data sets are truncated by max and min boundaries (for instance because occurrences are only available within a time window). This can cause apparent rate shifts at the edges of the time range, which reflect the sampling bias. In this case, you can fix _a priori_ times of rate shift based on the known temporal boundaries of the data set and estimate the rates within the time window, ignoring what happens beyond the boundaries.  This feature can be combined with the RJMCMC algorithm (`-A 4`) to infer rate shifts within the allowed time window:
 

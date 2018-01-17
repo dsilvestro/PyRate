@@ -1,257 +1,469 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
+
 <head>
+
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-<style>
-h1,
-h2,
-h3,
-h4,
-h5,
-h6,
-p,
-blockquote {
-    margin: 0;
-    padding: 0;
-}
+<title>pyrate_tutorial_2</title>
+
+
+<style type="text/css">
 body {
-    font-family: "Helvetica Neue", Helvetica, "Hiragino Sans GB", Arial, sans-serif;
-    font-size: 13px;
-    line-height: 18px;
-    color: #737373;
-    background-color: white;
-    margin: 10px 13px 10px 13px;
-}
-table {
-	margin: 10px 0 15px 0;
-	border-collapse: collapse;
-}
-td,th {	
-	border: 1px solid #ddd;
-	padding: 3px 10px;
-}
-th {
-	padding: 5px 10px;	
-}
+  font-family: Helvetica, arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  background-color: white;
+  padding: 30px; }
+
+body > *:first-child {
+  margin-top: 0 !important; }
+body > *:last-child {
+  margin-bottom: 0 !important; }
 
 a {
-    color: #0069d6;
-}
-a:hover {
-    color: #0050a3;
-    text-decoration: none;
-}
-a img {
-    border: none;
-}
-p {
-    margin-bottom: 9px;
-}
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-    color: #404040;
-    line-height: 36px;
-}
+  color: #4183C4; }
+a.absent {
+  color: #cc0000; }
+a.anchor {
+  display: block;
+  padding-left: 30px;
+  margin-left: -30px;
+  cursor: pointer;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0; }
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 20px 0 10px;
+  padding: 0;
+  font-weight: bold;
+  -webkit-font-smoothing: antialiased;
+  cursor: text;
+  position: relative; }
+
+h1:hover a.anchor, h2:hover a.anchor, h3:hover a.anchor, h4:hover a.anchor, h5:hover a.anchor, h6:hover a.anchor {
+  background: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAA09pVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMy1jMDExIDY2LjE0NTY2MSwgMjAxMi8wMi8wNi0xNDo1NjoyNyAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENTNiAoMTMuMCAyMDEyMDMwNS5tLjQxNSAyMDEyLzAzLzA1OjIxOjAwOjAwKSAgKE1hY2ludG9zaCkiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6OUM2NjlDQjI4ODBGMTFFMTg1ODlEODNERDJBRjUwQTQiIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6OUM2NjlDQjM4ODBGMTFFMTg1ODlEODNERDJBRjUwQTQiPiA8eG1wTU06RGVyaXZlZEZyb20gc3RSZWY6aW5zdGFuY2VJRD0ieG1wLmlpZDo5QzY2OUNCMDg4MEYxMUUxODU4OUQ4M0REMkFGNTBBNCIgc3RSZWY6ZG9jdW1lbnRJRD0ieG1wLmRpZDo5QzY2OUNCMTg4MEYxMUUxODU4OUQ4M0REMkFGNTBBNCIvPiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PsQhXeAAAABfSURBVHjaYvz//z8DJYCRUgMYQAbAMBQIAvEqkBQWXI6sHqwHiwG70TTBxGaiWwjCTGgOUgJiF1J8wMRAIUA34B4Q76HUBelAfJYSA0CuMIEaRP8wGIkGMA54bgQIMACAmkXJi0hKJQAAAABJRU5ErkJggg==) no-repeat 10px center;
+  text-decoration: none; }
+
+h1 tt, h1 code {
+  font-size: inherit; }
+
+h2 tt, h2 code {
+  font-size: inherit; }
+
+h3 tt, h3 code {
+  font-size: inherit; }
+
+h4 tt, h4 code {
+  font-size: inherit; }
+
+h5 tt, h5 code {
+  font-size: inherit; }
+
+h6 tt, h6 code {
+  font-size: inherit; }
+
 h1 {
-    margin-bottom: 18px;
-    font-size: 30px;
-}
+  font-size: 28px;
+  color: black; }
+
 h2 {
-    font-size: 24px;
-}
+  font-size: 24px;
+  border-bottom: 1px solid #cccccc;
+  color: black; }
+
 h3 {
-    font-size: 18px;
-}
+  font-size: 18px; }
+
 h4 {
-    font-size: 16px;
-}
+  font-size: 16px; }
+
 h5 {
-    font-size: 14px;
-}
+  font-size: 14px; }
+
 h6 {
-    font-size: 13px;
-}
+  color: #777777;
+  font-size: 14px; }
+
+p, blockquote, ul, ol, dl, li, table, pre {
+  margin: 15px 0; }
+
 hr {
-    margin: 0 0 19px;
-    border: 0;
-    border-bottom: 1px solid #ccc;
+  background: transparent url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAYAAAAECAYAAACtBE5DAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyJpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMC1jMDYwIDYxLjEzNDc3NywgMjAxMC8wMi8xMi0xNzozMjowMCAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENTNSBNYWNpbnRvc2giIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6OENDRjNBN0E2NTZBMTFFMEI3QjRBODM4NzJDMjlGNDgiIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6OENDRjNBN0I2NTZBMTFFMEI3QjRBODM4NzJDMjlGNDgiPiA8eG1wTU06RGVyaXZlZEZyb20gc3RSZWY6aW5zdGFuY2VJRD0ieG1wLmlpZDo4Q0NGM0E3ODY1NkExMUUwQjdCNEE4Mzg3MkMyOUY0OCIgc3RSZWY6ZG9jdW1lbnRJRD0ieG1wLmRpZDo4Q0NGM0E3OTY1NkExMUUwQjdCNEE4Mzg3MkMyOUY0OCIvPiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PqqezsUAAAAfSURBVHjaYmRABcYwBiM2QSA4y4hNEKYDQxAEAAIMAHNGAzhkPOlYAAAAAElFTkSuQmCC) repeat-x 0 0;
+  border: 0 none;
+  color: #cccccc;
+  height: 4px;
+  padding: 0;
 }
-blockquote {
-    padding: 13px 13px 21px 15px;
-    margin-bottom: 18px;
-    font-family:georgia,serif;
-    font-style: italic;
-}
-blockquote:before {
-    content:"\201C";
-    font-size:40px;
-    margin-left:-10px;
-    font-family:georgia,serif;
-    color:#eee;
-}
-blockquote p {
+
+body > h2:first-child {
+  margin-top: 0;
+  padding-top: 0; }
+body > h1:first-child {
+  margin-top: 0;
+  padding-top: 0; }
+  body > h1:first-child + h2 {
+    margin-top: 0;
+    padding-top: 0; }
+body > h3:first-child, body > h4:first-child, body > h5:first-child, body > h6:first-child {
+  margin-top: 0;
+  padding-top: 0; }
+
+a:first-child h1, a:first-child h2, a:first-child h3, a:first-child h4, a:first-child h5, a:first-child h6 {
+  margin-top: 0;
+  padding-top: 0; }
+
+h1 p, h2 p, h3 p, h4 p, h5 p, h6 p {
+  margin-top: 0; }
+
+li p.first {
+  display: inline-block; }
+li {
+  margin: 0; }
+ul, ol {
+  padding-left: 30px; }
+
+ul :first-child, ol :first-child {
+  margin-top: 0; }
+
+dl {
+  padding: 0; }
+  dl dt {
     font-size: 14px;
-    font-weight: 300;
-    line-height: 18px;
-    margin-bottom: 0;
+    font-weight: bold;
     font-style: italic;
-}
-code, pre {
-    font-family: Monaco, Andale Mono, Courier New, monospace;
-}
-code {
-    background-color: #fee9cc;
-    color: rgba(0, 0, 0, 0.75);
-    padding: 1px 3px;
-    font-size: 12px;
-    -webkit-border-radius: 3px;
-    -moz-border-radius: 3px;
-    border-radius: 3px;
-}
-pre {
-    display: block;
-    padding: 14px;
-    margin: 0 0 18px;
-    line-height: 16px;
-    font-size: 11px;
-    border: 1px solid #d9d9d9;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-}
-pre code {
-    background-color: #fff;
-    color:#737373;
-    font-size: 11px;
     padding: 0;
-}
+    margin: 15px 0 5px; }
+    dl dt:first-child {
+      padding: 0; }
+    dl dt > :first-child {
+      margin-top: 0; }
+    dl dt > :last-child {
+      margin-bottom: 0; }
+  dl dd {
+    margin: 0 0 15px;
+    padding: 0 15px; }
+    dl dd > :first-child {
+      margin-top: 0; }
+    dl dd > :last-child {
+      margin-bottom: 0; }
+
+blockquote {
+  border-left: 4px solid #dddddd;
+  padding: 0 15px;
+  color: #777777; }
+  blockquote > :first-child {
+    margin-top: 0; }
+  blockquote > :last-child {
+    margin-bottom: 0; }
+
+table {
+  padding: 0;border-collapse: collapse; }
+  table tr {
+    border-top: 1px solid #cccccc;
+    background-color: white;
+    margin: 0;
+    padding: 0; }
+    table tr:nth-child(2n) {
+      background-color: #f8f8f8; }
+    table tr th {
+      font-weight: bold;
+      border: 1px solid #cccccc;
+      margin: 0;
+      padding: 6px 13px; }
+    table tr td {
+      border: 1px solid #cccccc;
+      margin: 0;
+      padding: 6px 13px; }
+    table tr th :first-child, table tr td :first-child {
+      margin-top: 0; }
+    table tr th :last-child, table tr td :last-child {
+      margin-bottom: 0; }
+
+img {
+  max-width: 100%; }
+
+span.frame {
+  display: block;
+  overflow: hidden; }
+  span.frame > span {
+    border: 1px solid #dddddd;
+    display: block;
+    float: left;
+    overflow: hidden;
+    margin: 13px 0 0;
+    padding: 7px;
+    width: auto; }
+  span.frame span img {
+    display: block;
+    float: left; }
+  span.frame span span {
+    clear: both;
+    color: #333333;
+    display: block;
+    padding: 5px 0 0; }
+span.align-center {
+  display: block;
+  overflow: hidden;
+  clear: both; }
+  span.align-center > span {
+    display: block;
+    overflow: hidden;
+    margin: 13px auto 0;
+    text-align: center; }
+  span.align-center span img {
+    margin: 0 auto;
+    text-align: center; }
+span.align-right {
+  display: block;
+  overflow: hidden;
+  clear: both; }
+  span.align-right > span {
+    display: block;
+    overflow: hidden;
+    margin: 13px 0 0;
+    text-align: right; }
+  span.align-right span img {
+    margin: 0;
+    text-align: right; }
+span.float-left {
+  display: block;
+  margin-right: 13px;
+  overflow: hidden;
+  float: left; }
+  span.float-left span {
+    margin: 13px 0 0; }
+span.float-right {
+  display: block;
+  margin-left: 13px;
+  overflow: hidden;
+  float: right; }
+  span.float-right > span {
+    display: block;
+    overflow: hidden;
+    margin: 13px auto 0;
+    text-align: right; }
+
+code, tt {
+  margin: 0 2px;
+  padding: 0 5px;
+  white-space: nowrap;
+  border: 1px solid #eaeaea;
+  background-color: #f8f8f8;
+  border-radius: 3px; }
+
+pre code {
+  margin: 0;
+  padding: 0;
+  white-space: pre;
+  border: none;
+  background: transparent; }
+
+.highlight pre {
+  background-color: #f8f8f8;
+  border: 1px solid #cccccc;
+  font-size: 13px;
+  line-height: 19px;
+  overflow: auto;
+  padding: 6px 10px;
+  border-radius: 3px; }
+
+pre {
+  background-color: #f8f8f8;
+  border: 1px solid #cccccc;
+  font-size: 13px;
+  line-height: 19px;
+  overflow: auto;
+  padding: 6px 10px;
+  border-radius: 3px; }
+  pre code, pre tt {
+    background-color: transparent;
+    border: none; }
+
 sup {
     font-size: 0.83em;
     vertical-align: super;
     line-height: 0;
 }
+
+kbd {
+  display: inline-block;
+  padding: 3px 5px;
+  font-size: 11px;
+  line-height: 10px;
+  color: #555;
+  vertical-align: middle;
+  background-color: #fcfcfc;
+  border: solid 1px #ccc;
+  border-bottom-color: #bbb;
+  border-radius: 3px;
+  box-shadow: inset 0 -1px 0 #bbb
+}
+
 * {
 	-webkit-print-color-adjust: exact;
 }
 @media screen and (min-width: 914px) {
     body {
         width: 854px;
-        margin:10px auto;
+        margin:0 auto;
     }
 }
 @media print {
-	body,code,pre code,h1,h2,h3,h4,h5,h6 {
-		color: black;
-	}
 	table, pre {
 		page-break-inside: avoid;
 	}
+	pre {
+		word-wrap: break-word;
+	}
 }
 </style>
-<title>PyRate Tutorial \#2</title>
+
 
 </head>
+
 <body>
-<h1>PyRate Tutorial #2</h1>
 
-<h4>Daniele Silvestro – Jan 2017</h4>
+<h1 id="toc_0">PyRate Tutorial #2</h1>
 
-<hr />
+<h4 id="toc_1">Daniele Silvestro – Jan 2018</h4>
 
-<p>Useful links:<br/>
-<a href="https://github.com/dsilvestro/PyRate">PyRate code</a><br/>
-<a href="https://github.com/dsilvestro/PyRate/wiki">PyRate wiki</a><br/>
-<a href="https://paleobiodb.org">Paleobiology Database</a><br/>
+<hr>
+
+<p>Useful links:<br>
+<a href="https://github.com/dsilvestro/PyRate">PyRate code</a><br>
+<a href="https://github.com/dsilvestro/PyRate/wiki">PyRate wiki</a><br>
+<a href="https://paleobiodb.org">Paleobiology Database</a><br>
 <a href="http://tree.bio.ed.ac.uk/software/tracer/">Tracer</a></p>
 
-<hr />
+<hr>
 
-<h2>Birth-death models with time-continuous correlates</h2>
+<h2 id="toc_2">Birth-death models with time-continuous correlates</h2>
 
-<p>This tutorial describes how to analyze data under birth-death models in which rates vary through time through linear or exponential correlations with a time-continuous variable. Time continuous variables may include a clade's own diversity (diversity dependence) or e.g. paleo-environmental variables such as temperature or sea level. Birth-death models with time-continuous correlates are implemented in the program "PyRateContinuous.py".</p>
+<p>This tutorial describes how to analyze data under birth-death models in which rates vary through time through linear or exponential correlations with a time-continuous variable. Time continuous variables may include a clade&#39;s own diversity (diversity dependence) or e.g. paleo-environmental variables such as temperature or sea level. Birth-death models with time-continuous correlates are implemented in the program &quot;PyRateContinuous.py&quot;.</p>
 
-<h4>Generate input file for PyRateContinuous</h4>
+<h4 id="toc_3">Generate input file for PyRateContinuous</h4>
 
-<p>The program does not model preservation and assumes that the times of origination and extinction of each lineage are known or have been estimated, typically in a previous PyRate analysis. Thus, the input file for PyRateContinuous.py is a simple table with the times of origination and extinction of each lineage. The table is formatted as tab-separated text file, with the first line containing column headers followed by one row for each species. Each row contains 4 columns: the first column indicates the clade assignment of species, this is only useful when using <a href="https://github.com/dsilvestro/PyRate/wiki#pyratemcddpy-requires-library-pyrate_lib">MCDD models</a> and should be filled with 0s for all other analyses. The second column indicates a species numeric identifier (this values are arbitrary and only used for reference). Finally the third and fourth column contain the time of origin and extinction of each species, respectively.</p>
+<p>The program does not model preservation and assumes that the times of origination and extinction of each lineage are known or have been estimated, typically in a previous PyRate analysis. Thus, the input file for PyRateContinuous.py is a simple table with the times of origination and extinction of each lineage. The table is formatted as tab-separated text file, with the first line containing column headers followed by one row for each species. Each row contains 4 columns: the first column indicates the clade assignment of species, this is only useful when using <a href="https://github.com/dsilvestro/PyRate/wiki#pyratemcddpy-requires-library-pyrate_lib">MCDD models</a> and should be filled with 0s for all other analyses. The second column indicates a species numeric identifier (this values are arbitrary and only used for reference). Finally the third and fourth column contain the time of origin and extinction of each species, respectively.  </p>
 
-<p><strong>The input files for PyRateContinuous can be generated from the _mcmc.log files of a previous PyRate analysis using the command <code>-ginput</code>.</strong> For instance if in a previous analysis using PyRate you generated an output file named "Canidae_1_G_mcmc.log", this can be used to extract the estimated times of origination and extinction of each species using:</p>
+<p><strong>The input files for PyRateContinuous can be generated from the _mcmc.log files of a previous PyRate analysis using the command <code>-ginput</code>.</strong> For instance if in a previous analysis using PyRate you generated an output file named &quot;Canidae<em>1</em>G_mcmc.log&quot;, this can be used to extract the estimated times of origination and extinction of each species using:  </p>
 
-<p><code>python PyRate.py -ginput .../Canidae_1_G_mcmc.log -b 100</code></p>
+<p><code>python PyRate.py -ginput .../Canidae_1_G_mcmc.log -b 100</code>  </p>
 
-<p>where the command <code>-b 100</code> indicates that the first 100 samples should be discarded as burnin. This command generates 3 output files, which are saved in the same directory as the "Canidae_1_G_mcmc.log" file:</p>
+<p>where the command <code>-b 100</code> indicates that the first 100 samples should be discarded as burnin. This command generates 3 output files, which are saved in the same directory as the &quot;Canidae<em>1</em>G_mcmc.log&quot; file:  </p>
 
 <ol>
-<li>A text file containing the <strong>estimated times of origination and extinction</strong> that will be used as input file in PyRateContinuous (e.g. "Canidae_1_G_se_est.txt")</li>
-<li>A PDF file plotting the duration of each lineage and the diversity trajectory of the clade (<strong>lineage through time plot</strong>)</li>
+<li>A text file containing the <strong>estimated times of origination and extinction</strong> that will be used as input file in PyRateContinuous (e.g. &quot;Canidae_1_G_se_est.txt&quot;)</li>
+<li>A PDF file plotting the duration of each lineage and the diversity trajectory of the clade (<strong>lineage through time plot</strong>, see also option below)</li>
 <li>The R script generating the PDF file above.</li>
 </ol>
 
+<p><strong>Additional options.</strong>
+You can also provide the <code>-ginput</code> command with the path to a directory containing the log files:</p>
 
-<h4>Run a diversity-dependent birth-death model</h4>
+<p><code>python PyRate.py -ginput .../path_to_log_files -b 100</code></p>
 
-<p>In diversity dependence models, origination and extinction rates may correlate linearly or exponentially to the clade's own sampled (range-through) diversity. To run an analysis with a diversity dependent birth-death model you can launch PyRateContinuous providing the input data (<code>-d</code> flag) and adding the flag <code>-DD</code>:</p>
+<p>in which case each file with extension <code>*_mcmc.log</code> will be processed separately.</p>
+
+<p>Finally, the additional flag <code>-tag</code> can be used to identify files that should be combined in a single <code>...se_ext.txt</code> file, e.g. resulting from replicated analyses. For instance, with the following command   </p>
+
+<p><code>python PyRate.py -ginput .../path_to_log_files -tag Canidae -b 100</code>  </p>
+
+<p>all log files conaining <code>Canidae</code> in the file name and the extension <code>*_mcmc.log</code> will be compbined into a single <code>...se_ext.txt</code>, with columns with the origin and extinction of each species given for each replicate.</p>
+
+<h4 id="toc_4">Plot range-through diversity (lineage through time plot)</h4>
+
+<p>The <code>...se_ext.txt</code> file can be used to produce lineage through time (LTT) plots based on range-through diversity. To do this, we need to provide the <code>...se_ext.txt</code> file using the <code>-d</code> command and use the flag <code>-ltt</code> followed by a number to choose between different options:</p>
+
+<p><code>python PyRate.py -d Canidae_1_G_se_est.txt -ltt 1</code></p>
+
+<p>This plots the mean diversity through time, with the min and max range inferred from the replicates and shown as shaded area. When using</p>
+
+<p><code>python PyRate.py -d Canidae_1_G_se_est.txt -ltt 2</code></p>
+
+<p>you obtain a similar plot but with log10-transformed diversity.
+Finally, with </p>
+
+<p><code>python PyRate.py -d Canidae_1_G_se_est.txt -ltt 3</code></p>
+
+<p>LTT plots from each replicate are shown as individual lines.</p>
+
+<p>By default, the LTT plot is based on diversity count within time bins the size of 1 time unit. To produce plots where the counts are based on a finer temporal resolution, you can use the command <code>-rescale</code>, which defines the number of time bins used for 1 time unit.
+For example with </p>
+
+<p><code>python PyRate.py -d Canidae_1_G_se_est.txt -ltt 1 -rescale 10</code></p>
+
+<p>The time bins used to calculate and plot diversity are 0.1 Myr (10 bins for each Myr).</p>
+
+<h4 id="toc_5">Run a diversity-dependent birth-death model</h4>
+
+<p>In diversity dependence models, origination and extinction rates may correlate linearly or exponentially to the clade&#39;s own sampled (range-through) diversity. To run an analysis with a diversity dependent birth-death model you can launch PyRateContinuous providing the input data (<code>-d</code> flag) and adding the flag <code>-DD</code>:  </p>
 
 <p><code>python PyRateContinuous.py -d .../Canidae_1_G_se_est.txt -DD</code></p>
 
-<p>the program implements two models of of diversity dependence defined by the flag <code>-m</code>: an <strong>exponential model</strong> (<code>-m 0</code>) in which speciation and extinction rates are exponential functions of the clade's diversity and a <strong>linear model</strong> (<code>-m 1</code>) in which speciation and extinction rates linearly correlate with diversity.</p>
+<p>the program implements two models of of diversity dependence defined by the flag <code>-m</code>: an <strong>exponential model</strong> (<code>-m 0</code>) in which speciation and extinction rates are exponential functions of the clade&#39;s diversity and a <strong>linear model</strong> (<code>-m 1</code>) in which speciation and extinction rates linearly correlate with diversity.  </p>
 
 <p><code>python PyRateContinuous.py -d .../Canidae_1_G_se_est.txt -DD -m 0</code></p>
 
-<p>For the purpose of model testing, you can also set <code>-m -1</code> which runs a null model in which speciation and extinction rates are constant and independent of diversity.</p>
+<p>For the purpose of model testing, you can also set <code>-m -1</code> which runs a null model in which speciation and extinction rates are constant and independent of diversity.  </p>
 
-<p>As in standard PyRate analyses the number of MCMC iterations and sampling frequencies can be set using the flags <code>-n</code> and <code>-s</code>, respectively.</p>
+<p>As in standard PyRate analyses the number of MCMC iterations and sampling frequencies can be set using the flags <code>-n</code> and <code>-s</code>, respectively.  </p>
 
-<pre><code>    Note that PyRateContinuous does not estimate times of origination and extinction nor preservation rates. This means that the number of parameters to be estimated is much smaller than in a standard PyRate analysis. Thus, setting the number of MCMC iterations between 100,000 and 1 million, will be sufficient for most data sets.
-</code></pre>
+<div><pre><code class="language-none">    Note that PyRateContinuous does not estimate times of origination and extinction nor preservation rates. This means that the number of parameters to be estimated is much smaller than in a standard PyRate analysis. Thus, setting the number of MCMC iterations between 100,000 and 1 million, will be sufficient for most data sets.</code></pre></div>
 
-<h4>Output file</h4>
+<h4 id="toc_6">Output file</h4>
 
-<p>PyRateContinuous generate a single output file with the posterior samples of all parameters. The estimated <strong>diversity dependence parameters</strong> are logged to the output log file as <em>Gl</em> and <em>Gm</em> for speciation and extinction, respectively. When these parameters are significantly different from 0 (based on their 95% HPD) we consider the correlation as significantly positive or negative (depending on whether <em>G</em> >> 0 or <em>G</em> &lt;&lt; 0). The <strong>baseline speciation and extinction rates</strong> (indicated by <em>L0</em> and <em>M0</em> in the log file) represent the esitmated speciation and extinction rates at the present.</p>
+<p>PyRateContinuous generate a single output file with the posterior samples of all parameters. The estimated <strong>diversity dependence parameters</strong> are logged to the output log file as <em>Gl</em> and <em>Gm</em> for speciation and extinction, respectively. When these parameters are significantly different from 0 (based on their 95% HPD) we consider the correlation as significantly positive or negative (depending on whether <em>G</em> &gt;&gt; 0 or <em>G</em> &lt;&lt; 0). The <strong>baseline speciation and extinction rates</strong> (indicated by <em>L0</em> and <em>M0</em> in the log file) represent the esitmated speciation and extinction rates at the present.  </p>
 
-<p>The log file can be opened in Tracer to check if convergence has been reached and inspect the mean and 95% HPDs of the parameters of interest.</p>
+<p>The log file can be opened in Tracer to check if convergence has been reached and inspect the mean and 95% HPDs of the parameters of interest. </p>
 
-<h4>Plot speciation and extinction rates through time</h4>
+<h4 id="toc_7">Plot speciation and extinction rates through time</h4>
 
 <p>PyRateContinuous can be used to plot marginal speciation and extinction rates through time based on the estimated baseline rates and diversity dependence parameters. To generate an RTT plot you can type:</p>
 
 <p><code>python PyRateContinuous.py -d .../Canidae_1_G_se_est.txt -DD -m 0 -b 100 -plot .../Canidae_1_G_se_est_DD_0_exp.log -b 200</code></p>
 
-<p>This will generate an R script and a PDF file with the RTT plots showing speciation, extinction rates through time. The command <code>-b 200</code> specifies that the first 200 samples are discarded as burnin.</p>
+<p>This will generate an R script and a PDF file with the RTT plots showing speciation, extinction rates through time. The command <code>-b 200</code> specifies that the first 200 samples are discarded as burnin. </p>
 
-<h4>Correlation with paleo-temperature</h4>
+<h4 id="toc_8">Correlation with paleo-temperature</h4>
 
-<p>You can fit birth-death models where the speciation and extinction rates are changing through time as a linear or exponential function of a time-continuous variable, such as a proxy for paleo-temperature. The variable values should be provided in a simple tab-separated text file with a header (first row) and two columns indicating times and variable values (an example is provided in <code>PyRate-master/example_files/temperature.txt</code>).</p>
+<p>You can fit birth-death models where the speciation and extinction rates are changing through time as a linear or exponential function of a time-continuous variable, such as a proxy for paleo-temperature. The variable values should be provided in a simple tab-separated text file with a header (first row) and two columns indicating times and variable values (an example is provided in <code>PyRate-master/example_files/temperature.txt</code>).   </p>
 
 <p>To run an analysis with temperature-dependent speciation and extinction rates you should use the command <code>-c</code> to provide the text file containing the variable:</p>
 
 <p><code>python PyRateContinuous.py -d .../Canidae_1_G_se_est.txt -m 0 -c temperature.txt</code></p>
 
-<p>As with the diversity dependent model (see above) the flag <code>-m</code> is used to change between the default <strong>exponential model</strong> (<code>-m 0</code>) in which speciation and extinction rates are exponential functions of the time-continuous variable and a <strong>linear model</strong> (<code>-m 1</code>) in which a linear correlation is assumed.</p>
+<p>As with the diversity dependent model (see above) the flag <code>-m</code> is used to change between the default <strong>exponential model</strong> (<code>-m 0</code>) in which speciation and extinction rates are exponential functions of the time-continuous variable and a <strong>linear model</strong> (<code>-m 1</code>) in which a linear correlation is assumed.  </p>
 
-<p>The time-continuous variable is by default rescaled so that its range of values equals 1. It is additionally shifted to equal 0 at the present. The estimated <strong>correlation parameters</strong> are saved in the output log file as <em>Gl</em> and <em>Gm</em> for speciation and extinction, respectively, and the <strong>baseline speciation and extinction rates</strong> (indicated by <em>L0</em> and <em>M0</em> in the log file) represent the esitmated speciation and extinction rates at the present. The rescaling of the time-continuous variable can be changed using the flag <code>-r</code>.</p>
+<p>The time-continuous variable is by default rescaled so that its range of values equals 1. It is additionally shifted to equal 0 at the present. The estimated <strong>correlation parameters</strong> are saved in the output log file as <em>Gl</em> and <em>Gm</em> for speciation and extinction, respectively, and the <strong>baseline speciation and extinction rates</strong> (indicated by <em>L0</em> and <em>M0</em> in the log file) represent the esitmated speciation and extinction rates at the present. The rescaling of the time-continuous variable can be changed using the flag <code>-r</code>. </p>
 
 <p>Rates through time plots can be generated using the command <code>-plot</code> as shown above for the DD model, e.g.</p>
 
 <p><code>python PyRateContinuous.py -d .../Canidae_1_G_se_est.txt -m 0 -c temperature.txt -plot .../my_logfile.log -b 100</code></p>
 
-<hr />
+<hr>
 
-<h2>Model testing using Thermodynamic Integration (TI)</h2>
+<h2 id="toc_9">Model testing using Thermodynamic Integration (TI)</h2>
 
 <p>You can use the TI algorithm to calculate the marginal likelihood of a model and <strong>compare the fit of alternative models</strong>. For example you can compare the fit of diversity-dependent models with linear vs exponential correlation or compare the fit of diversity-dependent models with that of temperature-dependent models. The analysis setup and model specification are the same described above and the TI algorithm is enabled by the flag  <code>-A 1</code>:</p>
 
 <p><code>python PyRateContinuous.py -d .../Canidae_1_G_se_est.txt -m 0 -c temperature.txt -A 1</code></p>
 
-<p>PyRateContinuous will run TI using 10 scaling categories by default, and the the number of iteration (as specified by the flag <code>-n</code>) corresponds to the number of MCMC iterations for each category.</p>
+<p>PyRateContinuous will run TI using 10 scaling categories by default, and the the number of iteration (as specified by the flag <code>-n</code>) corresponds to the number of MCMC iterations for each category.   </p>
 
-<p>Running TI produces a single log file as output from which the marginal likelihood is calculated. Once you run the TI analyses under a range of alternative models, you can use the command <code>-mL</code> to calculate the marginal likelihoods of all models. This command expects the path to the log files and will calculate the marginal likelihood for each file in the directory with extension ".log". It is important to <strong>specify an appropriate burnin</strong> using the flag <code>-b</code>), for example:</p>
+<p>Running TI produces a single log file as output from which the marginal likelihood is calculated. Once you run the TI analyses under a range of alternative models, you can use the command <code>-mL</code> to calculate the marginal likelihoods of all models. This command expects the path to the log files and will calculate the marginal likelihood for each file in the directory with extension &quot;.log&quot;. It is important to <strong>specify an appropriate burnin</strong> using the flag <code>-b</code>), for example:  </p>
 
 <p><code>python PyRateContinuous.py -mL .../path_to_my_logfiles -b 100</code></p>
 
-<p>This command will produce a single text file containing the marginal likelihoods of all models. It will also generate new log files that contain only the "cold" part of the MCMC states sampled by the TI algorithm. The content of these log files can be viewed in Tracer and used for parameter estimation.</p>
+<p>This command will produce a single text file containing the marginal likelihoods of all models. It will also generate new log files that contain only the &quot;cold&quot; part of the MCMC states sampled by the TI algorithm. The content of these log files can be viewed in Tracer and used for parameter estimation. </p>
+
+
+
+
 </body>
+
 </html>
