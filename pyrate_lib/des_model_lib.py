@@ -250,7 +250,7 @@ def simulate_dataset(no_sim,d,e,n_taxa,n_bins=20,wd=""):
 
  
 def simulate_dataset_1area(no_sim,d,e,n_taxa,n_bins=20,wd="", area = 2):
-        n_bins +=1
+	n_bins +=1
 	def random_choice_P(vector):
 		probDeath=np.cumsum(vector/sum(vector)) # cumulative prob (used to randomly sample one 
 		r=rand.random()                          # parameter based on its deathRate)
@@ -282,10 +282,10 @@ def simulate_dataset_1area(no_sim,d,e,n_taxa,n_bins=20,wd="", area = 2):
 
 	J=0
 	while J < n_taxa:
-                if area == 1:
-		        AncState = 2 # 0 -> 0, 1 -> A, 2 -> B, 3 -> AB
-                else:
-                        AncState = 1
+		if area == 1:
+			AncState = 2 # 0 -> 0, 1 -> A, 2 -> B, 3 -> AB
+		else:
+			AncState = 1
 		current_state=AncState
 		SimStates[0] = current_state
 		t = OrigTimes[J]
