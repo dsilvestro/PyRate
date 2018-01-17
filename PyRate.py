@@ -254,7 +254,7 @@ def get_DT(T,s,e): # returns the Diversity Trajectory of s,e at times T (x10 fas
 
 
 ########################## PLOT RTT ##############################
-def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0, plot_type=1):
+def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 	burnin = int(burnin)
 	if burnin<=1:
 		print("Burnin must be provided in terms of number of samples to be excluded.")
@@ -513,8 +513,95 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0, plot_type=1):
 	os.system(cmd)
 	print "done\n"
 
+
+def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1): # change rescale to change bin size
+	# plot_type=1 : ltt + min/max range
+	# plot_type=2 : log10 ltt + min/max range
+	step_size=int(step_size)
+	# read data
+	print "Processing data..."
+	tbl = np.loadtxt(tste_file,skiprows=1)
+	j_max=(np.shape(tbl)[1]-1)/2
+	j_range=np.arange(j_max)
+	ts = tbl[:,2+2*j_range]*rescale
+	te = tbl[:,3+2*j_range]*rescale
+	time_vec = np.sort(np.linspace(np.min(te),np.max(ts),(np.max(ts)-np.min(te))/float(step_size) ))
+	
+	# create out file
+	wd = "%s" % os.path.dirname(tste_file)
+	out_file_name = os.path.splitext(os.path.basename(tste_file))[0]
+	out_file="%s/%s" % (wd,out_file_name+"_ltt.txt")
+	ltt_file = open(out_file , "w",0)
+	ltt_log=csv.writer(ltt_file, delimiter='\t')
+	
+	
+	# calc ltt
+	print time_vec
+	dtraj = []
+	for rep in j_range:
+		sys.stdout.write(".")
+		sys.stdout.flush()
+		dtraj.append(get_DT(time_vec,ts[:,rep],te[:,rep])[::-1])
+	dtraj = np.array(dtraj)
+	div_mean = np.mean(dtraj,axis=0)
+	div_m    = np.min(dtraj,axis=0) 
+	div_M    = np.max(dtraj,axis=0) 
+	
+	Ymin,Ymax,yaxis = 0,max(div_M)+1,""
+	if min(div_m)>5: Ymin = min(div_m)-1
+	
+	if plot_type==2:
+		div_mean = log10(div_mean)
+		div_m    = log10(div_m   )
+		div_M    = log10(div_M   )
+		Ymin,Ymax,yaxis = min(div_m),max(div_M), " (Log10)"
+		
+	# write to file
+	if plot_type==1 or plot_type==2:
+		ltt_log.writerow(["time","diversity","m_div","M_div"])
+		for i in range(len(time_vec)):
+			ltt_log.writerow([time_vec[i]/rescale,div_mean[i],div_m[i],div_M[i]])
+		ltt_file.close()
+		plot2 = """polygon(c(time, rev(time)), c(tbl$M_div, rev(tbl$m_div)), col = alpha("#504A4B",0.5), border = NA)"""
+
+	# write multiple LTTs to file
+	if plot_type==3:
+		header = ["time","diversity"]+["rep%s" % (i) for i in j_range]
+		ltt_log.writerow(header)
+		plot2=""
+		for i in range(len(time_vec)):
+			d = dtraj[:,i]
+			ltt_log.writerow([time_vec[i]/rescale,div_mean[i]]+list(d))
+			plot2 += """\nlines(time,tbl$rep%s, type="l",lwd = 1,col = alpha("#504A4B",0.5))""" % (i)
+		ltt_file.close()
+	
+	###### R SCRIPT
+	R_file_name="%s/%s" % (wd,out_file_name+"_ltt.R")
+	R_file=open(R_file_name, "wb")
+	R_script = """
+	setwd("%s")
+	tbl = read.table(file = "%s_ltt.txt",header = T)
+	pdf(file='%s_ltt.pdf',width=12, height=9)
+	time = -tbl$time
+	library(scales)
+	plot(time,tbl$diversity, type="n",ylab= "Number of lineages%s", xlab="Time (Ma)", main="Range-through diversity through time", ylim=c(%s,%s),xlim=c(min(time),0))
+	%s
+	lines(time,tbl$diversity, type="l",lwd = 2)
+	n<-dev.off()
+	""" % (wd, out_file_name,out_file_name, yaxis, Ymin,Ymax,plot2)
+	
+	R_file.writelines(R_script)
+	R_file.close()
+	print "\nAn R script with the source for the stat plot was saved as: \n%s" % (R_file_name)
+	cmd="cd %s; Rscript %s" % (wd,out_file_name+"_ltt.R")
+	os.system(cmd)
+	sys.exit("done\n")
+	
+
+
+
 ########################## PLOT TS/TE STAT ##############################
-def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale):
+def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale,ltt_only=1):
 	step_size=int(step_size)
 	# read data
 	print "Processing data..."
@@ -523,6 +610,7 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
 	j=np.arange(j_max)
 	ts = tbl[:,2+2*j]*rescale
 	te = tbl[:,3+2*j]*rescale
+	root = int(np.max(ts)+1)
 	
 	if EXT_RATE==0:		
 		EXT_RATE = len(te[te>0])/sum(ts-te) # estimator for overall extinction rate
@@ -533,9 +621,9 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
 	out_file_name = os.path.splitext(os.path.basename(tste_file))[0]
 	out_file="%s/%s" % (wd,out_file_name+"_stats.txt")
 	out_file=open(out_file, "wb")
-	out_file.writelines("time\tdiversity\tm_div\tM_div\tmedian_genus_age\tm_age\tM_age\tturnover\tm_turnover\tM_turnover\tlife_exp\tm_life_exp\tM_life_exp\t")
 	
-	root = int(np.max(ts)+1)
+	out_file.writelines("time\tdiversity\tm_div\tM_div\tmedian_age\tm_age\tM_age\tturnover\tm_turnover\tM_turnover\tlife_exp\tm_life_exp\tM_life_exp\t")
+
 	no_sim_ex_time = int(no_sim_ex_time)
 	def draw_extinction_time(te,EXT_RATE):
 		te_mod = np.zeros(np.shape(te))
@@ -543,11 +631,11 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
 		te_mod[ind_extant,:] = -np.random.exponential(1/EXT_RATE,(len(ind_extant),len(te[0]))) # sim future extinction
 		te_mod += te
 		return te_mod 
-	
+
 	def calc_median(arg):
 		if len(arg)>1: return np.median(arg)
 		else: return np.nan
-	
+
 	extant_at_time_t_previous = [0]
 	for i in range(0,root+1,step_size):
 		time_t = root-i
@@ -561,7 +649,7 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
 			turnover = [(len(extant_at_time_t[rep])-len(np.intersect1d(extant_at_time_t_previous[rep],extant_at_time_t[rep])))/float(len(extant_at_time_t[rep])) for rep in j] 
 		except: 
 			turnover = [np.nan for rep in j]
-		
+	
 		if min(diversity)<=1:
 			age_current_taxa = [np.nan for rep in j]
 		else:
@@ -579,7 +667,7 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
 			m_ind= [head.index(s) for s in head if "m_0" in s]
 			ex_rate= [mean(t[:,m_ind])]
 			r_ind = np.random.randint(0,len(ex_rate),no_sim_ex_time)
-		
+	
 		if min(diversity)<=1: 
 			life_exp.append([np.nan for rep in j])
 		else: 	
@@ -588,7 +676,7 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
 				te_mod = draw_extinction_time(te,ex_rate[r_ind[sim]])
 				te_t = [te_mod[extant_at_time_t[rep],:] for rep in j]
 				life_exp.append([median(time_t-te_t[rep]) for rep in j])
-		
+	
 		life_exp= np.array(life_exp)
 		STR= "\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" \
 		% (time_t, median(diversity),min(diversity),max(diversity), 
@@ -639,6 +727,7 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 	files=glob.glob(direct)
 	files=sort(files)
 	print "found", len(files), "log files...\n"
+	if len(files)==0: quit()
 	j=0
 	burnin = int(burnin)
 	for f in files:
@@ -649,11 +738,30 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 			shape_f=shape(t_file)
 			print shape_f
 			#t_file = t[burnin:shape_f[0],:]#).astype(str)
+			# only sample from cold chain
+			
+			head = np.array(next(open(f)).split()) # should be faster\
+			#txt_tbl = np.genfromtxt(f, delimiter="\t")
+			#print "TRY", txt_tbl[0:],np.shape(txt_tbl), head
+			
+			if "temperature" in head or "beta" in head:
+				try: 
+					temp_index = np.where(head=="temperature")[0][0]
+				except(IndexError): 
+					temp_index = np.where(head=="beta")[0][0]
+			
+				temp_values = t_file[:,temp_index]
+				t_file = t_file[temp_values==1,:]
+				print "removed heated chains:",np.shape(t_file)
+			shape_f=shape(t_file)
+			
 			if resample>0:
 				r_ind= sort(np.random.randint(0,shape_f[0],resample))
 				t_file = t_file[r_ind,:]
+			
+			
 
-		except: print "ERROR in",f		
+		except: print "ERROR in",f	
 		if len(col_tag) == 0:
 			if j==0: 
 				head = next(open(f))#.split()
@@ -672,13 +780,18 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 				sp_ind= np.array(col_tag_ind)
 			except:
 				sp_ind= np.array(sp_ind_list)
+
+			#print "COLTAG",col_tag, sp_ind, head_temp
+			#sys.exit()	
+			
+
 			#print "INDEXES",sp_ind
 			if j==0: 
 				head_temp= np.array(head_temp)
 				head_t= ["%s\t" % (i) for i in head_temp[sp_ind]]
-				head="it\t"
-				for i in head_t: head+=i
-				head+="\n"
+				tbl_header="it\t"
+				for i in head_t: tbl_header+=i
+				tbl_header+="\n"
 				print "found", len(head_t), "columns"
 				comb = t_file[:,sp_ind]
 			else:
@@ -702,8 +815,8 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 	
 	outfile = "%s/combined_%s%s_files.log" % (infile,len(files),tag)
 	
-	with open(outfile, 'wb') as f:
-		f.write(head)
+	with open(outfile, 'w') as f:
+		f.write(tbl_header)
 		if platform.system() == "Windows" or platform.system() == "Microsoft":
 			np.savetxt(f, comb, delimiter="\t",fmt=fmt_list,newline="\r") #)
 		else:
@@ -1780,7 +1893,7 @@ def RJMCMC(arg):
 	newL,newtimesL,log_q_probL = L,timesL,0
 	newM,newtimesM,log_q_probM = M,timesM,0
 	
-	if r[0]>0.5:
+	if r[0]>sample_shift_mu:
 		# ADD/REMOVE SHIFT LAMBDA
 		if r[1]>0.5: 
 			if r[2]>0.5 or allow_double_move==0:
@@ -1934,7 +2047,7 @@ def get_init_values(mcmc_log_file,taxa_names):
 	
 	alpha_pp=1
 	try:
-		q_rates_index = [head.index("alpha"), head.index("q_rate")]
+		q_rates_index = np.array([head.index("alpha"), head.index("q_rate")])
 		q_rates = tbl[last_row,q_rates_index]
 	except:
 		q_rates_index = [head.index(i) for i in head if "q_" in i]
@@ -2043,8 +2156,9 @@ def MCMC(all_arg):
 			q_ratesA = np.zeros(time_framesQ)+q_ratesA[1]
 		if restore_chain == 1: 
 			q_ratesA = restore_init_values[2]
-			if len(q_ratesA) != time_framesQ:
-				q_ratesA=np.zeros(time_framesQ)+mean(q_ratesA)			
+			if TPP_model == 1:
+				if len(q_ratesA) != time_framesQ:
+					q_ratesA=np.zeros(time_framesQ)+mean(q_ratesA)			
 		
 		if est_COVAR_prior == 1: 
 			covar_prior = 1.
@@ -2735,6 +2849,7 @@ p.add_argument('-plot3',      metavar='<input file>', type=str,help="RTT plot (t
 p.add_argument('-grid_plot3', type=float, help='Plot resolution in Myr (only for -plot3 command)', default=0.1, metavar=0.1)
 p.add_argument('-root_plot',  type=float, help='User-defined root age for RTT plots', default=0, metavar=0)
 p.add_argument('-tag',        metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted (-plot) or summarized in SE table (-ginput)",default="")
+p.add_argument('-ltt',        type=int,help='1) Plot lineages-through-time; 2) plot Log10(LTT)', default=0, metavar=0)
 p.add_argument('-mProb',      type=str,help="Input 'mcmc.log' file",default="")
 p.add_argument('-BF',         type=str,help="Input 'marginal_likelihood.txt' files",metavar='<2 input files>',nargs='+',default=[])
 p.add_argument("-data_info",  help='Summary information about an input data', action='store_true', default=False)
@@ -2770,11 +2885,12 @@ p.add_argument('-dpp_hp',   type=float, help='DPP - shape of gamma HP on concent
 p.add_argument('-dpp_eK',   type=float, help='DPP - expected number of rate categories', default=2., metavar=2.)
 p.add_argument('-dpp_grid', type=float, help='DPP - size of time bins',default=1.5, metavar=1.5)
 p.add_argument('-dpp_nB',   type=float, help='DPP - number of time bins',default=0, metavar=0)
-p.add_argument('-rj_pr',   type=float, help='RJ - proposal (0: Gamma, 1: Weighted mean) ', default=1, metavar=1)
-p.add_argument('-rj_Ga',   type=float, help='RJ - shape of gamma proposal (if rj_pr 0)', default=1.5, metavar=1.5)
-p.add_argument('-rj_Gb',   type=float, help='RJ - rate of gamma proposal (if rj_pr 0)',  default=3., metavar=3.)
-p.add_argument('-rj_beta', type=float, help='RJ - shape of beta multiplier (if rj_pr 1)',default=10, metavar=10)
-p.add_argument('-rj_dm', type=float,   help='RJ - allow double moves (0: no, 1: yes)',default=0, metavar=0)
+p.add_argument('-rj_pr',       type=float, help='RJ - proposal (0: Gamma, 1: Weighted mean) ', default=1, metavar=1)
+p.add_argument('-rj_Ga',       type=float, help='RJ - shape of gamma proposal (if rj_pr 0)', default=1.5, metavar=1.5)
+p.add_argument('-rj_Gb',       type=float, help='RJ - rate of gamma proposal (if rj_pr 0)',  default=3., metavar=3.)
+p.add_argument('-rj_beta',     type=float, help='RJ - shape of beta multiplier (if rj_pr 1)',default=10, metavar=10)
+p.add_argument('-rj_dm',       type=float, help='RJ - allow double moves (0: no, 1: yes)',default=0, metavar=0)
+p.add_argument('-rj_bd_shift', type=float, help='RJ - 0: only sample shifts in speciation; 1: only sample shifts in extinction',default=0.5, metavar=0.5)
 
 # PRIORS
 p.add_argument('-pL',      type=float, help='Prior - speciation rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.1, 1.1], metavar=1.1, nargs=2)
@@ -3122,7 +3238,12 @@ if len(args.SE_stats)>0:
 	plot_tste_stats(se_tbl_file, EXT_RATE, step_size,no_sim_ex_time,burnin,args.rescale)
 	quit()
 
+if args.ltt>0:
+	plot_ltt(se_tbl_file,plot_type=args.ltt,rescale=args.rescale)
 
+twotraitBD = 0
+if args.twotrait == 1:
+	twotraitBD = 1
 
 ############################ LOAD INPUT DATA ############################
 match_taxa_trait = 0
@@ -3159,15 +3280,25 @@ if use_se_tbl==0:
 		if len(fossil_complete[i])==1 and fossil_complete[i][0]==0: pass # exclude taxa with no fossils
 		
 		elif max(fossil_complete[i]) > max(args.filter) or min(fossil_complete[i]) < min(args.filter):
-			print "excluded taxon with age range:",round(max(fossil_complete[i]),3), round(min(fossil_complete[i]),3)
-			
+			print "excluded taxon with age range:",round(max(fossil_complete[i]),3), round(min(fossil_complete[i]),3)	
 
-		elif args.singleton == -1: # exclude extant taxa
-			if min(fossil_complete[i])==0: singletons_excluded.append(i)
+		elif args.singleton == -1: # exclude extant taxa (if twotraitBD == 1: extant (re)moved later)
+			if min(fossil_complete[i])==0 and twotraitBD == 0: singletons_excluded.append(i)
 			else:
 				have_record.append(i) 
 				fossil.append(fossil_complete[i]*args.rescale+args.translate)
 				taxa_included.append(i)
+		
+		elif args.translate < 0: # exclude recent taxa after 'translating' records towards zero
+			if max(fossil_complete[i]*args.rescale+args.translate)<=0: singletons_excluded.append(i)
+			else:
+				have_record.append(i) 
+				fossil_occ_temp = fossil_complete[i]*args.rescale+args.translate
+				fossil_occ_temp[fossil_occ_temp<0] = 0.0
+				fossil.append(np.unique(fossil_occ_temp[fossil_occ_temp>=0]))
+				taxa_included.append(i)
+
+
 		elif args.singleton > 0: # min number of occurrences
 			if len(fossil_complete[i]) <= args.singleton and np.random.random() >= args.frac_sampled_singleton: 
 				singletons_excluded.append(i)
@@ -3288,10 +3419,6 @@ if args.bound[0] != np.inf or args.bound[1] != 0:
 boundMax = max(args.bound) # if not specified it is set to Inf
 boundMin = min(args.bound) # if not specified it is set to 0
 
-twotraitBD = 0
-if args.twotrait == 1:
-	twotraitBD = 1
-
 # Get trait values (COVAR and DISCRETE models)
 if model_cov>=1 or useDiscreteTraitModel == 1 or useBounded_BD == 1:
 	if 2>1: #try:
@@ -3345,11 +3472,22 @@ if model_cov>=1 or useDiscreteTraitModel == 1 or useBounded_BD == 1:
 			
 		else:             # Trait data from .py file
 			trait_values=input_data_module.get_continuous(max(args.trait-1,0))
-		
 		# 
 		if twotraitBD == 1:
 			trait_values=input_data_module.get_continuous(0)
 			discrete_trait=input_data_module.get_continuous(1)
+			discrete_trait=discrete_trait[taxa_included]
+			
+			#print discrete_trait
+			#print len(np.isfinite(discrete_trait).nonzero()[0])
+			if args.singleton == -1:
+				ind_extant_sp =(LO==0).nonzero()[0]
+				print "Treating %s extant taxa as missing discrete data" % (len(ind_extant_sp))
+				#temp_trait = discrete_trait+0 #np.zeros(len(discrete_trait))*discrete_trait
+				discrete_trait[ind_extant_sp]=np.nan	
+				#discrete_trait = temp_trait
+				#print len(np.isfinite(discrete_trait).nonzero()[0])
+				#print discrete_trait
 		
 		if model_cov>=1:
 			if args.logT==0: pass
@@ -3390,10 +3528,11 @@ if model_cov>=1 or useDiscreteTraitModel == 1 or useBounded_BD == 1:
 		#print con_trait
 		if est_COVAR_prior == 1: out_name += "_COVhp"
 		else: out_name += "_COV"
+
 	if useDiscreteTraitModel == 1: 
 		if twotraitBD == 0: 
 			discrete_trait = trait_values
-		ind_nan_trait= (np.isfinite(trait_values)== 0).nonzero()
+		ind_nan_trait= (np.isfinite(discrete_trait)== 0).nonzero()
 		regression_trait= "\n\nDiscrete trait data for %s of %s taxa" \
 		% (len(trait_values)-len(ind_nan_trait[0]), len(trait_values))
 		print(regression_trait)
@@ -3402,7 +3541,9 @@ if model_cov>=1 or useDiscreteTraitModel == 1 or useBounded_BD == 1:
 
 if useDiscreteTraitModel == 1:
 	ind_trait_species = discrete_trait
+	print ind_trait_species
 	ind_trait_species[np.isnan(ind_trait_species)]=np.nanmax(ind_trait_species)+1
+	print ind_trait_species
 	ind_trait_species = ind_trait_species.astype(int)
 	len_trait_values = len(np.unique(discrete_trait)) 
 	lengths_B_events=[]
@@ -3573,6 +3714,12 @@ if use_poiD == 1:
 		print "PoiD not available with SE estimation. Using BD instead."
 		BPD_partial_lik = BD_partial_lik
 		PoiD_const = 0
+
+
+##### SETFREQ OF PROPOSING B/D shifts (RJMCMC)
+sample_shift_mu = args.rj_bd_shift # 0: updates only lambda; 1: only mu; default: 0.5
+
+
 
 #### ANALYZE PHYLOGENY
 analyze_tree = 0
