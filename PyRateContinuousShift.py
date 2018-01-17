@@ -45,6 +45,7 @@ p.add_argument('-j', type=int, help='replicate', default=0, metavar=0)
 p.add_argument('-m', type=int, help='model: "-1" constant rate, "0" exponential, "1" linear', default=0, metavar=0)
 p.add_argument('-mSpEx', type=int, help='Speciation/Extinction models: "-1" constant rate, "0" exponential, "1" linear', default=[-np.inf,-np.inf], metavar=-np.inf,nargs=2)
 p.add_argument('-equal_G', type=int, help='model: "0" unconstrained G, "1" constrained G', default=0, metavar=0)
+p.add_argument('-equal_R', type=int, help='model: "0" unconstrained G, "1" constrained G', default=0, metavar=0)
 p.add_argument('-n', type=int, help='mcmc generations',default=1050000, metavar=1050000)
 p.add_argument('-s', type=int, help='sample freq.', default=1000, metavar=1000)
 p.add_argument('-p', type=int, help='print freq.', default=1000, metavar=1000)
@@ -57,6 +58,7 @@ p.add_argument('-tag', metavar='<*tag*.log>', type=str,help="Tag identifying fil
 p.add_argument('-mL',  type=str, help='calculate marginal likelihood',  default="", metavar="<path_to_log_files>")
 p.add_argument('-stimes',  type=float, help='shift times',  default=[], metavar=0, nargs='+') 
 p.add_argument('-slice',  type=float, help='ages of the time slice of interest (23 -> 23-0; 23 2 -> 23-2)',  default=[], metavar=0, nargs="+") 
+p.add_argument("-est_start_time",  help='Estimate when the variable starts to have an effect (curve is flattened before that)', action='store_true', default=False)
 p.add_argument('-extract_mcmc', type=int, help='Extract "cold" chain in separate log file', default=1, metavar=1)
 p.add_argument("-DD",  help='Diversity Dependent Model', action='store_true', default=False)
 p.add_argument('-plot', type=str, help='Log file', default="", metavar="")
@@ -78,6 +80,7 @@ rescale_factor=args.r
 focus_clade=args.clade
 win_size=args.w
 rep_j=max(args.j-1,0)
+est_start_time = args.est_start_time
 
 s_times=np.sort(np.array(args.stimes))[::-1]
 if len(args.slice)>0:
@@ -88,6 +91,7 @@ else:
 	run_single_slice = 0
 
 equal_g = args.equal_G
+equal_r = args.equal_R
 
 if args.ginput != "":
 	lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=focus_clade,burnin=args.b)
@@ -192,9 +196,11 @@ if args.DD is True:
 #_print "HERE",len(ind_s),len(ind_e)
 
 ### Get indexes of all events based on times of shift
+max_times_of_T_change_tste = max(times_of_T_change_tste)
+
 shift_ind = np.zeros(len(times_of_T_change_tste)).astype(int)
 if len(s_times)>0:
-	bins_h = sort([max(times_of_T_change_tste)+1,-1] + list(s_times))
+	bins_h = sort([max_times_of_T_change_tste+1,-1] + list(s_times))
 	# hist gives the number of events within each time bin (between shifts)
 	hist=np.histogram(times_of_T_change_tste,bins=bins_h)[0][::-1]
 	I=np.empty(0)
@@ -202,6 +208,21 @@ if len(s_times)>0:
 	# shift_ind = [0,0,0,1,1,2,2,2,2,...N], where 0 is index of oldest bin, N of the most recent
 	shift_ind =I.astype(int)
 
+##
+if est_start_time:
+	### Get indexes of all events based on times of shift
+	shift_ind_temp_CURVE = np.zeros(len(times_of_T_change_tste)).astype(int)
+	effect_start_timeA = max_times_of_T_change_tste/2.
+	bins_h_temp = sort([max_times_of_T_change_tste+1,-1] + [effect_start_timeA])
+	# hist gives the number of events within each time bin (between shifts)
+	hist_temp=np.histogram(times_of_T_change_tste,bins=bins_h_temp)[0][::-1]
+	Itemp=np.empty(0)
+	for i in range(len(hist_temp)): Itemp=np.append(Itemp,np.repeat(i,hist_temp[i]))
+	# shift_ind = [0,0,0,1,1,2,2,2,2,...N], where 0 is index of oldest bin, N of the most recent
+	shift_ind_temp_CURVE =Itemp.astype(int)
+
+
+##
 scaled_temp=np.zeros(len(Temp_at_events))
 for i in range(len(np.unique(shift_ind))):
 	Temp_values= Temp_at_events[shift_ind==i]
@@ -228,7 +249,7 @@ if args.verbose is True:
 	print "raw range: %s (%s-%s)"       % (max(tempfile[:,1])-min(tempfile[:,1]), max(tempfile[:,1]), min(tempfile[:,1]))
 	print "rescaled range: %s (%s-%s)" % (max(Temp_values)-min(Temp_values), max(Temp_values), min(Temp_values))
 	print "max diversity:", max(Dtraj)
-	print "rescaling factor:", curve_scale_factor
+	print "rescaling factor:", rescale_factor
 	print "\ntime\tvar.value\tdiversity"
 	for i in range(len(all_events)):
 		print "%s\t%s\t%s" %  (all_events[i],Temp_at_events[i], Dtraj[i,0])
@@ -363,6 +384,10 @@ else: s_times_str=""
 
 if equal_g==1: add_equal_g="EG"
 else: add_equal_g=""
+if equal_r==1: add_equal_r="ER"
+else: add_equal_r=""
+if est_start_time:
+	add_equal_r+="_ST" # estimateeffect starting time
 
 if max(args.mSpEx) > -np.inf:
  	args_mSpEx = args.mSpEx
@@ -373,8 +398,8 @@ else:
 
 
 out_model = ["const","exp","lin"]
-out_file_name="%s/%s_%s_%s_%s%sSp_%sEx%s.log" % \
-(output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],rep_j,s_times_str,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]],add_equal_g)
+out_file_name="%s/%s_%s_%s_%s%sSp_%sEx%s%s.log" % \
+(output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],rep_j,s_times_str,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]],add_equal_g,add_equal_r)
 
 
 
@@ -384,7 +409,7 @@ logfile = open(out_file_name , "wb")
 wlog=csv.writer(logfile, delimiter='\t')
 
 head="it\tposterior\tlikelihood\tprior" 
-time_slices = sort([max(times_of_T_change_tste)+1,0] + list(s_times))[::-1]
+time_slices = sort([max_times_of_T_change_tste+1,0] + list(s_times))[::-1]
 time_bin_label=[]
 for i in range(1,len(time_slices)): time_bin_label.append("%s-%s" % (int(time_slices[i-1]),int(time_slices[i])))
 	
@@ -399,6 +424,8 @@ if equal_g==0:
 		head+="\tGm_t%s" % (time_bin_label[j])
 else:
 	head+="\tGl\tGm" 
+if est_start_time:
+	head+="\tstart_time"
 head+="\thp_rate"
 head+="\thp_sig2"
 head+="\tbeta"
@@ -453,12 +480,26 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 	if args.m== -1: rr[0]=0 # never update Garray
 	
 	GIBBS = 0
+	effect_start_time=effect_start_timeA+0
 	if iteration>10:
 		if rr[0]<sampling_freqs[0] or iteration<1000:
-			if rr[1]>.5: 
-				l0,U=update_multiplier_freq(l0A,d=d1,f=freq_update_rate)
-			else: 	
-				m0,U=update_multiplier_freq(m0A,d=d1,f=freq_update_rate)
+			
+			effect_start_time = update_parameter(effect_start_timeA,m=0.5,M=max_times_of_T_change_tste-0.5,d=1)
+			
+			if equal_r==0:
+				if rr[1]>.5: 
+					l0,U=update_multiplier_freq(l0A,d=d1,f=freq_update_rate)
+				else: 	
+					m0,U=update_multiplier_freq(m0A,d=d1,f=freq_update_rate)
+			else:
+				if rr[1]>.5:
+					temp_R = 0+l0A[1] 
+					l0_temp,U=update_multiplier_freq(np.array([temp_R]),d=d1,f=1)
+					l0 = l0A*0+l0_temp[0]
+				else: 
+					temp_R = 0+m0A[1]	
+					m0_temp,U=update_multiplier_freq(np.array([temp_R]),d=d1,f=1)
+					m0 = m0A*0+m0_temp[0]
 			hasting=U
 		elif rr[0]<sampling_freqs[1] and useHP ==1:# Gibbs sampling (only if set true)
 			GIBBS = 1
@@ -488,20 +529,40 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 					Garray[1]=update_parameter_normal_2d(Garray[1],list_d2[scal_fac_ind]) 
 				else:
 					Garray[1,:]=update_parameter_normal(Garray[1,0],list_d2[scal_fac_ind])[0]
+	#####
+	modified_Temp_at_events = 0+Temp_at_events
+	if est_start_time:
+		#print effect_start_time
+		### Get indexes of all events based on times of shift
+		shift_ind_temp_CURVE = np.zeros(len(times_of_T_change_tste)).astype(int)
+		bins_h_temp = sort([max_times_of_T_change_tste+1,-1] + [effect_start_time])
+		# hist gives the number of events within each time bin (between shifts)
+		hist_temp=np.histogram(times_of_T_change_tste,bins=bins_h_temp)[0][::-1]
+		Itemp=np.empty(0)
+		for i in range(len(hist_temp)): Itemp=np.append(Itemp,np.repeat(i,hist_temp[i]))
+		# shift_ind = [0,0,0,1,1,2,2,2,2,...N], where 0 is index of oldest bin, N of the most recent
+		shift_ind_temp_CURVE =Itemp.astype(int)
+		modified_Temp_at_events[shift_ind_temp_CURVE==0] = modified_Temp_at_events[ (shift_ind_temp_CURVE==1).nonzero()[0][0]  ]
 		
 	if args_mSpEx[0]==0: 
-		l_at_events=trasfMultipleRateTemp(l0, Garray[0],Temp_at_events,shift_ind)
+		l_at_events=trasfMultipleRateTemp(l0, Garray[0],modified_Temp_at_events,shift_ind)
 	if args_mSpEx[0]==1: 
-		l_at_events=trasfMultipleRateTempLinear(l0, Garray[0],Temp_at_events,shift_ind)
+		l_at_events=trasfMultipleRateTempLinear(l0, Garray[0],modified_Temp_at_events,shift_ind)
 	if args_mSpEx[0]== -1: 
-		l_at_events=np.repeat(l0,len(Temp_at_events))
+		l_at_events=np.repeat(l0,len(modified_Temp_at_events))
 	
 	if args_mSpEx[1]==0: 
-		m_at_events=trasfMultipleRateTemp(m0, Garray[1],Temp_at_events,shift_ind)
+		m_at_events=trasfMultipleRateTemp(m0, Garray[1],modified_Temp_at_events,shift_ind)
 	if args_mSpEx[1]==1: 
-		m_at_events=trasfMultipleRateTempLinear(m0, Garray[1],Temp_at_events,shift_ind)
+		m_at_events=trasfMultipleRateTempLinear(m0, Garray[1],modified_Temp_at_events,shift_ind)
 	if args_mSpEx[1]== -1: 
-		m_at_events=np.repeat(m0,len(Temp_at_events))
+		m_at_events=np.repeat(m0,len(modified_Temp_at_events))
+
+	#if iteration % 10000==0:
+	#	print modified_Temp_at_events
+	#	print m_at_events
+	#quit() #m_at_events[shift_ind]
+	
 	
 	# Global likelihood
 	#__ l_s1a=l_at_events[ind_s]
@@ -557,16 +618,19 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 		lik_pA=lik_p
 		priorA=prior
 		l0A=l0
-                m0A=m0
+		m0A=m0
 		GarrayA=Garray
+		effect_start_timeA=effect_start_time
 	if iteration % print_freq ==0: 
 		print iteration, array([postA, likA,lik,prior]), hasting, scal_fac_TI[scal_fac_ind]
 		print "l:",l0A, "\nm:", m0A, "\nG:", GarrayA.flatten()
+		if est_start_time: print "start.time:", effect_start_timeA, max_times_of_T_change_tste,"\n"
 	if iteration % sampling_freq ==0:
 		if equal_g==0:
 			g_vec_write = list(GarrayA.flatten())
 		else: g_vec_write = [GarrayA[0,0],GarrayA[1,0]]
-		log_state=[iteration,postA,likA,priorA] + list(lik_pA) + list(l0A) + list(m0A) +g_vec_write + [hypRA,hypGA] + [scal_fac_TI[scal_fac_ind]]
+		if est_start_time: log_state=[iteration,postA,likA,priorA] + list(lik_pA) + list(l0A) + list(m0A) +g_vec_write +[effect_start_timeA] + [hypRA,hypGA] + [scal_fac_TI[scal_fac_ind]]
+		else: log_state=[iteration,postA,likA,priorA] + list(lik_pA) + list(l0A) + list(m0A) +g_vec_write + [hypRA,hypGA] + [scal_fac_TI[scal_fac_ind]]
 		wlog.writerow(log_state)
 		logfile.flush()
 
