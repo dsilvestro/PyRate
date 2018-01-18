@@ -2759,30 +2759,42 @@ def MCMC(all_arg):
 			os.fsync(logfile)
 
 			lik_tmp += sum(likBDtempA)
-			if TDI in [0,2,4] and n_proc==0 and use_ADE_model == 0 and useDiscreteTraitModel == 0:
-				margL=zeros(len(marginal_frames))
-				margM=zeros(len(marginal_frames))
-				if useBounded_BD == 1: min_marginal_frame = boundMin
-				else: min_marginal_frame = min(LO)
+			
+			if log_marginal_rates_to_file==1:
+				if TDI in [0,2,4] and n_proc==0 and use_ADE_model == 0 and useDiscreteTraitModel == 0:
+					margL=np.zeros(len(marginal_frames))
+					margM=np.zeros(len(marginal_frames))
+					if useBounded_BD == 1: min_marginal_frame = boundMin
+					else: min_marginal_frame = min(LO)
 				
-				for i in range(len(timesLA)-1): # indexes of the 1My bins within each timeframe
-					ind=np.intersect1d(marginal_frames[marginal_frames<=timesLA[i]],marginal_frames[marginal_frames>=max(min_marginal_frame,timesLA[i+1])])
-					j=array(ind)
-					margL[j]=LA[i]
-				for i in range(len(timesMA)-1): # indexes of the 1My bins within each timeframe
-					ind=np.intersect1d(marginal_frames[marginal_frames<=timesMA[i]],marginal_frames[marginal_frames>=max(min_marginal_frame,timesMA[i+1])])
-					j=array(ind)
-					margM[j]=MA[i]
-				marginal_rates(it, margL, margM, marginal_file, n_proc)
-			if n_proc==0 and TDI==3: # marg rates DPP | times of shift are fixed and equal for L and M
-				margL=zeros(len(marginal_frames))
-				margM=zeros(len(marginal_frames))
-				for i in range(len(timesLA)-1): # indexes of the 1My bins within each timeframe
-					ind=np.intersect1d(marginal_frames[marginal_frames<=timesLA[i]],marginal_frames[marginal_frames>=timesLA[i+1]])
-					j=array(ind)
-					margL[j]=LA[indDPP_L[i]]
-					margM[j]=MA[indDPP_M[i]]
-				marginal_rates(it, margL, margM, marginal_file, n_proc)
+					for i in range(len(timesLA)-1): # indexes of the 1My bins within each timeframe
+						ind=np.intersect1d(marginal_frames[marginal_frames<=timesLA[i]],marginal_frames[marginal_frames>=max(min_marginal_frame,timesLA[i+1])])
+						j=array(ind)
+						margL[j]=LA[i]
+					for i in range(len(timesMA)-1): # indexes of the 1My bins within each timeframe
+						ind=np.intersect1d(marginal_frames[marginal_frames<=timesMA[i]],marginal_frames[marginal_frames>=max(min_marginal_frame,timesMA[i+1])])
+						j=array(ind)
+						margM[j]=MA[i]
+					marginal_rates(it, margL, margM, marginal_file, n_proc)
+				if n_proc==0 and TDI==3: # marg rates DPP | times of shift are fixed and equal for L and M
+					margL=zeros(len(marginal_frames))
+					margM=zeros(len(marginal_frames))
+					for i in range(len(timesLA)-1): # indexes of the 1My bins within each timeframe
+						ind=np.intersect1d(marginal_frames[marginal_frames<=timesLA[i]],marginal_frames[marginal_frames>=timesLA[i+1]])
+						j=array(ind)
+						margL[j]=LA[indDPP_L[i]]
+						margM[j]=MA[indDPP_M[i]]
+					marginal_rates(it, margL, margM, marginal_file, n_proc)
+			elif TDI in [0,2,4]:
+				w_marg_sp.writerow(list(LA) + list(timesLA[1:len(timesLA)-1]))
+				marginal_sp_rate_file.flush()
+				os.fsync(marginal_sp_rate_file)
+				w_marg_ex.writerow(list(MA) + list(timesMA[1:len(timesMA)-1]))
+				marginal_ex_rate_file.flush()
+				os.fsync(marginal_ex_rate_file)
+				
+				
+				
 			
 		it += 1
 	if TDI==1 and n_proc==0: marginal_likelihood(marginal_file, marginal_lik, temperatures)
@@ -2838,6 +2850,7 @@ p.add_argument('-filter',     type=float,help="Filter lineages with all occurren
 p.add_argument('-filter_taxa',type=str,help="Filter lineages within list (drop all others) ",default="", metavar="taxa_file")
 p.add_argument('-initDiv',    type=int, help='Number of initial lineages (option only available with -d SE_table or -fixSE)', default=0, metavar=0)
 p.add_argument('-PPmodeltest',help='Likelihood testing among preservation models', action='store_true', default=False)
+p.add_argument('-log_marginal_rates',type=int,help='Save marginal rate file 0) only save summary files; 1) yes', default=1,metavar=1)
 # phylo test
 p.add_argument('-tree',       type=str,help="Tree file (NEXUS format)",default="", metavar="")
 p.add_argument('-sampling',   type=float,help="Taxon sampling (phylogeny)",default=1., metavar=1.)
@@ -3928,21 +3941,39 @@ logfile.flush()
 os.fsync(logfile)
 
 # OUTPUT 2 MARGINAL RATES
-if TDI!=1 and use_ADE_model == 0 and useDiscreteTraitModel == 0: # (path_dir, output_file, out_run)
-	out_log_marginal = "%s/%s_marginal_rates.log" % (path_dir, suff_out) 
-	marginal_file = open(out_log_marginal , "wb") 
-	head="it\t"
+log_marginal_rates_to_file = args.log_marginal_rates
+
+# save regular marginal rate file
+if TDI!=1 and use_ADE_model == 0 and useDiscreteTraitModel == 0 and log_marginal_rates_to_file==1: # (path_dir, output_file, out_run)
 	if useBounded_BD == 1: max_marginal_frame = boundMax+1
 	else: max_marginal_frame = max(FA)
-	for i in range(int(max_marginal_frame)+1): head += "l_%s\t" % i #int(fabs(int(max(FA))))
-	for i in range(int(max_marginal_frame)+1): head += "m_%s\t" % i #int(fabs(int(max(FA))))
-	for i in range(int(max_marginal_frame)+1): head += "r_%s\t" % i #int(fabs(int(max(FA))))
-	head=head.split('\t')
-	wmarg=csv.writer(marginal_file, delimiter='	')
-	wmarg.writerow(head)
-	marginal_file.flush()
-	os.fsync(marginal_file)
 	marginal_frames= array([int(fabs(i-int(max_marginal_frame))) for i in range(int(max_marginal_frame)+1)])
+	if log_marginal_rates_to_file==1:
+		out_log_marginal = "%s/%s_marginal_rates.log" % (path_dir, suff_out) 
+		marginal_file = open(out_log_marginal , "wb") 
+		head="it\t"
+		for i in range(int(max_marginal_frame)+1): head += "l_%s\t" % i #int(fabs(int(max(FA))))
+		for i in range(int(max_marginal_frame)+1): head += "m_%s\t" % i #int(fabs(int(max(FA))))
+		for i in range(int(max_marginal_frame)+1): head += "r_%s\t" % i #int(fabs(int(max(FA))))
+		head=head.split('\t')
+		wmarg=csv.writer(marginal_file, delimiter='	')
+		wmarg.writerow(head)
+		marginal_file.flush()
+		os.fsync(marginal_file)
+
+# save files with sp/ex rates and times of shift
+elif log_marginal_rates_to_file==0:
+	marginal_sp_rate_file_name = "%s/%s_sp_rates.log" % (path_dir, suff_out) 
+	marginal_sp_rate_file = open(marginal_sp_rate_file_name , "w") 
+	w_marg_sp=csv.writer(marginal_sp_rate_file, delimiter='\t')
+	marginal_sp_rate_file.flush()
+	os.fsync(marginal_sp_rate_file)
+	marginal_ex_rate_file_name = "%s/%s_ex_rates.log" % (path_dir, suff_out) 
+	marginal_ex_rate_file = open(marginal_ex_rate_file_name , "w") 
+	w_marg_ex=csv.writer(marginal_ex_rate_file, delimiter='\t')
+	marginal_ex_rate_file.flush()
+	os.fsync(marginal_ex_rate_file)
+	marginal_frames=0	
 
 # OUTPUT 3 MARGINAL LIKELIHOOD
 elif TDI==1: 
