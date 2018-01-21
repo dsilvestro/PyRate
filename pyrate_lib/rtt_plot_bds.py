@@ -1,6 +1,6 @@
 from numpy import *
 import numpy as np
-import os,platform
+import os,platform,glob
 import lib_utilities as util
 import csv 
 
@@ -112,3 +112,129 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 #f= "/Users/daniele/Desktop/try/catalina_temp/par_est/combined_10mcmc_files.log"
 #max_age=23.03
 #RTTplot_high_res(f,grid_cell_size,burnin,max_age)
+
+
+
+# functionsto plot RTT when '-log_marginal_rates 0'
+
+def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
+	# returns a list of 5 items:
+	# 1. a vector of times (age of each marginal rate)
+	# 2-4. mean, min and max marginal rates (95% HPD)
+	# 5. a vector of times of rate shift
+	f = file(f_name,'U')
+	if nbins==0:
+		nbins = int(max_age-min_age)
+	post_rate=f.readlines()
+	bins_histogram = np.linspace(min_age,max_age,nbins+1)	
+	marginal_rates_list = []
+	times_of_shift = []
+	
+	if burnin<1: # define burnin as a fraction
+		burnin=min(int(burnin*len(post_rate)),int(0.9*len(post_rate)))
+	
+	for i in range(burnin,len(post_rate)):
+		row = np.array(post_rate[i].split()).astype(float)
+		
+		if len(row)==1: 
+			marginal_rates = np.zeros(nbins)+row[0]
+		else:
+			ind_rates = np.arange(0,int(np.ceil(len(row)/2.)))
+			ind_shifts = np.arange(int(np.ceil(len(row)/2.)),len(row))
+			rates = row[ind_rates]
+			shifts = row[ind_shifts]
+			h = np.histogram(row[ind_shifts],bins =bins_histogram)[0][::-1]
+			marginal_rates = rates[np.cumsum(h)]
+			times_of_shift += list(shifts)
+		
+		marginal_rates_list.append(marginal_rates)
+	
+	marginal_rates_list = np.array(marginal_rates_list)
+	mean_rates= np.mean(marginal_rates_list,axis=0)
+	min_rates,max_rates=[],[]
+	for i in range(nbins):
+		hpd = util.calcHPD(marginal_rates_list[:,i],0.95)
+		min_rates += [hpd[0]]
+		max_rates += [hpd[1]]
+	
+	time_frames = bins_histogram-bins_histogram[1]/2.
+	time_frames = time_frames[1:]
+	#print len(time_frames),len(mean_rates), 
+	
+	return [time_frames,mean_rates,np.array(min_rates),np.array(max_rates),np.array(times_of_shift)]
+
+def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log):
+	out_str = "\n"
+	out_str += util.print_R_vec("\ntime",-res[0])
+	out_str += util.print_R_vec("\nrate",res[1][::-1])
+	out_str += util.print_R_vec("\nminHPD",res[2][::-1])
+	out_str += util.print_R_vec("\nmaxHPD",res[3][::-1])
+	if plot_log==0:
+		out_str += "\nplot(time,time,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = '%s', xlab = 'Time',main='%s' )" \
+			% (0,1.1*np.nanmax(res[3]),-max_age,-min_age,parameter,plot_title) 
+		out_str += "\npolygon(c(time, rev(time)), c(maxHPD, rev(minHPD)), col = alpha('%s',0.3), border = NA)" % (col)
+		out_str += "\nlines(time,rate, col = '%s', lwd=2)" % (col)
+	elif plot_log==1:
+		out_str += "\nplot(time,time,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = 'Log10 %s', xlab = 'Time',main='%s' )" \
+			% (np.nanmin(np.log10(0.9*res[2])),np.nanmax(np.log10(1.1*res[3])),-max_age,-min_age,parameter,plot_title) 
+		out_str += "\npolygon(c(time, rev(time)), c(log10(maxHPD), rev(log10(minHPD))), col = alpha('%s',0.3), border = NA)" % (col)
+		out_str += "\nlines(time,log10(rate), col = '%s', lwd=2)" % (col)
+		
+	# add barplot rate shifts
+	bins_histogram = np.linspace(min_age,max_age,len(res[0]))
+	if len(res[4])>1: # rate shift sampled at least once
+		h = np.histogram(res[4],bins =bins_histogram,density=1)
+	else:
+		h = [np.zeros(len(bins_histogram)-1),bins_histogram]
+	a = h[1]
+	mids = (a-a[1]/2.)[1:]
+	out_str += util.print_R_vec("\nmids",-mids)
+	out_str += util.print_R_vec("\ncounts",h[0])
+	out_str += "\nplot(mids,counts,type = 'h', xlim = c(%s,%s), ylab = 'Frequency of rate shift', xlab = 'Time',lwd=5,col='%s')" \
+	    % (-max_age,-min_age,col)
+	"barplot(shifts,add = F)"
+	return out_str
+
+def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,max_age=0,logT=0):
+	direct="%s/*%s*mcmc.log" % (path_dir,name_tag)
+	files=glob.glob(direct)
+	files=np.sort(files)
+	stem_file=files[0]
+	wd = "%s" % os.path.dirname(stem_file)
+	#print(name_file, wd)
+	print "found", len(files), "log files...\n"
+	if logT==1: outname = "Log_"
+	else: outname = ""
+	if max_age>0: outname+= "t%s" % (int(max_age))
+	r_str = "\n\npdf(file='%s/%sRTT_plots.pdf',width=10, height=10)\npar(mfrow=c(2,2))\nlibrary(scales)" % (wd,outname)
+	for mcmc_file in files:
+		if 2>1: #try:
+			name_file = os.path.splitext(os.path.basename(mcmc_file))[0]		
+			if min_age==0 and max_age==0: # get empirical time range
+				tbl=np.loadtxt(mcmc_file, skiprows=1)
+				head = next(open(mcmc_file)).split() # should be faster
+				max_age_t = np.mean(tbl[:,head.index("root_age")])
+				min_age_t = np.mean(tbl[:,head.index("death_age")])
+			else:
+				min_age_t, max_age_t = min_age, max_age
+			nbins = int((max_age_t-min_age_t)/float(bin_size))
+			colors = ["#4c4cec","#e34a33"] # sp and ex rate
+			# sp file
+			f_name = mcmc_file.replace("mcmc.log","sp_rates.log")
+			res = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin=0.2)
+			r_str += get_r_plot(res,col=colors[0],parameter="Speciation rate",min_age=min_age_t,max_age=max_age_t,plot_title=name_file,plot_log=logT)
+			# ex file
+			f_name = mcmc_file.replace("mcmc.log","ex_rates.log")
+			res = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin=0.2)
+			r_str += get_r_plot(res,col=colors[1],parameter="Extinction rate",min_age=min_age_t,max_age=max_age_t,plot_title="",plot_log=logT)
+		#except:
+		#	print "Could not read file:", mcmc_file
+	r_str += "\n\nn <- dev.off()"
+	out="%s/%sRTT_plots.r" % (wd,outname)
+	outfile = open(out, "wb") 
+	outfile.writelines(r_str)
+	outfile.close()
+	cmd="cd %s; Rscript %sRTT_plots.r" % (wd,outname)
+	print "Plots saved in %s (%sRTT_plots)" % (wd,outname)
+	os.system(cmd)
+
