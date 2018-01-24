@@ -1,6 +1,6 @@
 from numpy import *
 import numpy as np
-import os,platform,glob
+import os,platform,glob,sys
 import lib_utilities as util
 import csv 
 
@@ -116,6 +116,47 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 
 
 # functionsto plot RTT when '-log_marginal_rates 0'
+def calcBF(threshold,empirical_prior):
+	A = exp(threshold/2)*empirical_prior/(1-empirical_prior)
+	return A/(A+1)
+
+
+def get_prior_shift(t_start,t_end,bins_histogram):
+	times_of_shift = []
+	sampled_K = []
+	# Gamma hyper-prior
+	G_shape = 2. # currently hard-coded
+	G_rate = 1.  # mode at 1
+	min_time_frame_size = 1
+	iteration=0.
+	print "\nComputing empirical priors on rate shifts..."
+	for rep in range(100000):
+		if rep % 10000 ==0:
+			sys.stdout.write(".")
+			sys.stdout.flush()	
+		try:
+			# Poisson prior
+			Poi_lambda = np.random.gamma(G_shape,1./G_rate)
+			n_rates_temp = np.random.poisson(Poi_lambda,1000)
+			n_rates = n_rates_temp[n_rates_temp>0][0]
+			shift_times = list(np.random.uniform(t_end-min_time_frame_size,t_start+min_time_frame_size,n_rates-1))
+			time_frames = np.sort([t_start, t_end]+shift_times)	
+			if min(np.diff(time_frames))<min_time_frame_size:
+				pass
+			else:
+				iteration+=1
+				times_of_shift += shift_times
+				sampled_K.append(n_rates)
+		except(IndexError): pass
+	expectedK = np.array(sampled_K)
+	prior_s = np.mean(np.histogram(times_of_shift,bins=bins_histogram)[0]/iteration)
+	bf2 = calcBF(2,prior_s)
+	bf6 = calcBF(6,prior_s)
+	print np.array([prior_s,bf2,bf6])
+	return [prior_s,bf2,bf6]
+
+
+
 
 def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 	# returns a list of 5 items:
@@ -160,8 +201,8 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 	time_frames = bins_histogram-bins_histogram[1]/2.
 	time_frames = time_frames[1:]
 	#print len(time_frames),len(mean_rates), 
-	
-	return [time_frames,mean_rates,np.array(min_rates),np.array(max_rates),np.array(times_of_shift)]
+	n_mcmc_samples = len(post_rate)-burnin # number of samples used to normalize frequencies of rate shifts
+	return [time_frames,mean_rates,np.array(min_rates),np.array(max_rates),np.array(times_of_shift),n_mcmc_samples]
 
 def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log):
 	out_str = "\n"
@@ -174,7 +215,7 @@ def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log):
 			% (0,1.1*np.nanmax(res[3]),-max_age,-min_age,parameter,plot_title) 
 		out_str += "\npolygon(c(time, rev(time)), c(maxHPD, rev(minHPD)), col = alpha('%s',0.3), border = NA)" % (col)
 		out_str += "\nlines(time,rate, col = '%s', lwd=2)" % (col)
-	elif plot_log==1:
+	else:
 		out_str += "\nplot(time,time,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = 'Log10 %s', xlab = 'Time',main='%s' )" \
 			% (np.nanmin(np.log10(0.9*res[2])),np.nanmax(np.log10(1.1*res[3])),-max_age,-min_age,parameter,plot_title) 
 		out_str += "\npolygon(c(time, rev(time)), c(log10(maxHPD), rev(log10(minHPD))), col = alpha('%s',0.3), border = NA)" % (col)
@@ -183,16 +224,19 @@ def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log):
 	# add barplot rate shifts
 	bins_histogram = np.linspace(min_age,max_age,len(res[0]))
 	if len(res[4])>1: # rate shift sampled at least once
-		h = np.histogram(res[4],bins =bins_histogram,density=1)
+		h = np.histogram(res[4],bins =bins_histogram) #,density=1)
 	else:
 		h = [np.zeros(len(bins_histogram)-1),bins_histogram]
 	a = h[1]
 	mids = (a-a[1]/2.)[1:]
 	out_str += util.print_R_vec("\nmids",-mids)
-	out_str += util.print_R_vec("\ncounts",h[0])
-	out_str += "\nplot(mids,counts,type = 'h', xlim = c(%s,%s), ylab = 'Frequency of rate shift', xlab = 'Time',lwd=5,col='%s')" \
-	    % (-max_age,-min_age,col)
-	"barplot(shifts,add = F)"
+	out_str += util.print_R_vec("\ncounts",h[0]/float(res[5]))
+	out_str += "\nplot(mids,counts,type = 'h', xlim = c(%s,%s), ylim=c(0,%s), ylab = 'Frequency of rate shift', xlab = 'Time',lwd=5,col='%s')" \
+	    % (-max_age,-min_age,max(max(h[0]/float(res[5])),0.2),col)
+	# get BFs
+	BFs = get_prior_shift(min_age,max_age,bins_histogram)
+	out_str += "\nabline(h=%s, lty=2)" % ( BFs[1] )
+	out_str += "\nabline(h=%s, lty=2)" % ( BFs[2] )
 	return out_str
 
 def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,max_age=0,logT=0):
@@ -238,3 +282,18 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 	print "Plots saved in %s (%sRTT_plots)" % (wd,outname)
 	os.system(cmd)
 
+
+
+
+
+
+# x = get_prior_shift(20,0,20)
+# x = get_prior_shift(100,0,0)
+# res = get_prior_shift(1300,0,130) 
+# 
+# 
+# 
+#res = get_prior_shift(1300,0,130) 
+#x = res[0]
+#empirical_prior = mean(x[x>0])
+#
