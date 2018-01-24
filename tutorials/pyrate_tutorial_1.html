@@ -1,671 +1,523 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
+
 <head>
-<meta charset='UTF-8'><meta name='viewport' content='width=device-width initial-scale=1'>
-<title>pyrate_tutorial_1.md</title><link href='http://fonts.googleapis.com/css?family=Open+Sans:400italic,700italic,700,400&subset=latin,latin-ext' rel='stylesheet' type='text/css' /><style type='text/css'>html {overflow-x: initial !important;}.CodeMirror { height: auto; }
-.CodeMirror-scroll { overflow-y: hidden; overflow-x: auto; }
-.CodeMirror-lines { padding: 4px 0px; }
-.CodeMirror pre { }
-.CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler { background-color: white; }
-.CodeMirror-gutters { border-right-width: 1px; border-right-style: solid; border-right-color: rgb(221, 221, 221); background-color: rgb(247, 247, 247); white-space: nowrap; }
-.CodeMirror-linenumbers { }
-.CodeMirror-linenumber { padding: 0px 3px 0px 5px; text-align: right; color: rgb(153, 153, 153); }
-.CodeMirror div.CodeMirror-cursor { border-left-width: 1px; border-left-style: solid; border-left-color: black; z-index: 3; }
-.CodeMirror div.CodeMirror-secondarycursor { border-left-width: 1px; border-left-style: solid; border-left-color: silver; }
-.CodeMirror.cm-keymap-fat-cursor div.CodeMirror-cursor { width: auto; border: 0px; background-color: rgb(119, 238, 119); z-index: 1; background-position: initial initial; background-repeat: initial initial; }
-.CodeMirror div.CodeMirror-cursor.CodeMirror-overwrite { }
-.cm-tab { display: inline-block; }
-.cm-s-typora-default .cm-header, .cm-s-typora-default .cm-property { color: rgb(217, 79, 138); }
-.cm-s-typora-default pre.cm-header1:not(.cm-atom) :not(.cm-overlay) { font-size: 2rem; line-height: 2rem; }
-.cm-s-typora-default pre.cm-header2:not(.cm-atom) :not(.cm-overlay) { font-size: 1.4rem; line-height: 1.4rem; }
-.cm-s-typora-default .cm-atom, .cm-s-typora-default .cm-number { color: rgb(149, 132, 134); }
-.cm-s-typora-default .cm-table-row, .cm-s-typora-default .cm-block-start { font-family: monospace; }
-.cm-s-typora-default .cm-comment, .cm-s-typora-default .cm-code { color: rgb(74, 90, 159); font-family: monospace; }
-.cm-s-typora-default .cm-tag { color: rgb(169, 68, 66); }
-.cm-s-typora-default .cm-string { color: rgb(126, 134, 169); }
-.cm-s-typora-default .cm-link { color: rgb(196, 122, 15); text-decoration: underline; }
-.cm-s-typora-default .cm-variable-2, .cm-s-typora-default .cm-variable-1 { color: inherit; }
-.cm-s-typora-default .cm-overlay { font-family: monospace; }
-.CodeMirror.cm-s-typora-default div.CodeMirror-cursor { border-left-width: 3px; border-left-style: solid; border-left-color: rgb(228, 98, 154); }
-.cm-s-typora-default .CodeMirror-activeline-background { left: -60px; right: -30px; background-color: rgba(204, 204, 204, 0.2); background-position: initial initial; background-repeat: initial initial; }
-.cm-s-typora-default .CodeMirror-gutters { border-right-style: none; background-color: inherit; }
-.cm-s-typora-default .cm-trailing-space-new-line::after, .cm-startspace::after, .cm-starttab .cm-tab::after { content: '•'; position: absolute; left: 0px; opacity: 0; font-family: LetterGothicStd, monospace; }
-.os-windows .cm-startspace::after, .os-windows .cm-starttab .cm-tab::after { left: -0.1em; }
-.cm-starttab .cm-tab::after { content: ' '; }
-.cm-startspace, .cm-tab, .cm-starttab, .cm-trailing-space-a, .cm-trailing-space-b, .cm-trailing-space-new-line { font-family: monospace; position: relative; }
-.cm-s-typora-default .cm-trailing-space-new-line::after { content: '↓'; opacity: 0.3; }
-.cm-s-inner .cm-keyword { color: rgb(119, 0, 136); }
-.cm-s-inner .cm-atom, .cm-s-inner.cm-atom { color: rgb(34, 17, 153); }
-.cm-s-inner .cm-number { color: rgb(17, 102, 68); }
-.cm-s-inner .cm-def { color: rgb(0, 0, 255); }
-.cm-s-inner .cm-variable { color: black; }
-.cm-s-inner .cm-variable-2 { color: rgb(0, 85, 170); }
-.cm-s-inner .cm-variable-3 { color: rgb(0, 136, 85); }
-.cm-s-inner .cm-property { color: black; }
-.cm-s-inner .cm-operator { color: rgb(152, 26, 26); }
-.cm-s-inner .cm-comment, .cm-s-inner.cm-comment { color: rgb(170, 85, 0); }
-.cm-s-inner .cm-string { color: rgb(170, 17, 17); }
-.cm-s-inner .cm-string-2 { color: rgb(255, 85, 0); }
-.cm-s-inner .cm-meta { color: rgb(85, 85, 85); }
-.cm-s-inner .cm-qualifier { color: rgb(85, 85, 85); }
-.cm-s-inner .cm-builtin { color: rgb(51, 0, 170); }
-.cm-s-inner .cm-bracket { color: rgb(153, 153, 119); }
-.cm-s-inner .cm-tag { color: rgb(17, 119, 0); }
-.cm-s-inner .cm-attribute { color: rgb(0, 0, 204); }
-.cm-s-inner .cm-header, .cm-s-inner.cm-header { color: blue; }
-.cm-s-inner .cm-quote, .cm-s-inner.cm-quote { color: rgb(0, 153, 0); }
-.cm-s-inner .cm-hr, .cm-s-inner.cm-hr { color: rgb(153, 153, 153); }
-.cm-s-inner .cm-link, .cm-s-inner.cm-link { color: rgb(0, 0, 204); }
-.cm-negative { color: rgb(221, 68, 68); }
-.cm-positive { color: rgb(34, 153, 34); }
-.cm-header, .cm-strong { font-weight: bold; }
-.cm-del { text-decoration: line-through; }
-.cm-em { font-style: italic; }
-.cm-link { text-decoration: underline; }
-.cm-error { color: rgb(255, 0, 0); }
-.cm-invalidchar { color: rgb(255, 0, 0); }
-.cm-constant { color: rgb(38, 139, 210); }
-.cm-defined { color: rgb(181, 137, 0); }
-div.CodeMirror span.CodeMirror-matchingbracket { color: rgb(0, 255, 0); }
-div.CodeMirror span.CodeMirror-nonmatchingbracket { color: rgb(255, 34, 34); }
-.cm-s-inner .CodeMirror-activeline-background { background-image: inherit; background-size: inherit; background-attachment: inherit; background-origin: inherit; background-clip: inherit; background-color: inherit; background-position: inherit inherit; background-repeat: inherit inherit; }
-.CodeMirror { position: relative; overflow: hidden; }
-.CodeMirror-scroll { margin-bottom: -30px; margin-right: -30px; padding-bottom: 30px; padding-right: 30px; height: 100%; outline: none; position: relative; box-sizing: content-box; }
-.CodeMirror-sizer { position: relative; }
-.CodeMirror-vscrollbar, .CodeMirror-hscrollbar, .CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler { position: absolute; z-index: 6; display: none; }
-.CodeMirror-vscrollbar { right: 0px; top: 0px; overflow-x: hidden; overflow-y: scroll; }
-.CodeMirror-hscrollbar { bottom: 0px; left: 0px; overflow-y: hidden; overflow-x: scroll; }
-.CodeMirror-scrollbar-filler { right: 0px; bottom: 0px; }
-.CodeMirror-gutter-filler { left: 0px; bottom: 0px; }
-.CodeMirror-gutters { position: absolute; left: 0px; top: 0px; padding-bottom: 30px; z-index: 3; }
-.CodeMirror-gutter { white-space: normal; height: 100%; box-sizing: content-box; padding-bottom: 30px; margin-bottom: -32px; display: inline-block; }
-.CodeMirror-gutter-wrapper { position: absolute; z-index: 4; background-image: none !important; border: none !important; background-position: initial initial !important; background-repeat: initial initial !important; }
-.CodeMirror-gutter-background { position: absolute; top: 0px; bottom: 0px; z-index: 4; }
-.CodeMirror-gutter-elt { position: absolute; cursor: default; z-index: 4; }
-.CodeMirror-lines { cursor: text; }
-.CodeMirror pre { border-top-left-radius: 0px; border-top-right-radius: 0px; border-bottom-right-radius: 0px; border-bottom-left-radius: 0px; border-width: 0px; background-color: transparent; font-family: inherit; font-size: inherit; margin: 0px; white-space: pre; word-wrap: normal; color: inherit; z-index: 2; position: relative; overflow: visible; background-position: initial initial; background-repeat: initial initial; }
-.CodeMirror-wrap pre { word-wrap: break-word; white-space: pre-wrap; word-break: normal; }
-.CodeMirror-code pre { border-right-width: 30px; border-right-style: solid; border-right-color: transparent; width: -webkit-fit-content; }
-.CodeMirror-wrap .CodeMirror-code pre { border-right-style: none; width: auto; }
-.CodeMirror-linebackground { position: absolute; left: 0px; right: 0px; top: 0px; bottom: 0px; z-index: 0; }
-.CodeMirror-linewidget { position: relative; z-index: 2; overflow: auto; }
-.CodeMirror-widget { }
-.CodeMirror-wrap .CodeMirror-scroll { overflow-x: hidden; }
-.CodeMirror-measure { position: absolute; width: 100%; height: 0px; overflow: hidden; visibility: hidden; }
-.CodeMirror-measure pre { position: static; }
-.CodeMirror div.CodeMirror-cursor { position: absolute; visibility: hidden; border-right-style: none; width: 0px; }
-.CodeMirror div.CodeMirror-cursor { visibility: hidden; }
-.CodeMirror-focused div.CodeMirror-cursor { visibility: inherit; }
-.CodeMirror-selected { background-color: rgb(217, 217, 217); background-position: initial initial; background-repeat: initial initial; }
-.CodeMirror-focused .CodeMirror-selected { background-color: rgb(215, 212, 240); background-position: initial initial; background-repeat: initial initial; }
-.cm-searching { background-color: rgba(255, 255, 0, 0.4); background-position: initial initial; background-repeat: initial initial; }
-.CodeMirror span { }
-@media print { 
-  .CodeMirror div.CodeMirror-cursor { visibility: hidden; }
-}
-.CodeMirror-lint-markers { width: 16px; }
-.CodeMirror-lint-tooltip { background-color: infobackground; border: 1px solid black; border-top-left-radius: 4px; border-top-right-radius: 4px; border-bottom-right-radius: 4px; border-bottom-left-radius: 4px; color: infotext; font-family: monospace; overflow: hidden; padding: 2px 5px; position: fixed; white-space: pre-wrap; z-index: 10000; max-width: 600px; opacity: 0; transition: opacity 0.4s; font-size: 0.8em; }
-.CodeMirror-lint-mark-error, .CodeMirror-lint-mark-warning { background-position: left bottom; background-repeat: repeat no-repeat; }
-.CodeMirror-lint-mark-error { background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAAXNSR0IArs4c6QAAAAZiS0dEAP8A/wD/oL2nkwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAAd0SU1FB9sJDw4cOCW1/KIAAAAZdEVYdENvbW1lbnQAQ3JlYXRlZCB3aXRoIEdJTVBXgQ4XAAAAHElEQVQI12NggIL/DAz/GdA5/xkY/qPKMDAwAADLZwf5rvm+LQAAAABJRU5ErkJggg==); }
-.CodeMirror-lint-marker-error, .CodeMirror-lint-marker-warning { cursor: pointer; display: inline-block; height: 16px; width: 16px; vertical-align: middle; position: relative; background-position: center center; background-repeat: no-repeat no-repeat; }
-.CodeMirror-lint-message-error, .CodeMirror-lint-message-warning { padding-left: 18px; background-position: left top; background-repeat: no-repeat no-repeat; }
-.CodeMirror-lint-marker-error, .CodeMirror-lint-message-error { background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAHlBMVEW7AAC7AACxAAC7AAC7AAAAAAC4AAC5AAD///+7AAAUdclpAAAABnRSTlMXnORSiwCK0ZKSAAAATUlEQVR42mWPOQ7AQAgDuQLx/z8csYRmPRIFIwRGnosRrpamvkKi0FTIiMASR3hhKW+hAN6/tIWhu9PDWiTGNEkTtIOucA5Oyr9ckPgAWm0GPBog6v4AAAAASUVORK5CYII=); }
-.CodeMirror-lint-marker-warning, .CodeMirror-lint-message-warning { background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAANlBMVEX/uwDvrwD/uwD/uwD/uwD/uwD/uwD/uwD/uwD6twD/uwAAAADurwD2tQD7uAD+ugAAAAD/uwDhmeTRAAAADHRSTlMJ8mN1EYcbmiixgACm7WbuAAAAVklEQVR42n3PUQqAIBBFUU1LLc3u/jdbOJoW1P08DA9Gba8+YWJ6gNJoNYIBzAA2chBth5kLmG9YUoG0NHAUwFXwO9LuBQL1giCQb8gC9Oro2vp5rncCIY8L8uEx5ZkAAAAASUVORK5CYII=); }
-.CodeMirror-lint-marker-multiple { background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAcAAAAHCAMAAADzjKfhAAAACVBMVEUAAAAAAAC/v7914kyHAAAAAXRSTlMAQObYZgAAACNJREFUeNo1ioEJAAAIwmz/H90iFFSGJgFMe3gaLZ0od+9/AQZ0ADosbYraAAAAAElFTkSuQmCC); width: 100%; height: 100%; background-position: right bottom; background-repeat: no-repeat no-repeat; }
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>pyrate_tutorial_1</title>
 
 
-:root { --bg-color:  #ffffff; --text-color:  #333333; --code-block-bg-color: inherit; }
-html { font-size: 14px; background-color: var(--bg-color); color: var(--text-color); font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
-body { margin: 0px; padding: 0px; height: auto; bottom: 0px; top: 0px; left: 0px; right: 0px; font-size: 1rem; line-height: 1.42857143; overflow-x: hidden; background-image: inherit; background-size: inherit; background-attachment: inherit; background-origin: inherit; background-clip: inherit; background-color: inherit; background-position: inherit inherit; background-repeat: inherit inherit; }
-a:active, a:hover { outline: 0px; }
-.in-text-selection, ::selection { background-color: rgb(181, 214, 252); text-shadow: none; background-position: initial initial; background-repeat: initial initial; }
-#write { margin: 0px auto; height: auto; width: inherit; word-break: normal; word-wrap: break-word; position: relative; padding-bottom: 70px; white-space: pre-wrap; overflow-x: visible; }
-.for-image #write { padding-left: 8px; padding-right: 8px; }
-body.typora-export { padding-left: 30px; padding-right: 30px; }
-@media screen and (max-width: 500px) { 
-  body.typora-export { padding-left: 0px; padding-right: 0px; }
-  .CodeMirror-sizer { margin-left: 0px !important; }
-  .CodeMirror-gutters { display: none !important; }
-}
-.typora-export #write { margin: 0px auto; }
-#write > p:first-child, #write > ul:first-child, #write > ol:first-child, #write > pre:first-child, #write > blockquote:first-child, #write > div:first-child, #write > table:first-child { margin-top: 30px; }
-#write li > table:first-child { margin-top: -20px; }
-img { max-width: 100%; vertical-align: middle; }
-input, button, select, textarea { color: inherit; font-family: inherit; font-size: inherit; font-style: inherit; font-variant-caps: inherit; font-weight: inherit; line-height: inherit; }
-input[type="checkbox"], input[type="radio"] { line-height: normal; padding: 0px; }
-::before, ::after, * { box-sizing: border-box; }
-#write p, #write h1, #write h2, #write h3, #write h4, #write h5, #write h6, #write div, #write pre { width: inherit; }
-#write p, #write h1, #write h2, #write h3, #write h4, #write h5, #write h6 { position: relative; }
-h1 { font-size: 2rem; }
-h2 { font-size: 1.8rem; }
-h3 { font-size: 1.6rem; }
-h4 { font-size: 1.4rem; }
-h5 { font-size: 1.2rem; }
-h6 { font-size: 1rem; }
-p { -webkit-margin-before: 1rem; -webkit-margin-after: 1rem; -webkit-margin-start: 0px; -webkit-margin-end: 0px; }
-.typora-export p { white-space: normal; }
-.mathjax-block { margin-top: 0px; margin-bottom: 0px; -webkit-margin-before: 0rem; -webkit-margin-after: 0rem; }
-.hidden { display: none; }
-.md-blockmeta { color: rgb(204, 204, 204); font-weight: bold; font-style: italic; }
-a { cursor: pointer; }
-sup.md-footnote { padding: 2px 4px; background-color: rgba(238, 238, 238, 0.701961); color: rgb(85, 85, 85); border-top-left-radius: 4px; border-top-right-radius: 4px; border-bottom-right-radius: 4px; border-bottom-left-radius: 4px; }
-#write input[type="checkbox"] { cursor: pointer; width: inherit; height: inherit; margin: 4px 0px 0px; }
-tr { break-inside: avoid; break-after: auto; }
-thead { display: table-header-group; }
-table { border-collapse: collapse; border-spacing: 0px; width: 100%; overflow: auto; break-inside: auto; text-align: left; }
-table.md-table td { min-width: 80px; }
-.CodeMirror-gutters { border-right-width: 0px; background-color: inherit; }
-.CodeMirror { text-align: left; }
-.CodeMirror-placeholder { opacity: 0.3; }
-.CodeMirror pre { padding: 0px 4px; }
-.CodeMirror-lines { padding: 0px; }
-div.hr:focus { cursor: none; }
-pre { white-space: pre-wrap; }
-.CodeMirror-gutters { margin-right: 4px; }
-.md-fences { font-size: 0.9rem; display: block; break-inside: avoid; text-align: left; overflow: visible; white-space: pre; background: var(--code-block-bg-color); position: relative !important; }
-.md-diagram-panel { width: 100%; margin-top: 10px; text-align: center; padding-top: 0px; padding-bottom: 8px; overflow-x: auto; }
-.md-fences .CodeMirror.CodeMirror-wrap { top: -1.6em; margin-bottom: -1.6em; }
-.md-fences.mock-cm { white-space: pre-wrap; }
-.show-fences-line-number .md-fences { padding-left: 0px; }
-.show-fences-line-number .md-fences.mock-cm { padding-left: 40px; }
-.footnotes { opacity: 0.8; font-size: 0.9rem; padding-top: 1em; padding-bottom: 1em; }
-.footnotes + .footnotes { margin-top: -1em; }
-.md-reset { margin: 0px; padding: 0px; border: 0px; outline: 0px; vertical-align: top; background-color: transparent; text-decoration: none; text-shadow: none; float: none; position: static; width: auto; height: auto; white-space: nowrap; cursor: inherit; line-height: normal; font-weight: normal; text-align: left; box-sizing: content-box; direction: ltr; background-position: initial initial; background-repeat: initial initial; }
-li div { padding-top: 0px; }
-blockquote { margin: 1rem 0px; }
-li p, li .mathjax-block { margin: 0.5rem 0px; }
-li { margin: 0px; position: relative; }
-blockquote > :last-child { margin-bottom: 0px; }
-blockquote > :first-child { margin-top: 0px; }
-.footnotes-area { color: rgb(136, 136, 136); margin-top: 0.714rem; padding-bottom: 0.143rem; }
-@media print { 
-  html, body { border: 1px solid transparent; height: 99%; break-after: avoid-page; break-before: avoid-page; }
-  .typora-export * { -webkit-print-color-adjust: exact; }
-  h1, h2, h3, h4, h5, h6 { break-after: avoid-page; orphans: 2; }
-  p { orphans: 4; }
-  html.blink-to-pdf { font-size: 13px; }
-  .typora-export #write { padding-left: 1cm; padding-right: 1cm; padding-bottom: 0px; break-after: avoid-page; }
-  .typora-export #write::after { height: 0px; }
-  @page { margin: 20mm 0mm; }
-}
-.footnote-line { margin-top: 0.714em; font-size: 0.7em; }
-a img, img a { cursor: pointer; }
-pre.md-meta-block { font-size: 0.8rem; min-height: 2.86rem; white-space: pre-wrap; background-color: rgb(204, 204, 204); display: block; overflow-x: hidden; background-position: initial initial; background-repeat: initial initial; }
-p .md-image:only-child { display: inline-block; width: 100%; text-align: center; }
-#write .MathJax_Display { margin: 0.8em 0px 0px; }
-.mathjax-block { white-space: pre; overflow: hidden; width: 100%; }
-p + .mathjax-block { margin-top: -1.143rem; }
-.mathjax-block:not(:empty)::after { display: none; }
-[contenteditable="true"]:active, [contenteditable="true"]:focus { outline: none; box-shadow: none; }
-.task-list { list-style-type: none; }
-.task-list-item { position: relative; padding-left: 1em; }
-.task-list-item input { position: absolute; top: 0px; left: 0px; }
-.math { font-size: 1rem; }
-.md-toc { min-height: 3.58rem; position: relative; font-size: 0.9rem; border-top-left-radius: 10px; border-top-right-radius: 10px; border-bottom-right-radius: 10px; border-bottom-left-radius: 10px; }
-.md-toc-content { position: relative; margin-left: 0px; }
-.md-toc::after, .md-toc-content::after { display: none; }
-.md-toc-item { display: block; color: rgb(65, 131, 196); }
-.md-toc-item a { text-decoration: none; }
-.md-toc-inner:hover { }
-.md-toc-inner { display: inline-block; cursor: pointer; }
-.md-toc-h1 .md-toc-inner { margin-left: 0px; font-weight: bold; }
-.md-toc-h2 .md-toc-inner { margin-left: 2em; }
-.md-toc-h3 .md-toc-inner { margin-left: 4em; }
-.md-toc-h4 .md-toc-inner { margin-left: 6em; }
-.md-toc-h5 .md-toc-inner { margin-left: 8em; }
-.md-toc-h6 .md-toc-inner { margin-left: 10em; }
-@media screen and (max-width: 48em) { 
-  .md-toc-h3 .md-toc-inner { margin-left: 3.5em; }
-  .md-toc-h4 .md-toc-inner { margin-left: 5em; }
-  .md-toc-h5 .md-toc-inner { margin-left: 6.5em; }
-  .md-toc-h6 .md-toc-inner { margin-left: 8em; }
-}
-a.md-toc-inner { font-size: inherit; font-style: inherit; font-weight: inherit; line-height: inherit; }
-.footnote-line a:not(.reversefootnote) { color: inherit; }
-.md-attr { display: none; }
-.md-fn-count::after { content: '.'; }
-.md-tag { opacity: 0.5; }
-.md-comment { color: rgb(162, 127, 3); opacity: 0.8; font-family: monospace; }
-code { text-align: left; }
-h1 .md-tag, h2 .md-tag, h3 .md-tag, h4 .md-tag, h5 .md-tag, h6 .md-tag { font-weight: initial; opacity: 0.35; }
-a.md-print-anchor { border: none !important; display: inline-block !important; position: absolute !important; width: 1px !important; right: 0px !important; outline: none !important; background-color: transparent !important; text-shadow: initial !important; background-position: initial initial !important; background-repeat: initial initial !important; }
-.md-inline-math .MathJax_SVG .noError { display: none !important; }
-.mathjax-block .MathJax_SVG_Display { text-align: center; margin: 1em 0em; position: relative; text-indent: 0px; max-width: none; max-height: none; min-height: 0px; min-width: 100%; width: auto; display: block !important; }
-.MathJax_SVG_Display, .md-inline-math .MathJax_SVG_Display { width: auto; margin: inherit; display: inline-block !important; }
-.MathJax_SVG .MJX-monospace { font-family: monospace; }
-.MathJax_SVG .MJX-sans-serif { font-family: sans-serif; }
-.MathJax_SVG { display: inline; font-style: normal; font-weight: normal; line-height: normal; zoom: 90%; text-indent: 0px; text-align: left; text-transform: none; letter-spacing: normal; word-spacing: normal; word-wrap: normal; white-space: nowrap; float: none; direction: ltr; max-width: none; max-height: none; min-width: 0px; min-height: 0px; border: 0px; padding: 0px; margin: 0px; }
-.MathJax_SVG * { transition: none; }
-.md-diagram-panel > svg { max-width: 100%; }
-[lang="flow"] svg, [lang="mermaid"] svg { max-width: 100%; }
-
-
-:root {
-    --side-bar-bg-color: #fafafa;
-    --control-text-color: #777;
-}
-
-@include-when-export url(http://fonts.googleapis.com/css?family=Open+Sans:400italic,700italic,700,400&subset=latin,latin-ext);
-
-@font-face {
-    font-family: 'Open Sans';
-    font-style: normal;
-    font-weight: normal;
-    src: local('Open Sans Regular'),url('file:///Users/danielesilvestro/Library/Application%20Support/abnerworks.Typora/themes/github/400.woff') format('woff')
-}
-
-@font-face {
-    font-family: 'Open Sans';
-    font-style: italic;
-    font-weight: normal;
-    src: local('Open Sans Italic'),url('file:///Users/danielesilvestro/Library/Application%20Support/abnerworks.Typora/themes/github/400i.woff') format('woff')
-}
-
-@font-face {
-    font-family: 'Open Sans';
-    font-style: normal;
-    font-weight: bold;
-    src: local('Open Sans Bold'),url('file:///Users/danielesilvestro/Library/Application%20Support/abnerworks.Typora/themes/github/700.woff') format('woff')
-}
-
-@font-face {
-    font-family: 'Open Sans';
-    font-style: italic;
-    font-weight: bold;
-    src: local('Open Sans Bold Italic'),url('file:///Users/danielesilvestro/Library/Application%20Support/abnerworks.Typora/themes/github/700i.woff') format('woff')
-}
-
-html {
-    font-size: 16px;
-}
-
+<style type="text/css">
 body {
-    font-family: "Open Sans","Clear Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
-    color: rgb(51, 51, 51);
-    line-height: 1.6;
-}
-
-#write{
-    max-width: 860px;
-  	margin: 0 auto;
-  	padding: 20px 30px 40px 30px;
-	padding-top: 20px;
-    padding-bottom: 100px;
-}
-#write > ul:first-child,
-#write > ol:first-child{
-    margin-top: 30px;
-}
+  font-family: Helvetica, arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  background-color: white;
+  padding: 30px; }
 
 body > *:first-child {
-    margin-top: 0 !important;
-}
+  margin-top: 0 !important; }
 body > *:last-child {
-    margin-bottom: 0 !important;
-}
+  margin-bottom: 0 !important; }
+
 a {
-    color: #4183C4;
-}
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-    position: relative;
-    margin-top: 1rem;
-    margin-bottom: 1rem;
-    font-weight: bold;
-    line-height: 1.4;
-    cursor: text;
-}
-h1:hover a.anchor,
-h2:hover a.anchor,
-h3:hover a.anchor,
-h4:hover a.anchor,
-h5:hover a.anchor,
-h6:hover a.anchor {
-    /*background: url("file:///Users/danielesilvestro/Library/Application%20Support/images/modules/styleguide/para.png") no-repeat 10px center;*/
-    text-decoration: none;
-}
-h1 tt,
-h1 code {
-    font-size: inherit;
-}
-h2 tt,
-h2 code {
-    font-size: inherit;
-}
-h3 tt,
-h3 code {
-    font-size: inherit;
-}
-h4 tt,
-h4 code {
-    font-size: inherit;
-}
-h5 tt,
-h5 code {
-    font-size: inherit;
-}
-h6 tt,
-h6 code {
-    font-size: inherit;
-}
+  color: #4183C4; }
+a.absent {
+  color: #cc0000; }
+a.anchor {
+  display: block;
+  padding-left: 30px;
+  margin-left: -30px;
+  cursor: pointer;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0; }
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 20px 0 10px;
+  padding: 0;
+  font-weight: bold;
+  -webkit-font-smoothing: antialiased;
+  cursor: text;
+  position: relative; }
+
+h1:hover a.anchor, h2:hover a.anchor, h3:hover a.anchor, h4:hover a.anchor, h5:hover a.anchor, h6:hover a.anchor {
+  background: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAA09pVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMy1jMDExIDY2LjE0NTY2MSwgMjAxMi8wMi8wNi0xNDo1NjoyNyAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENTNiAoMTMuMCAyMDEyMDMwNS5tLjQxNSAyMDEyLzAzLzA1OjIxOjAwOjAwKSAgKE1hY2ludG9zaCkiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6OUM2NjlDQjI4ODBGMTFFMTg1ODlEODNERDJBRjUwQTQiIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6OUM2NjlDQjM4ODBGMTFFMTg1ODlEODNERDJBRjUwQTQiPiA8eG1wTU06RGVyaXZlZEZyb20gc3RSZWY6aW5zdGFuY2VJRD0ieG1wLmlpZDo5QzY2OUNCMDg4MEYxMUUxODU4OUQ4M0REMkFGNTBBNCIgc3RSZWY6ZG9jdW1lbnRJRD0ieG1wLmRpZDo5QzY2OUNCMTg4MEYxMUUxODU4OUQ4M0REMkFGNTBBNCIvPiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PsQhXeAAAABfSURBVHjaYvz//z8DJYCRUgMYQAbAMBQIAvEqkBQWXI6sHqwHiwG70TTBxGaiWwjCTGgOUgJiF1J8wMRAIUA34B4Q76HUBelAfJYSA0CuMIEaRP8wGIkGMA54bgQIMACAmkXJi0hKJQAAAABJRU5ErkJggg==) no-repeat 10px center;
+  text-decoration: none; }
+
+h1 tt, h1 code {
+  font-size: inherit; }
+
+h2 tt, h2 code {
+  font-size: inherit; }
+
+h3 tt, h3 code {
+  font-size: inherit; }
+
+h4 tt, h4 code {
+  font-size: inherit; }
+
+h5 tt, h5 code {
+  font-size: inherit; }
+
+h6 tt, h6 code {
+  font-size: inherit; }
+
 h1 {
-    padding-bottom: .3em;
-    font-size: 2.25em;
-    line-height: 1.2;
-    border-bottom: 1px solid #eee;
-}
+  font-size: 28px;
+  color: black; }
+
 h2 {
-   padding-bottom: .3em;
-    font-size: 1.75em;
-    line-height: 1.225;
-    border-bottom: 1px solid #eee;
-}
+  font-size: 24px;
+  border-bottom: 1px solid #cccccc;
+  color: black; }
+
 h3 {
-    font-size: 1.5em;
-    line-height: 1.43;
-}
+  font-size: 18px; }
+
 h4 {
-    font-size: 1.25em;
-}
+  font-size: 16px; }
+
 h5 {
-    font-size: 1em;
-}
+  font-size: 14px; }
+
 h6 {
-   font-size: 1em;
-    color: #777;
-}
-p,
-blockquote,
-ul,
-ol,
-dl,
-table{
-    margin: 0.8em 0;
-}
-li>ol,
-li>ul {
-    margin: 0 0;
-}
+  color: #777777;
+  font-size: 14px; }
+
+p, blockquote, ul, ol, dl, li, table, pre {
+  margin: 15px 0; }
+
 hr {
-    height: 4px;
-    padding: 0;
-    margin: 16px 0;
-    background-color: #e7e7e7;
-    border: 0 none;
-    overflow: hidden;
-    box-sizing: content-box;
-    border-bottom: 1px solid #ddd;
+  background: transparent url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAYAAAAECAYAAACtBE5DAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyJpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMC1jMDYwIDYxLjEzNDc3NywgMjAxMC8wMi8xMi0xNzozMjowMCAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENTNSBNYWNpbnRvc2giIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6OENDRjNBN0E2NTZBMTFFMEI3QjRBODM4NzJDMjlGNDgiIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6OENDRjNBN0I2NTZBMTFFMEI3QjRBODM4NzJDMjlGNDgiPiA8eG1wTU06RGVyaXZlZEZyb20gc3RSZWY6aW5zdGFuY2VJRD0ieG1wLmlpZDo4Q0NGM0E3ODY1NkExMUUwQjdCNEE4Mzg3MkMyOUY0OCIgc3RSZWY6ZG9jdW1lbnRJRD0ieG1wLmRpZDo4Q0NGM0E3OTY1NkExMUUwQjdCNEE4Mzg3MkMyOUY0OCIvPiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PqqezsUAAAAfSURBVHjaYmRABcYwBiM2QSA4y4hNEKYDQxAEAAIMAHNGAzhkPOlYAAAAAElFTkSuQmCC) repeat-x 0 0;
+  border: 0 none;
+  color: #cccccc;
+  height: 4px;
+  padding: 0;
 }
 
 body > h2:first-child {
-    margin-top: 0;
-    padding-top: 0;
-}
+  margin-top: 0;
+  padding-top: 0; }
 body > h1:first-child {
+  margin-top: 0;
+  padding-top: 0; }
+  body > h1:first-child + h2 {
     margin-top: 0;
-    padding-top: 0;
-}
-body > h1:first-child + h2 {
-    margin-top: 0;
-    padding-top: 0;
-}
-body > h3:first-child,
-body > h4:first-child,
-body > h5:first-child,
-body > h6:first-child {
-    margin-top: 0;
-    padding-top: 0;
-}
-a:first-child h1,
-a:first-child h2,
-a:first-child h3,
-a:first-child h4,
-a:first-child h5,
-a:first-child h6 {
-    margin-top: 0;
-    padding-top: 0;
-}
-h1 p,
-h2 p,
-h3 p,
-h4 p,
-h5 p,
-h6 p {
-    margin-top: 0;
-}
+    padding-top: 0; }
+body > h3:first-child, body > h4:first-child, body > h5:first-child, body > h6:first-child {
+  margin-top: 0;
+  padding-top: 0; }
+
+a:first-child h1, a:first-child h2, a:first-child h3, a:first-child h4, a:first-child h5, a:first-child h6 {
+  margin-top: 0;
+  padding-top: 0; }
+
+h1 p, h2 p, h3 p, h4 p, h5 p, h6 p {
+  margin-top: 0; }
+
 li p.first {
-    display: inline-block;
-}
-ul,
-ol {
-    padding-left: 30px;
-}
-ul:first-child,
-ol:first-child {
-    margin-top: 0;
-}
-ul:last-child,
-ol:last-child {
-    margin-bottom: 0;
-}
-blockquote {
-    border-left: 4px solid #dddddd;
-    padding: 0 15px;
-    color: #777777;
-}
-blockquote blockquote {
-    padding-right: 0;
-}
-table {
-    padding: 0;
-    word-break: initial;
-}
-table tr {
-    border-top: 1px solid #cccccc;
-    margin: 0;
-    padding: 0;
-}
-table tr:nth-child(2n) {
-    background-color: #f8f8f8;
-}
-table tr th {
+  display: inline-block; }
+li {
+  margin: 0; }
+ul, ol {
+  padding-left: 30px; }
+
+ul :first-child, ol :first-child {
+  margin-top: 0; }
+
+dl {
+  padding: 0; }
+  dl dt {
+    font-size: 14px;
     font-weight: bold;
-    border: 1px solid #cccccc;
-    text-align: left;
-    margin: 0;
-    padding: 6px 13px;
-}
-table tr td {
-    border: 1px solid #cccccc;
-    text-align: left;
-    margin: 0;
-    padding: 6px 13px;
-}
-table tr th:first-child,
-table tr td:first-child {
-    margin-top: 0;
-}
-table tr th:last-child,
-table tr td:last-child {
-    margin-bottom: 0;
-}
-
-.CodeMirror-gutters {
-    border-right: 1px solid #ddd;
-}
-
-.md-fences,
-code,
-tt {
-    border: 1px solid #ddd;
-    background-color: #f8f8f8;
-    border-radius: 3px;
+    font-style: italic;
     padding: 0;
-    font-family: Consolas, "Liberation Mono", Courier, monospace;
-    padding: 2px 4px 0px 4px;
-    font-size: 0.9em;
+    margin: 15px 0 5px; }
+    dl dt:first-child {
+      padding: 0; }
+    dl dt > :first-child {
+      margin-top: 0; }
+    dl dt > :last-child {
+      margin-bottom: 0; }
+  dl dd {
+    margin: 0 0 15px;
+    padding: 0 15px; }
+    dl dd > :first-child {
+      margin-top: 0; }
+    dl dd > :last-child {
+      margin-bottom: 0; }
+
+blockquote {
+  border-left: 4px solid #dddddd;
+  padding: 0 15px;
+  color: #777777; }
+  blockquote > :first-child {
+    margin-top: 0; }
+  blockquote > :last-child {
+    margin-bottom: 0; }
+
+table {
+  padding: 0;border-collapse: collapse; }
+  table tr {
+    border-top: 1px solid #cccccc;
+    background-color: white;
+    margin: 0;
+    padding: 0; }
+    table tr:nth-child(2n) {
+      background-color: #f8f8f8; }
+    table tr th {
+      font-weight: bold;
+      border: 1px solid #cccccc;
+      margin: 0;
+      padding: 6px 13px; }
+    table tr td {
+      border: 1px solid #cccccc;
+      margin: 0;
+      padding: 6px 13px; }
+    table tr th :first-child, table tr td :first-child {
+      margin-top: 0; }
+    table tr th :last-child, table tr td :last-child {
+      margin-bottom: 0; }
+
+img {
+  max-width: 100%; }
+
+span.frame {
+  display: block;
+  overflow: hidden; }
+  span.frame > span {
+    border: 1px solid #dddddd;
+    display: block;
+    float: left;
+    overflow: hidden;
+    margin: 13px 0 0;
+    padding: 7px;
+    width: auto; }
+  span.frame span img {
+    display: block;
+    float: left; }
+  span.frame span span {
+    clear: both;
+    color: #333333;
+    display: block;
+    padding: 5px 0 0; }
+span.align-center {
+  display: block;
+  overflow: hidden;
+  clear: both; }
+  span.align-center > span {
+    display: block;
+    overflow: hidden;
+    margin: 13px auto 0;
+    text-align: center; }
+  span.align-center span img {
+    margin: 0 auto;
+    text-align: center; }
+span.align-right {
+  display: block;
+  overflow: hidden;
+  clear: both; }
+  span.align-right > span {
+    display: block;
+    overflow: hidden;
+    margin: 13px 0 0;
+    text-align: right; }
+  span.align-right span img {
+    margin: 0;
+    text-align: right; }
+span.float-left {
+  display: block;
+  margin-right: 13px;
+  overflow: hidden;
+  float: left; }
+  span.float-left span {
+    margin: 13px 0 0; }
+span.float-right {
+  display: block;
+  margin-left: 13px;
+  overflow: hidden;
+  float: right; }
+  span.float-right > span {
+    display: block;
+    overflow: hidden;
+    margin: 13px auto 0;
+    text-align: right; }
+
+code, tt {
+  margin: 0 2px;
+  padding: 0 5px;
+  white-space: nowrap;
+  border: 1px solid #eaeaea;
+  background-color: #f8f8f8;
+  border-radius: 3px; }
+
+pre code {
+  margin: 0;
+  padding: 0;
+  white-space: pre;
+  border: none;
+  background: transparent; }
+
+.highlight pre {
+  background-color: #f8f8f8;
+  border: 1px solid #cccccc;
+  font-size: 13px;
+  line-height: 19px;
+  overflow: auto;
+  padding: 6px 10px;
+  border-radius: 3px; }
+
+pre {
+  background-color: #f8f8f8;
+  border: 1px solid #cccccc;
+  font-size: 13px;
+  line-height: 19px;
+  overflow: auto;
+  padding: 6px 10px;
+  border-radius: 3px; }
+  pre code, pre tt {
+    background-color: transparent;
+    border: none; }
+
+sup {
+    font-size: 0.83em;
+    vertical-align: super;
+    line-height: 0;
 }
 
-.md-fences {
-    margin-bottom: 15px;
-    margin-top: 15px;
-    padding: 0.2em 1em;
-    padding-top: 8px;
-    padding-bottom: 6px;
-}
-.task-list{
-	padding-left: 0;
-}
-
-.task-list-item {
-	padding-left:32px;
-}
-
-.task-list-item input {
-  top: 3px;
-  left: 8px;
+kbd {
+  display: inline-block;
+  padding: 3px 5px;
+  font-size: 11px;
+  line-height: 10px;
+  color: #555;
+  vertical-align: middle;
+  background-color: #fcfcfc;
+  border: solid 1px #ccc;
+  border-bottom-color: #bbb;
+  border-radius: 3px;
+  box-shadow: inset 0 -1px 0 #bbb
 }
 
+* {
+	-webkit-print-color-adjust: exact;
+}
 @media screen and (min-width: 914px) {
-    /*body {
+    body {
         width: 854px;
-        margin: 0 auto;
-    }*/
+        margin:0 auto;
+    }
 }
 @media print {
-    html {
-        font-size: 13px;
-    }
-    table,
-    pre {
-        page-break-inside: avoid;
-    }
-    pre {
-        word-wrap: break-word;
-    }
+	table, pre {
+		page-break-inside: avoid;
+	}
+	pre {
+		word-wrap: break-word;
+	}
 }
-
-.md-fences {
-	background-color: #f8f8f8;
-}
-#write pre.md-meta-block {
-	padding: 1rem;
-    font-size: 85%;
-    line-height: 1.45;
-    background-color: #f7f7f7;
-    border: 0;
-    border-radius: 3px;
-    color: #777777;
-    margin-top: 0 !important;
-}
-
-.mathjax-block>.code-tooltip {
-	bottom: .375rem;
-}
-
-#write>h3.md-focus:before{
-	left: -1.5625rem;
-	top: .375rem;
-}
-#write>h4.md-focus:before{
-	left: -1.5625rem;
-	top: .285714286rem;
-}
-#write>h5.md-focus:before{
-	left: -1.5625rem;
-	top: .285714286rem;
-}
-#write>h6.md-focus:before{
-	left: -1.5625rem;
-	top: .285714286rem;
-}
-.md-image>.md-meta {
-    border: 1px solid #ddd;
-    border-radius: 3px;
-    font-family: Consolas, "Liberation Mono", Courier, monospace;
-    padding: 2px 4px 0px 4px;
-    font-size: 0.9em;
-    color: inherit;
-}
-
-.md-tag{
-	color: inherit;
-}
-
-.md-toc { 
-    margin-top:20px;
-    padding-bottom:20px;
-}
-
-.sidebar-tabs {
-    border-bottom: none;
-}
-
-#typora-quick-open {
-    border: 1px solid #ddd;
-    background-color: #f8f8f8;
-}
-
-#typora-quick-open-item {
-    background-color: #FAFAFA;
-    border-color: #FEFEFE #e5e5e5 #e5e5e5 #eee;
-    border-style: solid;
-    border-width: 1px;
-}
-
-#md-notification:before {
-    top: 10px;
-}
-
-/** focus mode */
-.on-focus-mode blockquote {
-    border-left-color: rgba(85, 85, 85, 0.12);
-}
-
-header, .context-menu, .megamenu-content, footer{
-    font-family: "Segoe UI", "Arial", sans-serif;
-}
-
-.file-node-content:hover .file-node-icon,
-.file-node-content:hover .file-node-open-state{
-    visibility: visible;
-}
-
-.mac-seamless-mode #typora-sidebar {
-    background-color: #fafafa;
-    background-color: var(--side-bar-bg-color);
-}
-
-.md-lang {
-    color: #b4654d;
-}
-
-
-
 </style>
+
+
 </head>
-<body class='typora-export' >
-<div  id='write'  class = 'is-mac'><h1><a name='header-n417' class='md-header-anchor '></a>PyRate Tutorial #1</h1><h4><a name='header-n419' class='md-header-anchor '></a>Daniele Silvestro – Nov 2017</h4><hr /><p>Useful links:<br/>
-<a href='https://github.com/dsilvestro/PyRate'>PyRate code</a><br/>
-<a href='https://github.com/dsilvestro/PyRate/wiki'>PyRate wiki</a><br/>
-<a href='https://paleobiodb.org'>Paleobiology Database</a><br/>
-<a href='http://tree.bio.ed.ac.uk/software/tracer/'>Tracer</a></p><hr /><h2><a name='header-n428' class='md-header-anchor '></a>Generate PyRate input file (option 1)</h2><ol start='' ><li><strong>Download fossil occurrences</strong> for a clade from the Paleobiology Database. E.g. search for the genus <em>Canis</em> and save it as a cvs file, e.g. using the file name <em>Canis_pbdb_data.csv</em>. Before downloading the file, check the box &quot;Show accepted names only&quot; in the &quot;Select by taxonomy&quot; section, and uncheck the box &quot;Include fmetadata at the beginning of the output&quot; in the &quot;Choose output options&quot; section.</li><li><strong>Launch R</strong> by opening a Terminal window and typing <code>R</code> then hit Enter. On Mac or Windows you can use the R GUI app or RStudio. </li><li><strong>Load the <em>pyrate_utilities.r</em> file</strong> e.g. by typing:<br/>
-<code>source(&quot;.../PyRate-master/pyrate_utilities.r&quot;)</code>. Note that the full path of a file is here indicated as <code>.../</code> for simplicity. In most operating systems you can drag and drop the <em>pyrate_utilities.r</em> file onto the R console to paste the full path. </li><li><strong>Check which species are extant today</strong> (if any), as this information must be provided when running a diversification rate analysis. All species unless otherwise specified will be considered as extinct. Define a vector of extant species by typing in R: <br/>
-<code>extant_dogs = c(&quot;Canis rufus&quot;,&quot;Canis lupus&quot;,&quot;Canis aureus&quot;,&quot;Canis latrans&quot;,&quot;Canis mesomelas&quot;,&quot;Canis anthus&quot;,&quot;Pseudalopex gymnocercus&quot;,&quot;Canis adustus&quot;,&quot;Canis familiaris&quot;)</code></li><li><strong>Parse the raw data and generate PyRate input file</strong>. Here we are going to use an automated function to extract fossil occurrence data from PBDB raw table and save it in a PyRate-compatible input file. Type in R: <br/>
-<code>extract.ages.pbdb(file= &quot;.../Canis_pbdb_data.csv&quot;,extant_species=extant_dogs)</code><br/>
-<strong>IMPORTANT NOTE:</strong> this function does not check for synonyms, typos, etc. You can specify two additional options.  The option <code>replicates</code> (by default set to 1) resamples the ages of each fossil occurrence from the respective temporal range. If you use <code>replicates=10</code>, ten replicated datasets will be saved in a single PyRate input file. These replicates can then be analyzed (individually) and the combined results will account for age uncertainties in the fossil record. The option <code>cutoff</code> can be used to remove occurrences with an age range greater than a given temporal range. For instance using <code>cutoff=10</code> will remove all occurrences in which the difference between max age and min age is larwger than 10 Myr. </li><li><strong>Check PyRate input files.</strong> The previous step generated two files: a text file (*_SpeciesList.txt) containing the list of all species included in the dataset and a python file (*_PyRate.py) with all occurrences formatted for a PyRate analysis. We can check the python file directly in PyRate to get a few summary statistics:<br/>
+
+<body>
+
+<h1 id="toc_0">PyRate Tutorial #1</h1>
+
+<h4 id="toc_1">Daniele Silvestro – Nov 2017</h4>
+
+<hr>
+
+<p>Useful links:<br>
+<a href="https://github.com/dsilvestro/PyRate">PyRate code</a><br>
+<a href="https://github.com/dsilvestro/PyRate/wiki">PyRate wiki</a><br>
+<a href="https://paleobiodb.org">Paleobiology Database</a><br>
+<a href="http://tree.bio.ed.ac.uk/software/tracer/">Tracer</a></p>
+
+<hr>
+
+<h2 id="toc_2">Generate PyRate input file (option 1)</h2>
+
+<ol>
+<li><p><strong>Download fossil occurrences</strong> for a clade from the Paleobiology Database. E.g. search for the genus <em>Canis</em> and save it as a cvs file, e.g. using the file name <em>Canis<em>pbdb</em>data.csv</em>. Before downloading the file, check the box &quot;Show accepted names only&quot; in the &quot;Select by taxonomy&quot; section, and uncheck the box &quot;Include fmetadata at the beginning of the output&quot; in the &quot;Choose output options&quot; section.</p></li>
+<li><p><strong>Launch R</strong> by opening a Terminal window and typing <code>R</code> then hit Enter. On Mac or Windows you can use the R GUI app or RStudio. </p></li>
+<li><p><strong>Load the <em>pyrate_utilities.r</em> file</strong> e.g. by typing:<br>
+<code>source(&quot;.../PyRate-master/pyrate_utilities.r&quot;)</code>. Note that the full path of a file is here indicated as <code>.../</code> for simplicity. In most operating systems you can drag and drop the <em>pyrate_utilities.r</em> file onto the R console to paste the full path. </p></li>
+<li><p><strong>Check which species are extant today</strong> (if any), as this information must be provided when running a diversification rate analysis. All species unless otherwise specified will be considered as extinct. Define a vector of extant species by typing in R:<br>
+<code>extant_dogs = c(&quot;Canis rufus&quot;,&quot;Canis lupus&quot;,&quot;Canis aureus&quot;,&quot;Canis latrans&quot;,&quot;Canis mesomelas&quot;,&quot;Canis anthus&quot;,&quot;Pseudalopex gymnocercus&quot;,&quot;Canis adustus&quot;,&quot;Canis familiaris&quot;)</code></p></li>
+<li><p><strong>Parse the raw data and generate PyRate input file</strong>. Here we are going to use an automated function to extract fossil occurrence data from PBDB raw table and save it in a PyRate-compatible input file. Type in R:<br>
+<code>extract.ages.pbdb(file= &quot;.../Canis_pbdb_data.csv&quot;,extant_species=extant_dogs)</code><br>
+<strong>IMPORTANT NOTE:</strong> this function does not check for synonyms, typos, etc. You can specify two additional options.  The option <code>replicates</code> (by default set to 1) resamples the ages of each fossil occurrence from the respective temporal range. If you use <code>replicates=10</code>, ten replicated datasets will be saved in a single PyRate input file. These replicates can then be analyzed (individually) and the combined results will account for age uncertainties in the fossil record. The option <code>cutoff</code> can be used to remove occurrences with an age range greater than a given temporal range. For instance using <code>cutoff=10</code> will remove all occurrences in which the difference between max age and min age is larwger than 10 Myr. </p></li>
+<li><p><strong>Check PyRate input files.</strong> The previous step generated two files: a text file (*_SpeciesList.txt) containing the list of all species included in the dataset and a python file (*_PyRate.py) with all occurrences formatted for a PyRate analysis. We can check the python file directly in PyRate to get a few summary statistics:<br>
 a. Open a Terminal window
-b. Browse to the Pyrate folder, e.g.:<br/>
-  <code>cd &quot;.../PyRate-master&quot;</code>
-c. Launch PyRate with the following arguments:<br/>
-<code>python PyRate.py &#39;.../Canis_pbdb_data_PyRate.py&#39; -data_info</code><br/></li></ol><hr /><h2><a name='header-n458' class='md-header-anchor '></a>Generate PyRate input file (option 2)</h2><ol start='' ><li><strong>Prepare fossil occurrence table.</strong> You can prepare a table with fossil occurrence data in a text editor or a spreadsheet editor. The table must include 4 columns including 1) Taxon name, 2) Status specifying whether the taxon is &quot;extinct&quot; or &quot;extant&quot;, 3) Minimum age, and 4) Maximum age. The table should have a header (first row) and <strong>one row for each fossil occurrence</strong>. Min and max ages represent the age ranges of each fossil occurrence, typically based on stratigraphic boundaries. One additional column can be included in the table indicating a trait value (e.g. estimated body mass) that can be used PyRate analyses.<br/></li><li><strong>Launch R</strong> as explained above. </li><li><strong>Load the <em>pyrate_utilities.r</em> file</strong> as explained above.<br/></li><li><strong>Parse the raw data and generate PyRate input file</strong>. Type in R: <br/>
-<code>extract.ages(file=&quot;…/PyRate/example_files/Ursidae.txt&quot;, replicates=10)</code> This function includes <code>replicates</code> and <code>cutoff</code> options as the <code>extract.ages.pbdb()</code> function described above (option 1). </li></ol><p></p><hr /><h2><a name='header-n476' class='md-header-anchor '></a>Estimation of speciation/extinction rates through time</h2><h4><a name='header-n477' class='md-header-anchor '></a>Defining the preservation model</h4><p>By default, PyRate assumes a <strong>non-homogeneous Poisson process of preservation</strong> (NHPP) in which preservation rates change during the lifespan of each lineage following a bell-shaped distribution (Silvestro et al. 2014 Syst Biol). Alternatively, a <strong>homogeneous Poisson process (HPP)</strong>, in which the preservation rate is constant through time, is also available, using the command <code>-mHPP</code>:</p><p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -mHPP</code></p><p>Both NHPP and HPP models can be again paired with a <strong>Gamma model of rate heterogeneity</strong>, which enables us to account for heterogeneity in the preservation rate across lineages. This option only adds a single parameter to the model and should be used for all empirical data sets. To set the Gamma model we add the flag <code>-mG</code>:</p><p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -mG</code> [NHPP model]<br/>
-<code>python PyRate.py .../Canis_pbdb_data_PyRate.py -mHPP -mG</code> [HPP model]</p><p><strong>Time-variable Poisson process (TPP)</strong>. An alternative model of preservation assumes that preservation rates are constant within a predefined time frame, but can vary across time frames (e.g. geological epochs). This model is particularly useful if we expect rate heterogeneity to occur mostly through time, rather than among lineages.</p><p>We can set up a model in which preservation rates are estimated independently within each geological epoch by using the command <code>-qShift</code> and providing a file containing the times that delimit the different epochs (an example is provided in <code>PyRate-master/example_files/epochs_q.txt</code>):<br/></p><p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -qShift .../epochs_q.txt</code><br/></p><p>Finally, a <strong>TPP + Gamma model</strong> can be used to <strong>incorporate both temporal and across-lineages variation in the preservation rates</strong>. This is perhaps the most realistic preservation model currently available in PyRate and is set with the following commands:</p><p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -qShift .../epochs_q.txt -mG</code><br/></p><p></p><h4><a name='header-n500' class='md-header-anchor '></a>Analysis setup</h4><p>Here we describe the main settings for a standard analysis of fossil occurrence data using PyRate. The analysis will estimate:</p><ol start='' ><li><strong>origination and extinction times</strong> of each lineage<br/></li><li><strong>preservation rate</strong> and its level of <strong>heterogeneity</strong><br/></li><li><strong>speciation and extinction rates</strong> through time. </li></ol><p>Temporal rate variation is introduced by rate shifts. The number and temporal placement of shifts are estimated from the data using the BDMCMC algorithm.</p><p>The analysis requires a <strong>PyRate input file</strong> generated by the R function described above. The first argument we need to provide is the input file:</p><p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py</code></p><p>In most operating systems (including Mac OS, Windows, and Ubuntu) you can drag and drop the input file onto the terminal window to paste the full path and file name. </p><pre class="md-fences md-end-block" lang=""> <div class="CodeMirror cm-s-inner CodeMirror-wrap"><div style="overflow: hidden; position: relative; width: 3px; height: 0px; top: 0px; left: 4px;"></div><div class="CodeMirror-scrollbar-filler" cm-not-content="true"></div><div class="CodeMirror-gutter-filler" cm-not-content="true"></div><div class="CodeMirror-scroll" tabindex="-1"><div class="CodeMirror-sizer" style="margin-left: 0px; margin-bottom: 0px; border-right-width: 30px; padding-right: 0px; padding-bottom: 0px;"><div style="position: relative; top: 0px;"><div class="CodeMirror-lines" role="presentation"><div role="presentation" style="position: relative; outline: none;"><div class="CodeMirror-measure"><pre><span>xxxxxxxxxx</span></pre></div><div class="CodeMirror-measure"></div><div style="position: relative; z-index: 1;"></div><div class="CodeMirror-code" role="presentation"><div class="CodeMirror-activeline" style="position: relative;"><div class="CodeMirror-activeline-background CodeMirror-linebackground"></div><div class="CodeMirror-gutter-background CodeMirror-activeline-gutter" style="left: 0px; width: 0px;"></div><pre class=" CodeMirror-line " role="presentation"><span role="presentation" style="padding-right: 0.1px;"><span class="cm-tab" role="presentation" cm-text="	">    </span>PyRate includes default settings for all parameters except for the input file. While most of the parameters should be changed only when experiencing convergence issues,  there are a few that are very important as they change the basic model assumptions or the length of the analyses - see below.</span></pre></div></div></div></div></div></div><div style="position: absolute; height: 30px; width: 1px; border-bottom-width: 0px; border-bottom-style: solid; border-bottom-color: transparent; top: 88px;"></div><div class="CodeMirror-gutters" style="display: none; height: 118px;"></div></div></div></pre><p>Since the input file generated in the previous steps included 10 randomized replicates of the fossil ages, we can specify which replicate we want to analyze. <strong>Ideally, we should analyze multiple randomized replicates and combine the results to incorporate dating uncertainties</strong> in our rate estimates. To specify the which replicate we want to analyze, we use the flag <code>-j</code> followed by the replicate number. For instance using:</p><p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -mHPP -mG -j 1</code></p><p>we set the analysis to consider the first replicate.</p><p>The BDMCMC algorithm is the default setting in PyRate and we do not need to specify any additional parameters to estimate speciation and extinction rates through time. We can (and in some cases should) however change the number of BDMCMC iterations and the sampling frequency. By default PyRate will run 10,000,000 iterations and sample the parameters every 1,000 iterations. Depending on the size of the data set you may have to <strong>increase the number iterations to reach convergence</strong> (in which case it might be a good idea to sample the chain less frequently to reduce the size of the output files). This is done using the commands <code>-n</code> and <code>-s</code>:</p><p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -mG -n 20000000 -s 5000</code></p><p>Under these settings PyRate will run for 20 million iterations sampling every 5,000. Thus the resulting log files (see below) will include 4,000 posterior samples.<br/></p><p><strong>Another algorithm available uses Reversible Jump MCMC (RJMCMC) to look for rate shifts. Preliminary simulations show that RJMCMC outperforms BDMCMC (paper in preparation) in accuracy and power.</strong> Using the RJMCMC algorithm requires adding the flag <code>-A 4</code> when launching a PyRate analysis, e.g.:</p><p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -A 4 -mHPP -mG -j 1</code></p><h4><a name='header-n538' class='md-header-anchor '></a>Output files</h4><p>The PyRate analysis described above produces three output files, saved in a folder named <em>pyrate_mcmc_logs</em> in the same directory as the input file:</p><h6><a name='header-n541' class='md-header-anchor '></a>sum.txt</h6><p>   Text file providing the complete list of settings used in the analysis.<br/></p><h6><a name='header-n543' class='md-header-anchor '></a>mcmc.log</h6><p>Tab-separated table with the MCMC samples of the posterior, prior, likelihoods of the preservation process and of the birth-death (indicated by <em>PP_lik</em> and <em>BD_lik</em>, respectively), the preservation rate (<em>q_rate</em>), the shape parameter of its gamma-distributed heterogeneity (<em>alpha</em>), the number of sampled rate shifts (<em>k_birth</em>, <em>k_death</em>), the time of origin of the oldest lineage (<em>root_age</em>), the total branch length (<em>tot_length</em>), and the times of speciation and extinction of all taxa in the data set (<em>*_TS</em> and <em>*_TE</em>, respectively). When using the TPP model of preservation, the preservation rates between shifts are indicated as <em>q<em>0, q</em>1, ... q_n</em> (from older to younger).</p><h6><a name='header-n546' class='md-header-anchor '></a>marginal_rates.log</h6><p>Tab-separated table with the posterior samples of the marginal rates of speciation, extinction, and net diversification, calculated within 1 time unit (typically Myr). </p><h4><a name='header-n551' class='md-header-anchor '></a>Summarize the results</h4><p>The log files can be opened in the program <strong>Tracer</strong> to check if the MCMC has converged and determine the proportion of burnin. </p><p>The <strong>mcmc.log</strong> file can be used to calculate the sampling frequencies of birth-death models with different number of rate shifts. This is done by using the PyRate command <code>-mProb</code> followed by the log file:</p><p><code>python PyRate.py -mProb .../Canis_pbdb_data_mcmc.log -b 200</code></p><p>where the flag <code>-b 200</code> indicates that the first 200 samples will be removed (i.e. the first 200,000 iterations, if the sampling frequency was set to 1,000). This command will provide a table with the relative probabilities of birth-death models with different number of rate shifts. </p><p>The <strong>marginal_rates.log</strong> file can be used to generate rates-through-time plots using the function <code>-plot</code>:</p><p><code>python PyRate.py -plot .../Canis_pbdb_data_marginal_rates.log -b 200</code></p><p>This will generate an R script and a PDF file with the RTT plots showing speciation, extinction, and net diversification through time. A slightly different flavor of the RTT plot can be obtained using the flag <code>-plot2</code> instead of <code>-plot</code>. </p><p></p><h4><a name='header-n568' class='md-header-anchor '></a>Combine log files across replicates</h4><p>To combine log files from different replicates into one you can use the command:</p><p><code>PyRate.py -combLog path_to_your_log_files -tag mcmc -b 100</code></p><p>where <code>path_to_your_log_files</code> specifies the directory where the log files are; <code>-tag mcmc</code> sets PyRate to combine all files that contain <em>mcmc.log</em> in the file name (you can use different tags if you need); and <code>-b 100</code> specifies that the first 100 samples from each log file should be excluded as burnin – the appropriate number of burnin samples to be excluded should be determined after inspecting the log files, e.g. using Tracer.</p><p>To generate a rates-through-time plot that combines all replicates, you can use the command:</p><p><code>PyRate.py -plot path_to_your_log_files -tag marginal_rates -b 100</code></p><p>This will combine all the <em>marginal_rates.log</em> files in the specified directory and combine the results in a single plot.​ Different tags can be used to determine which files are to be combined.  <br/></p><hr /><h2><a name='header-n583' class='md-header-anchor '></a>Speciation/extinction rates within fixed time bins</h2><h4><a name='header-n584' class='md-header-anchor '></a>Analysis setup</h4><p>PyRate can also fit birth-death models in which the <strong>number and temporal placement of rate shifts is fixed a priori</strong>, e.g. based on geological epochs. In this case a file with the predefined times of rate shifts must be provided using the command <code>-fixShift</code>. The format of this file is very simple and an example is available here: <code>.../PyRate-master/example_files/epochs.txt</code>. This model assumes half-Cauchy prior distributions for speciation and extinction rates between shifts, with a hyper-prior on the respective scale parameter to reduce the risk of over parameterization. 
-To enforce fixed times of rate shifts we use the following command:</p><p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -fixShift .../epochs.txt</code></p><p>The other options described above to set preservation model, length of the MCMC, and sampling frequency are also available in this case.</p><h4><a name='header-n592' class='md-header-anchor '></a>Summarize the results</h4><p>Running PyRate with fixed times of rate shifts produces the same 3 output files described in the previous analysis. The main difference is in the <em>mcmc.log</em> file where we will no longer have the estimate number of rate shifts (<em>k_birth</em>, <em>k_death</em>) as these are fixed. However, the log file now includes speciation/ extinction rates between shifts (named <em>lambda<em>0, lambda</em>1,</em> ... and  <em>mu<em>0, mu</em>1, ...</em>, respectively), and the estimated scale parameters of the half-Cauchy prior distributions assigned to speciation and extinction rates, indicated by <em>hypL</em> and <em>hypM</em>, respectively.</p><p>RTT plots can be generated as in the previous analysis using the command <code>-plot</code> (or <code>-plot2</code>) followed by the path to the <em>marginal_rates.log</em> file and setting the number of samples be discarded as burnin (e.g. <code>-b 100</code>).</p><p></p><h2><a name='header-n599' class='md-header-anchor '></a>Setting fixed shifts at the boundaries, while searching for rate shifts within</h2><p>Sometimes fossil data sets are truncated by max and min boundaries (for instance because occurrences are only available within a time window). This can cause apparent rate shifts at the edges of the time range, which reflect the sampling bias. In this case, you can fix <em>a priori</em> times of rate shift based on the known temporal boundaries of the data set and estimate the rates within the time window, ignoring what happens beyond the boundaries.  This feature can be combined with the RJMCMC algorithm (<code>-A 4</code>) to infer rate shifts within the allowed time window:</p><p><code>python PyRate.py &lt;data_set&gt; -A 4 -edgeShift 18 2</code></p><p>where -A 4 sets the RJMCMC algorithm (that looks for rate shifts), and <code>-edgeShift 18 2</code> sets fixed times of shifts at times 18 and 2. With these settings the algorithm will only search for shifts within this time range.
-You can also set only a max age boundary shift using:</p><p><code>python PyRate.py &lt;data_set&gt; -A 4 -edgeShift 18 0</code></p><p>or a min age boundary shift using:</p><p><code>python PyRate.py &lt;data_set&gt; -A 4 -edgeShift inf 0</code></p><p>When summarizing the results, only rates estimated within the time window should be considered.</p></div>
+b. Browse to the Pyrate folder, e.g.:<br>
+<code>cd &quot;.../PyRate-master&quot;</code>
+c. Launch PyRate with the following arguments:<br>
+<code>python PyRate.py &#39;.../Canis_pbdb_data_PyRate.py&#39; -data_info</code>  </p>
+
+<hr></li>
+</ol>
+
+<h2 id="toc_3">Generate PyRate input file (option 2)</h2>
+
+<ol>
+<li><strong>Prepare fossil occurrence table.</strong> You can prepare a table with fossil occurrence data in a text editor or a spreadsheet editor. The table must include 4 columns including 1) Taxon name, 2) Status specifying whether the taxon is &quot;extinct&quot; or &quot;extant&quot;, 3) Minimum age, and 4) Maximum age. The table should have a header (first row) and <strong>one row for each fossil occurrence</strong>. Min and max ages represent the age ranges of each fossil occurrence, typically based on stratigraphic boundaries. One additional column can be included in the table indicating a trait value (e.g. estimated body mass) that can be used PyRate analyses.<br></li>
+<li><strong>Launch R</strong> as explained above. </li>
+<li><strong>Load the <em>pyrate_utilities.r</em> file</strong> as explained above.<br></li>
+<li><strong>Parse the raw data and generate PyRate input file</strong>. Type in R:<br>
+<code>extract.ages(file=&quot;…/PyRate/example_files/Ursidae.txt&quot;, replicates=10)</code> This function includes <code>replicates</code> and <code>cutoff</code> options as the <code>extract.ages.pbdb()</code> function described above (option 1). </li>
+</ol>
+
+<hr>
+
+<h2 id="toc_4">Estimation of speciation/extinction rates through time</h2>
+
+<h4 id="toc_5">Defining the preservation model</h4>
+
+<p>By default, PyRate assumes a <strong>non-homogeneous Poisson process of preservation</strong> (NHPP) in which preservation rates change during the lifespan of each lineage following a bell-shaped distribution (Silvestro et al. 2014 Syst Biol). Alternatively, a <strong>homogeneous Poisson process (HPP)</strong>, in which the preservation rate is constant through time, is also available, using the command <code>-mHPP</code>:</p>
+
+<p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -mHPP</code></p>
+
+<p>Both NHPP and HPP models can be again paired with a <strong>Gamma model of rate heterogeneity</strong>, which enables us to account for heterogeneity in the preservation rate across lineages. This option only adds a single parameter to the model and should be used for all empirical data sets. To set the Gamma model we add the flag <code>-mG</code>:</p>
+
+<p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -mG</code> [NHPP model]<br>
+<code>python PyRate.py .../Canis_pbdb_data_PyRate.py -mHPP -mG</code> [HPP model]</p>
+
+<p><strong>Time-variable Poisson process (TPP)</strong>. An alternative model of preservation assumes that preservation rates are constant within a predefined time frame, but can vary across time frames (e.g. geological epochs). This model is particularly useful if we expect rate heterogeneity to occur mostly through time, rather than among lineages.</p>
+
+<p>We can set up a model in which preservation rates are estimated independently within each geological epoch by using the command <code>-qShift</code> and providing a file containing the times that delimit the different epochs (an example is provided in <code>PyRate-master/example_files/epochs_q.txt</code>):  </p>
+
+<p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -qShift .../epochs_q.txt</code>  </p>
+
+<p>Finally, a <strong>TPP + Gamma model</strong> can be used to <strong>incorporate both temporal and across-lineages variation in the preservation rates</strong>. This is perhaps the most realistic preservation model currently available in PyRate and is set with the following commands:</p>
+
+<p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -qShift .../epochs_q.txt -mG</code>  </p>
+
+<h4 id="toc_6">Analysis setup</h4>
+
+<p>Here we describe the main settings for a standard analysis of fossil occurrence data using PyRate. The analysis will estimate:</p>
+
+<ol>
+<li><strong>origination and extinction times</strong> of each lineage<br></li>
+<li><strong>preservation rate</strong> and its level of <strong>heterogeneity</strong><br></li>
+<li><strong>speciation and extinction rates</strong> through time. </li>
+</ol>
+
+<p>Temporal rate variation is introduced by rate shifts. The number and temporal placement of shifts are estimated from the data using the BDMCMC algorithm.</p>
+
+<p>The analysis requires a <strong>PyRate input file</strong> generated by the R function described above. The first argument we need to provide is the input file:</p>
+
+<p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py</code></p>
+
+<p>In most operating systems (including Mac OS, Windows, and Ubuntu) you can drag and drop the input file onto the terminal window to paste the full path and file name. </p>
+
+<p><em>PyRate includes default settings for all parameters except for the input file. While several parameters should be changed only when experiencing convergence issues, there are a few that are very important as they change the basic model assumptions or the length of the analyses - see below</em>.</p>
+
+<p>Since the input file generated in the previous steps included 10 randomized replicates of the fossil ages, we can specify which replicate we want to analyze. <strong>Ideally, we should analyze multiple randomized replicates and combine the results to incorporate dating uncertainties</strong> in our rate estimates. To specify the which replicate we want to analyze, we use the flag <code>-j</code> followed by the replicate number. For instance using:</p>
+
+<p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -mHPP -mG -j 1</code></p>
+
+<p>we set the analysis to consider the first replicate.</p>
+
+<p>The BDMCMC algorithm is the default setting in PyRate and we do not need to specify any additional parameters to estimate speciation and extinction rates through time. We can (and in some cases should) however change the number of BDMCMC iterations and the sampling frequency. By default PyRate will run 10,000,000 iterations and sample the parameters every 1,000 iterations. Depending on the size of the data set you may have to <strong>increase the number iterations to reach convergence</strong> (in which case it might be a good idea to sample the chain less frequently to reduce the size of the output files). This is done using the commands <code>-n</code> and <code>-s</code>:</p>
+
+<p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -mG -n 20000000 -s 5000</code></p>
+
+<p>Under these settings PyRate will run for 20 million iterations sampling every 5,000. Thus the resulting log files (see below) will include 4,000 posterior samples.  </p>
+
+<p><strong>Another algorithm available uses Reversible Jump MCMC (RJMCMC) to look for rate shifts. Preliminary simulations show that RJMCMC outperforms BDMCMC (paper in preparation) in accuracy and power: see Tutorial # for more details.</strong> </p>
+
+<h4 id="toc_7">Output files</h4>
+
+<p>The PyRate analysis described above produces three output files, saved in a folder named <em>pyrate<em>mcmc</em>logs</em> in the same directory as the input file:</p>
+
+<h6 id="toc_8">sum.txt</h6>
+
+<p>Text file providing the complete list of settings used in the analysis.  </p>
+
+<h6 id="toc_9">mcmc.log</h6>
+
+<p>Tab-separated table with the MCMC samples of the posterior, prior, likelihoods of the preservation process and of the birth-death (indicated by <em>PP_lik</em> and <em>BD_lik</em>, respectively), the preservation rate (<em>q_rate</em>), the shape parameter of its gamma-distributed heterogeneity (<em>alpha</em>), the number of sampled rate shifts (<em>k_birth</em>, <em>k_death</em>), the time of origin of the oldest lineage (<em>root_age</em>), the total branch length (<em>tot_length</em>), and the times of speciation and extinction of all taxa in the data set (<em>*_TS</em> and <em>*_TE</em>, respectively). When using the TPP model of preservation, the preservation rates between shifts are indicated as <em>q<em>0, q</em>1, ... q_n</em> (from older to younger).</p>
+
+<h6 id="toc_10">marginal_rates.log</h6>
+
+<p>Tab-separated table with the posterior samples of the marginal rates of speciation, extinction, and net diversification, calculated within 1 time unit (typically Myr). </p>
+
+<h4 id="toc_11">Summarize the results</h4>
+
+<p>The log files can be opened in the program <strong>Tracer</strong> to check if the MCMC has converged and determine the proportion of burnin. </p>
+
+<p>The <strong>mcmc.log</strong> file can be used to calculate the sampling frequencies of birth-death models with different number of rate shifts. This is done by using the PyRate command <code>-mProb</code> followed by the log file:</p>
+
+<p><code>python PyRate.py -mProb .../Canis_pbdb_data_mcmc.log -b 200</code></p>
+
+<p>where the flag <code>-b 200</code> indicates that the first 200 samples will be removed (i.e. the first 200,000 iterations, if the sampling frequency was set to 1,000). This command will provide a table with the relative probabilities of birth-death models with different number of rate shifts. </p>
+
+<p>The <strong>marginal_rates.log</strong> file can be used to generate rates-through-time plots using the function <code>-plot</code>:</p>
+
+<p><code>python PyRate.py -plot .../Canis_pbdb_data_marginal_rates.log -b 200</code></p>
+
+<p>This will generate an R script and a PDF file with the RTT plots showing speciation, extinction, and net diversification through time. A slightly different flavor of the RTT plot can be obtained using the flag <code>-plot2</code> instead of <code>-plot</code>. </p>
+
+<h4 id="toc_12">Combine log files across replicates</h4>
+
+<p>To combine log files from different replicates into one you can use the command:</p>
+
+<p><code>PyRate.py -combLog path_to_your_log_files -tag mcmc -b 100</code></p>
+
+<p>where <code>path_to_your_log_files</code> specifies the directory where the log files are; <code>-tag mcmc</code> sets PyRate to combine all files that contain <em>mcmc.log</em> in the file name (you can use different tags if you need); and <code>-b 100</code> specifies that the first 100 samples from each log file should be excluded as burnin – the appropriate number of burnin samples to be excluded should be determined after inspecting the log files, e.g. using Tracer.</p>
+
+<p>To generate a rates-through-time plot that combines all replicates, you can use the command:</p>
+
+<p><code>PyRate.py -plot path_to_your_log_files -tag marginal_rates -b 100</code></p>
+
+<p>This will combine all the <em>marginal</em>rates.log_ files in the specified directory and combine the results in a single plot.​ Different tags can be used to determine which files are to be combined.    </p>
+
+<hr>
+
+<h2 id="toc_13">Speciation/extinction rates within fixed time bins</h2>
+
+<h4 id="toc_14">Analysis setup</h4>
+
+<p>PyRate can also fit birth-death models in which the <strong>number and temporal placement of rate shifts is fixed a priori</strong>, e.g. based on geological epochs. In this case a file with the predefined times of rate shifts must be provided using the command <code>-fixShift</code>. The format of this file is very simple and an example is available here: <code>.../PyRate-master/example_files/epochs.txt</code>. This model assumes half-Cauchy prior distributions for speciation and extinction rates between shifts, with a hyper-prior on the respective scale parameter to reduce the risk of over parameterization. 
+To enforce fixed times of rate shifts we use the following command:</p>
+
+<p><code>python PyRate.py .../Canis_pbdb_data_PyRate.py -fixShift .../epochs.txt</code></p>
+
+<p>The other options described above to set preservation model, length of the MCMC, and sampling frequency are also available in this case.</p>
+
+<h4 id="toc_15">Summarize the results</h4>
+
+<p>Running PyRate with fixed times of rate shifts produces the same 3 output files described in the previous analysis. The main difference is in the <em>mcmc.log</em> file where we will no longer have the estimate number of rate shifts (<em>k_birth</em>, <em>k_death</em>) as these are fixed. However, the log file now includes speciation/ extinction rates between shifts (named <em>lambda<em>0, lambda</em>1,</em> ... and  <em>mu<em>0, mu</em>1, ...</em>, respectively), and the estimated scale parameters of the half-Cauchy prior distributions assigned to speciation and extinction rates, indicated by <em>hypL</em> and <em>hypM</em>, respectively.</p>
+
+<p>RTT plots can be generated as in the previous analysis using the command <code>-plot</code> (or <code>-plot2</code>) followed by the path to the <em>marginal_rates.log</em> file and setting the number of samples be discarded as burnin (e.g. <code>-b 100</code>).</p>
+
+<h2 id="toc_16">Setting fixed shifts at the boundaries, while searching for rate shifts between them</h2>
+
+<p>Sometimes fossil data sets are truncated by max and min boundaries (for instance because occurrences are only available within a time window). This can cause apparent rate shifts at the edges of the time range, which reflect the sampling bias. In this case, you can fix <em>a priori</em> times of rate shift based on the known temporal boundaries of the data set and estimate the rates within the time window, ignoring what happens beyond the boundaries.  This feature can be combined with the RJMCMC algorithm (<code>-A 4</code>) to infer rate shifts within the allowed time window:</p>
+
+<p><code>python PyRate.py &lt;data_set&gt; -A 4 -edgeShift 18 2</code></p>
+
+<p>where -A 4 sets the RJMCMC algorithm (that looks for rate shifts), and <code>-edgeShift 18 2</code> sets fixed times of shifts at times 18 and 2. With these settings the algorithm will only search for shifts within this time range.
+You can also set only a max age boundary shift using:</p>
+
+<p><code>python PyRate.py &lt;data_set&gt; -A 4 -edgeShift 18 0</code></p>
+
+<p>or a min age boundary shift using:</p>
+
+<p><code>python PyRate.py &lt;data_set&gt; -A 4 -edgeShift inf 0</code></p>
+
+<p>When summarizing the results, only rates estimated within the time window should be considered.</p>
+
+
+
+
 </body>
+
 </html>
