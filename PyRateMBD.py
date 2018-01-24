@@ -51,6 +51,7 @@ p.add_argument('-var',   type=str,     help='Directory to continuous variables (
 p.add_argument('-T',     type=float,   help='Max age (truncate data)', default=-1, metavar=-1)
 p.add_argument('-out',   type=str,     help='tag added to output file', default="", metavar="")
 p.add_argument('-bound', type=float,   help='absolute boundaries to local shrinkage (0 +/- bound)', default=np.inf, metavar=np.inf)
+p.add_argument('-rmDD',  type=int,     help='model (0: analysis includes self-diversity-dependence, 1: analysis excludes selfdiversity-dependence', default=0, metavar=0)
 
 args = p.parse_args()
 
@@ -90,6 +91,8 @@ single_focal_clade = True
 fixed_focal_clade = 0
 
 burnin = args.b
+
+remove_selfDD = args.rmDD
 
 #print len(ts),len(te)
 #### ADD DATA FROM FILES
@@ -293,6 +296,13 @@ elif scaling ==2:
 Dtraj = Dtraj*scale_factor
 #print scale_factor, np.max(Dtraj), np.max(Dtraj, axis=0)
 print maxG, scale_factor
+
+if remove_selfDD==1:
+    Dtraj = Dtraj[:,1:] # remove the diversity column
+    n_clades = n_clades -1 # remove diversity from the number of co-variates
+    scale_factor = scale_factor[1:] # remove the scale factor for diversity
+    variable_names = variable_names[1:]
+
 
 GarrayA=init_Garray(n_clades) # 3d array so:
                               # Garray[i,:,:] is the 2d G for one clade
