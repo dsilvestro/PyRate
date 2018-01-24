@@ -19,7 +19,7 @@ PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-af
 
 * Silvestro D., Antonelli A., Salamin N., Quental T. B. (2015) The role of clade competition in the diversification of North American canids. PNAS, 112, 8684-8689.
 
-* Silvestro D., Pires M. M., Quental T., Salamin N. Bayesian estimation of 	multiple clade competition from fossil data. Evolutionary Ecology Research, 	17, [early edition](http://www.evolutionary-ecology.com/issues/forthcoming/ar3010.pdf).
+* Silvestro D., Pires M. M., Quental T., Salamin N. (2017) Bayesian estimation of 	multiple clade competition from fossil data. Evolutionary Ecology Research, 	[18:41-59](http://evolutionary-ecology.com/abstracts/v18/3010.html).
 
 #### The DES model is described here:
 
