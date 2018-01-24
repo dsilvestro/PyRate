@@ -23,15 +23,15 @@ PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-af
 
 #### The DES model is described here:
 
-* Silvestro, D., Zizka A., Bacon C. D., Cascales-Minana B. and Salamin, N., Antonelli, A. (2016) Fossil Biogeography: A new model to infer dispersal, extinction and sampling from paleontological data. Philosophical Transactions of the Royal Society B 371: 20150225, in press.
+* Silvestro, D., Zizka A., Bacon C. D., Cascales-Minana B. and Salamin, N., Antonelli, A. (2016) Fossil Biogeography: A new model to infer dispersal, extinction and sampling from paleontological data. Philosophical Transactions of the Royal Society B [371:20150225](http://rstb.royalsocietypublishing.org/content/371/1691/20150225).
 
 #### The MBD model is described here:
 
-* Lehtonen S., Silvestro D., Karger D. N., Scotese C., Tuomisto H., Kessler M., Peña C., Wahlberg N., Antonelli A. 2017. Environmentally driven extinction and opportunistic origination explain fern diversification patterns. Scientific Reports, 7:4831.
+* Lehtonen S., Silvestro D., Karger D. N., Scotese C., Tuomisto H., Kessler M., Peña C., Wahlberg N., Antonelli A. (2017) Environmentally driven extinction and opportunistic origination explain fern diversification patterns. Scientific Reports, [7:4831](https://www.nature.com/articles/s41598-017-05263-7).
 
 #### The ADE model is described here:
 
-* Hagen O., Andermann T., Quental T. B., Antonelli A., Silvestro D. 2017. Estimating Age-dependent Extinction: Contrasting Evidence from Fossils and Phylogenies. Systematic Biology, [doi: 10.1093/sysbio/syx082](https://academic.oup.com/sysbio/article/doi/10.1093/sysbio/syx082/4563320/Estimating-Agedependent-Extinction-Contrasting).
+* Hagen O., Andermann T., Quental T. B., Antonelli A., Silvestro D. (in press) Estimating Age-dependent Extinction: Contrasting Evidence from Fossils and Phylogenies. Systematic Biology, [doi: 10.1093/sysbio/syx082](https://academic.oup.com/sysbio/article/doi/10.1093/sysbio/syx082/4563320/Estimating-Agedependent-Extinction-Contrasting).
 
 
 
