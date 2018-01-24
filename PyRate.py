@@ -2599,7 +2599,7 @@ def MCMC(all_arg):
 			#prior_old = -log(max(ts)-max(te))*len(L-1)  #sum(prior_times_frames(timesL, max(ts),min(te), 1))
 			#prior_old += -log(max(ts)-max(te))*len(M-1)  #sum(prior_times_frames(timesM, max(ts),min(te), 1))
 			prior += -log(maxTs-minTe)*(len(L)-1+len(M)-1)
-			prior += Poisson_prior(len(L),rj_cat_HP)+Poisson_prior(len(L),rj_cat_HP)
+			prior += Poisson_prior(len(L),rj_cat_HP)+Poisson_prior(len(M),rj_cat_HP)
 			#if it % 100 ==0: print len(L),len(M), prior_old, -log(max(ts)-min(te))*(len(L)-1+len(M)-1), hasting
 			if min(abs(np.diff(timesL)))<=min_allowed_t or min(abs(np.diff(timesM)))<=min_allowed_t: prior = -np.inf			
 		
@@ -2850,7 +2850,7 @@ p.add_argument('-filter',     type=float,help="Filter lineages with all occurren
 p.add_argument('-filter_taxa',type=str,help="Filter lineages within list (drop all others) ",default="", metavar="taxa_file")
 p.add_argument('-initDiv',    type=int, help='Number of initial lineages (option only available with -d SE_table or -fixSE)', default=0, metavar=0)
 p.add_argument('-PPmodeltest',help='Likelihood testing among preservation models', action='store_true', default=False)
-p.add_argument('-log_marginal_rates',type=int,help='Save marginal rate file 0) only save summary files; 1) yes', default=1,metavar=1)
+p.add_argument('-log_marginal_rates',type=int,help='0) save summary file, default for -A 4; 1) save marginal rate file, default for -A 0,2 ', default=-1,metavar=-1)
 # phylo test
 p.add_argument('-tree',       type=str,help="Tree file (NEXUS format)",default="", metavar="")
 p.add_argument('-sampling',   type=float,help="Taxon sampling (phylogeny)",default=1., metavar=1.)
@@ -2859,9 +2859,8 @@ p.add_argument('-sampling',   type=float,help="Taxon sampling (phylogeny)",defau
 p.add_argument('-plot',       metavar='<input file>', type=str,help="RTT plot (type 1): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
 p.add_argument('-plot2',      metavar='<input file>', type=str,help="RTT plot (type 2): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
 p.add_argument('-plot3',      metavar='<input file>', type=str,help="RTT plot for fixed number of shifts: provide 'mcmc.log' file",default="")
-p.add_argument('-plot4',      metavar='<input file>', type=str,help="RTT plot for runs with '-log_marginal_rates 0': provide path to 'mcmc.log' files",default="")
-p.add_argument('-plot5',      metavar='<input file>', type=str,help="RTT plot (log transformed) for runs with '-log_marginal_rates 0': provide path to 'mcmc.log' files",default="")
-p.add_argument('-grid_plot',  type=float, help='Plot resolution in Myr (only for plot3-5 commands)', default=1., metavar=1.)
+p.add_argument('-plotRJ',      metavar='<input file>', type=str,help="RTT plot for runs with '-log_marginal_rates 0': provide path to 'mcmc.log' files",default="")
+p.add_argument('-grid_plot',  type=float, help='Plot resolution in Myr (only for plot3 and plotRJ commands)', default=1., metavar=1.)
 p.add_argument('-root_plot',  type=float, help='User-defined root age for RTT plots', default=0, metavar=0)
 p.add_argument('-tag',        metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted (-plot and -plot2) or summarized in SE table (-ginput)",default="")
 p.add_argument('-ltt',        type=int,help='1) Plot lineages-through-time; 2) plot Log10(LTT)', default=0, metavar=0)
@@ -3183,12 +3182,9 @@ elif args.plot2 != "":
 elif args.plot3 != "":
 	path_dir_log_files=args.plot3
 	plot_type=3
-elif args.plot4 != "":
-	path_dir_log_files=args.plot4
+elif args.plotRJ != "":
+	path_dir_log_files=args.plotRJ
 	plot_type=4
-elif args.plot5 != "":
-	path_dir_log_files=args.plot5
-	plot_type=5
 
 list_files_BF=sort(args.BF)
 file_stem=args.tag
@@ -3203,9 +3199,7 @@ if path_dir_log_files != "":
 		if plot_type==3:
 			rtt_plot_bds.RTTplot_high_res(path_dir_log_files,args.grid_plot,int(burnin),root_plot)
 		elif plot_type==4:
-			rtt_plot_bds = rtt_plot_bds.plot_marginal_rates(path_dir_log_files,name_tag=file_stem,bin_size=args.grid_plot,burnin=int(burnin),min_age=0,max_age=root_plot,logT=0)
-		elif plot_type==5:
-			rtt_plot_bds = rtt_plot_bds.plot_marginal_rates(path_dir_log_files,name_tag=file_stem,bin_size=args.grid_plot,burnin=int(burnin),min_age=0,max_age=root_plot,logT=1)
+			rtt_plot_bds = rtt_plot_bds.plot_marginal_rates(path_dir_log_files,name_tag=file_stem,bin_size=args.grid_plot,burnin=int(burnin),min_age=0,max_age=root_plot,logT=args.logT)
 			
 		#except: sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
 		#You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
@@ -3955,7 +3949,11 @@ logfile.flush()
 os.fsync(logfile)
 
 # OUTPUT 2 MARGINAL RATES
-log_marginal_rates_to_file = args.log_marginal_rates
+if args.log_marginal_rates == -1: # default values
+	if TDI==4: log_marginal_rates_to_file = 0
+	else: log_marginal_rates_to_file = 1
+else:
+	log_marginal_rates_to_file = args.log_marginal_rates
 
 # save regular marginal rate file
 if TDI!=1 and use_ADE_model == 0 and useDiscreteTraitModel == 0 and log_marginal_rates_to_file==1: # (path_dir, output_file, out_run)
