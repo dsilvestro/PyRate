@@ -122,6 +122,14 @@ output_wd = os.path.dirname(dataset)
 if output_wd=="": output_wd= self_path
 name_file = os.path.splitext(os.path.basename(dataset))[0]
 
+if max(args.mSpEx) > -np.inf:
+ 	args_mSpEx = args.mSpEx
+else:
+	if args.m== -1: args_mSpEx = [-1,-1]
+	if args.m==  0: args_mSpEx = [0,0]
+	if args.m==  1: args_mSpEx = [1,1]
+out_model = ["const","exp","lin"]
+
 
 #print len(ts),len(te[te>0]),sum(ts-te)
 
@@ -295,6 +303,9 @@ if summary_file != "":
 	M0_index = [head.index(i) for i in head if "m0" in i]	
 	Gl_index = [head.index(i) for i in head if "Gl" in i]
 	Gm_index = [head.index(i) for i in head if "Gm" in i]
+	# this is to remove samples from TI with temp < 1
+	TI_beta_index = head.index("beta") 
+	t = t[ t[:,TI_beta_index]==1 ]
 	n_rates = len(L0_index)
 
 	print "\nCalculating marginal rates..."
@@ -335,11 +346,11 @@ if summary_file != "":
 	print "done"	
 	# write R file
 	print "\ngenerating R file...",
-	out="%s/%s_%s_RTT.r" % (output_wd,name_file,head_cov_file[1])
+	out="%s/%s_%s_%s_%sSp%sEx_RTT.r" % (output_wd,name_file,head_cov_file[1],rep_j,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]])
 	newfile = open(out, "wb") 	
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		r_script= "\n\npdf(file='%s\%s_%s_RTT.pdf',width=0.6*20, height=0.6*20)\nlibrary(scales)\n" % (output_wd,name_file,head_cov_file[1])
-	else: r_script= "\n\npdf(file='%s/%s_%s_RTT.pdf',width=0.6*20, height=0.6*20)\nlibrary(scales)\n" % (output_wd,name_file,head_cov_file[1])
+		r_script= "\n\npdf(file='%s\%s_%s_%s_%sSp%sEx_RTT.pdf',width=0.6*20, height=0.6*20)\nlibrary(scales)\n" % (output_wd,name_file,head_cov_file[1],rep_j,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]])
+	else: r_script= "\n\npdf(file='%s/%s_%s_%s_%sSp%sEx_RTT.pdf',width=0.6*20, height=0.6*20)\nlibrary(scales)\n" % (output_wd,name_file,head_cov_file[1],rep_j,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]])
 
 	r_script += print_R_vec("\n\nt",  age_vec)
 	r_script += "\ntime = -t"
@@ -368,9 +379,9 @@ if summary_file != "":
 	newfile.close()
 	print "\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, output_wd)
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		cmd="cd %s; Rscript %s\%s_%s_RTT.r" % (output_wd,output_wd,name_file,head_cov_file[1])
+		cmd="cd %s; Rscript %s\%s_%s_%s_%sSp%sEx_RTT.r" % (output_wd,output_wd,name_file,head_cov_file[1],rep_j,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]])
 	else: 
-		cmd="cd %s; Rscript %s/%s_%s_RTT.r" % (output_wd,output_wd,name_file,head_cov_file[1])
+		cmd="cd %s; Rscript %s/%s_%s_%s_%sSp%sEx_RTT.r" % (output_wd,output_wd,name_file,head_cov_file[1],rep_j,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]])
 	os.system(cmd)
 	print "done\n"
 	
@@ -389,15 +400,6 @@ else: add_equal_r=""
 if est_start_time:
 	add_equal_r+="_ST" # estimateeffect starting time
 
-if max(args.mSpEx) > -np.inf:
- 	args_mSpEx = args.mSpEx
-else:
-	if args.m== -1: args_mSpEx = [-1,-1]
-	if args.m==  0: args_mSpEx = [0,0]
-	if args.m==  1: args_mSpEx = [1,1]
-
-
-out_model = ["const","exp","lin"]
 out_file_name="%s/%s_%s_%s_%s%sSp_%sEx%s%s.log" % \
 (output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],rep_j,s_times_str,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]],add_equal_g,add_equal_r)
 
