@@ -8,7 +8,7 @@ Useful links:
 [Tracer](http://tree.bio.ed.ac.uk/software/tracer/)
 ***
 
-## Generate PyRate input file (option 1)
+# Generate PyRate input file (option 1)
 1. **Download fossil occurrences** for a clade from the Paleobiology Database. E.g. search for the genus *Canis* and save it as a cvs file, e.g. using the file name *Canis_pbdb_data.csv*. Before downloading the file, check the box "Show accepted names only" in the "Select by taxonomy" section, and uncheck the box "Include fmetadata at the beginning of the output" in the "Choose output options" section.
 
 2. **Launch R** by opening a Terminal window and typing `R` then hit Enter. On Mac or Windows you can use the R GUI app or RStudio. 
@@ -31,7 +31,7 @@ Useful links:
   `python PyRate.py '.../Canis_pbdb_data_PyRate.py' -data_info`  
 ***
 
-## Generate PyRate input file (option 2)
+# Generate PyRate input file (option 2)
 1. **Prepare fossil occurrence table.** You can prepare a table with fossil occurrence data in a text editor or a spreadsheet editor. The table must include 4 columns including 1) Taxon name, 2) Status specifying whether the taxon is "extinct" or "extant", 3) Minimum age, and 4) Maximum age. The table should have a header (first row) and **one row for each fossil occurrence**. Min and max ages represent the age ranges of each fossil occurrence, typically based on stratigraphic boundaries. One additional column can be included in the table indicating a trait value (e.g. estimated body mass) that can be used PyRate analyses.  
 2. **Launch R** as explained above. 
 3. **Load the *pyrate_utilities.r* file** as explained above.  
@@ -42,9 +42,9 @@ Useful links:
 
 
 ***
-## Estimation of speciation/extinction rates through time
+# Estimation of speciation and extinction rates through time
 
-#### Defining the preservation model
+## Defining the preservation model
 By default, PyRate assumes a **non-homogeneous Poisson process of preservation** (NHPP) in which preservation rates change during the lifespan of each lineage following a bell-shaped distribution (Silvestro et al. 2014 Syst Biol). Alternatively, a **homogeneous Poisson process (HPP)**, in which the preservation rate is constant through time, is also available, using the command `-mHPP`:
 
 `python PyRate.py .../Canis_pbdb_data_PyRate.py -mHPP`
@@ -68,7 +68,7 @@ Finally, a **TPP + Gamma model** can be used to **incorporate both temporal and 
 
 
 
-#### Analysis setup
+## Analysis setup
 Here we describe the main settings for a standard analysis of fossil occurrence data using PyRate. The analysis will estimate:
 
 1. **origination and extinction times** of each lineage  
@@ -99,18 +99,18 @@ Under these settings PyRate will run for 20 million iterations sampling every 5,
 
 **Another algorithm available uses Reversible Jump MCMC (RJMCMC) to look for rate shifts. Preliminary simulations show that RJMCMC outperforms BDMCMC (paper in preparation) in accuracy and power: see Tutorial \# for more details.** 
 
-#### Output files
+## Output files
 The PyRate analysis described above produces three output files, saved in a folder named *pyrate_mcmc_logs* in the same directory as the input file:
 
-######  sum.txt  
+#### 1) sum.txt  
    Text file providing the complete list of settings used in the analysis.  
-######  mcmc.log   
+#### 2) mcmc.log   
 Tab-separated table with the MCMC samples of the posterior, prior, likelihoods of the preservation process and of the birth-death (indicated by *PP_lik* and *BD_lik*, respectively), the preservation rate (*q_rate*), the shape parameter of its gamma-distributed heterogeneity (*alpha*), the number of sampled rate shifts (*k_birth*, *k_death*), the time of origin of the oldest lineage (*root_age*), the total branch length (*tot_length*), and the times of speciation and extinction of all taxa in the data set (*\*_TS* and *\*_TE*, respectively). When using the TPP model of preservation, the preservation rates between shifts are indicated as *q_0, q_1, ... q_n* (from older to younger).
-###### marginal_rates.log 
+#### 3) marginal_rates.log 
 Tab-separated table with the posterior samples of the marginal rates of speciation, extinction, and net diversification, calculated within 1 time unit (typically Myr). 
 
 
-#### Summarize the results
+## Summarize the results
 The log files can be opened in the program **Tracer** to check if the MCMC has converged and determine the proportion of burnin. 
 
 The **mcmc.log** file can be used to calculate the sampling frequencies of birth-death models with different number of rate shifts. This is done by using the PyRate command `-mProb` followed by the log file:
@@ -142,7 +142,7 @@ To generate a rates-through-time plot that combines all replicates, you can use 
 This will combine all the _marginal_rates.log_ files in the specified directory and combine the results in a single plot.​ Different tags can be used to determine which files are to be combined.    
 
 ***
-## Speciation/extinction rates within fixed time bins
+## Speciation and extinction rates within fixed time bins
 #### Analysis setup
 PyRate can also fit birth-death models in which the **number and temporal placement of rate shifts is fixed a priori**, e.g. based on geological epochs. In this case a file with the predefined times of rate shifts must be provided using the command `-fixShift`. The format of this file is very simple and an example is available here: `.../PyRate-master/example_files/epochs.txt`. This model assumes half-Cauchy prior distributions for speciation and extinction rates between shifts, with a hyper-prior on the respective scale parameter to reduce the risk of over parameterization. 
 To enforce fixed times of rate shifts we use the following command:

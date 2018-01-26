@@ -6,9 +6,9 @@ Useful links:
 [Paleobiology Database](https://paleobiodb.org)  
 ***
 
-## Estimate rate variation using Reversible Jump MCMC
+# Estimate rate variation using Reversible Jump MCMC
 
-#### Setting up an analysis using RJMCMC
+## Setting up an analysis using RJMCMC
 We have recently implemented a new algorithm in Pyrate that uses RJMCMC (Green 1995) instead of BDMCMC (described in Silvestro et al. 2014 and available through the command `-A 2`). Although the paper describing the algorithm is still in preparation, the method is already available and simulations show that it is more accurate than the BDMCMC.
 
 An analysis with RJMCMC is set up using the command `-A 4`. Note that this algorithm is available both for occurrence data
@@ -20,18 +20,18 @@ and for data sets with fixed times of origination and extinction (see also tutor
 
 `python PyRate.py -d Canidae_1_G_se_est.txt -A 4`
 
-#### RJMCMC Output
+## RJMCMC Output
 RJMCMC analyses by default produce 4 output files:
-######  1) sum.txt  
+####  1) sum.txt  
    Text file providing the complete list of settings used in the analysis.  
-###### 2)  mcmc.log   
+#### 2)  mcmc.log   
 Tab-separated table with the MCMC samples of the posterior, prior, likelihoods of the preservation process and of the birth-death (indicated by *PP_lik* and *BD_lik*, respectively), the preservation rate (*q_rate*), the shape parameter of its gamma-distributed heterogeneity (*alpha*), the number of sampled rate shifts (*k_birth*, *k_death*), the time of origin of the oldest lineage (*root_age*), the total branch length (*tot_length*), and the times of speciation and extinction of all taxa in the data set (*\*_TS* and *\*_TE*, respectively, if estimated). When using the TPP model of preservation, the preservation rates between shifts are indicated as *q_0, q_1, ... q_n* (from older to younger).
-###### sp\_rates.log, ex\_rates.log
+#### 3) sp\_rates.log, ex\_rates.log
 Tab-separated text files providing sampled rates and times of rate shifts. Note that, because the number of shifts is likely to change throughout the RJMCMC, the number of columns in the text file is not fixed. This file can be analyzed using the command `-plotRJ` to obtain plots of the marginal rates through time and the most probable temporal placement of rate shifts, if any (see below). 
 
 An alternative output file (the **marginal_rates.log** file described in tutorial \#1) can be obtained instead, using the command `-log_marginal_rates 1` when setting up the analysis. Note, that this output can be processed using the command `-plot` to obtain rates-through-time plots (see Tutorial #1), but it cannot be analyzed using the command `plotRJ`, to assess the temporal placement of significant rate shifts.
 
-#### Summarize model probabilities
+## Summarize model probabilities
 The **mcmc.log** file can be used to calculate the sampling frequencies of birth-death models with different number of rate shifts. This is done by using the PyRate command `-mProb` followed by the log file:
 
 `python PyRate.py -mProb .../Canis_pbdb_data_mcmc.log -b 200`
@@ -39,7 +39,7 @@ The **mcmc.log** file can be used to calculate the sampling frequencies of birth
 where the flag `-b 200` indicates that the first 200 samples will be removed (i.e. the first 200,000 iterations, if the sampling frequency was set to 1,000). This command will provide a table (printed on screen) with the relative probabilities of birth-death models with different number of rate shifts. 
 
 
-#### Summarize rates through time
+## Rates through time and rate shifts
 The **sp_rates.log** and **ex_rates.log** files can be used to generate rates-through-time plots using the function `-plotRJ`:
 
 `python PyRate.py -plotRJ .../path_to_log_files/ -b 200`

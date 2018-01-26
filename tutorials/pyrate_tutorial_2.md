@@ -11,10 +11,10 @@ Useful links:
 
 
 
-## Birth-death models with time-continuous correlates
-This tutorial describes how to analyze data under birth-death models in which rates vary through time through linear or exponential correlations with a time-continuous variable. Time continuous variables may include a clade's own diversity (diversity dependence) or e.g. paleo-environmental variables such as temperature or sea level. Birth-death models with time-continuous correlates are implemented in the program "PyRateContinuous.py".
+# Birth-death models with time-continuous correlates
+This tutorial describes how to analyze data under birth-death models in which rates vary through time through linear or exponential correlations with a time-continuous variable. Time continuous variables may include a clade's own diversity (diversity dependence) or e.g. paleo-environmental variables such as temperature or sea level. Birth-death models with time-continuous correlates are implemented in the program "PyRateContinuousShift.py".
 
-#### Generate input file for PyRateContinuous
+## Generate input file for PyRateContinuous
 The program does not model preservation and assumes that the times of origination and extinction of each lineage are known or have been estimated, typically in a previous PyRate analysis. Thus, the input file for PyRateContinuous.py is a simple table with the times of origination and extinction of each lineage. The table is formatted as tab-separated text file, with the first line containing column headers followed by one row for each species. Each row contains 4 columns: the first column indicates the clade assignment of species, this is only useful when using [MCDD models](https://github.com/dsilvestro/PyRate/wiki#pyratemcddpy-requires-library-pyrate_lib) and should be filled with 0s for all other analyses. The second column indicates a species numeric identifier (this values are arbitrary and only used for reference). Finally the third and fourth column contain the time of origin and extinction of each species, respectively.  
 
 **The input files for PyRateContinuous can be generated from the _mcmc.log files of a previous PyRate analysis using the command `-ginput`.** For instance if in a previous analysis using PyRate you generated an output file named "Canidae_1_G_mcmc.log", this can be used to extract the estimated times of origination and extinction of each species using:  
@@ -41,7 +41,7 @@ Finally, the additional flag `-tag` can be used to identify files that should be
 
 all log files conaining `Canidae` in the file name and the extension `*_mcmc.log` will be compbined into a single `...se_ext.txt`, with columns with the origin and extinction of each species given for each replicate.
 
-#### Plot range-through diversity (lineage through time plot)
+#### Plot range-through diversity trajectory (lineage through time plot)
 The `...se_ext.txt` file can be used to produce lineage through time (LTT) plots based on range-through diversity. To do this, we need to provide the `...se_ext.txt` file using the `-d` command and use the flag `-ltt ` followed by a number to choose between different options:
 
 `python PyRate.py -d Canidae_1_G_se_est.txt -ltt 1`
@@ -64,20 +64,20 @@ For example with
 
 The time bins used to calculate and plot diversity are 0.1 Myr (10 bins for each Myr).
 
-#### Run a diversity-dependent birth-death model
+## Diversity-dependent birth-death models
 In diversity dependence models, origination and extinction rates may correlate linearly or exponentially to the clade's own sampled (range-through) diversity. To run an analysis with a diversity dependent birth-death model you can launch PyRateContinuous providing the input data (`-d` flag) and adding the flag `-DD`:  
 
-`python PyRateContinuous.py -d .../Canidae_1_G_se_est.txt -DD`
+`python PyRateContinuousShift.py -d .../Canidae_1_G_se_est.txt -DD`
 
 the program implements two models of of diversity dependence defined by the flag `-m`: an **exponential model** (`-m 0`) in which speciation and extinction rates are exponential functions of the clade's diversity and a **linear model** (`-m 1`) in which speciation and extinction rates linearly correlate with diversity.  
 
-`python PyRateContinuous.py -d .../Canidae_1_G_se_est.txt -DD -m 0`
+`python PyRateContinuousShift.py -d .../Canidae_1_G_se_est.txt -DD -m 0`
 
 For the purpose of model testing, you can also set `-m -1` which runs a null model in which speciation and extinction rates are constant and independent of diversity.  
 
 As in standard PyRate analyses the number of MCMC iterations and sampling frequencies can be set using the flags `-n` and `-s`, respectively.  
 
-		Note that PyRateContinuous does not estimate times of origination and extinction nor preservation rates. This means that the number of parameters to be estimated is much smaller than in a standard PyRate analysis. Thus, setting the number of MCMC iterations between 100,000 and 1 million, will be sufficient for most data sets.
+Note that PyRateContinuous does not estimate times of origination and extinction nor preservation rates. This means that the number of parameters to be estimated is much smaller than in a standard PyRate analysis. Thus, setting the number of MCMC iterations between 100,000 and 1 million, will be sufficient for most data sets.
 
 #### Output file
 PyRateContinuous generate a single output file with the posterior samples of all parameters. The estimated **diversity dependence parameters** are logged to the output log file as *Gl* and *Gm* for speciation and extinction, respectively. When these parameters are significantly different from 0 (based on their 95% HPD) we consider the correlation as significantly positive or negative (depending on whether *G* >> 0 or *G* << 0). The **baseline speciation and extinction rates** (indicated by *L0* and *M0* in the log file) represent the esitmated speciation and extinction rates at the present.  
@@ -87,18 +87,17 @@ The log file can be opened in Tracer to check if convergence has been reached an
 #### Plot speciation and extinction rates through time
 PyRateContinuous can be used to plot marginal speciation and extinction rates through time based on the estimated baseline rates and diversity dependence parameters. To generate an RTT plot you can type:
 
-`python PyRateContinuous.py -d .../Canidae_1_G_se_est.txt -DD -m 0 -b 100 -plot .../Canidae_1_G_se_est_DD_0_exp.log -b 200`
+`python PyRateContinuousShift.py -d .../Canidae_1_G_se_est.txt -DD -m 0 -b 100 -plot .../Canidae_1_G_se_est_DD_0_exp.log -b 200`
  
 This will generate an R script and a PDF file with the RTT plots showing speciation, extinction rates through time. The command `-b 200` specifies that the first 200 samples are discarded as burnin. 
 
 
-#### Correlation with paleo-temperature
+## Correlation with a time-continuous variable
 You can fit birth-death models where the speciation and extinction rates are changing through time as a linear or exponential function of a time-continuous variable, such as a proxy for paleo-temperature. The variable values should be provided in a simple tab-separated text file with a header (first row) and two columns indicating times and variable values (an example is provided in `PyRate-master/example_files/temperature.txt`).   
 
 To run an analysis with temperature-dependent speciation and extinction rates you should use the command `-c` to provide the text file containing the variable:
  
-`python PyRateContinuous.py -d .../Canidae_1_G_se_est.txt -m 0 -c temperature.txt`
-
+`python PyRateContinuousShift.py -d .../Canidae_1_G_se_est.txt -m 0 -c temperature.txt`
 
 As with the diversity dependent model (see above) the flag `-m` is used to change between the default **exponential model** (`-m 0`) in which speciation and extinction rates are exponential functions of the time-continuous variable and a **linear model** (`-m 1`) in which a linear correlation is assumed.  
 
@@ -106,7 +105,11 @@ The time-continuous variable is by default rescaled so that its range of values 
 
 Rates through time plots can be generated using the command `-plot` as shown above for the DD model, e.g.
 
-`python PyRateContinuous.py -d .../Canidae_1_G_se_est.txt -m 0 -c temperature.txt -plot .../my_logfile.log -b 100`
+`python PyRateContinuousShift.py -d .../Canidae_1_G_se_est.txt -m 0 -c temperature.txt -plot .../my_logfile.log -b 100`
+
+
+***
+## Models with rate shifts and time-continuous covariates
 
 
 
