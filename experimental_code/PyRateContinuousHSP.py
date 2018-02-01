@@ -359,7 +359,8 @@ if plot_RTT2 is True: # NEW FUNCTION 2
 	else: model_type = "Linear"
 		
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		r_script= "\n\npdf(file='%s\%s_RTT.pdf',width=0.6*20, height=0.6*10)\nlibrary(scales)\n" % (wd,name_file)
+		wd_forward = os.path.abspath(wd).replace('\\', '/')
+		r_script= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*20, height=0.6*10)\nlibrary(scales)\n" % (wd_forward,name_file)
 	else: 
 		r_script= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*20, height=0.6*10)\nlibrary(scales)\n" % (wd,name_file)
 	
@@ -482,7 +483,7 @@ abline(v=-c(65,200,251,367,445),lty=2,col="gray")
 	newfile.close()
 	print "\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, wd)
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		cmd="cd %s; Rscript %s\%s_RTT.r" % (wd,wd,name_file)
+		cmd="cd %s & Rscript %s_RTT.r" % (wd,name_file)
 	else: 
 		cmd="cd %s; Rscript %s/%s_RTT.r" % (wd,wd,name_file)
 	os.system(cmd)
@@ -496,7 +497,8 @@ if plot_RTT is True: # OLD FUNCTION
 	newfile = open(out, "wb") 
 	
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		r_script= "\n\npdf(file='%s\%s_RTT.pdf',width=0.6*20, height=0.6*10)\n" % (wd,name_file)
+		wd_forward = os.path.abspath(wd).replace('\\', '/')
+		r_script= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*20, height=0.6*10)\n" % (wd_forward,name_file)
 	else: 
 		r_script= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*20, height=0.6*10)\n" % (wd,name_file)
 	
@@ -541,7 +543,7 @@ if plot_RTT is True: # OLD FUNCTION
 	newfile.close()
 	print "\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, wd)
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		cmd="cd %s; Rscript %s\%s_RTT.r" % (wd,wd,name_file)
+		cmd="cd %s & Rscript %s_RTT.r" % (wd,name_file)
 	else: 
 		cmd="cd %s; Rscript %s/%s_RTT.r" % (wd,wd,name_file)
 	os.system(cmd)

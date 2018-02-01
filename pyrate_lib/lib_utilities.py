@@ -139,7 +139,8 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 				r_file = open(out, "wb") 
 	
 				if platform.system() == "Windows" or platform.system() == "Microsoft":
-					r_script= "\n\npdf(file='%s\%s_LTT.pdf',width=0.6*20, height=0.6*10)\n" % (wd,name_file)
+					wd_forward = os.path.abspath(wd).replace('\\', '/')
+					r_script= "\n\npdf(file='%s/%s_LTT.pdf',width=0.6*20, height=0.6*10)\n" % (wd_forward,name_file)
 				else: 
 					r_script= "\n\npdf(file='%s/%s_LTT.pdf',width=0.6*20, height=0.6*10)\n" % (wd,name_file)
 	
@@ -165,7 +166,7 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 				print "\nAn LTT plot was saved as: %sLTT.pdf" % (name_file)
 				print "\nThe R script with the source for the LTT plot was saved as: %sLTT.r\n(in %s)" % (name_file, wd)
 				if platform.system() == "Windows" or platform.system() == "Microsoft":
-					cmd="cd %s; Rscript %s\%s_LTT.r" % (wd,wd,name_file)
+					cmd="cd %s & Rscript %s_LTT.r" % (wd,name_file)
 				else: 
 					cmd="cd %s; Rscript %s/%s_LTT.r" % (wd,wd,name_file)
 				os.system(cmd)

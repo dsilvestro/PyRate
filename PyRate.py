@@ -424,7 +424,7 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 	else: n_plots=3
 	
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-	    wd_forward = wd.replace('\\', '/')
+	    wd_forward = os.path.abspath(wd).replace('\\', '/')
 	    Rfile+= "\n\npdf(file='%s/%s_RTT.pdf',width=10.8, height=8.4)\npar(mfrow=c(2,2))" % (wd_forward,name_file)
 	else: 
 		Rfile+= "\n\npdf(file='%s/%s_RTT.pdf',width=10.8, height=8.4)\npar(mfrow=c(2,2))" % (wd,name_file)
@@ -578,6 +578,9 @@ def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1): # change rescale to 
 	###### R SCRIPT
 	R_file_name="%s/%s" % (wd,out_file_name+"_ltt.R")
 	R_file=open(R_file_name, "wb")
+	if platform.system() == "Windows" or platform.system() == "Microsoft":
+		tmp_wd = os.path.abspath(wd).replace('\\', '/')
+	else: tmp_wd = wd
 	R_script = """
 	setwd("%s")
 	tbl = read.table(file = "%s_ltt.txt",header = T)
@@ -588,12 +591,15 @@ def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1): # change rescale to 
 	%s
 	lines(time,tbl$diversity, type="l",lwd = 2)
 	n<-dev.off()
-	""" % (wd, out_file_name,out_file_name, yaxis, Ymin,Ymax,plot2)
+	""" % (tmp_wd, out_file_name,out_file_name, yaxis, Ymin,Ymax,plot2)
 	
 	R_file.writelines(R_script)
 	R_file.close()
 	print "\nAn R script with the source for the stat plot was saved as: \n%s" % (R_file_name)
-	cmd="cd %s; Rscript %s" % (wd,out_file_name+"_ltt.R")
+	if platform.system() == "Windows" or platform.system() == "Microsoft":
+		cmd="cd %s & Rscript %s" % (wd,out_file_name+"_ltt.R")
+	else:
+		cmd="cd %s; Rscript %s" % (wd,out_file_name+"_ltt.R")
 	os.system(cmd)
 	sys.exit("done\n")
 	
@@ -693,6 +699,9 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
 	###### R SCRIPT
 	R_file_name="%s/%s" % (wd,out_file_name+"_stats.R")
 	R_file=open(R_file_name, "wb")
+	if platform.system() == "Windows" or platform.system() == "Microsoft":
+		tmp_wd = os.path.abspath(wd).replace('\\', '/')
+	else: tmp_wd = wd
 	R_script = """
 	setwd("%s")
 	tbl = read.table(file = "%s_stats.txt",header = T)
@@ -709,11 +718,14 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
 	plot(time,tbl$life_exp, type="l",lwd = 2, ylab = "Median longevity", xlab="Time (Ma)", main= "Taxon (estimated) longevity", ylim=c(0,max(tbl$M_life_exp,na.rm =T)+1),xlim=c(min(time),0))
 	polygon(c(time, rev(time)), c(tbl$M_life_exp, rev(tbl$m_life_exp)), col = alpha("#504A4B",0.5), border = NA)
 	n<-dev.off()
-	""" % (wd, out_file_name,out_file_name)
+	""" % (tmp_wd, out_file_name,out_file_name)
 	R_file.writelines(R_script)
 	R_file.close()
 	print "\nAn R script with the source for the stat plot was saved as: \n%s" % (R_file_name)
-	cmd="cd %s; Rscript %s" % (wd,out_file_name+"_stats.R")
+	if platform.system() == "Windows" or platform.system() == "Microsoft":
+		cmd="cd %s & Rscript %s" % (wd,out_file_name+"_stats.R")
+	else:
+		cmd="cd %s; Rscript %s" % (wd,out_file_name+"_stats.R")
 	os.system(cmd)
 	print "done\n"
 

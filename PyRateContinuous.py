@@ -241,7 +241,8 @@ if summary_file != "":
 	out="%s/%s_RTT.r" % (output_wd,name_file)
 	newfile = open(out, "wb") 	
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		r_script= "\n\npdf(file='%s\%s_RTT.pdf',width=0.6*20, height=0.6*20)\nlibrary(scales)\n" % (output_wd,name_file)
+		wd_forward = os.path.abspath(output_wd).replace('\\', '/')
+		r_script= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*20, height=0.6*20)\nlibrary(scales)\n" % (wd_forward,name_file)
 	else: r_script= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*20, height=0.6*20)\nlibrary(scales)\n" % (output_wd,name_file)
 
 	r_script += print_R_vec("\n\nt",  age_vec)
@@ -269,8 +270,8 @@ if summary_file != "":
 	newfile.close()
 	print "\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, output_wd)
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		cmd="cd %s; Rscript %s\%s_RTT.r" % (output_wd,output_wd,name_file)
-	else: 
+		cmd="cd %s & Rscript %s_RTT.r" % (output_wd,name_file)
+	else:
 		cmd="cd %s; Rscript %s/%s_RTT.r" % (output_wd,output_wd,name_file)
 	os.system(cmd)
 	print "done\n"

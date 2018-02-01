@@ -258,7 +258,8 @@ if plot_RTT is True: # NEW FUNCTION 2
 	newfile = open(out, "wb") 
 	
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		r_script= "\n\npdf(file='%s\%s_c%s_RTT.pdf',width=0.6*20, height=0.6*10)\nlibrary(scales)\n" % (wd,name_file,fixed_focal_clade)
+		wd_forward = os.path.abspath(wd).replace('\\', '/')
+		r_script= "\n\npdf(file='%s/%s_c%s_RTT.pdf',width=0.6*20, height=0.6*10)\nlibrary(scales)\n" % (wd_forward,name_file,fixed_focal_clade)
 	else: 
 		r_script= "\n\npdf(file='%s/%s_c%s_RTT.pdf',width=0.6*20, height=0.6*10)\nlibrary(scales)\n" % (wd,name_file,fixed_focal_clade)
 	
@@ -375,7 +376,7 @@ abline(v=-c(65,200,251,367,445),lty=2,col="gray")
 	newfile.close()
 	print "\nAn R script with the source for the RTT plot was saved as: %s_c%s_RTT.r\n(in %s)" % (name_file,fixed_focal_clade,wd)
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		cmd="cd %s; Rscript %s\%s_c%s_RTT.r" % (wd,wd,name_file,fixed_focal_clade)
+		cmd="cd %s & Rscript %s_c%s_RTT.r" % (wd,name_file,fixed_focal_clade)
 	else: 
 		cmd="cd %s; Rscript %s/%s_c%s_RTT.r" % (wd,wd,name_file,fixed_focal_clade)
 	os.system(cmd)
