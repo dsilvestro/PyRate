@@ -52,5 +52,6 @@ Additional commands are avaiable to adjust settings of the `plotRJ` function. Th
 
 The command `-root_plot` can be used to truncate the plot to a given maximum age. For instance using `-root_plot 10` will only show marginal rates in the most recent 10 time units. Finally, the command `-logT 1` can be added to plot log10-transformed rates-through-time.
 
+![Example RTT](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/RTT_plot_RJMCMC.png)
 
 
