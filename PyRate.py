@@ -3785,6 +3785,9 @@ if use_poiD == 1:
 		print "PoiD not available with SE estimation. Using BD instead."
 		BPD_partial_lik = BD_partial_lik
 		PoiD_const = 0
+	if hasFoundPyRateC:
+		print "PoiD not available using FastPyRateC library. Using Python version instead."
+		hasFoundPyRateC = 0
 
 
 ##### SETFREQ OF PROPOSING B/D shifts (RJMCMC)
