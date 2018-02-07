@@ -178,7 +178,9 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 	for i in range(burnin,len(post_rate)):
 		row = np.array(post_rate[i].split()).astype(float)
 		
-		if len(row)==1: 
+		if len(row)==0:
+			continue	
+		elif len(row)==1: 
 			marginal_rates = np.zeros(nbins)+row[0]
 		else:
 			ind_rates = np.arange(0,int(np.ceil(len(row)/2.)))
