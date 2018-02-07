@@ -194,7 +194,7 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 		marginal_rates_list.append(marginal_rates)
 	
 	marginal_rates_list = np.array(marginal_rates_list)
-	mean_rates= np.mean(marginal_rates_list,axis=0)
+	mean_rates= np.median(marginal_rates_list,axis=0)
 	min_rates,max_rates=[],[]
 	for i in range(nbins):
 		hpd = util.calcHPD(marginal_rates_list[:,i],0.95)
@@ -207,7 +207,7 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 	n_mcmc_samples = len(post_rate)-burnin # number of samples used to normalize frequencies of rate shifts
 	return [time_frames,mean_rates,np.array(min_rates),np.array(max_rates),np.array(times_of_shift),n_mcmc_samples]
 
-def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log):
+def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulation=1):
 	out_str = "\n"
 	out_str += util.print_R_vec("\ntime",-res[0])
 	out_str += util.print_R_vec("\nrate",res[1][::-1])
@@ -237,9 +237,11 @@ def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log):
 	out_str += "\nplot(mids,counts,type = 'h', xlim = c(%s,%s), ylim=c(0,%s), ylab = 'Frequency of rate shift', xlab = 'Time',lwd=5,col='%s')" \
 	    % (-max_age,-min_age,max(max(h[0]/float(res[5])),0.2),col)
 	# get BFs
-	BFs = get_prior_shift(min_age,max_age,bins_histogram)
-	out_str += "\nabline(h=%s, lty=2)" % ( BFs[1] )
-	out_str += "\nabline(h=%s, lty=2)" % ( BFs[2] )
+	if run_simulation==1:
+		BFs = get_prior_shift(min_age,max_age,bins_histogram)
+		out_str += "\nbf2 = %s\nbf6 = %s" % (BFs[1],BFs[2])
+	out_str += "\nabline(h=bf2, lty=2)"
+	out_str += "\nabline(h=bf6, lty=2)"
 	return out_str
 
 def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,max_age=0,logT=0):
@@ -273,11 +275,11 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 			# sp file
 			f_name = mcmc_file.replace("mcmc.log","sp_rates.log")
 			res = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin=0.2)
-			r_str += get_r_plot(res,col=colors[0],parameter="Speciation rate",min_age=min_age_t,max_age=max_age_t,plot_title=name_file,plot_log=logT)
+			r_str += get_r_plot(res,col=colors[0],parameter="Speciation rate",min_age=min_age_t,max_age=max_age_t,plot_title=name_file,plot_log=logT,run_simulation=1)
 			# ex file
 			f_name = mcmc_file.replace("mcmc.log","ex_rates.log")
 			res = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin=0.2)
-			r_str += get_r_plot(res,col=colors[1],parameter="Extinction rate",min_age=min_age_t,max_age=max_age_t,plot_title="",plot_log=logT)
+			r_str += get_r_plot(res,col=colors[1],parameter="Extinction rate",min_age=min_age_t,max_age=max_age_t,plot_title="",plot_log=logT,run_simulation=0)
 		#except:
 		#	print "Could not read file:", mcmc_file
 	r_str += "\n\nn <- dev.off()"
