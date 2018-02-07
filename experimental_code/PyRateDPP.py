@@ -231,7 +231,8 @@ def plot_RTT(files, stem_file, wd, burnin):
 			Rfile="\n# %s" % (f)		
 		if PAR=="l":
 			if platform.system() == "Windows" or platform.system() == "Microsoft":
-				Rfile+= "\n\npdf(file='%s\%sRTTplot.pdf',width=7, height=7)" % (wd, stem_file) # \npar(mfrow=c(3,1))
+				wd_forward = os.path.abspath(wd).replace('\\', '/')
+				Rfile+= "\n\npdf(file='%s/%sRTTplot.pdf',width=7, height=7)" % (wd_forward, stem_file) # \npar(mfrow=c(3,1))
 			else: 
 				Rfile+= "\n\npdf(file='%s/%sRTTplot.pdf',width=7, height=7)" % (wd, stem_file) # \npar(mfrow=c(3,1))
 		Rfile+= print_R_vec('\nhpd_m',  hpd__sp_m)
@@ -254,7 +255,7 @@ def plot_RTT(files, stem_file, wd, burnin):
 	print "\n95% HPD calculated code from Biopy\n(https://www.cs.auckland.ac.nz/~yhel002/biopy/)"
 	print "\nAn R script with the source for the RTT plot was saved as: %sRTTplot.pdf\n(in %s)" % (stem_file, wd)
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		cmd="cd %s; Rscript %s\%sRTTplot.r" % (wd,wd, stem_file)
+		cmd="cd %s & Rscript %sRTTplot.r" % (wd, stem_file)
 	else: 
 		cmd="cd %s; Rscript %s/%sRTTplot.r" % (wd,wd, stem_file)
 	os.system(cmd)

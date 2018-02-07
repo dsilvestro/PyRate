@@ -15,7 +15,8 @@ def get_marginal_rates(times,rates,grid):
 def r_plot_code(res,wd,name_file,alpha=0.5,plot_title="RTT plot"):
 	data  = "library(scales)\ntrans=%s" % (alpha)
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		data+= "\n\npdf(file='%s\%s_RTT.pdf',width=0.6*9, height=0.6*14)\npar(mfrow=c(2,1))" % (wd,name_file) # 9
+		wd_forward = os.path.abspath(wd).replace('\\', '/')
+		data+= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*9, height=0.6*14)\npar(mfrow=c(2,1))" % (wd_forward,name_file) # 9
 	else: 
 		data+= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*9, height=0.6*14)\npar(mfrow=c(2,1))" % (wd,name_file) # 9
 	data += util.print_R_vec('\nage',   -res[:,0])
@@ -82,7 +83,7 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 	newfile.close()
 	print "\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, wd)
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		cmd="cd %s; Rscript %s\%s_RTT.r" % (wd,wd,name_file)
+		cmd="cd %s & Rscript %s_RTT.r" % (wd,name_file)
 	else: 
 		cmd="cd %s; Rscript %s/%s_RTT.r" % (wd,wd,name_file)
 	os.system(cmd)
@@ -177,7 +178,9 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 	for i in range(burnin,len(post_rate)):
 		row = np.array(post_rate[i].split()).astype(float)
 		
-		if len(row)==1: 
+		if len(row)==0:
+			continue	
+		elif len(row)==1: 
 			marginal_rates = np.zeros(nbins)+row[0]
 		else:
 			ind_rates = np.arange(0,int(np.ceil(len(row)/2.)))
@@ -252,7 +255,11 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 	if logT==1: outname = "Log_"
 	else: outname = ""
 	if max_age>0: outname+= "t%s" % (int(max_age))
-	r_str = "\n\npdf(file='%s/%sRTT_plots.pdf',width=10, height=10)\npar(mfrow=c(2,2))\nlibrary(scales)" % (wd,outname)
+	if platform.system() == "Windows" or platform.system() == "Microsoft":
+		wd_forward = os.path.abspath(wd).replace('\\', '/')
+		r_str = "\n\npdf(file='%s/%sRTT_plots.pdf',width=10, height=10)\npar(mfrow=c(2,2))\nlibrary(scales)" % (wd_forward,outname)
+	else:
+		r_str = "\n\npdf(file='%s/%sRTT_plots.pdf',width=10, height=10)\npar(mfrow=c(2,2))\nlibrary(scales)" % (wd,outname)
 	for mcmc_file in files:
 		if 2>1: #try:
 			name_file = os.path.splitext(os.path.basename(mcmc_file))[0]		
@@ -280,7 +287,10 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 	outfile = open(out, "wb") 
 	outfile.writelines(r_str)
 	outfile.close()
-	cmd="cd %s; Rscript %sRTT_plots.r" % (wd,outname)
+	if platform.system() == "Windows" or platform.system() == "Microsoft":
+		cmd="cd %s & Rscript %sRTT_plots.r" % (wd,outname)
+	else:
+		cmd="cd %s; Rscript %sRTT_plots.r" % (wd,outname)
 	print "Plots saved in %s (%sRTT_plots)" % (wd,outname)
 	os.system(cmd)
 

@@ -349,7 +349,8 @@ if summary_file != "":
 	out="%s/%s_%s_%s_%sSp%sEx_RTT.r" % (output_wd,name_file,head_cov_file[1],rep_j,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]])
 	newfile = open(out, "wb") 	
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		r_script= "\n\npdf(file='%s\%s_%s_%s_%sSp%sEx_RTT.pdf',width=0.6*20, height=0.6*20)\nlibrary(scales)\n" % (output_wd,name_file,head_cov_file[1],rep_j,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]])
+		wd_forward = os.path.abspath(output_wd).replace('\\', '/')
+		r_script= "\n\npdf(file='%s/%s_%s_%s_%sSp%sEx_RTT.pdf',width=0.6*20, height=0.6*20)\nlibrary(scales)\n" % (wd_forward,name_file,head_cov_file[1],rep_j,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]])
 	else: r_script= "\n\npdf(file='%s/%s_%s_%s_%sSp%sEx_RTT.pdf',width=0.6*20, height=0.6*20)\nlibrary(scales)\n" % (output_wd,name_file,head_cov_file[1],rep_j,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]])
 
 	r_script += print_R_vec("\n\nt",  age_vec)
@@ -372,6 +373,7 @@ if summary_file != "":
 	plot(extinction ~ time,type="l",col="#e34a33",  lwd=3,main="Extinction rates", ylim = c(0,max(c(L_hpd_M,M_hpd_M))),xlab="Time",ylab="extinction",xlim=c(min(time),0))
 	polygon(c(time, rev(time)), c(M_hpd_M, rev(M_hpd_m)), col = alpha("#e34a33",0.3), border = NA)
 	abline(v %s,lty=2,col="gray")
+	n <- dev.off()
 	""" % (lib_utilities.print_R_vec("",-s_times),lib_utilities.print_R_vec("",-s_times))
 	
 	r_script+="n<-dev.off()"
@@ -379,7 +381,7 @@ if summary_file != "":
 	newfile.close()
 	print "\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, output_wd)
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		cmd="cd %s; Rscript %s\%s_%s_%s_%sSp%sEx_RTT.r" % (output_wd,output_wd,name_file,head_cov_file[1],rep_j,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]])
+		cmd="cd %s & Rscript %s_%s_%s_%sSp%sEx_RTT.r" % (output_wd,name_file,head_cov_file[1],rep_j,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]])
 	else: 
 		cmd="cd %s; Rscript %s/%s_%s_%s_%sSp%sEx_RTT.r" % (output_wd,output_wd,name_file,head_cov_file[1],rep_j,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]])
 	os.system(cmd)
