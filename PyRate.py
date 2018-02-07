@@ -755,7 +755,8 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 			head = np.array(next(open(f)).split()) # should be faster\
 			#txt_tbl = np.genfromtxt(f, delimiter="\t")
 			#print "TRY", txt_tbl[0:],np.shape(txt_tbl), head
-			
+			if j == 0:
+				tbl_header = '\t'.join(head)	
 			if "temperature" in head or "beta" in head:
 				try: 
 					temp_index = np.where(head=="temperature")[0][0]
