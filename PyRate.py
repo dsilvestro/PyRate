@@ -2,7 +2,8 @@
 # Created by Daniele Silvestro on 02/03/2012 => pyrate.help@gmail.com 
 import argparse, os,sys, platform, time, csv, glob
 import random as rand
-import warnings
+import warnings, imp
+
 version= "PyRate"
 build  = "v2.0 - 20170811"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
@@ -92,11 +93,26 @@ original_stderr = sys.stderr
 NO_WARN = original_stderr #open('pyrate_warnings.log', 'w')
 small_number= 1e-50
 
+def get_self_path():
+	self_path = -1
+	path_list = [os.path.dirname(sys.argv[0]) , os.getcwd()]
+	for path in path_list:
+		try:
+			self_path=path
+			lib_updates_priors = imp.load_source("lib_updates_priors", "%s/pyrate_lib/lib_updates_priors.py" % (self_path))
+			break
+		except:
+			self_path = -1
+	if self_path== -1:
+		print os.getcwd(), os.path.dirname(sys.argv[0])	
+		sys.exit("pyrate_lib not found.\n")
+	return self_path
+
 
 # Search for the module
 hasFoundPyRateC = 0
 try:
-	self_path= os.path.dirname(sys.argv[0])
+	self_path = get_self_path()
 	if platform.system()=="Darwin": os_spec_lib="macOS"
 	elif platform.system() == "Windows" or platform.system() == "Microsoft": os_spec_lib="Windows"
 	else: os_spec_lib = "Other"
@@ -2874,7 +2890,6 @@ def marginal_likelihood(marginal_file, l, t):
 	marginal_file.close()
 
 ########################## PARSE ARGUMENTS #######################################
-self_path=os.getcwd()
 p = argparse.ArgumentParser() #description='<input file>') 
 
 p.add_argument('-v',         action='version', version=version_details)
@@ -3102,7 +3117,7 @@ else:
 
 if args.ginput != "" or args.check_names != "" or args.reduceLog != "":
 	try:
-	 	self_path= os.path.dirname(sys.argv[0])
+	 	self_path = get_self_path()
 	 	pyrate_lib_path = "pyrate_lib"
 	 	sys.path.append(os.path.join(self_path,pyrate_lib_path)) 	
 		import lib_DD_likelihood
@@ -3240,9 +3255,8 @@ list_files_BF=sort(args.BF)
 file_stem=args.tag
 root_plot=args.root_plot
 if path_dir_log_files != "":
+	self_path = get_self_path()
 	if plot_type>=3:
-		self_path= os.path.dirname(sys.argv[0])
-		import imp
 		lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
 		lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
 		rtt_plot_bds = imp.load_source("rtt_plot_bds", "%s/pyrate_lib/rtt_plot_bds.py" % (self_path))
@@ -3325,7 +3339,7 @@ if use_se_tbl==0:
 
 	if args.wd=="": 
 		output_wd = os.path.dirname(args.input_data[0])
-		if output_wd=="": output_wd= self_path
+		if output_wd=="": output_wd= get_self_path()
 	else: output_wd=args.wd
 
 	#print "\n",input_file, args.input_data, "\n"
@@ -3425,7 +3439,7 @@ else:
 	fix_SE= 1
 	fixed_ts, fixed_te=FA, LO	
 	output_wd = os.path.dirname(se_tbl_file)
-	if output_wd=="": output_wd= self_path
+	if output_wd=="": output_wd= get_self_path()
 	out_name="%s_%s_%s"  % (os.path.splitext(os.path.basename(se_tbl_file))[0],j,args.out)
 	if focus_clade>=0: out_name+= "_c%s" % (focus_clade)
 
@@ -3869,7 +3883,7 @@ if args.data_info == 1:
 	
 # RUN PP-MODEL TEST
 if args.PPmodeltest== 1:
- 	self_path= os.path.dirname(sys.argv[0])
+ 	self_path = get_self_path()
  	pyrate_lib_path = "pyrate_lib"
  	sys.path.append(os.path.join(self_path,pyrate_lib_path)) 	
 	import PPmodeltest
