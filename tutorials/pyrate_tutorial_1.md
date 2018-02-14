@@ -139,7 +139,7 @@ To generate a rates-through-time plot that combines all replicates, you can use 
 
 `PyRate.py -plot path_to_your_log_files -tag marginal_rates -b 100`
 
-This will combine all the _marginal_rates.log_ files in the specified directory and combine the results in a single plot.​ Different tags can be used to determine which files are to be combined.    
+This will combine all the _marginal\_rates.log_ files in the specified directory and combine the results in a single plot.​ Different tags can be used to determine which files are to be combined.    
 
 ***
 ## Speciation and extinction rates within fixed time bins
