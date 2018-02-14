@@ -767,15 +767,17 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 			x_temp = [line for line in f_temp.readlines()]
 			x_temp = x_temp[max(1,int(burnin)):]
 			x_temp =array(x_temp)
-			if resample>0:
-				r_ind= sort(np.random.randint(0,len(x_temp),resample))
-				x_temp = x_temp[r_ind]
-			if j==0: 
-				comb = x_temp
-			else:
-				comb = np.concatenate((comb,x_temp))
-			j+=1
-			
+			try:
+				if resample>0:
+					r_ind= sort(np.random.randint(0,len(x_temp),resample))
+					x_temp = x_temp[r_ind]
+				if j==0: 
+					comb = x_temp
+				else:
+					comb = np.concatenate((comb,x_temp))
+				j+=1
+			except: 
+				print "Could not process file:",f
 		
 		outfile = "%s/combined_%s%s.log" % (infile,len(files),tag)	
 		with open(outfile, 'w') as f:
