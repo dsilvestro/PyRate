@@ -1,10 +1,14 @@
 # PyRate Tutorial \#3
 #### Daniele Silvestro – Jan 2018
 ***
+#### Contents
+* [Setting up an analysis using RJMCMC](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#setting-up-an-analysis-using-rjmcmc)  
+* [RJMCMC output](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#rjmcmc-output)  
+* [Summarize model probabilities](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#summarize-model-probabilities)    
+* [Rates through time and rate shifts](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#rates-through-time-and-rate-shifts)  
+
 Useful links:  
-[PyRate code](https://github.com/dsilvestro/PyRate)  
-[PyRate wiki](https://github.com/dsilvestro/PyRate/wiki)  
-[Rates through time and rate shifts](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#rates-through-time-and-rate-shifts)
+[PyRate code](https://github.com/dsilvestro/PyRate)  [PyRate wiki](https://github.com/dsilvestro/PyRate/wiki)
 ***
 
 # Estimate rate variation using Reversible Jump MCMC
