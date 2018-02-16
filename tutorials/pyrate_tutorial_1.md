@@ -1,11 +1,9 @@
 # PyRate Tutorial \#1
-#### Daniele Silvestro – Nov 2017
+#### Feb 2018
 ***
 Useful links:  
 [PyRate code](https://github.com/dsilvestro/PyRate)  
 [PyRate wiki](https://github.com/dsilvestro/PyRate/wiki)  
-[Paleobiology Database](https://paleobiodb.org)  
-[Tracer](http://tree.bio.ed.ac.uk/software/tracer/)
 ***
 
 # Generate PyRate input file (option 1)
@@ -32,8 +30,23 @@ Useful links:
 ***
 
 # Generate PyRate input file (option 2)
-1. **Prepare fossil occurrence table.** You can prepare a table with fossil occurrence data in a text editor or a spreadsheet editor. The table must include 4 columns including 1) Taxon name, 2) Status specifying whether the taxon is "extinct" or "extant", 3) Minimum age, and 4) Maximum age. The table should have a header (first row) and **one row for each fossil occurrence**. Min and max ages represent the age ranges of each fossil occurrence, typically based on stratigraphic boundaries. One additional column can be included in the table indicating a trait value (e.g. estimated body mass) that can be used PyRate analyses.  
-2. **Launch R** as explained above. 
+1. **Prepare fossil occurrence table.** You can prepare a table with fossil occurrence data in a text editor or a spreadsheet editor. The table must include 4 columns including 1) Taxon name, 2) Status specifying whether the taxon is "extinct" or "extant", 3) Minimum age, and 4) Maximum age. The table should have a header (first row) and **one row for each fossil occurrence** (see example below). Min and max ages represent the age ranges of each fossil occurrence, typically based on stratigraphic boundaries. One additional column can be included in the table indicating a trait value (e.g. estimated body mass) that can be used PyRate analyses.  
+
+
+| Taxon\_name   | Status  | MinAge | MaxAge |
+| ------------- |:-------------:| -----:| -----:|
+Canis\_ferox | extinct | 4.9    | 10.3
+Canis\_lepophagus | extinct | 4.9 | 10.3  
+Canis\_ferox | extinct | 4.9 | 10.3  
+Canis\_ferox | extinct | 4.9 | 10.3  
+Canis\_ferox | extinct | 4.9 | 10.3  
+Canis\_edwardii | extinct | 0.3 | 4.9  
+Canis\_armbrusteri | extinct | 0.3 | 4.9  
+Canis\_latrans | extant | 0.3 | 4.9  
+Canis\_latrans | extant | 1.8 | 4.9  
+Canis\_thooides | extinct | 1.8 | 4.9  
+
+2. **Launch R** as explained above.  
 3. **Load the *pyrate_utilities.r* file** as explained above.  
 4. **Parse the raw data and generate PyRate input file**. Type in R:   
   `extract.ages(file="…/PyRate/example_files/Ursidae.txt", replicates=10)` This function includes `replicates` and `cutoff` options as the `extract.ages.pbdb()` function described above (option 1). 

@@ -1,23 +1,23 @@
-### PyRate is a Python program to estimate speciation, extinction, and preservation rates from fossil occurrence data using a Bayesian framework. 
+### PyRate is a program to estimate speciation, extinction, and preservation rates from fossil occurrence data using a Bayesian framework. 
 
 
 PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-affero-general-public-license-v3-(agpl-3.0)#summary).
 
 #### The program's documentation is available here: 
-* Detailed command list: https://github.com/dsilvestro/PyRate/wiki
-* Tutorials (work in progress): https://github.com/dsilvestro/PyRate/tree/master/tutorials
+* [Tutorials](https://github.com/dsilvestro/PyRate/tree/master/tutorials) (work in progress)
+* [Instructions](https://github.com/dsilvestro/PyRate/blob/master/pyrate_lib/fastPyRateC/README.md) to install the fastPyRateC library 
 * For questions, suggestions or bugs [contact us](mailto:pyrate.help@gmail.com)
 
 
 #### The main methods are described here:
 
-* Silvestro D., Schnitzler J., Liow L.H., Antonelli A. and Salamin N. (2014) Bayesian Estimation of Speciation and Extinction from Incomplete Fossil Occurrence Data. Systematic Biology, 63, 349-367.
+* Silvestro D., Schnitzler J., Liow L.H., Antonelli A. and Salamin N. (2014) Bayesian Estimation of Speciation and Extinction from Incomplete Fossil Occurrence Data. Systematic Biology, [63, 349-367](https://academic.oup.com/sysbio/article/63/3/349/1650079).
 
-* Silvestro D., Salamin N., Schnitzler J. (2014) PyRate: A new program to estimate speciation and extinction rates from incomplete fossil record. Methods in Ecology and Evolution, 5, 1126-1131.
+* Silvestro D., Salamin N., Schnitzler J. (2014) PyRate: A new program to estimate speciation and extinction rates from incomplete fossil record. Methods in Ecology and Evolution, [5, 1126-1131](http://onlinelibrary.wiley.com/doi/10.1111/2041-210X.12263/abstract).
 
 #### The MCDD model is described here: 
 
-* Silvestro D., Antonelli A., Salamin N., Quental T. B. (2015) The role of clade competition in the diversification of North American canids. PNAS, 112, 8684-8689.
+* Silvestro D., Antonelli A., Salamin N., Quental T. B. (2015) The role of clade competition in the diversification of North American canids. PNAS, [112, 8684-8689](http://www.pnas.org/content/112/28/8684).
 
 * Silvestro D., Pires M. M., Quental T., Salamin N. (2017) Bayesian estimation of 	multiple clade competition from fossil data. Evolutionary Ecology Research, 	[18:41-59](http://evolutionary-ecology.com/abstracts/v18/3010.html).
 
