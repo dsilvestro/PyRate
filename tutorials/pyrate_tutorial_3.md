@@ -1,5 +1,5 @@
 # PyRate Tutorial \#3
-#### Daniele Silvestro – Jan 2018
+#### Feb 2018
 ***
 #### Contents
 * [Setting up an analysis using RJMCMC](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#setting-up-an-analysis-using-rjmcmc)  
@@ -14,7 +14,7 @@ Useful links:
 # Estimate rate variation using Reversible Jump MCMC
 
 ## Setting up an analysis using RJMCMC
-We have recently implemented a new algorithm in Pyrate that uses RJMCMC (Green 1995) instead of BDMCMC (described in Silvestro et al. 2014 and available through the command `-A 2`). Although the paper describing the algorithm is still in preparation, the method is already available and simulations show that it is more accurate than the BDMCMC.
+We have recently implemented a new algorithm in Pyrate that uses RJMCMC (Green 1995) instead of BDMCMC (described in Silvestro et al. 2014 and available through the command `-A 2`). Although the paper describing the algorithm is still in preparation, the method is already available and simulations show that it is more accurate than BDMCMC.
 
 An analysis with RJMCMC is set up using the command `-A 4`. Note that this algorithm is available both for occurrence data
 e.g.:
@@ -24,6 +24,10 @@ e.g.:
 and for data sets with fixed times of origination and extinction (see also tutorial \#2):
 
 `python PyRate.py -d Canidae_1_G_se_est.txt -A 4`
+
+You can find more details about preparing input files [here]
+(https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#generate-pyrate-input-file-option-1)
+and [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#generate-pyrate-input-file-option-2)
 
 ## RJMCMC Output
 RJMCMC analyses by default produce 4 output files:
