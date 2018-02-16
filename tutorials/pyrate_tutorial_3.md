@@ -3,7 +3,8 @@
 ***
 Useful links:  
 [PyRate code](https://github.com/dsilvestro/PyRate)  
-[Paleobiology Database](https://paleobiodb.org)  
+[PyRate wiki](https://github.com/dsilvestro/PyRate/wiki)  
+[Rates through time and rate shifts](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#rates-through-time-and-rate-shifts)
 ***
 
 # Estimate rate variation using Reversible Jump MCMC
@@ -54,4 +55,5 @@ The command `-root_plot` can be used to truncate the plot to a given maximum age
 
 ![Example RTT](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/RTT_plot_RJMCMC.png)
 
+` -col_tag posterior root_age death_age` to combine mcmc log files
 

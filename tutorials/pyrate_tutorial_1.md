@@ -4,8 +4,6 @@
 Useful links:  
 [PyRate code](https://github.com/dsilvestro/PyRate)  
 [PyRate wiki](https://github.com/dsilvestro/PyRate/wiki)  
-[Paleobiology Database](https://paleobiodb.org)  
-[Tracer](http://tree.bio.ed.ac.uk/software/tracer/)
 ***
 
 # Generate PyRate input file (option 1)
