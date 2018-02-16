@@ -1,4 +1,4 @@
-##These are the steps to compile and install the FastPyRateC library
+## These are the steps to compile and install the FastPyRateC library
 
 
 1. Install SWIG (http://www.swig.org/download.html).
