@@ -14,7 +14,8 @@ p.add_argument('-d',         type=str,   help='input file', default="", metavar=
 p.add_argument('-n',         type=int,   help='mcmc generations',default=100000, metavar=100000)
 p.add_argument('-s',         type=int,   help='sample freq.', default=100, metavar=100)
 p.add_argument('-p',         type=int,   help='print freq.', default=1000, metavar=1000)
-p.add_argument('-hp',        type=int,   help='set to 0 for fixed (flat) rate parameter (G prior on tau), 1 for single prior for all traits', default=2, metavar=2)
+p.add_argument('-hp',        type=int,   help='set to 0) for fixed (flat) rate parameter (G prior on tau), 1) for single estimated prior for all traits, \
+2) for one estimated prior for each trait (only works if -A 0)', default=2, metavar=2)
 p.add_argument('-t0',        type=float, help='max age time slice', default=np.inf, metavar=np.inf)
 p.add_argument('-t1',        type=float, help='min age time slice', default=0, metavar=0)
 p.add_argument('-seed',      type=int,   help='seed (if -1 -> random)', default=-1, metavar=-1)
@@ -184,7 +185,7 @@ else:
 	#tr_list = data[:,5:7].astype(int)
 	traits_indx = np.array(args.traits)+2
 	tr_list = data[:,traits_indx].astype(int)
-	print len(ts_list),len(te_list),len(tr_list)
+	print "Siza total dataset:", len(ts_list),len(te_list),len(tr_list)
 	# subset data
 	old_sp = (te_list<max_age).nonzero()[0]
 	young_sp = (ts_list>min_age).nonzero()[0]
@@ -207,9 +208,8 @@ else:
 	else:
 		out_file_name = "trait_%s%s.log" % (trait_tag,m_tag)
 
-print len(ts_list),len(te_list),len(tr_list)
+print "Siza dataset after filtering time slice:", len(ts_list),len(te_list),len(tr_list)
 print "time range", max(ts_list), min(te_list)
-
 n_traits = len(tr_list[0])
 trait_categories_list = []
 mu_list = []
@@ -227,8 +227,9 @@ print trait_categories_list
 print "extinction rate (mle):", get_mle_mu(ts_list,te_list)
 
 bl = ts_list-te_list # branch length
-ex = (te_list>1)*1   # extinction ID (0: extant, 1: extinct)
-
+ex = (te_list>0)*1   # extinction ID (0: extant, 1: extinct)
+#print ex,(te_list>0)
+#quit()
 
 # get indexes of one species for each trait observed combination
 def list_to_string(l):
@@ -236,9 +237,10 @@ def list_to_string(l):
 	for i in l: s+= "%s" % (i)
 	return s
 
-trait_comb_all = []
-unique_trait_comb = []
-unique_trait_comb_indx = []
+trait_comb_all = [] # labels for each species (e.g. [['m1', 'm1', 'm3', ... ])
+			  #, only used if saving sp-specific ex.rates
+unique_trait_comb = [] # unique labels of each trait combination (e.g. ['m0', 'm1', 'm2' ... ])
+unique_trait_comb_indx = [] # index of 1 species for each trait combination (only used to log final ex.rate)
 for i in range(n_lineages):
 	s=list_to_string(tr_list[i,:])
 	trait_comb_all.append(s)
@@ -247,10 +249,14 @@ for i in range(n_lineages):
 		unique_trait_comb.append(s)
 		unique_trait_comb_indx.append(i)
 print "unique_trait_comb", len(unique_trait_comb_indx)
+print unique_trait_comb
+print trait_comb_all, len(trait_comb_all)
+print tr_list
+
 
 # count n. of species in each combination of character states
 trait_comb_all = np.array(trait_comb_all)
-z = 0
+
 unique_trait_comb_name = []
 for i in unique_trait_comb:
 	unique_trait_comb_name.append(i+"_%s" % (len(trait_comb_all[trait_comb_all==i])))
@@ -268,19 +274,15 @@ priorA = sum(prior_Y) + prior_m
 if use_HP==2: Gamma_b_prior = [10 for i in range(n_traits)]
 
 # MCMC settings
-freq_update_Ys = 0.75
-freq_update_m  = 0.15
-if args.const == 1:
-	freq_update_Ys = 0
-	freq_update_m  = 1
 
-multipA = np.array([0.75])
+#multipA = np.array([0.75])
 ws_multi = 1.1
 Y_vecA = mu_list
 print "mu_list: ",mu_list
 iteration = 0 
 
 # init MCMC log file
+out_file_name = "test_"+out_file_name
 logfile = open(out_file_name , "wb") 
 wlog=csv.writer(logfile, delimiter='\t')
 
@@ -325,6 +327,15 @@ if args.A==1:
 	freq_update_Ys = 0.6
 	freq_update_m  = 0.4
 	ws_multi = 1.2
+else:
+	freq_update_Ys = 0.75
+	freq_update_m  = 0.15
+
+if args.const == 1: # constant rate model
+	freq_update_Ys = 0
+	freq_update_m  = 1
+
+
 
 # RUN MCMC
 while iteration <= n_iterations:
@@ -357,9 +368,10 @@ while iteration <= n_iterations:
 	# lineage-sp rates
 	sum_rates,prior_Y = np.zeros(n_lineages),0
 	for i in range(n_traits):
-		transform_trait_multiplier = exp(Y_vec[i])/sum(exp(Y_vec[i])) # transform_trait_multiplier_true[i]
-		r_temp =  transform_trait_multiplier # * trait_categories_list[i]
-		sum_rates += r_temp[tr_list[:,i]] #* (1./n_traits)
+		transform_trait_multiplier = exp(Y_vec[i])/sum(exp(Y_vec[i])) #
+		# create array of multipliers (1 per species) based on trait states
+		# using trait states as indexes (must start from 0 and be sequential!)
+		sum_rates += transform_trait_multiplier[tr_list[:,i]]
 		prior_Y += sum(prior_normal(Y_vec[i],m=0,sd=sd_hp[i]))
 	
 	prior_m = prior_gamma(multip[0],a=1.,b=1.) # exponential prior
