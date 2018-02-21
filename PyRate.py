@@ -15,11 +15,6 @@ Occurrence Data. Systematic Biology, 63, 349-367.
 Silvestro, D., Salamin, N., Schnitzler, J. (2014)
 PyRate: A new program to estimate speciation and extinction rates from
 incomplete fossil record. Methods in Ecology and Evolution, 5, 1126-1131.
-
-Silvestro D., Cascales-Minana B., Bacon C. D., Antonelli A. (2015)
-Revisiting the origin and diversification of vascular plants through a
-comprehensive Bayesian analysis of the fossil record. New Phytologist,
-doi:10.1111/nph.13247. 
 """
 print("""
                   %s - %s
@@ -2452,8 +2447,7 @@ def MCMC(all_arg):
 						YangGamma = [1]
 						if argsG :
 							YangGamma=get_gamma_rates(q_rates[0])
-
-						lik_fossil = np.array(PyRateC_NHPP_lik(use_DA, ind1, ts, te, q_rates[1], YangGamma, cov_par[2], M[len(M)-1]))
+						lik_fossil = np.array(PyRateC_NHPP_lik(use_DA==1, ind1, ts, te, q_rates[1], YangGamma, cov_par[2], M[len(M)-1]))
 
 						# Check correctness of results by comparing with python version
 						if sanityCheckForPyRateC == 1:
@@ -2950,7 +2944,7 @@ p.add_argument('-b',      type=float, help='burnin', default=0, metavar=0)
 p.add_argument('-thread', type=int, help='no. threads used for BD and NHPP likelihood respectively (set to 0 to bypass multi-threading)', default=[0,0], metavar=4, nargs=2)
 
 # MCMC ALGORITHMS
-p.add_argument('-A',        type=int, help='0) parameter estimation, 1) marginal likelihood, 2) BDMCMC, 3) DPP, 4) RJMCMC', default=2, metavar=2)
+p.add_argument('-A',        type=int, help='0) parameter estimation, 1) marginal likelihood, 2) BDMCMC, 3) DPP, 4) RJMCMC', default=4, metavar=4)
 p.add_argument("-use_DA",   help='Use data augmentation for NHPP likelihood opf extant taxa', action='store_true', default=False)
 p.add_argument('-r',        type=int,   help='MC3 - no. MCMC chains', default=1, metavar=1)
 p.add_argument('-t',        type=float, help='MC3 - temperature', default=.03, metavar=.03)
@@ -3929,14 +3923,16 @@ if len(fixed_times_of_shift)>0:
 	o2 += "\nUsing birth-death model with fixed times of rate shift: "
 	for i in fixed_times_of_shift: o2 += "%s " % (i)
 o2+= "\n"+prior_setting
-if argsHPP == 1: 
-	if TPP_model == 0: 
-		o2+="Using Homogeneous Poisson Process of preservation (HPP)."
-	else: 
-		o2 += "\nUsing Time-variable Poisson Process of preservation (TPP) at: "
-		for i in times_q_shift: o2 += "%s " % (i)
+
+if use_se_tbl != 1:
+	if argsHPP == 1: 
+		if TPP_model == 0: 
+			o2+="Using Homogeneous Poisson Process of preservation (HPP)."
+		else: 
+			o2 += "\nUsing Time-variable Poisson Process of preservation (TPP) at: "
+			for i in times_q_shift: o2 += "%s " % (i)
 	
-else: o2+="Using Non-Homogeneous Poisson Process of preservation (NHPP)."
+	else: o2+="Using Non-Homogeneous Poisson Process of preservation (NHPP)."
 
 version_notes="""\n
 Please cite: \n%s\n
