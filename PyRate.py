@@ -2317,7 +2317,7 @@ def MCMC(all_arg):
 		elif rr<f_update_q: # q/alpha
 			q_rates=np.zeros(len(q_ratesA))+q_ratesA
 			if TPP_model == 1: 
-				q_rates, hasting = update_q_multiplier(q_ratesA,d=d2[1],f=0.5)
+				q_rates, hasting = update_q_multiplier(q_ratesA,d=d2[1],f=f_qrate_update)
 				if np.random.random()> 1./len(q_rates) and argsG == 1:
 					alpha_pp_gamma, hasting2 = update_multiplier_proposal(alpha_pp_gammaA,d2[0]) # shape prm Gamma
 					hasting += hasting2
@@ -3006,6 +3006,7 @@ p.add_argument('-tR',     type=float, help='Tuning - window size (rates)', defau
 p.add_argument('-tS',     type=float, help='Tuning - window size (time of shift)', default=1., metavar=1.)
 p.add_argument('-fR',     type=float, help='Tuning - fraction of updated values (rates)', default=.5, metavar=.5)
 p.add_argument('-fS',     type=float, help='Tuning - fraction of updated values (shifts)', default=.7, metavar=.7)
+p.add_argument('-fQ',     type=float, help='Tuning - fraction of updated values (q rates, TPP)', default=.5, metavar=.5)
 p.add_argument('-tC',     type=float, help='Tuning - window sizes cov parameters (l,m,q)', default=[.2, .2, .15], nargs=3)
 p.add_argument('-fU',     type=float, help='Tuning - update freq. (q: .02, l/m: .18, cov: .08)', default=[.02, .18, .08], nargs=3)
 p.add_argument('-multiR', type=int,   help='Tuning - Proposals for l/m: 0) sliding win 1) muliplier ', default=1, metavar=1)
@@ -3095,6 +3096,7 @@ d3=args.tR                     # win-size (rates)
 f_rate=args.fR                 # fraction of updated values (rates)
 d4=args.tS                     # win-size (time of shift)
 f_shift=args.fS                # update frequency (time of shift) || will turn into 0 when no rate shifts
+f_qrate_update =args.fQ        # update frequency (preservation rates under TPP model)
 freq_list=args.fU              # generate update frequencies by parm category
 d5=args.tC                     # win-size (cov)
 d_hyperprior=np.array(args.tHP)          # win-size hyper-priors onf l/m (or W_scale)
