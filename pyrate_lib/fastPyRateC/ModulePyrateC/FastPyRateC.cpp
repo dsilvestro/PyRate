@@ -122,9 +122,9 @@ void determineLogFactorialFossilCntPerSpecie(std::vector< std::vector <double> >
 	// Compute log factorial from 1 to N_MAX_FOSSILS+1
 	N_MAX_FOSSILS += 1;
 	logFactorials.assign(N_MAX_FOSSILS+1, 0);
-	logFactorials[1] = log(1);
+	logFactorials[1] = log(1.0);
 	for(size_t iL=2; iL<=N_MAX_FOSSILS; iL++) {
-		double logFactorial = logFactorials[iL-1] + log(iL);
+		double logFactorial = logFactorials[iL-1] + log((double)iL);
 		logFactorials[iL] = logFactorial;
 	}
 
@@ -252,7 +252,7 @@ std::vector<double> PyRateC_HOMPP_lik(
   double cov_par,
   double ex_rate) {
 
-	double logDivisor = log(gammaRates.size());
+	double logDivisor = log((double)gammaRates.size());
 	std::vector<double> results(fossils.size(), 0);
 
 	for(size_t i=0; i<ind.size(); ++i) {
@@ -380,11 +380,12 @@ std::vector<double> processDataAugNHPP(const std::vector<int> &ind, const std::v
 std::vector<double> processNHPPLikelihood(const std::vector<int> &ind, const std::vector<double> &ts, const std::vector<double> &te, 
 														 							const double qRate, const std::vector<double> &gammaRates) {
 
-	const size_t N_GAMMA = gammaRates.size();
-	const double LOG_DIVISOR = log(N_GAMMA);
+	size_t N_GAMMA = gammaRates.size();
+	const double LOG_DIVISOR = log((double)N_GAMMA);
 
 	double LOG_Q_RATE = log(qRate);
-	double LOG_Q_GAMMA_RATE[N_GAMMA];
+	//double LOG_Q_GAMMA_RATE[N_GAMMA];
+	double* LOG_Q_GAMMA_RATE = new double[N_GAMMA];
 	for(size_t iG=0; iG<N_GAMMA; ++iG) {
 		LOG_Q_GAMMA_RATE[iG] = log(gammaRates[iG]*qRate);
 	}	
@@ -596,7 +597,7 @@ std::vector<double> PyRateC_HPP_vec_lik(std::vector <int> ind,
 
 	// Compute the likelihood for each specie
 	std::vector<double> logLik(fossils.size(), 0);
-	double logDivisor = log(N_GAMMA);
+	double logDivisor = log((double)N_GAMMA);
 	for(size_t iI=0; iI<ind.size(); ++iI) {
 		size_t iF = ind[iI]; // Specie index in fossils
 		std::pair<size_t, size_t> span;
