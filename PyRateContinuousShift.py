@@ -484,11 +484,11 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 	if args.m== -1: rr[0]=0 # never update Garray
 	
 	GIBBS = 0
-	effect_start_time=effect_start_timeA+0
+	if est_start_time: effect_start_time=effect_start_timeA+0
 	if iteration>10:
 		if rr[0]<sampling_freqs[0] or iteration<1000:
 			
-			effect_start_time = update_parameter(effect_start_timeA,m=0.5,M=max_times_of_T_change_tste-0.5,d=1)
+			if est_start_time: effect_start_time = update_parameter(effect_start_timeA,m=0.5,M=max_times_of_T_change_tste-0.5,d=1)
 			
 			if equal_r==0:
 				if rr[1]>.5: 
@@ -624,7 +624,7 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 		l0A=l0
 		m0A=m0
 		GarrayA=Garray
-		effect_start_timeA=effect_start_time
+		if est_start_time: effect_start_timeA=effect_start_time
 	if iteration % print_freq ==0: 
 		print iteration, array([postA, likA,lik,prior]), hasting, scal_fac_TI[scal_fac_ind]
 		print "l:",l0A, "\nm:", m0A, "\nG:", GarrayA.flatten()
