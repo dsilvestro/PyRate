@@ -154,7 +154,7 @@ else:
 	denom = (max(Temp_values)-min(Temp_values))
 	if denom==0: denom=1.
 	Temp_values = Temp_values/denom
-
+	Temp_values = Temp_values-min(Temp_values) # curve rescaled between 0 and 1
 
 #for i in range(len(Temp_values)):
 #	print "%s\t%s" % (times_of_T_change[i],Temp_values[i])
@@ -236,6 +236,7 @@ for i in range(len(np.unique(shift_ind))):
 	Temp_values= Temp_at_events[shift_ind==i]
 	#Temp_values= (Temp_values-Temp_values[-1]) # so l0 and m0 are rates at the end of the time bin
 	Temp_values= (Temp_values-mean(Temp_values)) # so l0 and m0 are rates at the mean temp value
+	Temp_values= (Temp_values-np.median([min(Temp_values),max(Temp_values)])) # so l0 and m0 are rates at the mean temp value
 	scaled_temp[shift_ind==i]= Temp_values
 
 Temp_at_events=scaled_temp
