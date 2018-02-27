@@ -16,7 +16,7 @@ np.set_printoptions(suppress=True) # prints floats, no scientific notation
 np.set_printoptions(precision=3) # rounds all array elements to 3rd digit
 from multiprocessing import Pool, freeze_support
 import thread
-small_number= 1e-5
+small_number= 1e-10
 
 def pNtvar(arg):
 	T=arg[0]
@@ -39,7 +39,7 @@ def getDT(T,s,e): # returns the Diversity Trajectory of s,e at times T
 	return array([len(s[s>t])-len(s[e>t]) for t in T])
 
 def get_DT(T,s,e): # returns the Diversity Trajectory of s,e at times T (x10 faster)
-	B=np.sort(np.append(T,T[0]+1))+.0001 # the + .0001 prevents problems with identical ages
+	B=np.sort(np.append(T,T[0]+1))+small_number # the + small_number prevents problems with identical ages
 	ss1 = np.histogram(s,bins=B)[0]
 	ee2 = np.histogram(e,bins=B)[0]
 	DD=(ss1-ee2)[::-1]
@@ -91,33 +91,33 @@ def get_VarValue_at_timeMCDD(all_Times,Var_values,times_of_T_change_indexes,time
 
 def trasfRate(r0,n,K,m,G):    # transforms a baseline rate r0 based on n taxa
 	rate=r0+r0*(n*K)+r0*(m*G)  # and a correlation parameter K
-	return np.amax(np.array((rate,zeros(len(rate))+.0001)),axis=0)
+	return np.amax(np.array((rate,zeros(len(rate))+small_number)),axis=0)
 
 def trasfMultiRate(r0,Garray_clade,Dtraj):     # transforms a baseline rate r0 based number of taxa scaled by max diversity over all clades
 	#mDtraj = Dtraj/np.mean(Dtraj, axis=0) # thus g is competition per species
 	mDtraj = Dtraj/np.max(Dtraj)
 	#mDtraj=(Dtraj-np.min(Dtraj, axis=0))/(np.max(Dtraj, axis=0)-np.min(Dtraj, axis=0))
 	r_rate=r0 + np.sum(r0 * Garray_clade * mDtraj,axis=1)
-	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+.0001)),axis=0)
+	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+small_number)),axis=0)
 	return r_rate
 
 def trasfMultiRateCladeScaling(r0,Garray_clade,Dtraj):    # transforms a baseline rate r0 based number of taxa scaled by max diversity for each clade
 	mDtraj = Dtraj/np.max(Dtraj, axis=0)              # thus g is competition per clade
 	r_rate=r0 + np.sum(r0 * Garray_clade * mDtraj,axis=1)
-	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+.0001)),axis=0)
+	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+small_number)),axis=0)
 	return r_rate
 
 def trasfMultiRateND(r0,Garray_clade,mDtraj):    # curves not transformed
 	#mDtraj=(Dtraj-np.min(Dtraj, axis=0))/(np.max(Dtraj, axis=0)-np.min(Dtraj, axis=0))
 	r_rate=r0 + np.sum(r0 * Garray_clade * mDtraj,axis=1)
-	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+.0001)),axis=0)
+	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+small_number)),axis=0)
 	return r_rate
 
 def trasfMultiRateND_exp(r0,Garray_clade,mDtraj):    # curves not transformed
 	#mDtraj=(Dtraj-np.min(Dtraj, axis=0))/(np.max(Dtraj, axis=0)-np.min(Dtraj, axis=0))
 	#r_rate=r0 + np.sum(r0 * Garray_clade * mDtraj,axis=1)
 	r_rate= r0* exp(np.sum(Garray_clade*mDtraj,axis=1)) 
-	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+.0001)),axis=0)
+	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+small_number)),axis=0)
 	return r_rate
 
 
@@ -131,30 +131,30 @@ def trasfMultiRateN(r0,Garray_clade,Dtraj,Ntraj, Narray_clade):    # transforms 
 	#mNtraj = Ntraj/np.max(Ntraj) 
 	#mDtraj=(Dtraj-np.min(Dtraj, axis=0))/(np.max(Dtraj, axis=0)-np.min(Dtraj, axis=0))
 	r_rate=r0 + np.sum(r0 * Garray_clade * mDtraj,axis=1) + np.sum(r0 * mNtraj * Narray_clade,axis=1)
-	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+.0001)),axis=0)
+	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+small_number)),axis=0)
 	return r_rate
 
 
 def trasfRateTemp(l0, alpha,Temp_at_events):
 	mTemp_at_events = Temp_at_events #/np.mean(Temp_at_events, axis=0)
 	r_rate= l0* exp(alpha*mTemp_at_events)
-	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+.0001)),axis=0)
+	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+small_number)),axis=0)
 	return r_rate
 
 def trasfMultipleRateTemp(L0, Alpha,mTemp_at_events,Index_at_events):
 	r_rate= L0[Index_at_events]* exp(Alpha[Index_at_events]*mTemp_at_events)
-	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+.0001)),axis=0)
+	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+small_number)),axis=0)
 	return r_rate
 
 def trasfRateTempLinear(l0, alpha,Temp_at_events):
 	mTemp_at_events = Temp_at_events #/np.mean(Temp_at_events, axis=0)
 	r_rate= l0 + l0*alpha*mTemp_at_events
-	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+.0001)),axis=0)
+	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+small_number)),axis=0)
 	return r_rate
 
 def trasfMultipleRateTempLinear(L0, Alpha,mTemp_at_events,Index_at_events):
 	r_rate= L0[Index_at_events] + L0[Index_at_events]*Alpha[Index_at_events]*mTemp_at_events
-	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+.0001)),axis=0)
+	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+small_number)),axis=0)
 	return r_rate
 
 
