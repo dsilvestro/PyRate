@@ -20,7 +20,7 @@ p.add_argument('-t0',        type=float, help='max age time slice', default=np.i
 p.add_argument('-t1',        type=float, help='min age time slice', default=0, metavar=0)
 p.add_argument('-seed',      type=int,   help='seed (if -1 -> random)', default=-1, metavar=-1)
 p.add_argument('-mu_species',type=int,   help='set to 1 to save extinction rates foreach trait combination', default=0, metavar=0)
-p.add_argument('-traits',    type=int ,  help="index trait(s)",metavar='',nargs='+',default=[0])
+p.add_argument('-traits',    type=int ,  help="index trait(s)",metavar='',nargs='+',default=[1])
 p.add_argument('-const',     type=int ,  help="if set to 1: trait independent rate",metavar=0,default=0)
 
 
@@ -178,14 +178,20 @@ if sim_data==1:
 
 else:
 	##### READ DATA
-	data = np.loadtxt(args.d, delimiter='\t', skiprows=1, usecols=range(1,8))
+	head = next(open(args.d)).split()
+	print head
+	data = np.loadtxt(args.d, delimiter='\t', skiprows=1, usecols=range(1,len(head)))
 	ts_list = data[:,0]
 	te_list = data[:,1]
-	#tr_list = data[:,2:7].astype(int)
-	#tr_list = data[:,5:7].astype(int)
-	traits_indx = np.array(args.traits)+2
+	tr_name_list = head[3:]
+	if min(args.traits) < 1 or max(args.traits) > len(tr_name_list):
+		sys.exit("Trait not found.")
+
+	traits_indx = np.array(args.traits)+1
+	print traits_indx, np.shape(data)
 	tr_list = data[:,traits_indx].astype(int)
-	print "Siza total dataset:", len(ts_list),len(te_list),len(tr_list)
+	print "Siza total dataset:", len(ts_list),len(te_list),len(tr_list), tr_name_list
+	
 	# subset data
 	old_sp = (te_list<max_age).nonzero()[0]
 	young_sp = (ts_list>min_age).nonzero()[0]
@@ -199,9 +205,11 @@ else:
 	te_list[te_list<=min_age] = 0.
 	if use_HP==0: m_tag = ""
 	elif use_HP==1: m_tag ="_hp1"
-	else: m_tag ="_hp2"
+	else: m_tag ="hp2"
 	trait_tag=""
-	for i in args.traits: trait_tag+= "%s_" % (i)
+	for i in args.traits: 
+		trait_tag+= "%s_" % (tr_name_list[i-1])
+	print trait_tag
 	if args.const== 1: trait_tag = "const_"
 	if max_age < np.inf or min_age > 0:
 		out_file_name = "trait_%s%s-%s%s.log" % (trait_tag,max_age,min_age,m_tag)
@@ -215,13 +223,13 @@ trait_categories_list = []
 mu_list = []
 for i in range(n_traits):
 	trait_categories_list.append(len(np.unique(tr_list[:,i])))
-	print np.unique(tr_list[:,i])
+	print "states", np.unique(tr_list[:,i])
 	mu_list.append( np.ones(len(np.unique(tr_list[:,i])))/len(np.unique(tr_list[:,i])) )
 
 n_lineages = len(ts_list)
 print mu_list, n_traits
 print np.shape(tr_list)
-print trait_categories_list
+print "states", trait_categories_list
 #quit()
 
 print "extinction rate (mle):", get_mle_mu(ts_list,te_list)
@@ -250,6 +258,7 @@ for i in range(n_lineages):
 		unique_trait_comb_indx.append(i)
 print "unique_trait_comb", len(unique_trait_comb_indx)
 print unique_trait_comb
+#quit()
 print trait_comb_all, len(trait_comb_all)
 print tr_list
 
