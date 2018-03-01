@@ -4,7 +4,7 @@ import os,platform,glob,sys
 import lib_utilities as util
 import csv 
 
-def get_marginal_rates(times,rates,grid):
+def get_marginal_rates_plot3(times,rates,grid):
 	mr = np.zeros(len(grid))
 	for i in range(len(times)-1):
 		grid_ind = np.intersect1d((grid<=times[i]).nonzero()[0],(grid>=times[i+1]).nonzero()[0])
@@ -43,7 +43,18 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 	wd = "%s" % os.path.dirname(f)
 	name_file=os.path.splitext(os.path.basename(f))[0]
 	t=loadtxt(f, skiprows=max(1,burnin))
-	head = next(open(f)).split() # should be faster
+	head = np.array(next(open(f)).split()) # should be faster
+	#print np.where(head=="beta")[0], np.where(head=="temperature")[0]
+	if "temperature" in head or "beta" in head:
+		if "temperature" in head: 
+			temp_index = np.where(head=="temperature")[0][0]
+		else: 
+			temp_index = np.where(head=="beta")[0][0]
+		temp_values = t[:,temp_index]
+		t = t[temp_values==1,:]
+		print "removed heated chains:",np.shape(t)
+	
+	head= list(head)
 	sp_ind = [head.index(s) for s in head if "lambda_" in s]
 	ex_ind = [head.index(s) for s in head if "mu_" in s]
 	root_ind  = head.index("root_age")
@@ -62,10 +73,10 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 	for i in range(n_samples):
 		l_shift_times = np.array([min_root_age]+ list(t[i,sp_shift_ind])+[max_death_age])
 		l_rates = t[i,sp_ind]
-		m_sp_matrix[i] = get_marginal_rates(l_shift_times,l_rates,grid)
+		m_sp_matrix[i] = get_marginal_rates_plot3(l_shift_times,l_rates,grid)
 		m_shift_times = np.array([min_root_age]+ list(t[i,ex_shift_ind])+[max_death_age])
 		m_rates = t[i,ex_ind]
-		m_ex_matrix[i] = get_marginal_rates(m_shift_times,m_rates,grid)
+		m_ex_matrix[i] = get_marginal_rates_plot3(m_shift_times,m_rates,grid)
 
 	res = np.zeros((n_bins,7)) # times, l, lM, lm, m, mM, mm
 	print "Calculating HPDs..."
