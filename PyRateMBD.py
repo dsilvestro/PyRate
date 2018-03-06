@@ -315,7 +315,7 @@ else:
 	GarrayA[fixed_focal_clade,:,:] += np.random.normal(0,0.001,np.shape(GarrayA[fixed_focal_clade,:,:]))
 	print dataset,args.j,model_name,out_tag
 	dataset_name = dataset.replace(".txt", "")
-	out_file_name="%s_%s_%s_%sMBD.log" % (dataset,args.j,model_name,out_tag)
+	out_file_name="%s_%s_%s_%sMBD.log" % (dataset_name,args.j,model_name,out_tag)
 	logfile = open(out_file_name , "wb") 
 	wlog=csv.writer(logfile, delimiter='\t')
 
