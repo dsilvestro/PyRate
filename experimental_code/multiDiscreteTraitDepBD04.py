@@ -75,6 +75,17 @@ def update_normal(q,d=0.5,f=0.5):
  	new_q = q + n
 	return new_q
 
+# the first is redundant and fixed to 0!
+def update_normal_first_zero(q,d=0.5,f=0.5):
+	S=np.shape(q)
+	ff=np.random.binomial(1,f,S)
+	ff[0] = 0
+	n = np.random.normal(0,d,S)
+	n[ff==0] = 0
+ 	new_q = q + n
+	return new_q
+	
+
 def prior_gamma(L,a=1,b=0.01):
 	return scipy.stats.gamma.logpdf(L, a, scale=1./b,loc=0)
 
@@ -207,8 +218,10 @@ else:
 	elif use_HP==1: m_tag ="_hp1"
 	else: m_tag ="hp2"
 	trait_tag=""
+	trait_name_vec = []
 	for i in args.traits: 
 		trait_tag+= "%s_" % (tr_name_list[i-1])
+		trait_name_vec.append(tr_name_list[i-1])
 	print trait_tag
 	if args.const== 1: trait_tag = "const_"
 	if max_age < np.inf or min_age > 0:
@@ -286,7 +299,7 @@ if use_HP==2: Gamma_b_prior = [10 for i in range(n_traits)]
 
 #multipA = np.array([0.75])
 ws_multi = 1.1
-Y_vecA = mu_list
+#Y_vecA = mu_list
 print "mu_list: ",mu_list
 iteration = 0 
 
@@ -298,10 +311,10 @@ wlog=csv.writer(logfile, delimiter='\t')
 head="it\tposterior\tlikelihood\tprior\tmean_r"
 for i in range(n_traits):
 	for j in range(trait_categories_list[i]):
-		head+= "\tm_%s_%s" % (args.traits[i],j)
+		head+= "\tm_%s_%s" % (trait_name_vec[i],j)
 for i in range(n_traits):
 	for j in range(trait_categories_list[i]):
-		head+= "\tsd_%s_%s" % (args.traits[i],j)
+		head+= "\tsd_%s_%s" % (trait_name_vec[i],j)
 
 if use_HP==1: head += "\tbeta_hp"
 
@@ -345,7 +358,8 @@ if args.const == 1: # constant rate model
 	freq_update_m  = 1
 
 
-
+#print Y_vecA
+#quit()
 # RUN MCMC
 while iteration <= n_iterations:
 	if iteration == it_change[ind_temp]+1:
@@ -356,9 +370,9 @@ while iteration <= n_iterations:
 	gibbs = 0
 	rr = np.random.random()
 	if rr < freq_update_Ys:
-		indx_updated_Y = np.random.choice(range(n_traits))
+		indx_updated_Y = np.random.choice(range(n_traits)) 
 		Y_vec = []+Y_vecA
-		Y_vec[indx_updated_Y] = update_normal(Y_vec[indx_updated_Y])
+		Y_vec[indx_updated_Y] = update_normal_first_zero(Y_vec[indx_updated_Y])
 		multip,hasting = multipA,0
 	elif rr <(freq_update_Ys+freq_update_m):
 		multip,hasting = update_multiplier(multipA,ws_multi,1)
@@ -403,6 +417,7 @@ while iteration <= n_iterations:
 			transform_trait_multiplier = exp(Y_vec[i])/sum(exp(Y_vec[i]))
 			post_temp += list(transform_trait_multiplier) #/mean(transform_trait_multiplier)) 
 		print np.array(post_temp)
+		print "Y ARRAY:", Y_vecA
 	if iteration % s_freq ==0:
 		post_temp,post_sd=[],[]
 		for i in range(n_traits):
