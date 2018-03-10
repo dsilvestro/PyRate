@@ -38,6 +38,6 @@ Other available options are:
 `-T 23` truncate at max time  
 `plot <logfile>` plot marginal rates through time as predicted by the MBD model  
 
-
+![Example RTT](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/Ferns_MBD_short_run.png)
 
 
