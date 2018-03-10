@@ -32,12 +32,11 @@ To launch an MBD analysis, you must provide the input file and the path to all p
 
 where `-m 1` specifies the type of correlation model, the options being `-m 0` for linear correlations and `-m 1` for exponential correlations. 
 
-Other available options are:
-`-out outname`
-`-var` directory with the variables
-`-rmDD 1` remove self-diversity dependence
-`-T 23` truncate at max time
-`plot <logfile>`
+Other available options are:  
+`-out outname` add a string to output file names   
+`-rmDD 1` remove self-diversity dependence  
+`-T 23` truncate at max time  
+`plot <logfile>` plot marginal rates through time as predicted by the MBD model  
 
 
 
