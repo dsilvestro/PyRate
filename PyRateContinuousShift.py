@@ -374,7 +374,6 @@ if summary_file != "":
 	plot(extinction ~ time,type="l",col="#e34a33",  lwd=3,main="Extinction rates", ylim = c(0,max(c(L_hpd_M,M_hpd_M))),xlab="Time",ylab="extinction",xlim=c(min(time),0))
 	polygon(c(time, rev(time)), c(M_hpd_M, rev(M_hpd_m)), col = alpha("#e34a33",0.3), border = NA)
 	abline(v %s,lty=2,col="gray")
-	n <- dev.off()
 	""" % (lib_utilities.print_R_vec("",-s_times),lib_utilities.print_R_vec("",-s_times))
 	
 	r_script+="n<-dev.off()"
@@ -526,12 +525,12 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 		else:
 			if rr[2]>.5 and args_mSpEx[0]> -1:
 				if equal_g==0:
-					Garray[0]=update_parameter_normal_2d(Garray[0],list_d2[scal_fac_ind]) 
+					Garray[0]=update_parameter_normal_2d_freq(Garray[0],list_d2[scal_fac_ind],f=.25,m=-1000,M=1000) 
 				else:
 					Garray[0,:]=update_parameter_normal(Garray[0,0],list_d2[scal_fac_ind])[0]
 			elif args_mSpEx[1]> -1:
 				if equal_g==0:
-					Garray[1]=update_parameter_normal_2d(Garray[1],list_d2[scal_fac_ind]) 
+					Garray[1]=update_parameter_normal_2d_freq(Garray[1],list_d2[scal_fac_ind],f=.25,m=-1000,M=1000) 
 				else:
 					Garray[1,:]=update_parameter_normal(Garray[1,0],list_d2[scal_fac_ind])[0]
 	#####
