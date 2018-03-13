@@ -59,6 +59,7 @@ p.add_argument('-mL',  type=str, help='calculate marginal likelihood',  default=
 p.add_argument('-stimes',  type=float, help='shift times',  default=[], metavar=0, nargs='+') 
 p.add_argument('-slice',  type=float, help='ages of the time slice of interest (23 -> 23-0; 23 2 -> 23-2)',  default=[], metavar=0, nargs="+") 
 p.add_argument("-est_start_time",  help='Estimate when the variable starts to have an effect (curve is flattened before that)', action='store_true', default=False)
+p.add_argument("-ws_start_time",   type=float, help='Window size update start time', default=1, metavar=1)
 p.add_argument('-extract_mcmc', type=int, help='Extract "cold" chain in separate log file', default=1, metavar=1)
 p.add_argument("-DD",  help='Diversity Dependent Model', action='store_true', default=False)
 p.add_argument('-plot', type=str, help='Log file', default="", metavar="")
@@ -81,6 +82,8 @@ focus_clade=args.clade
 win_size=args.w
 rep_j=max(args.j-1,0)
 est_start_time = args.est_start_time
+w_size_start_time = args.ws_start_time
+
 
 s_times=np.sort(np.array(args.stimes))[::-1]
 if len(args.slice)>0:
@@ -129,7 +132,6 @@ else:
 	if args.m==  0: args_mSpEx = [0,0]
 	if args.m==  1: args_mSpEx = [1,1]
 out_model = ["const","exp","lin"]
-
 
 #print len(ts),len(te[te>0]),sum(ts-te)
 
@@ -219,8 +221,10 @@ if len(s_times)>0:
 ##
 if est_start_time:
 	### Get indexes of all events based on times of shift
-	shift_ind_temp_CURVE = np.zeros(len(times_of_T_change_tste)).astype(int)
-	effect_start_timeA = max_times_of_T_change_tste/2.
+	shift_ind_temp_CURVE = np.zeros(len(times_of_T_change_tste)).astype(int)	
+	max_est_start_time = min(max(ts),max(times_of_T_change))
+	print "max allowed start time:",max_est_start_time
+	effect_start_timeA = max_est_start_time*np.random.uniform(0.1,0.9)
 	bins_h_temp = sort([max_times_of_T_change_tste+1,-1] + [effect_start_timeA])
 	# hist gives the number of events within each time bin (between shifts)
 	hist_temp=np.histogram(times_of_T_change_tste,bins=bins_h_temp)[0][::-1]
@@ -401,9 +405,13 @@ if equal_r==1: add_equal_r="ER"
 else: add_equal_r=""
 if est_start_time:
 	add_equal_r+="_ST" # estimateeffect starting time
+if useHP==1: add_use_hp ="_HP"
+else: add_use_hp =""
+	
 
-out_file_name="%s/%s_%s_%s_%s%sSp_%sEx%s%s.log" % \
-(output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],rep_j,s_times_str,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]],add_equal_g,add_equal_r)
+
+out_file_name="%s/%s_%s_%s_%s%sSp_%sEx%s%s%s.log" % \
+(output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],rep_j,s_times_str,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]],add_equal_g,add_equal_r,add_use_hp)
 
 
 
@@ -488,7 +496,7 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 	if iteration>10:
 		if rr[0]<sampling_freqs[0] or iteration<1000:
 			
-			if est_start_time: effect_start_time = update_parameter(effect_start_timeA,m=0.5,M=max_times_of_T_change_tste-0.5,d=1)
+			if est_start_time: effect_start_time = update_parameter(effect_start_timeA,m=0.5,M=max_est_start_time-0.5,d=w_size_start_time)
 			
 			if equal_r==0:
 				if rr[1]>.5: 
@@ -553,14 +561,14 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 	if args_mSpEx[0]==1: 
 		l_at_events=trasfMultipleRateTempLinear(l0, Garray[0],modified_Temp_at_events,shift_ind)
 	if args_mSpEx[0]== -1: 
-		l_at_events=np.repeat(l0,len(modified_Temp_at_events))
+		l_at_events=trasfMultipleRateTempLinear(l0, Garray[0],modified_Temp_at_events,shift_ind) #np.repeat(l0,len(modified_Temp_at_events))
 	
 	if args_mSpEx[1]==0: 
 		m_at_events=trasfMultipleRateTemp(m0, Garray[1],modified_Temp_at_events,shift_ind)
 	if args_mSpEx[1]==1: 
 		m_at_events=trasfMultipleRateTempLinear(m0, Garray[1],modified_Temp_at_events,shift_ind)
 	if args_mSpEx[1]== -1: 
-		m_at_events=np.repeat(m0,len(modified_Temp_at_events))
+		m_at_events=trasfMultipleRateTempLinear(m0, Garray[1],modified_Temp_at_events,shift_ind) #np.repeat(m0,len(modified_Temp_at_events))
 
 	#if iteration % 10000==0:
 	#	print modified_Temp_at_events
