@@ -13,19 +13,17 @@ def F(p=0.05, BF_threshold=6):
 	return A/(A+1)
 
 p = argparse.ArgumentParser() #description='<input file>') 
-p.add_argument('-A',         type=int,   help='set 1 to estimate marginal likelihood', default=0, metavar=0)
-p.add_argument('-d',         type=str,   help='input file', default="", metavar="<inputfile.txt>")
-p.add_argument('-n',         type=int,   help='mcmc generations',default=100000, metavar=100000)
-p.add_argument('-s',         type=int,   help='sample freq.', default=100, metavar=100)
-p.add_argument('-p',         type=int,   help='print freq.', default=1000, metavar=1000)
-p.add_argument('-hp',        type=int,   help='set to 0) for fixed (flat) rate parameter (G prior on tau), 1) for single estimated prior for all traits, \
-2) for one estimated prior for each trait (only works if -A 0)', default=2, metavar=2)
-p.add_argument('-t0',        type=float, help='max age time slice', default=np.inf, metavar=np.inf)
-p.add_argument('-t1',        type=float, help='min age time slice', default=0, metavar=0)
-p.add_argument('-seed',      type=int,   help='seed (if -1 -> random)', default=-1, metavar=-1)
-p.add_argument('-mu_species',type=int,   help='set to 1 to save extinction rates foreach trait combination', default=0, metavar=0)
-p.add_argument('-traits',    type=int ,  help="index trait(s)",metavar='',nargs='+',default=[])
-p.add_argument('-const',     type=int ,  help="if set to 1: trait independent rate",metavar=0,default=0)
+p.add_argument('-A',          type=int,   help='set 1 to estimate marginal likelihood', default=0, metavar=0)
+p.add_argument('-d',          type=str,   help='input file', default="", metavar="<inputfile.txt>")
+p.add_argument('-n',          type=int,   help='mcmc generations',default=100000, metavar=100000)
+p.add_argument('-s',          type=int,   help='sample freq.', default=100, metavar=100)
+p.add_argument('-p',          type=int,   help='print freq.', default=1000, metavar=1000)
+p.add_argument('-t0',         type=float, help='max age time slice', default=np.inf, metavar=np.inf)
+p.add_argument('-t1',         type=float, help='min age time slice', default=0, metavar=0)
+p.add_argument('-seed',       type=int,   help='seed (if -1 -> random)', default=-1, metavar=-1)
+p.add_argument('-mu_species', type=int,   help='set to 1 to save extinction rates foreach trait combination', default=0, metavar=0)
+p.add_argument('-traits',     type=int ,  help="index trait(s)",metavar='',nargs='+',default=[])
+p.add_argument('-const',      type=int ,  help="if set to 1: trait independent rate",metavar=0,default=0)
 p.add_argument('-out',        type=str, help='output string', default="", metavar="")
 p.add_argument('-bvs',        type=int,help='use BVS', default=1, metavar=1)
 p.add_argument('-pI',         type=float,help='output string', default=0.05, metavar=0.05)
@@ -34,7 +32,6 @@ p.add_argument('-pI',         type=float,help='output string', default=0.05, met
 
 args = p.parse_args()
 
-use_HP = args.hp 
 n_iterations = args.n
 s_freq = args.s
 p_freq = args.p
@@ -159,9 +156,9 @@ te_list[te_list<=0] = 0.
 m_tag = ""
 trait_tag=""
 trait_name_vec = []
-for i in range(1,len(traits_indx)+1):
-	#trait_tag+= "%s_" % (tr_name_list[i-1])
-	trait_name_vec.append(tr_name_list[i-1])
+print tr_name_list,traits_indx
+for i in traits_indx:
+	trait_name_vec.append(tr_name_list[i-2])
 
 # output directory
 self_path= os.path.dirname(sys.argv[0])
@@ -257,6 +254,7 @@ logfile = open(out_file_name , "wb")
 wlog=csv.writer(logfile, delimiter='\t')
 
 head="it\tposterior\tlikelihood\tprior\tmean_r"
+print trait_name_vec
 for i in range(n_traits):
 	head+= "\tI_%s" % (trait_name_vec[i])
 for i in range(n_traits):
@@ -389,11 +387,11 @@ while iteration <= n_iterations:
 			#transform_trait_multiplier_temp = Y_vec[i] # exp(Y_vec[i])/sum(exp(Y_vec[i]))
 			#post_temp += list(transform_trait_multiplier_temp)
 			if I_vecA[i]==0:
-				transform_trait_multiplier_temp = np.ones(len(Y_vec[i]))/len(Y_vec[i])
+				transform_trait_multiplier_temp = np.ones(len(Y_vecA[i]))/len(Y_vecA[i])
 			else:
-				transform_trait_multiplier_temp = exp(Y_vec[i])/sum(exp(Y_vec[i])) #
+				transform_trait_multiplier_temp = exp(Y_vecA[i])/sum(exp(Y_vecA[i])) #
 			
-			transform_trait_multiplier_temp = exp(Y_vec[i])/sum(exp(Y_vec[i]))
+			transform_trait_multiplier_temp = exp(Y_vecA[i])/sum(exp(Y_vecA[i]))
 			post_temp += list(transform_trait_multiplier_temp) #/mean(transform_trait_multiplier_temp)) 
 		post_sd   = list(std_HP)
 		post_log = [iteration, likA+priorA, likA, priorA,multipA[0]] + list(I_vecA) + post_temp + post_sd
