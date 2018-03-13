@@ -437,65 +437,6 @@ def get_score(a,b,max_length_diff):
 	if score==1: s_diff=0
 	return score, s_diff
 
-def check_taxa_names(SpeciesList_file):
-	w=np.genfromtxt(SpeciesList_file, dtype=str)[:,0]
-	words = np.unique(w)
-	print "\nTaxa names with possible misspells (if any) will be listed below..."
-	word_combinations = itertools.combinations(words,2)
-	
-	# sensitivity settings
-	max_length_diff = 2 # maximum allowed difference between string lengths
-	threshold_score = 0.7
-	threshold_s_diff = 3
-	all_scores = []
-
-	for w in word_combinations: 
-		taxon1 = w[0]
-		taxon2 = w[1]
-		score_all, diff_all = get_score(taxon1,taxon2,max_length_diff)
-		# GENUS
-		a = taxon1.split("_")[0]
-		b = taxon2.split("_")[0]
-		score_genus, diff_genus = get_score(a,b,max_length_diff)
-		# SPECIES
-		if len(taxon1.split("_"))>1 and len(taxon2.split("_"))>1:
-			a = taxon1.split("_")[1]
-			b = taxon2.split("_")[1]
-			score_species, diff_species = get_score(a,b,max_length_diff)
-		else: score_species, diff_species = score_genus,0	
-		s_diff = diff_genus+diff_species	
-		if (score_genus+score_species)<2:
-			if score_all > threshold_score and diff_all <= threshold_s_diff:
-				if np.mean([score_genus,score_species]) > threshold_score and s_diff <= threshold_s_diff:
-					all_scores.append([taxon1, taxon2,round(score_all,3),round(score_genus,3),
-					round(score_species,3),int(s_diff)])
-
-	all_scores = np.array(all_scores)
-	# top hits:
-	score_float = all_scores[:,2].astype(float)
-	diff_int    = all_scores[:,5].astype(int)
-	if len(all_scores)==0: sys.exit("No typos found!")
-	th1,th2 = 0.9,1
-	passed = np.array([])
-	while True:
-		pass1 = (score_float>th1).nonzero()[0]
-		pass2 = (diff_int<=th2).nonzero()[0]
-		res = np.union1d(pass1,pass2)
-		for i in res: 
-			if i not in passed: 
-				print '\t'.join(all_scores[i])
-		if len(res)==0: print "No typos found!"
-		passed = np.union1d(res,passed)
-		if len(passed)==len(all_scores): break
-		answ = raw_input("\nShow more results using lower threshold (y or n)? ")
-		if answ=="y":
-			th1 -= 0.1
-			th2 += 1
-		else: break
-
-
-
-
 def reduce_log_file(log_file,burnin=1): # written by Tobias Hofmann (tobias.hofmann@bioenv.gu.se)
 	print log_file
 	target_columns = ["it","posterior","prior","PP_lik","BD_lik","q_rate","alpha","k_birth","k_death","root_age","death_age"]

@@ -5,7 +5,7 @@ import random as rand
 import warnings, imp
 
 version= "PyRate"
-build  = "v2.0 - 20170811"
+build  = "v2.0 - 20180313"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
@@ -3120,6 +3120,7 @@ if args.ginput != "" or args.check_names != "" or args.reduceLog != "":
 	 	sys.path.append(os.path.join(self_path,pyrate_lib_path)) 	
 		import lib_DD_likelihood
 		import lib_utilities
+		import check_species_names
 	
  	except:
 		sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
@@ -3129,7 +3130,7 @@ if args.ginput != "" or args.check_names != "" or args.reduceLog != "":
 		lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=-1,burnin=int(burnin)+1)
 	elif args.check_names != "":
 		SpeciesList_file = args.check_names
-		lib_utilities.check_taxa_names(SpeciesList_file)
+		check_species_names.run_name_check(SpeciesList_file)
 	elif args.reduceLog != "":
 		lib_utilities.reduce_log_file(args.reduceLog,max(1,int(args.b)))
 	quit()
