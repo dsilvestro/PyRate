@@ -78,6 +78,8 @@ def get_VarValue_at_timeMCDD(all_Times,Var_values,times_of_T_change_indexes,time
 			 j+=1
 		elif time_t > max(times_of_T_change):
 			 variable.append(Var_values[0])
+		elif j >= len(Var_values): # if the variable values do not reach the present assume most recent value
+			variable.append(Var_values[len(Var_values)-1])
 		else: variable.append(Var_values[j])
 	return array(variable)
 
