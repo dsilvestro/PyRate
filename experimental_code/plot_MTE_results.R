@@ -14,12 +14,14 @@ plot_mte <- function(logfile,color_trait=c()){
 	if (length(color_trait)==0){
 		color_trait = rep("#66c2a5",length(trait_names))
 	}
-
+	
+	print_name= trait_names
+	
 	for (trait_i in 1:length(trait_names)){
 		indx_trait = grep(paste("m_",trait_names[trait_i],sep=""),colnames(tbl))
 		
 		indicator = tbl[,indx[trait_i]]
-		title = sprintf("P_effect = %s", round(mean(indicator),2))
+		title = sprintf("%s (P = %s)", print_name[trait_i], round(mean(indicator),2))
 		
 		tbl_red = tbl[,indx_trait]
 		colnames(tbl_red)= gsub(paste("m_",trait_names[trait_i],"_",sep=""),"", colnames(tbl_red)  )
@@ -32,7 +34,7 @@ plot_mte <- function(logfile,color_trait=c()){
 }
 
 
-color_trait = c("#66c2a5","#fc8d62","#8da0cb","#e78ac3","#a6d854")
+color_trait = c("#66c2a5","#fc8d62","#8da0cb","#e78ac3","#a6d854","#ffd92f")
 
-f = "mte_output.log"
-plot_mte(f,color_trait)
+#f = "mte_output.log"
+#plot_mte(f,color_trait)
