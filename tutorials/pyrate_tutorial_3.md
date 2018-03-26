@@ -75,7 +75,7 @@ PyRate includes a utility function to combine output files from different runs i
 
  where: `-combLog .../pyrate_mcmc_logs` provides the full path to the log files, `-b 1000` specifies that the first 1,000 samples should be removed as burn-in, `-tag x` specifies that all files containing x in the file name should be combined. These commands generate output files named “combined\_[n]\_mcmc.log”, "combined\_[n]\_sp\_rates.log", and "combined\_[n]\_ex\_rates.log", where [n] is the number of combined replicates. 
  
-For the `mcmc.log` file you can select which columns you want to include in the combined log file. For instance, adding the flag `-col_tag posterior root_age death_age` will combine only the three columns with headers `posterior`,`root_age`, and `death_age` (while ignoring all other parameters). Note that only `root_age`, and `death_age` are needed to run the `-plotRJ` function.
+For the `mcmc.log` file you can select which columns you want to include in the combined log file. For instance, adding the flag `-col_tag posterior root_age death_age` will combine only the three columns with headers `posterior`,`root_age`, and `death_age` (while ignoring all other parameters). Note that only `root_age`, and `death_age` are needed to run the [`-plotRJ`](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#plot-rates-through-time-and-rate-shifts) function.
 
 To avoid producing too large combined files you can sub-sample the log file, using the flag `-resample`. For example the command
 
