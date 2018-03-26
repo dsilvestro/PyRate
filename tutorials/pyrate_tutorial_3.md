@@ -1,11 +1,12 @@
-# PyRate Tutorial \#3
+# PyRate Tutorial \#3 RJMCMC
 #### Feb 2018
 ***
 #### Contents
 * [Setting up an analysis using RJMCMC](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#setting-up-an-analysis-using-rjmcmc)  
 * [RJMCMC output](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#rjmcmc-output)  
 * [Summarize model probabilities](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#summarize-model-probabilities)    
-* [Rates through time and rate shifts](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#rates-through-time-and-rate-shifts)  
+* [Plot rates through time and rate shifts](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#rates-through-time-and-rate-shifts)  
+* [Combine log files from multiple replicates](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#combine-log-files-from-multiple-replicates)  
 
 Useful links:  
 [PyRate code](https://github.com/dsilvestro/PyRate)  [PyRate wiki](https://github.com/dsilvestro/PyRate/wiki)
@@ -38,7 +39,8 @@ Tab-separated table with the MCMC samples of the posterior, prior, likelihoods o
 #### 3) sp\_rates.log, ex\_rates.log
 Tab-separated text files providing sampled rates and times of rate shifts. Note that, because the number of shifts is likely to change throughout the RJMCMC, the number of columns in the text file is not fixed. This file can be analyzed using the command `-plotRJ` to obtain plots of the marginal rates through time and the most probable temporal placement of rate shifts, if any (see below). 
 
-An alternative output file (the **marginal_rates.log** file described in tutorial \#1) can be obtained instead, using the command `-log_marginal_rates 1` when setting up the analysis. Note, that this output can be processed using the command `-plot` to obtain rates-through-time plots (see Tutorial #1), but it cannot be analyzed using the command `plotRJ`, to assess the temporal placement of significant rate shifts.
+#### 4) marginal\_rates.log (old format)
+An alternative output file ([the **marginal_rates.log** file described in tutorial \#1](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#output-files))  can be obtained instead, using the command `-log_marginal_rates 1` when setting up the analysis. Note, that this output can be processed using the command `-plot` to obtain rates-through-time plots (see Tutorial #1), but it cannot be analyzed using the command `plotRJ`, to assess the temporal placement of significant rate shifts.
 
 ## Summarize model probabilities
 The **mcmc.log** file can be used to calculate the sampling frequencies of birth-death models with different number of rate shifts. This is done by using the PyRate command `-mProb` followed by the log file:
@@ -48,7 +50,7 @@ The **mcmc.log** file can be used to calculate the sampling frequencies of birth
 where the flag `-b 200` indicates that the first 200 samples will be removed (i.e. the first 200,000 iterations, if the sampling frequency was set to 1,000). This command will provide a table (printed on screen) with the relative probabilities of birth-death models with different number of rate shifts. 
 
 
-## Rates through time and rate shifts
+## Plot rates through time and rate shifts
 The **sp_rates.log** and **ex_rates.log** files can be used to generate rates-through-time plots using the function `-plotRJ`:
 
 `python PyRate.py -plotRJ .../path_to_log_files/ -b 200`
@@ -63,5 +65,21 @@ The command `-root_plot` can be used to truncate the plot to a given maximum age
 
 ![Example RTT](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/RTT_plot_RJMCMC.png)
 
-` -col_tag posterior root_age death_age` to combine mcmc log files
+
+## Combine log files from multiple replicates
+PyRate includes a utility function to combine output files from different runs into one file. Assuming that all output files form the previous analyses are in the same pyrate mcmc logs directory, the log files are combined using: 
+
+`python PyRate.py -combLog .../pyrate_mcmc_logs -b 1000 -tag mcmc` 
+`python PyRate.py -combLog .../pyrate_mcmc_logs -b 1000 -tag sp_rates`
+`python PyRate.py -combLog .../pyrate_mcmc_logs -b 1000 -tag ex_rates`
+
+ where: `-combLog .../pyrate_mcmc_logs` provides the full path to the log files, `-b 1000` specifies that the first 1,000 samples should be removed as burn-in, `-tag x` specifies that all files containing x in the file name should be combined. These commands generate output files named “combined\_[n]\_mcmc.log”, "combined\_[n]\_sp\_rates.log", and "combined\_[n]\_ex\_rates.log", where [n] is the number of combined replicates. 
+ 
+For the `mcmc.log` file you can select which columns you want to include in the combined log file. For instance, adding the flag `-col_tag posterior root_age death_age` will combine only the three columns with headers `posterior`,`root_age`, and `death_age` (while ignoring all other parameters). Note that only `root_age`, and `death_age` are needed to run the `-plotRJ` function.
+
+To avoid producing too large combined files you can sub-sample the log file, using the flag `-resample`. For example the command
+
+`python PyRate.py -combLog .../pyrate_mcmc_logs -b 1000 -tag mcmc -resample 100` 
+
+specifies that 100 random samples should be taken from each replicate and saved into the combined log files. 
 
