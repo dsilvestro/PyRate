@@ -69,9 +69,9 @@ The command `-root_plot` can be used to truncate the plot to a given maximum age
 ## Combine log files from multiple replicates
 PyRate includes a utility function to combine output files from different runs into one file. Assuming that all output files form the previous analyses are in the same pyrate mcmc logs directory, the log files are combined using: 
 
-`python PyRate.py -combLog .../pyrate_mcmc_logs -b 1000 -tag mcmc` 
-`python PyRate.py -combLog .../pyrate_mcmc_logs -b 1000 -tag sp_rates`
-`python PyRate.py -combLog .../pyrate_mcmc_logs -b 1000 -tag ex_rates`
+`python PyRate.py -combLog .../pyrate_mcmc_logs -b 1000 -tag mcmc`   
+`python PyRate.py -combLog .../pyrate_mcmc_logs -b 1000 -tag sp_rates`  
+`python PyRate.py -combLog .../pyrate_mcmc_logs -b 1000 -tag ex_rates`  
 
  where: `-combLog .../pyrate_mcmc_logs` provides the full path to the log files, `-b 1000` specifies that the first 1,000 samples should be removed as burn-in, `-tag x` specifies that all files containing x in the file name should be combined. These commands generate output files named “combined\_[n]\_mcmc.log”, "combined\_[n]\_sp\_rates.log", and "combined\_[n]\_ex\_rates.log", where [n] is the number of combined replicates. 
  
