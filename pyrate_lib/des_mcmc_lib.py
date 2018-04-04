@@ -165,7 +165,11 @@ def calc_likelihood_mQ_eigen(args):
 		
 	[calc_lik_bin(j,L) for j in range(len(recursive))]	
 	PvDes_final=L[-1,:]
-	return np.log(np.sum(PvDes_final))
+	if np.sum(PvDes_final) <= 0: 
+		#print np.sum(PvDes_final), list(PvDes_final)
+		return -np.inf
+	else: 
+		return np.log(np.sum(PvDes_final))
 
 
 
@@ -255,6 +259,9 @@ def calc_likelihood_mQ(args):
 		PvDes= condLik_temp *rho_vec
 		
 		#print "temp,",t,PvDes,log(condLik_temp),rho_vec
+	if np.sum(PvDes) <= 0: 
+		print np.sum(PvDes), list(PvDes)
+	
 	return np.log(np.sum(PvDes))
 
 
