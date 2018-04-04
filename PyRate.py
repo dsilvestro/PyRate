@@ -888,12 +888,19 @@ def get_gamma_rates(a):
 	return array(m)*s # SCALED VALUES
 
 def init_ts_te(FA,LO):
-	ts=FA+np.random.exponential(.75, len(FA)) # exponential random starting point
-	tt=np.random.beta(2.5, 1, len(LO)) # beta random starting point
-	ts=FA+(.025*FA) #IMPROVE INIT
+	#ts=FA+np.random.exponential(.75, len(FA)) # exponential random starting point
+	#tt=np.random.beta(2.5, 1, len(LO)) # beta random starting point
+	#ts=FA+(.025*FA) #IMPROVE INIT
+	#te=LO-(.025*LO) #IMPROVE INIT
+	
+	brl = FA-LO
+	q = N/(brl+0.1)
+	
+	ts= FA+np.random.exponential(1./q,len(q))
+	te= LO-np.random.exponential(1./q,len(q))
+		
 	if max(ts) > boundMax:
 		ts[ts>boundMax] = np.random.uniform(FA[ts>boundMax],boundMax,len(ts[ts>boundMax])) # avoit init values outside bounds
-	te=LO-(.025*LO) #IMPROVE INIT
 	if min(te) < boundMin:
 		te[te<boundMin] = np.random.uniform(boundMin,LO[te<boundMin],len(te[te<boundMin])) # avoit init values outside bounds
 	#te=LO*tt
