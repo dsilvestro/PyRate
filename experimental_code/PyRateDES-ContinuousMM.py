@@ -61,6 +61,7 @@ p.add_argument('-k',  type=int,   help='TI - no. scaling factors', default=10, m
 p.add_argument('-a',  type=float, help='TI - shape beta distribution', default=.3, metavar=.3)
 p.add_argument('-hp',      help='Use hyper-prior on rates', action='store_true', default=False)
 p.add_argument('-pw',  type=float, help='Exponent acceptance ratio (ML)', default=58, metavar=58) # accept 0.95 post ratio with 5% prob
+p.add_argument('-seed',    type=int, help='seed (set to -1 to make it random)', default= 1, metavar= 1)
 
 p.add_argument('-d',  type=str, help='input data set',   default="", metavar="<input file>")
 p.add_argument('-n',      type=int, help='mcmc generations',default=100000, metavar=100000)
@@ -103,6 +104,15 @@ args = p.parse_args()
 if args.cite is True:
 	sys.exit(citation)
 simulation_no = args.i
+
+if args.seed==-1:
+	rseed=np.random.randint(0,9999)
+else: rseed=args.seed	
+random.seed(rseed)
+np.random.seed(rseed)
+
+print "Random seed: ", rseed
+
 burnin= args.b
 n_taxa= args.t
 num_processes=args.thread
@@ -405,12 +415,15 @@ covar_par_A =np.zeros(4)
 #############################################
 #####    time variable Q (no shifts)    #####
 #############################################
-var_file = args.var
-time_var_temp = get_binned_continuous_variable(time_series, var_file)
-
-# SHIFT TIME VARIABLE ()
-time_var = time_var_temp-time_var_temp[len(delta_t)-1]
-print "Rescaled variable",time_var, time_series
+try:
+	var_file = args.var
+	time_var_temp = get_binned_continuous_variable(time_series, var_file)
+	# SHIFT TIME VARIABLE ()
+	time_var = time_var_temp-time_var_temp[len(delta_t)-1]
+	print "Rescaled variable",time_var, time_series
+except:
+	time_var = np.ones(10)
+	print "Covariate-file not found"
 
 # DIVERSITY TRAJECTORIES
 tbl = np.genfromtxt(input_data, dtype=str, delimiter='\t')
@@ -642,7 +655,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 			#print "lik1:", lik
 			lik=0
 			for l in list_taxa_index:
-				Q_index_temp = np.array(range(0,len(w_list)))
+				Q_index_temp = np.array(range(0,len(Q_list)))
 				lik += calc_likelihood_mQ([delta_t,r_vec,Q_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp])
 			#print "lik2",lik
 			#print "elapsed time:", time.time()-t1
