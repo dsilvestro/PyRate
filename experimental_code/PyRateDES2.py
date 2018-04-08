@@ -77,10 +77,13 @@ p.add_argument('-sum',      type=str, help='Summarize results (provide log file)
 p.add_argument('-symd',     help='symmetric dispersal rates', action='store_true', default=False)
 p.add_argument('-syme',     help='symmetric extinction rates', action='store_true', default=False)
 p.add_argument('-symq',     help='symmetric preservation rates', action='store_true', default=False)
+p.add_argument('-symCov',   type=int,  help='symmetric correlations',  default=[], metavar=0, nargs='+') # '*'
 p.add_argument('-constq',   type=int,  help='if 1 (or 2): constant q in area 1 (or 2)', default=0)
 p.add_argument('-constr',   type=int, help='Contraints on covar parameters',  default=[], metavar=0, nargs='+') # '*'
+#p.add_argument('-constA',   type=int, help='Contraints on covar parameters',  default=[], metavar=0, nargs='+') # '*'
 p.add_argument('-data_in_area', type=int,  help='if data only in area 1 set to 1 (set to 2 if data only in area 2)', default=0)
-p.add_argument('-var',      type=str, help='Time variable file (e.g. PhanerozoicTempSmooth.txt)',  default="", metavar="")
+p.add_argument('-varD',      type=str, help='Time variable file DISPERSAL (e.g. PhanerozoicTempSmooth.txt)',  default="", metavar="")
+p.add_argument('-varE',      type=str, help='Time variable file EXTINCTION (e.g. PhanerozoicTempSmooth.txt)',  default="", metavar="")
 p.add_argument('-red',      type=int, help='if -red 1: reduce dataset to taxa with occs in both areas', default=0)
 p.add_argument('-DivdD',    help='Use Diversity dependent Dispersal',  action='store_true', default=False)
 p.add_argument('-DivdE',    help='Use Diversity dependent Extinction', action='store_true', default=False)
@@ -144,7 +147,7 @@ const_q = args.constq
 if args.A ==2: 
 	runMCMC = 0 # approximate ML estimation
 	n_generations   = 100000
-	update_freq     = [.33,.66,1]
+	update_freq     = [.4,.8,1]
 	sampling_freq   = 10
 	max_ML_iterations = 5000
 else: 
@@ -242,15 +245,14 @@ else:
 	model_tag=""
 	if args.TdD: model_tag+= "_TdD"
 	elif args.DivdD: model_tag+= "_DivdD"
-	else: 
-		if args.lgD: model_tag+= "_Dlg"
-		else: model_tag+= "_Dexp"
+	else: model_tag+= "_Dexp"
 	if args.TdE: model_tag+= "_TdE"
 	elif args.DivdE: model_tag+= "_DivdE"
 	elif args.DdE: model_tag+= "_DdE"
-	else: 
-		if args.lgE: model_tag+= "_Elg"
-		else: model_tag+= "_Eexp"
+	else: model_tag+= "_Eexp"
+
+	if args.lgD: model_tag+= "_lgD"
+	if args.lgE: model_tag+= "_lgE"
 	# constraints
 	if equal_d is True: model_tag+= "_symd"
 	if equal_e is True: model_tag+= "_syme"
@@ -259,8 +261,11 @@ else:
 	if runMCMC == 0: model_tag+= "_ML"
 	if len(constraints_covar)>0: model_tag+= "_constr"
 	for i in constraints_covar: model_tag+= "_%s" % (i)
+	if len(args.symCov)>0: model_tag+= "_symCov"
+	for i in args.symCov: model_tag+= "_%s" % (i)
 		
-	out_log ="%s/%sContinuous_%s%s%s%s%s.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag,model_tag,args.out)
+	out_log ="%s/%s_%s%s%s%s%s.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag,model_tag,args.out)
+	out_rates ="%s/%s_%s%s%s%s%s_marginal_rates.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag,model_tag,args.out)
 	time_series = np.sort(time_series)[::-1] # the order of the time vector is only used to assign the different Q matrices
 	                                         # to the correct time bin. Q_list[0] = root age, Q_list[n] = most recent
 
@@ -332,12 +337,12 @@ NOTE that Q_list[0] = root age, Q_list[n] = most recent
 n_Q_times=len(Q_times)+1
 dis_rate_vec=np.random.uniform(0.1,0.2,nareas*1).reshape(1,nareas)
 if args.TdD: 
-	dis_rate_vec=np.random.uniform(0.1,0.2,nareas*n_Q_times).reshape(n_Q_times,nareas)
-	dis_rate_vec = np.array([0.194,0.032,0.007,0.066,0.156,0.073]).reshape(n_Q_times,nareas)
+	dis_rate_vec=np.random.uniform(0.05,0.15,nareas*n_Q_times).reshape(n_Q_times,nareas)
+	#dis_rate_vec = np.array([0.194,0.032,0.007,0.066,0.156,0.073]).reshape(n_Q_times,nareas)
 ext_rate_vec=np.random.uniform(0.01,0.05,nareas*1).reshape(1,nareas)
 if args.TdE: 
 	ext_rate_vec=np.random.uniform(0.01,0.05,nareas*n_Q_times).reshape(n_Q_times,nareas)
-	ext_rate_vec = np.array([0.222,0.200,0.080,0.225,0.216,0.435]).reshape(n_Q_times,nareas)
+	#ext_rate_vec = np.array([0.222,0.200,0.080,0.225,0.216,0.435]).reshape(n_Q_times,nareas)
 if equal_d is True:
 	d_temp=dis_rate_vec[:,0]
 	dis_rate_vec = array([d_temp,d_temp]).T
@@ -351,6 +356,9 @@ r_vec[:,3]=1
 #q_rate_vec = np.array([0.317,1.826,1.987,1.886,2.902,2.648])
 #r_vec_temp  = exp(-q_rate_vec*bin_size).reshape(n_Q_times,nareas)
 #r_vec[:,1:3]=r_vec_temp
+
+
+
 
 
 # where r[1] = prob not obs in A; r[2] = prob not obs in B
@@ -408,7 +416,6 @@ head=head.split("\t")
 wlog=csv.writer(logfile, delimiter='\t')
 wlog.writerow(head)
 
-
 print "data size:", len(list_taxa_index), nTaxa, len(time_series)
 
 print "starting MCMC..."
@@ -426,18 +433,86 @@ print shape(r_vec_indexes_LIST[l]),shape(sign_list_LIST[l])
 covar_par_A =np.zeros(4)
 x0_logistic_A =np.zeros(4)
 
+
+# EMPIRICAL INIT EANA
+
+#dis_rate_vec=np.array([0.014585816,0.019537033,0.045284283,0.011647877,0.077365681,0.072545101]).reshape(n_Q_times,nareas)
+#    q_rate_vec = np.array([1.581652245,1.517955917 ,1.601288529 ,1.846235859 ,2.664323002 ,3.438584756])
+#    r_vec_temp  = exp(-q_rate_vec*bin_size).reshape(n_Q_times,nareas)
+#    r_vec[:,1:3]=r_vec_temp
+#    
+#    # start for TempD TempE
+#    ext_rate_vec = np.array([0.121 , 0.121]).reshape(1,nareas)
+#    dis_rate_vec = np.array([.053 , .053]).reshape(1,nareas)
+#    covar_par_A = np.array([-0.0118503199,-0.0118503199,-0.104669685,-0.104669685])
+#    
+#    ## start for TempD DdE
+#    # ./PyRateDES2.py -d /Users/danielesilvestro/Documents/Projects/DES_II/Carnivora/Carnivora_raw_data/neogene/EANAng3/EANAng3_rep1.txt -var /Users/danielesilvestro/Documents/Projects/DES_II/Carnivora/Carnivora_raw_data/neogene/NeogeneTempSmooth.txt -qtimes 5.3 2.6 -DdE -symCov 1 -A 2 -symd
+#    #ext_rate_vec = np.array([0.043327715,0.127886299]).reshape(1,nareas)
+#    #ext_rate_vec = np.array([0.12,0.12]).reshape(1,nareas)
+#    #dis_rate_vec = np.array([.05,.05]).reshape(1,nareas)
+#    #covar_par_A = np.array([-0.15,-0.15,0.279991284,0.070409858])
+#    covar_par_A = np.array([-0.011 ,-0.011 ,0 , 0])
+#    ext_rate_vec=np.array([0.151 , 0.151 , 0.159 , 0.159 , 0.327 , 0.327]).reshape(n_Q_times,nareas)
+#
+#	d: [ 0.096  0.096] e: [ 0.121  0.121] q: [ 1.603  1.513  1.61   1.785  2.634  3.465]
+#	a/k: [-0.022 -0.022  0.143  0.143] x0: [ 0.  0.  0.  0.]
+#	d: [ 0.053  0.053] e: [ 0.151  0.151  0.159  0.159  0.327  0.327] q: [ 1.598  1.521  1.595  1.757  2.688  3.455]
+#	a/k: [-0.011 -0.011  0.     0.   ] x0: [ 0.  0.  0.  0.]
+
+
+
+#-0.009073347	-0.138451368	-0.062747722	-0.059015597
+#dis_rate_vec=np.array([0.014585816,0.019537033,0.045284283,0.011647877,0.077365681,0.072545101]).reshape(n_Q_times,nareas)
+#q_rate_vec = np.array([0.32033397,1.958145806,1.948256733,1.835880139,2.542124041,2.720067697])
+#r_vec_temp  = exp(-q_rate_vec*bin_size).reshape(n_Q_times,nareas)
+#r_vec[:,1:3]=r_vec_temp
+#
+#dis_rate_vec=np.array([.18,.05,.18,0.1,.18,.05]).reshape(n_Q_times,nareas)
+#ext_rate_vec = np.array([0.25,0.25]).reshape(1,nareas)
+##dis_rate_vec = np.array([.18,.05]).reshape(1,nareas)
+#covar_par_A = np.array([0,0,-0.05,-0.05])
+#
+
+
+
+
+
 #############################################
 #####    time variable Q (no shifts)    #####
 #############################################
 try:
-	var_file = args.var
-	time_var_temp = get_binned_continuous_variable(time_series, var_file)
+	time_var_temp = get_binned_continuous_variable(time_series, args.varD)
 	# SHIFT TIME VARIABLE ()
 	time_var = time_var_temp-time_var_temp[len(delta_t)-1]
 	print "Rescaled variable",time_var, time_series
+	if args.varE=="":
+		time_varE=time_var
+	else:
+		## TEMP FOR EXTINCTION
+		time_var_temp = get_binned_continuous_variable(time_series, args.varE)
+		# SHIFT TIME VARIABLE ()
+		time_varE = time_var_temp-time_var_temp[len(delta_t)-1]
+		
 except:
 	time_var = np.ones(10)
 	print "Covariate-file not found"
+
+
+
+
+
+ratesfile = open(out_rates , "w",0) 
+head="it"
+for i in range(len(time_var)): head+= "\td12_%s" % (i)
+for i in range(len(time_var)): head+= "\td21_%s" % (i)
+for i in range(len(time_var)): head+= "\te1_%s" % (i)
+for i in range(len(time_var)): head+= "\te2_%s" % (i)
+head=head.split("\t")
+rlog=csv.writer(ratesfile, delimiter='\t')
+rlog.writerow(head)
+
+
 
 # DIVERSITY TRAJECTORIES
 tbl = np.genfromtxt(input_data, dtype=str, delimiter='\t')
@@ -470,15 +545,16 @@ def get_num_dispersals(dis_rate_vec,r_vec):
 	Pr1 = 1- r_vec[Q_index[0:-1],1] # remove last value (time zero)
 	Pr2 = 1- r_vec[Q_index[0:-1],2] 
 	# get dispersal rates through time
-	d12 = dis_rate_vec[0][0] *exp(covar_par[0]*time_var)
-	d21 = dis_rate_vec[0][1] *exp(covar_par[1]*time_var)
+	#d12 = dis_rate_vec[0][0] *exp(covar_par[0]*time_var)
+	#d21 = dis_rate_vec[0][1] *exp(covar_par[1]*time_var)
+	dr = dis_rate_vec
+	d12 = dr[:,0]
+	d21 = dr[:,1]
 	
-	numD1 = (div_traj_1/Pr1)*d12
-	numD2 = (div_traj_2/Pr2)*d21
-	numD12res = rescale_vec_to_range(numD1, r=10., m=0)
-	numD21res = rescale_vec_to_range(numD2, r=10., m=0)
+	numD12 = (div_traj_1/Pr1)*d12
+	numD21 = (div_traj_2/Pr2)*d21
 	
-	return numD12res,numD21res
+	return numD12,numD21
 
 def get_est_div_traj(r_vec):
 	Pr1 = 1- r_vec[Q_index[0:-1],1] # remove last value (time zero)
@@ -524,8 +600,14 @@ for it in range(n_generations * len(scal_fac_TI)):
 	x0_logistic=   x0_logistic_A + 0.
 	hasting = 0
 	gibbs_sample = 0
-	if it>0: r= np.random.random(3)
+	if it>0: 
+		if runMCMC == 1:
+			r= np.random.random(3)
+		elif it % 10==0:
+			r= np.random.random(3)
 	else: r = np.ones(3)+1
+	
+	if it<100: r[1]=1
 	
 	if r[0] < update_freq[0]: # DISPERSAL UPDATES
 		if args.TdD is False and r[1] < .5: # update covar
@@ -576,8 +658,17 @@ for it in range(n_generations * len(scal_fac_TI)):
 	if len(constraints_covar)>0:
 		covar_par[constraints_covar] = 0
 		x0_logistic[constraints_covar] = 0
+		dis_rate_vec[:,constraints_covar[constraints_covar<2]] = dis_rate_vec[0,constraints_covar[constraints_covar<2]]
+		ext_rate_vec[:,constraints_covar[constraints_covar>=2]-2] = ext_rate_vec[0,constraints_covar[constraints_covar>=2]-2]
+	if len(args.symCov)>0:
+		args_symCov = np.array(args.symCov)
+		covar_par[args_symCov] = covar_par[args_symCov-1] 
+		x0_logistic[args_symCov] = x0_logistic[args_symCov-1] 
+			
+	#dis_rate_vec[1:3,0] = dis_rate_vec[2,0]
+	
 	## CHANGE HERE TO FIRST OPTIMIZE DISPERSAL AND THEN EXTINCTION
-	if args.DdE and it < 500:
+	if args.DdE and it < 100:
 		covar_par[2:4]=0
 	
 	#x0_logistic = np.array([0,0,5,5])
@@ -596,11 +687,19 @@ for it in range(n_generations * len(scal_fac_TI)):
 		transf_d=1
 		dis_vec = dis_rate_vec
 		time_var_d1,time_var_d2=time_var,time_var
+
+	if args.lgD: transf_d = 2
 	
-	if args.DdE: # Dispersal dep Extinction
+
+	marginal_dispersal_rate_temp = get_dispersal_rate_through_time(dis_vec,time_var_d1,time_var_d2,covar_par,x0_logistic,transf_d)
+	numD12,numD21 =  get_num_dispersals(marginal_dispersal_rate_temp,r_vec)
+	
+	if args.DdE: # Dispersal dep Extinction		
+		numD12res = rescale_vec_to_range(numD12, r=10., m=0)
+		numD21res = rescale_vec_to_range(numD21, r=10., m=0)		
 		# NOTE THAT no. dispersals from 1=>2 affects extinction in 2 and vice versa
 		transf_e=1
- 		time_var_e2,time_var_e1 = get_num_dispersals(dis_rate_vec,r_vec)
+ 		time_var_e2,time_var_e1 = numD12res, numD21res
 		ext_vec = ext_rate_vec
 	elif args.DivdE: # Diversity dep Extinction
 		# NOTE THAT extinction in 1 depends diversity in 1
@@ -616,14 +715,12 @@ for it in range(n_generations * len(scal_fac_TI)):
 	else: # Temp dependent Extinction
 		ext_vec = ext_rate_vec
 		transf_e=1
-		time_var_e1,time_var_e2=time_var,time_var
+		time_var_e1,time_var_e2=time_varE,time_varE
 		
-		
-	if args.lgD: transf_d = 2
 	if args.lgE: transf_e = 2
 	
-	Q_list= make_Q_Covar4VDdE(dis_vec,ext_vec,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par,x0_logistic,transf_d,transf_e)
-		
+	Q_list, marginal_rates_temp= make_Q_Covar4VDdE(dis_vec,ext_vec,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par,x0_logistic,transf_d,transf_e)
+	
 	#__      
 	#__      
 	#__      
@@ -706,7 +803,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	
 	lik_alter = lik * scal_fac_TI[scal_fac_ind]
 
-	
+	accepted_state = 0
 	if np.isfinite((lik_alter+prior+hasting)) == True:
 		if it==0: 
 			likA=lik_alter+0.
@@ -715,25 +812,26 @@ for it in range(n_generations * len(scal_fac_TI)):
 		if runMCMC == 1:
 			# MCMC
 			if (lik_alter-(likA* scal_fac_TI[scal_fac_ind]) + prior-priorA +hasting >= log(np.random.uniform(0,1))) or (gibbs_sample == 1) :
-				dis_rate_vec_A= dis_rate_vec
-				ext_rate_vec_A= ext_rate_vec
-				r_vec_A=        r_vec
-				likA=lik
-				priorA=prior
-				covar_par_A=covar_par
-				x0_logistic_A=x0_logistic
+				accepted_state=1
 		else:
 			# ML (approx maximum a posteriori algorithm)
-			if ((lik_alter-(likA* scal_fac_TI[scal_fac_ind]))*map_power >= log(np.random.uniform(0,1))):
-				dis_rate_vec_A= dis_rate_vec
-				ext_rate_vec_A= ext_rate_vec
-				r_vec_A=        r_vec
-				likA=lik
-				priorA=prior
-				covar_par_A=covar_par
-				x0_logistic_A=x0_logistic
+			if ml_it==0: rr = 0 # only accept improvements
+			else: rr = log(np.random.uniform(0,1))
+			if (lik_alter-(likA* scal_fac_TI[scal_fac_ind]))*map_power >= rr:
+				accepted_state=1
+
+	if accepted_state:
+		dis_rate_vec_A= dis_rate_vec
+		ext_rate_vec_A= ext_rate_vec
+		r_vec_A=        r_vec
+		likA=lik
+		priorA=prior
+		covar_par_A=covar_par
+		x0_logistic_A=x0_logistic
+		marginal_rates_A = marginal_rates_temp
+		numD12A,numD21A = numD12,numD21
 	
-		
+	log_to_file=0	
 	if it % print_freq == 0:
 		sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
 		q_rates = -log(sampling_prob)/bin_size
@@ -741,36 +839,37 @@ for it in range(n_generations * len(scal_fac_TI)):
 		print "\td:", dis_rate_vec_A.flatten(), "e:", ext_rate_vec_A.flatten(),"q:",q_rates
 		print "\ta/k:",covar_par_A,"x0:",x0_logistic_A
 	if it % sampling_freq == 0 and it >= burnin and runMCMC == 1:
-		sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
-		q_rates = -log(sampling_prob)/bin_size
-		log_state= [it,likA+priorA, priorA,likA]+list(dis_rate_vec_A.flatten())+list(ext_rate_vec_A.flatten())+list(q_rates)
-		log_state = log_state+list(covar_par_A[0:2])	
-		if args.lgD: log_state = log_state+list(x0_logistic_A[0:2])
-		log_state = log_state+list(covar_par_A[2:4])	
-		if args.lgE: log_state = log_state+list(x0_logistic_A[2:4])
-		log_state = log_state+[prior_exp_rate]+[scal_fac_TI[scal_fac_ind]]
-		wlog.writerow(log_state)
-		logfile.flush()
-		os.fsync(logfile)
+		log_to_file=1
+		# sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
+		# q_rates = -log(sampling_prob)/bin_size
+		# log_state= [it,likA+priorA, priorA,likA]+list(dis_rate_vec_A.flatten())+list(ext_rate_vec_A.flatten())+list(q_rates)
+		# log_state = log_state+list(covar_par_A[0:2])	
+		# if args.lgD: log_state = log_state+list(x0_logistic_A[0:2])
+		# log_state = log_state+list(covar_par_A[2:4])	
+		# if args.lgE: log_state = log_state+list(x0_logistic_A[2:4])
+		# log_state = log_state+[prior_exp_rate]+[scal_fac_TI[scal_fac_ind]]
+		# wlog.writerow(log_state)
+		# logfile.flush()
+		# os.fsync(logfile)
 	if runMCMC == 0:
-		if likA>MLik:
-			sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
-			q_rates = -log(sampling_prob)/bin_size
-			log_state= [it,likA+priorA, priorA,likA]+list(dis_rate_vec_A.flatten())+list(ext_rate_vec_A.flatten())+list(q_rates)
-			log_state = log_state+list(covar_par_A[0:2])	
-			if args.lgD: log_state = log_state+list(x0_logistic_A[0:2])
-			log_state = log_state+list(covar_par_A[2:4])	
-			if args.lgE: log_state = log_state+list(x0_logistic_A[2:4])
-			log_state = log_state+[prior_exp_rate]+[scal_fac_TI[scal_fac_ind]]
-			wlog.writerow(log_state)
-			logfile.flush()
-			os.fsync(logfile)
+		if likA>MLik: 
+			log_to_file=1
+			# sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
+			# q_rates = -log(sampling_prob)/bin_size
+			# log_state= [it,likA+priorA, priorA,likA]+list(dis_rate_vec_A.flatten())+list(ext_rate_vec_A.flatten())+list(q_rates)
+			# log_state = log_state+list(covar_par_A[0:2])	
+			# if args.lgD: log_state = log_state+list(x0_logistic_A[0:2])
+			# log_state = log_state+list(covar_par_A[2:4])	
+			# if args.lgE: log_state = log_state+list(x0_logistic_A[2:4])
+			# log_state = log_state+[prior_exp_rate]+[scal_fac_TI[scal_fac_ind]]
+			# wlog.writerow(log_state)
+			# logfile.flush()
+			# os.fsync(logfile)
 			MLik=likA+0.
 			ML_dis_rate_vec = dis_rate_vec_A+0.
 			ML_ext_rate_vec = ext_rate_vec_A+0.
 			ML_covar_par    = covar_par_A   +0.
 			ML_r_vec        = r_vec_A       +0.
-			
 			ml_it=0
 		else:	ml_it +=1
 		# exit when ML convergence reached
@@ -780,7 +879,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 			ext_rate_vec_A = ML_ext_rate_vec
 			covar_par_A    = ML_covar_par   
 			r_vec_A        = ML_r_vec       
-		if ml_it==100:
+			#if ml_it==100:
 			print scale_proposal, "changed to:",
 			scale_proposal = 0.1
 			print scale_proposal
@@ -794,6 +893,35 @@ for it in range(n_generations * len(scal_fac_TI)):
 		if ml_it>max_ML_iterations:
 			msg= "Convergence reached. ML = %s (%s iterations)" % (round(MLik,3),it)
 			sys.exit(msg)
+	if log_to_file:
+		sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
+		q_rates = -log(sampling_prob)/bin_size
+		log_state= [it,likA+priorA, priorA,likA]+list(dis_rate_vec_A.flatten())+list(ext_rate_vec_A.flatten())+list(q_rates)
+		log_state = log_state+list(covar_par_A[0:2])	
+		if args.lgD: log_state = log_state+list(x0_logistic_A[0:2])
+		log_state = log_state+list(covar_par_A[2:4])	
+		if args.lgE: log_state = log_state+list(x0_logistic_A[2:4])
+		log_state = log_state+[prior_exp_rate]+[scal_fac_TI[scal_fac_ind]]
+		wlog.writerow(log_state)
+		logfile.flush()
+		
+	
+	log_marginal_rates = 1	
+	log_n_dispersals = 0
+	if log_marginal_rates and log_to_file == 1:
+		if log_n_dispersals:
+			temp_marginal_d12 = list(numD12A[::-1])
+			temp_marginal_d21 = list(numD21A[::-1])
+		else:			
+			temp_marginal_d12 = list(marginal_rates_A[0][:,0][::-1])
+			temp_marginal_d21 = list(marginal_rates_A[0][:,1][::-1])
+		temp_marginal_e1  = list(marginal_rates_A[1][:,0][::-1])
+		temp_marginal_e2  = list(marginal_rates_A[1][:,1][::-1])
+		log_state = [it]+temp_marginal_d12+temp_marginal_d21+temp_marginal_e1+temp_marginal_e2	
+		rlog.writerow(log_state)
+		ratesfile.flush()
+		os.fsync(ratesfile)
+		
 
 print "elapsed time:", time.time()-start_time
 
