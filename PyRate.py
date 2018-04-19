@@ -1051,6 +1051,73 @@ def update_ts_te(ts, te, d1):
 	ten[EX_not_in_window] = min([boundMin, min(ten[EX_in_window])])
 	return tsn,ten
 
+
+#### GIBBS SAMPLER S/E
+def draw_se_gibbs(fa,la,q_rates,q_times):	
+	t = np.sort(np.array([fa, la] + list(q_times)))[::-1]
+
+	# sample ts
+	prior_to_fa = np.arange(len(q_times))[q_times>fa]
+	tfa = (q_times[prior_to_fa]-fa)[::-1] # time since fa
+	qfa = q_rates[prior_to_fa][::-1] # rates before fa
+
+	ts_temp=0
+	for i in range(len(qfa)):
+		q = qfa[i]
+		deltaT = np.random.exponential(1./q)
+		ts_temp = min(ts_temp+deltaT, tfa[i])		
+		if ts_temp < tfa[i]: 
+			break
+
+	ts= ts_temp+fa
+	#print "TS:", ts, fa
+	#print q_times
+	#print la
+	
+	if la>0:
+		# sample te
+		after_la = np.arange(len(q_times))[q_times<la]
+		tla = (la-q_times[after_la]) # time after la
+		qla = q_rates[after_la-1] # rates after la
+		#print "QLA", qla, tla
+		te_temp=0
+		i,attempt=0,0
+		while True:
+			q = qla[i]
+			deltaT = np.random.exponential(1./q)
+			te_temp = min(te_temp+deltaT, tla[i])		
+			#print attempt,i,te_temp,len(qla)
+			if te_temp < tla[i]: 
+				break
+			i+=1
+			attempt+=1
+			if i == len(qla):
+				i= 0 # try again
+			if attempt==100:
+				te_temp = np.random.uniform(0,la)
+				break
+	
+		te= la-te_temp
+		#print "TE:", te
+	else:
+		te=0
+	return (ts,te)
+
+def gibbs_update_ts_te(q_rates,q_time_frames):
+	q_times= q_time_frames+0
+	q_times[0] = np.inf
+	new_ts = []
+	new_te = []
+	for sp_indx in range(0,len(FA)):
+		#print "sp",sp_indx
+		s,e = draw_se_gibbs(FA[sp_indx],LO[sp_indx],q_rates,q_times)
+		new_ts.append(s)
+		new_te.append(e)
+	return np.array(new_ts), np.array(new_te)
+	
+
+
+
 def seed_missing(x,m,s): # assigns random normally distributed trait values to missing data
 	return np.isnan(x)*np.random.normal(m,s)+np.nan_to_num(x)
 
@@ -2317,9 +2384,10 @@ def MCMC(all_arg):
 		mod_d3= list_d3[tmp] # window size rates
 		mod_d4= list_d4[tmp] # window size shift times
 		
-        
 		if rr<f_update_se: # ts/te
 			ts,te=update_ts_te(tsA,teA,mod_d1)
+			if use_gibbs_se_sampling:
+				ts,te = gibbs_update_ts_te(q_ratesA,np.sort(np.array([np.inf,0]+times_q_shift))[::-1])
 			tot_L=sum(ts-te)
 		elif rr<f_update_q: # q/alpha
 			q_rates=np.zeros(len(q_ratesA))+q_ratesA
@@ -2710,6 +2778,11 @@ def MCMC(all_arg):
 		if it>0 and (it-burnin) % (I_effective/len(temperatures)) == 0 and it>burnin or it==I-1: 
 			accept_it = 1 # when temperature changes always accept first iteration
 			PostA = Post
+        	
+		if rr<f_update_se and use_gibbs_se_sampling==1:
+			accept_it = 1
+		
+		
 		
 		#print Post, PostA, q_ratesA, sum(lik_fossil), sum(likBDtemp),  prior
 		if Post>-inf and Post<inf:
@@ -2973,6 +3046,7 @@ p.add_argument('-rj_Gb',       type=float, help='RJ - rate of gamma proposal (if
 p.add_argument('-rj_beta',     type=float, help='RJ - shape of beta multiplier (if rj_pr 1)',default=10, metavar=10)
 p.add_argument('-rj_dm',       type=float, help='RJ - allow double moves (0: no, 1: yes)',default=0, metavar=0)
 p.add_argument('-rj_bd_shift', type=float, help='RJ - 0: only sample shifts in speciation; 1: only sample shifts in extinction',default=0.5, metavar=0.5)
+p.add_argument('-se_gibbs',    help='Use aprroximate S/E Gibbs sampler', action='store_true', default=False)
 
 # PRIORS
 p.add_argument('-pL',      type=float, help='Prior - speciation rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.1, 1.1], metavar=1.1, nargs=2)
@@ -3111,6 +3185,11 @@ if model_cov==0: freq_list[2]=0
 f_update_se=1-sum(freq_list)
 if frac1==0: f_update_se=0
 [f_update_q,f_update_lm,f_update_cov]=f_update_se+np.cumsum(array(freq_list))
+
+
+if args.se_gibbs: use_gibbs_se_sampling = 1
+else: use_gibbs_se_sampling = 0
+
 
 multiR = args.multiR
 if multiR==0:
@@ -3473,6 +3552,7 @@ if no_starting_lineages>0:
 ################	
 
 if argsG == 1: out_name += "_G"
+if args.se_gibbs: out_name += "_seGibbs"
 
 ############################ SET BIRTH-DEATH MODEL ############################
 
