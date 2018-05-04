@@ -2269,7 +2269,7 @@ def MCMC(all_arg):
 				MAt = restore_init_values[4]
 				if len(LAt) == len(LA): LA = LAt # if restored mcmc has different number of rates ignore them
 				if len(MAt) == len(MA): MA = MAt
-			if use_ADE_model == 1: MA = np.random.uniform(3,5,len(timesMA)-1)
+			if use_ADE_model >= 1: MA = np.random.uniform(3,5,len(timesMA)-1)
 			if use_Death_model == 1: LA = np.ones(1)
 			if useDiscreteTraitModel == 1: 
 				LA = init_BD(len(lengths_B_events)+1)
@@ -2602,7 +2602,7 @@ def MCMC(all_arg):
 					else:
 						likBDtemp = BD_lik_discrete_trait([ts,te,L,M])
 						
-				elif use_ADE_model == 1 and TPP_model == 1: 
+				elif use_ADE_model >= 1 and TPP_model == 1: 
 					likBDtemp = BD_age_lik_vec_times([ts,te,timesL,W_shape,M,q_rates,q_time_frames])
 				elif fix_Shift == 1:
 					if use_ADE_model == 0: likBDtemp = BPD_lik_vec_times([ts,te,timesL,L,M])
@@ -2620,10 +2620,10 @@ def MCMC(all_arg):
 						m = M[temp_m]
 						if use_ADE_model == 0:
 							args.append([ts, te, up, lo, m, 'm', cov_par[1],1])
-						elif use_ADE_model == 1:
+						elif use_ADE_model >= 1:
 							args.append([ts, te, up, lo, m, 'm', cov_par[1],W_shape,q_rates[1]])
 			
-					if hasFoundPyRateC and model_cov==0:
+					if hasFoundPyRateC and model_cov==0 and use_ADE_model == 0:
 						likBDtemp = PyRateC_BD_partial_lik(ts, te, timesL, timesM, L, M)
 
 						# Check correctness of results by comparing with python version
@@ -2741,7 +2741,7 @@ def MCMC(all_arg):
 			if min(abs(np.diff(timesL)))<=min_allowed_t or min(abs(np.diff(timesM)))<=min_allowed_t: prior = -np.inf			
 		
 		priorBD= get_hyper_priorBD(timesL,timesM,L,M,maxTs,hyperP)
-		if use_ADE_model == 1:
+		if use_ADE_model >= 1:
 			# M in this case is the vector of Weibull scales
 			priorBD+= sum(prior_normal(log(W_shape),2)) # Normal prior on log(W_shape): highest prior pr at W_shape=1
 		
@@ -2829,9 +2829,9 @@ def MCMC(all_arg):
 				else:
 					print "\tt.frames:", timesLA, "(sp.)"
 					print "\tt.frames:", timesMA, "(ex.)"
-				if use_ADE_model == 1: 
+				if use_ADE_model >= 1: 
 					print "\tWeibull.shape:", round(W_shapeA,3)
-					print "\tWeibull.scale:", MA
+					print "\tWeibull.scale:", MA, 1./MA
 				else: 
 					print "\tsp.rates:", LA
 					print "\tex.rates:", MA
@@ -2855,7 +2855,7 @@ def MCMC(all_arg):
 
 		if n_proc != 0: pass
 		elif it % sample_freq ==0 and it>=burnin or it==0 and it>=burnin:
-			s_max=max(tsA)
+			s_max=np.max(tsA)
 			if fix_SE == 0:
 				if TPP_model == 0: log_state = [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), q_ratesA[1], q_ratesA[0]]
 				else: 
@@ -2870,13 +2870,32 @@ def MCMC(all_arg):
 				if est_COVAR_prior == 1: log_state += [covar_prior]
 
 			if TDI<2: # normal MCMC or MCMC-TI
-				log_state += s_max,min(teA)
+				log_state += s_max,np.min(teA)
 				if TDI==1: log_state += [temperature]
 				if est_hyperP == 1: log_state += list(hyperPA)
-				if use_ADE_model == 0: log_state += list(LA)
-				else: log_state+= [W_shapeA]
-				log_state += list(MA) # This is W_scale in the case of ADE models
-				if use_ADE_model == 1: log_state+= list(MA * gamma(1 + 1./W_shapeA))
+				if use_ADE_model == 0: 
+					log_state += list(LA)
+				elif use_ADE_model == 1: 
+					log_state+= [W_shapeA]
+				elif use_ADE_model == 2: 
+					# this correction is for the present (recent sp events are unlikely to show up)
+					xtemp = np.linspace(0,5,101)
+					pdf_q_sampling = np.round(1-exp(-q_ratesA[1]*xtemp),2)
+					#try: 
+					#	q95 = np.min([xtemp[pdf_q_sampling==0.75][0],0.25*s_max]) # don't remove more than 25% of the time window
+					#except: q95 = 0.25*s_max
+					q95 = min(tsA[tsA>0])
+					# estimate sp rate based on ex rate and ratio between observed sp and ex events
+					corrSPrate = float(len(tsA[tsA>q95]))/max(1,len(teA[teA>q95])) * 1./MA 
+					log_state+= list(corrSPrate)
+				
+				if use_ADE_model <= 1:
+					log_state += list(MA) # This is W_scale in the case of ADE models
+				if use_ADE_model == 2:
+					log_state += list(1./MA) # when using model 2 shape = 1, and 1/scale = extinction rate
+					
+				if use_ADE_model >= 1: 
+					log_state+= list(MA * gamma(1 + 1./W_shapeA))
 				if fix_Shift== 0:
 					log_state += list(timesLA[1:-1])
 					log_state += list(timesMA[1:-1])
@@ -3141,7 +3160,7 @@ if constrain_time_frames == 1 or args.fixShift != "":
 	if TDI in [2,4]:
 		print("\nConstrained shift times (-mC,-fixShift) cannot be used with BD/RJ MCMC alorithms. Using standard MCMC instead.\n")
 		TDI = 0
-if args.ADE==1 and TDI>1: 
+if args.ADE>=1 and TDI>1: 
 	print("\nADE models (-ADE 1) cannot be used with BD/RJ MCMC alorithms. Using standard MCMC instead.\n")
 	TDI = 0
 mcmc_gen=args.n             # no. total mcmc generations
@@ -3806,7 +3825,40 @@ if args.ADE == 1:
 	BPD_partial_lik = BD_age_partial_lik
 	out_name += "_ADE"
 	argsHPP = 1
-	
+
+if args.ADE == 2:
+	use_ADE_model = 2
+	BPD_partial_lik = BD_age_partial_lik
+	out_name += "_CorrBD"
+	argsHPP = 1
+	#list_all_occs = []
+	#for i in range(len(fossil)):
+	#	f =fossil[i]
+	#	list_all_occs = list_all_occs + list(f[f>0])
+	#
+	#list_all_occs = np.sort(np.array(list_all_occs))
+	#print (np.diff(list_all_occs))
+	#	
+	#quit()
+      #
+	#n_sampled_species_bins = np.linspace(0,max(FA),100)
+	#dT_sampled_sp_bins = n_sampled_species_bins[1]
+	#n_sampled_species = np.zeros(len(n_sampled_species_bins)-1)
+	#for i in range(len(fossil)):
+	#	occs_temp = fossil[i]
+	#	hist = np.histogram(occs_temp[occs_temp>0],bins=sort( n_sampled_species_bins ))
+	#	h = hist[0][::-1]
+	#	h[h>1] = 1
+	#	print hist
+	#	n_sampled_species += h
+	#print log(n_sampled_species), sum(n_sampled_species)
+	#sampling_prob = 1 - exp(-dT_sampled_sp_bins*0.5)
+	#est_true_sp = log(1 + n_sampled_species + n_sampled_species*sampling_prob)
+	#print est_true_sp[::-1]
+	#print np.diff(n_sampled_species)[::-1], mean(np.diff(n_sampled_species)[::-1])/dT_sampled_sp_bins
+	#print np.mean(np.diff(est_true_sp)[::-1])/dT_sampled_sp_bins
+	#print np.mean(np.diff(log(n_sampled_species+1))[::-1])
+	#quit()
 
 est_hyperP = 0
 use_cauchy = 0
@@ -3824,7 +3876,7 @@ else:
 		est_hyperP = 1
 		hypP_par = np.ones(2)
 
-if use_ADE_model == 1: 
+if use_ADE_model >= 1: 
 	hypP_par[1]=0.1
 	tot_extant = -1
 	d_hyperprior[0]=1 # first hyper-prior on sp.rates is not used under ADE, thus not updated (multiplier update =1)
@@ -4068,9 +4120,13 @@ if TDI<2:
 	if use_ADE_model == 0 and useDiscreteTraitModel == 0: 
 		for i in range(time_framesL): head += "lambda_%s\t" % (i)
 		for i in range(time_framesM): head += "mu_%s\t" % (i)
-	elif use_ADE_model == 1: 
-		head+="w_shape\t"
-		for i in range(time_framesM): head += "w_scale_%s\t" % (i)
+	elif use_ADE_model >= 1: 
+		if use_ADE_model == 1: 
+			head+="w_shape\t"
+			for i in range(time_framesM): head += "w_scale_%s\t" % (i)
+		elif use_ADE_model == 2: 
+			head+="corr_lambda\t"
+			for i in range(time_framesM): head += "corr_mu_%s\t" % (i)
 		for i in range(time_framesM): head += "mean_longevity_%s\t" % (i)
 	elif useDiscreteTraitModel == 1:
 		for i in range(len(lengths_B_events)): head += "lambda_%s\t" % (i)
