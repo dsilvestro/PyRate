@@ -177,9 +177,9 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 	# 5. a vector of times of rate shift
 	f = file(f_name,'U')
 	if nbins==0:
-		nbins = int(max_age-min_age)
+		nbins = int(max_age-0)
 	post_rate=f.readlines()
-	bins_histogram = np.linspace(min_age,max_age,nbins+1)	
+	bins_histogram = np.linspace(0,max_age,nbins+1)	
 	marginal_rates_list = []
 	times_of_shift = []
 	
@@ -198,6 +198,7 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 			ind_shifts = np.arange(int(np.ceil(len(row)/2.)),len(row))
 			rates = row[ind_rates]
 			shifts = row[ind_shifts]
+			#shifts = shifts[shifts>min_age]
 			h = np.histogram(row[ind_shifts],bins =bins_histogram)[0][::-1]
 			marginal_rates = rates[np.cumsum(h)]
 			times_of_shift += list(shifts)
@@ -213,6 +214,8 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 		max_rates += [hpd[1]]
 	
 	time_frames = bins_histogram-bins_histogram[1]/2.
+	print time_frames, min(times_of_shift), min_age
+	#quit()
 	time_frames = time_frames[1:]
 	#print len(time_frames),len(mean_rates), 
 	n_mcmc_samples = len(post_rate)-burnin # number of samples used to normalize frequencies of rate shifts
@@ -236,7 +239,7 @@ def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulat
 		out_str += "\nlines(time,log10(rate), col = '%s', lwd=2)" % (col)
 		
 	# add barplot rate shifts
-	bins_histogram = np.linspace(min_age,max_age,len(res[0]))
+	bins_histogram = np.linspace(0,max_age,len(res[0]))
 	if len(res[4])>1: # rate shift sampled at least once
 		h = np.histogram(res[4],bins =bins_histogram) #,density=1)
 	else:
@@ -279,6 +282,7 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 				head = next(open(mcmc_file)).split() # should be faster
 				max_age_t = np.mean(tbl[:,head.index("root_age")])
 				min_age_t = np.mean(tbl[:,head.index("death_age")])
+				print "Age range:",max_age_t, min_age_t
 			else:
 				min_age_t, max_age_t = min_age, max_age
 			nbins = int((max_age_t-min_age_t)/float(bin_size))
