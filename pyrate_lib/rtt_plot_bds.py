@@ -222,26 +222,43 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 	return [time_frames,mean_rates,np.array(min_rates),np.array(max_rates),np.array(times_of_shift),n_mcmc_samples]
 
 def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulation=1):
+	
+	times = res[0]
+	rates = res[1][::-1]
+	rates_m = res[2][::-1]
+	rates_M = res[3][::-1]
+	shifts = res[4]
+	
+	indx = np.intersect1d((times>=min_age).nonzero()[0], (times<=max_age).nonzero()[0])
+	times = times[indx]
+	#print indx,times, rates
+	rates   = rates[indx]
+	rates_m = rates_m[indx]
+	rates_M = rates_M[indx]
+	shifts= shifts[shifts>min_age]
+	shifts= shifts[shifts<max_age]
+	
+	
 	out_str = "\n"
-	out_str += util.print_R_vec("\ntime",-res[0])
-	out_str += util.print_R_vec("\nrate",res[1][::-1])
-	out_str += util.print_R_vec("\nminHPD",res[2][::-1])
-	out_str += util.print_R_vec("\nmaxHPD",res[3][::-1])
+	out_str += util.print_R_vec("\ntime",-times)
+	out_str += util.print_R_vec("\nrate",rates)
+	out_str += util.print_R_vec("\nminHPD",rates_m)
+	out_str += util.print_R_vec("\nmaxHPD",rates_M)
 	if plot_log==0:
 		out_str += "\nplot(time,time,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = '%s', xlab = 'Time',main='%s' )" \
-			% (0,1.1*np.nanmax(res[3]),-max_age,-min_age,parameter,plot_title) 
+			% (0,1.1*np.nanmax(rates_M),-max_age,-min_age,parameter,plot_title) 
 		out_str += "\npolygon(c(time, rev(time)), c(maxHPD, rev(minHPD)), col = alpha('%s',0.3), border = NA)" % (col)
 		out_str += "\nlines(time,rate, col = '%s', lwd=2)" % (col)
 	else:
 		out_str += "\nplot(time,time,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = 'Log10 %s', xlab = 'Time',main='%s' )" \
-			% (np.nanmin(np.log10(0.9*res[2])),np.nanmax(np.log10(1.1*res[3])),-max_age,-min_age,parameter,plot_title) 
+			% (np.nanmin(np.log10(0.9*rates_m)),np.nanmax(np.log10(1.1*rates_M)),-max_age,-min_age,parameter,plot_title) 
 		out_str += "\npolygon(c(time, rev(time)), c(log10(maxHPD), rev(log10(minHPD))), col = alpha('%s',0.3), border = NA)" % (col)
 		out_str += "\nlines(time,log10(rate), col = '%s', lwd=2)" % (col)
 		
 	# add barplot rate shifts
 	bins_histogram = np.linspace(0,max_age,len(res[0]))
-	if len(res[4])>1: # rate shift sampled at least once
-		h = np.histogram(res[4],bins =bins_histogram) #,density=1)
+	if len(shifts)>1: # rate shift sampled at least once
+		h = np.histogram(shifts,bins =bins_histogram) #,density=1)
 	else:
 		h = [np.zeros(len(bins_histogram)-1),bins_histogram]
 	a = h[1]
@@ -277,24 +294,22 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 	for mcmc_file in files:
 		if 2>1: #try:
 			name_file = os.path.splitext(os.path.basename(mcmc_file))[0]		
-			if min_age==0 and max_age==0: # get empirical time range
-				tbl=np.loadtxt(mcmc_file, skiprows=1)
-				head = next(open(mcmc_file)).split() # should be faster
-				max_age_t = np.mean(tbl[:,head.index("root_age")])
-				min_age_t = np.mean(tbl[:,head.index("death_age")])
-				print "Age range:",max_age_t, min_age_t
-			else:
-				min_age_t, max_age_t = min_age, max_age
+			tbl=np.loadtxt(mcmc_file, skiprows=1)
+			head = next(open(mcmc_file)).split() 
+			max_age_t = np.min(tbl[:,head.index("root_age")])
+			min_age_t = np.max(tbl[:,head.index("death_age")])
+			print "Age range:",max_age_t, min_age_t
+			if max_age==0: max_age=max_age_t
 			nbins = int((max_age_t-min_age_t)/float(bin_size))
 			colors = ["#4c4cec","#e34a33"] # sp and ex rate
 			# sp file
 			f_name = mcmc_file.replace("mcmc.log","sp_rates.log")
-			res = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin=0.2)
-			r_str += get_r_plot(res,col=colors[0],parameter="Speciation rate",min_age=min_age_t,max_age=max_age_t,plot_title=name_file,plot_log=logT,run_simulation=1)
+			res = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin)
+			r_str += get_r_plot(res,col=colors[0],parameter="Speciation rate",min_age=max(min_age_t,min_age),max_age=min(max_age,max_age_t),plot_title=name_file,plot_log=logT,run_simulation=1)
 			# ex file
 			f_name = mcmc_file.replace("mcmc.log","ex_rates.log")
-			res = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin=0.2)
-			r_str += get_r_plot(res,col=colors[1],parameter="Extinction rate",min_age=min_age_t,max_age=max_age_t,plot_title="",plot_log=logT,run_simulation=0)
+			res = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin)
+			r_str += get_r_plot(res,col=colors[1],parameter="Extinction rate",min_age=max(min_age_t,min_age),max_age=min(max_age,max_age_t),plot_title="",plot_log=logT,run_simulation=0)
 		#except:
 		#	print "Could not read file:", mcmc_file
 	r_str += "\n\nn <- dev.off()"
@@ -303,9 +318,9 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 	outfile.writelines(r_str)
 	outfile.close()
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-		cmd="cd %s & Rscript %sRTT_plots.r" % (wd,outname)
+		cmd="cd '%s' & Rscript %sRTT_plots.r" % (wd,outname)
 	else:
-		cmd="cd %s; Rscript %sRTT_plots.r" % (wd,outname)
+		cmd="cd '%s'; Rscript %sRTT_plots.r" % (wd,outname)
 	print "Plots saved in %s (%sRTT_plots)" % (wd,outname)
 	os.system(cmd)
 

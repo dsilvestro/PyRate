@@ -3367,7 +3367,7 @@ if path_dir_log_files != "":
 		if plot_type==3:
 			rtt_plot_bds.RTTplot_high_res(path_dir_log_files,args.grid_plot,int(burnin),root_plot)
 		elif plot_type==4:
-			rtt_plot_bds = rtt_plot_bds.plot_marginal_rates(path_dir_log_files,name_tag=file_stem,bin_size=args.grid_plot,burnin=int(burnin),min_age=0,max_age=root_plot,logT=args.logT)
+			rtt_plot_bds = rtt_plot_bds.plot_marginal_rates(path_dir_log_files,name_tag=file_stem,bin_size=args.grid_plot,burnin=burnin,min_age=0,max_age=root_plot,logT=args.logT)
 			
 		#except: sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
 		#You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
@@ -3446,7 +3446,7 @@ if use_se_tbl==0:
 		if output_wd=="": output_wd= get_self_path()
 	else: output_wd=args.wd
 
-	#print "\n",input_file, args.input_data, "\n"
+	print "\n",input_file, args.input_data, "\n"
 	try: input_data_module = imp.load_source(input_file, args.input_data[0])
 	except(IOError): sys.exit("\nInput file required. Use '-h' for command list.\n")
 
