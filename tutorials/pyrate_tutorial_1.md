@@ -11,8 +11,7 @@
 * [Estimation of speciation and extinction rates through time](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#estimation-of-speciation-and-extinction-rates-through-time)    
 
 Useful links:  
-[PyRate code](https://github.com/dsilvestro/PyRate)  
-[PyRate wiki](https://github.com/dsilvestro/PyRate/wiki)  
+[PyRate code](https://github.com/dsilvestro/PyRate)  [PyRate wiki](https://github.com/dsilvestro/PyRate/wiki)  
 ***
 
 # Generate PyRate input file (option 1)
