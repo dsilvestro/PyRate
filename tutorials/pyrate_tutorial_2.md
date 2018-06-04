@@ -5,8 +5,8 @@
 #### Daniele Silvestro – June 2018
 ***  
 #### Contents
-* [Birth-death models with time-continuous correlates](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#setting-up-an-analysis-using-rjmcmc)  
-* [Model testing](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#rjmcmc-output)
+* [Birth-death models with time-continuous correlates](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#birth-death-models-with-time-continuous-correlates)  
+* [Model testing](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#model-testing-using-thermodynamic-integration-ti)
 
 ***
 
