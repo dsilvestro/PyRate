@@ -44,7 +44,7 @@ Other available options are:
 ![Example RTT](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/Ferns_MBD_short_run.png)
 
 
-# Age depdendent extinction (ADE) model
+# Age dependent extinction (ADE) model
 
 Testing for age dependent extinction is more complicated than fitting a Weibull distribution to the estimated longevities of species because that would not account for the unobserved species, which are likely the short lived ones ([Hagen et al. 2017](https://academic.oup.com/sysbio/article/doi/10.1093/sysbio/syx082/4563320/Estimating-Agedependent-Extinction-Contrasting)). The ADE model is implemented in its own function in PyRate and requires an [input file](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#generate-pyrate-input-file-option-1) containing all occurrences.
 e.g.
