@@ -33,7 +33,7 @@ To launch an MBD analysis, you must provide the input file and the path to all p
 
 `./PyRateMBD.py -d /example_files/Ferns_SE.txt -var /example_files/predictors_MBDmodel -m 1`
 
-where `-m 1` specifies the type of correlation model, the options being `-m 0` for linear correlations and `-m 1` for exponential correlations. 
+where `-m 1` specifies the type of correlation model, the options being `-m 0` for exponential correlations (default) and `-m 1` for linear correlations. 
 
 Other available options are:  
 `-out outname` add a string to output file names   
