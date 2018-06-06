@@ -39,7 +39,7 @@ from lib_utilities import get_mode as get_mode
 
 p = argparse.ArgumentParser() #description='<input file>') 
 p.add_argument('-d',     type=str,     help='data set (s/e table)', default=0, metavar=0)
-p.add_argument('-m',     type=int,     help='model (0: linear (default), 1: exponential)', default=0, metavar=0)
+p.add_argument('-m',     type=int,     help='model (0: exponential (default), 1: linear)', default=0, metavar=0)
 p.add_argument('-n',     type=int,     help='MCMC iterations', default=10000000, metavar=10000000)
 p.add_argument('-s',     type=int,     help='sampling freq.', default=5000, metavar=5000)
 p.add_argument('-p',     type=int,     help='print freq.', default=5000, metavar=5000)
@@ -81,8 +81,8 @@ if args.plot != "":
 	
 
 corr_model=args.m
-if corr_model ==0: model_name = "lin"
-else: model_name = "exp"	
+if corr_model ==0: model_name = "exp"
+else: model_name = "lin"
 if args.out != "": out_tag = args.out + "_"
 else:  out_tag = ""
 root_age=max(ts)
@@ -283,8 +283,8 @@ if scaling==0: # All trajectories are scaled to range between 0 and 1
 	Dtraj= np.sum((Dtraj, -np.min(Dtraj, axis=0)), axis=0)
 	scale_factor = 1.
 	scale_factor = 1./(np.max(Dtraj, axis=0)-np.min(Dtraj, axis=0))
-	if corr_model==0: trasfRate_general = trasfMultiRateND 
-	elif corr_model==1: trasfRate_general = trasfMultiRateND_exp
+	if corr_model==1: trasfRate_general = trasfMultiRateND 
+	elif corr_model==0: trasfRate_general = trasfMultiRateND_exp
 elif scaling == 1: # all curves scaled to the max of the highest curve (useful if they are in the same unit, e.g. species)
 	scale_factor = 1./np.max(Dtraj)
 	if maxG ==0: maxG = 0.30/scale_factor # as in Silvestro et al. 2015 PNAS
