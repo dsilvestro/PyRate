@@ -238,8 +238,6 @@ if est_start_time:
 scaled_temp=np.zeros(len(Temp_at_events))
 for i in range(len(np.unique(shift_ind))):
 	Temp_values= Temp_at_events[shift_ind==i]
-	#Temp_values= (Temp_values-Temp_values[-1]) # so l0 and m0 are rates at the end of the time bin
-	Temp_values= (Temp_values-mean(Temp_values)) # so l0 and m0 are rates at the mean temp value
 	Temp_values= (Temp_values-np.median([min(Temp_values),max(Temp_values)])) # so l0 and m0 are rates at the mean temp value
 	scaled_temp[shift_ind==i]= Temp_values
 
@@ -290,10 +288,21 @@ def get_marginal_rates(model,l0,m0,Garray,Temp_at_events,shift_ind,root_age):
 	age_vec, l_vec, m_vec = list(),list(),list()
 	for i in range(len(Temp_at_events)):
 		age = all_events_temp2[0,i]
-		if age <= root_age:
+		if run_single_slice==1:
+			if age < max(s_times):
+				if len(s_times)==2 and age >= min(s_times):
+					age_vec.append(np.round(age,8))
+					l_vec.append(np.round(l_at_events[i],8))
+					m_vec.append(np.round(m_at_events[i],8))
+				else:
+					age_vec.append(np.round(age,8))
+					l_vec.append(np.round(l_at_events[i],8))
+					m_vec.append(np.round(m_at_events[i],8))
+		elif age <= root_age: 
 			age_vec.append(np.round(age,8))
 			l_vec.append(np.round(l_at_events[i],8))
 			m_vec.append(np.round(m_at_events[i],8))
+
 	return(age_vec,l_vec,m_vec)
 	
 
