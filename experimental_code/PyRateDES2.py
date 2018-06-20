@@ -495,7 +495,7 @@ try:
 		time_varE = time_var_temp-time_var_temp[len(delta_t)-1]
 		
 except:
-	time_var = np.ones(10)
+	time_var = np.ones(len(time_series)-1)
 	print "Covariate-file not found"
 
 
@@ -511,7 +511,6 @@ for i in range(len(time_var)): head+= "\te2_%s" % (i)
 head=head.split("\t")
 rlog=csv.writer(ratesfile, delimiter='\t')
 rlog.writerow(head)
-
 
 
 # DIVERSITY TRAJECTORIES
