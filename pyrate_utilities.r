@@ -7,7 +7,7 @@ no.extension <- function(filename) {
 }
 
 
-extract.ages <- function(file = NULL, replicates = 1, cutoff = NULL, random = TRUE){
+extract.ages <- function(file = NULL, replicates = 1, cutoff = NULL, random = TRUE, outname = "_PyRate",save_tax_list=T){
 
 if (is.null(file)) 
     stop("you must enter a filename or a character string\n")
@@ -16,7 +16,7 @@ rnd <- random
 q <- cutoff
 dat1 <- read.table(file, header=T, stringsAsFactors=F, row.names=NULL, sep="\t", strip.white=T)
 fname <- no.extension(basename(file))
-outfile <- paste(dirname(file), "/", fname, "_PyRate.py", sep="")
+outfile <- paste(dirname(file), "/", fname, outname, ".py", sep="")
 
 dat1[,1] <- gsub("[[:blank:]]{1,}","_", dat1[,1])
 
@@ -141,11 +141,12 @@ if ("trait" %in% colnames(dat)){
 	cat(STR, file=outfile, append=TRUE, sep="\n")
 }
 
-splistout <- paste(dirname(file), "/", fname, "_TaxonList.txt", sep="")
-lookup <- as.data.frame(taxa)
-lookup$status  <- "extinct"
-
-write.table(splist, file=splistout, sep="\t", row.names=F, quote=F)
+if (save_tax_list == T){
+	splistout <- paste(dirname(file), "/", fname, "_TaxonList.txt", sep="")
+	lookup <- as.data.frame(taxa)
+	lookup$status  <- "extinct"
+	write.table(splist, file=splistout, sep="\t", row.names=F, quote=F)	
+}
 cat("\n\nPyRate input file was saved in: ", sprintf("%s", outfile), "\n\n")
 
 }
