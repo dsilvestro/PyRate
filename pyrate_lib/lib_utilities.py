@@ -80,7 +80,8 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 
 	for f in files:
 		try:
-			t_file=np.genfromtxt(f, delimiter='\t', dtype=None)
+			#t_file=np.genfromtxt(f, delimiter='\t', dtype=None)
+			t_file=np.loadtxt(f, skiprows=1)
 			input_file = os.path.basename(f)
 			name_file = os.path.splitext(input_file)[0]
 			path_dir = "%s/" % os.path.dirname(f)
@@ -108,7 +109,7 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 			y=[x for x in head if 'TE' in x]
 			#y=[x for x in head if 'te_' in x]
 			ind_te0 = head.index(y[0])
-			print len(w), "species", np.shape(t_file)
+			print len(w), "species", shape_f
 			j=0
 			out_list=list()
 			if burnin<1: burnin = int(burnin*shape_f[0])
@@ -324,8 +325,8 @@ def parse_hsp_logfile(logfile,burnin=100):
 		fixed_focal_clade+=C[i]
 	
 	fixed_focal_clade = int(fixed_focal_clade) 
-	k_indexL = [head.index(i) for i in head if "kl" in i]
-	k_indexM = [head.index(i) for i in head if "km" in i]
+	k_indexL = [head.index(i) for i in head if "Wl" in i]
+	k_indexM = [head.index(i) for i in head if "Wm" in i]
 	
 	gl,gm,kl,km = list(),list(),list(),list()
 	for i in range(len(l_indexL)):
@@ -347,8 +348,8 @@ def parse_hsp_logfile_HPD(logfile,burnin=100):
 	M0_index = 5
 	l_indexL = [head.index(i) for i in head if "Gl" in i]
 	l_indexM = [head.index(i) for i in head if "Gm" in i]
-	k_indexL = [head.index(i) for i in head if "kl" in i]
-	k_indexM = [head.index(i) for i in head if "km" in i]
+	k_indexL = [head.index(i) for i in head if "Wl" in i]
+	k_indexM = [head.index(i) for i in head if "Wm" in i]
 	
 	# get number of focal clade
 	C = list(head[L0_index])
@@ -439,7 +440,7 @@ def get_score(a,b,max_length_diff):
 
 def reduce_log_file(log_file,burnin=1): # written by Tobias Hofmann (tobias.hofmann@bioenv.gu.se)
 	print log_file
-	target_columns = ["it","posterior","prior","PP_lik","BD_lik","q_rate","alpha","k_birth","k_death","root_age","death_age"]
+	target_columns = ["it","posterior","prior","PP_lik","BD_lik","q_rate","alpha","k_birth","k_death","root_age","death_age","q_","tot_length"]
 	workdir = os.path.dirname(log_file)
 	if workdir=="": workdir= self_path
 	input_file = os.path.basename(log_file)
@@ -450,13 +451,20 @@ def reduce_log_file(log_file,burnin=1): # written by Tobias Hofmann (tobias.hofm
 	print "Parsing header..."
 	head = next(open(log_file)).split()
 	w=[head.index(x) for x in head if x in target_columns]
+	
+	w = []
+	col_names = []
+	for i in range(len(head)):
+		if head[i] in target_columns or "q_" in head[i]:
+			w.append(i)
+			col_names.append(head[i])
 	print w
 	print "Reading mcmc log file..."
 	#log_file = "%s" % (log_file)
 	print log_file
 	tbl = np.loadtxt(log_file,skiprows=burnin,usecols=(w))
 	print np.shape(tbl)	
-	outlog.writerow(target_columns)
+	outlog.writerow(col_names)
 	for i in tbl: outlog.writerow(list(i))
 	print "The reduced log file was saved as: %s\n" % (outfile)
 	

@@ -328,9 +328,9 @@ else:
 	for j in range(n_clades): 
 		head+="\tGm%s_%s" % (fixed_focal_clade,j)
 	for j in range(n_clades): 
-		head+="\tkl%s_%s" % (fixed_focal_clade,j)
+		head+="\tWl%s_%s" % (fixed_focal_clade,j)
 	for j in range(n_clades): 
-		head+="\tkm%s_%s" % (fixed_focal_clade,j)
+		head+="\tWm%s_%s" % (fixed_focal_clade,j)
 
 	head+="\tLAM_mu"		
 	head+="\tLAM_sd"		
