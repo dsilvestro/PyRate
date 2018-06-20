@@ -183,34 +183,35 @@ def check_taxa_names(w,out_file_name="output.txt"):
 	all_scores = []
 	j=0.
 	for w in word_combinations: 
-		taxon1 = w[0]
-		taxon2 = w[1]	
-		#score_all, diff_all = get_score_trained(taxon1,taxon2,max_length_diff)
-		# GENUS
-		a = taxon1.split("_")[0]
-		b = taxon2.split("_")[0]
-		score_genus, diff_genus = get_score_trained(a,b,max_length_diff)
-		#print a,b,score_genus
-		# SPECIES
-		if len(taxon1.split("_"))>1 and len(taxon2.split("_"))>1:
-			a = taxon1.split("_")[1]
-			b = taxon2.split("_")[1]
-			score_species, diff_species = get_score_trained(a,b,max_length_diff)
-		else: score_species, diff_species = score_genus,0	
-		s_diff = diff_genus+diff_species
-		score_all, diff_all =  (score_genus+score_species)/2., s_diff
-		if (score_genus+score_species)<2:
-			if score_all > threshold_score and diff_all <= threshold_s_diff:
-				if np.mean([score_genus,score_species]) > threshold_score and s_diff <= threshold_s_diff:
-					all_scores.append([taxon1, taxon2,round(score_all,3),round(score_genus,3),
-					round(score_species,3),int(s_diff)])
-		j+=1
-		if j % 100000==0: 
-			progress_percentage = round(100*(j/comb),2)
-			total_time = ((time.time()-start_time)*100/progress_percentage)/60.
-			time_left = total_time-(time.time()-start_time)/60
-			print progress_percentage,"%", int(time_left),"min left"
-	
+		try:
+			taxon1 = w[0]
+			taxon2 = w[1]	
+			#score_all, diff_all = get_score_trained(taxon1,taxon2,max_length_diff)
+			# GENUS
+			a = taxon1.split("_")[0]
+			b = taxon2.split("_")[0]
+			score_genus, diff_genus = get_score_trained(a,b,max_length_diff)
+			#print a,b,score_genus
+			# SPECIES
+			if len(taxon1.split("_"))>1 and len(taxon2.split("_"))>1:
+				a = taxon1.split("_")[1]
+				b = taxon2.split("_")[1]
+				score_species, diff_species = get_score_trained(a,b,max_length_diff)
+			else: score_species, diff_species = score_genus,0	
+			s_diff = diff_genus+diff_species
+			score_all, diff_all =  (score_genus+score_species)/2., s_diff
+			if (score_genus+score_species)<2:
+				if score_all > threshold_score and diff_all <= threshold_s_diff:
+					if np.mean([score_genus,score_species]) > threshold_score and s_diff <= threshold_s_diff:
+						all_scores.append([taxon1, taxon2,round(score_all,3),round(score_genus,3),
+						round(score_species,3),int(s_diff)])
+			j+=1
+			if j % 100000==0: 
+				progress_percentage = round(100*(j/comb),2)
+				total_time = ((time.time()-start_time)*100/progress_percentage)/60.
+				time_left = total_time-(time.time()-start_time)/60
+				print progress_percentage,"%", int(time_left),"min left"
+		except: print taxon1, taxon2
 	all_scores = np.array(all_scores)
 	# top hits:
 	#print all_scores
@@ -253,6 +254,6 @@ def run_name_check(fossil_occs_file):
 	print "The results (if any potential typos were found) are written here:"
 	print out_file_name
 	print """"Note that names of ranks 0 and 1 are the most likely cases of misspellings, \
-whereas ranks 2 and 3 are most ikely truly different names. \
+whereas ranks 2 and 3 are most likely truly different names. \
 This algorithm does NOT check for synonyms!\n"""
 
