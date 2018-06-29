@@ -2312,7 +2312,8 @@ def MCMC(all_arg):
 		SA=sum(tsA-teA)
 		W_shapeA=1.
 		
-		if analyze_tree ==1:
+		if analyze_tree >=1:
+			MA = LA*np.random.random()
 			r_treeA = np.random.random()
 			m_treeA = np.random.random()
 
@@ -2761,6 +2762,16 @@ def MCMC(all_arg):
 			l_tree = m_tree+r_tree
 			tree_lik = treeBDlikelihood(tree_node_ages,l_tree,m_tree,rho=tree_sampling_frac)
 			hasting = hasting+h1+h2
+		elif analyze_tree ==2:
+			r_tree = update_parameter(r_treeA, m=0, M=1, d=0.1, f=1)			
+			l_tree = (M[0]*r_tree) + (L[0]-M[0])
+			m_tree = M[0]*r_tree
+			tree_lik = treeBDlikelihood(tree_node_ages,l_tree,m_tree,rho=tree_sampling_frac)
+		elif analyze_tree ==3:
+			r_tree = 0
+			l_tree = L[0]
+			m_tree = M[0]
+			tree_lik = treeBDlikelihood(tree_node_ages,l_tree,m_tree,rho=tree_sampling_frac)
 		else: 
 			tree_lik = 0
 		
@@ -2804,7 +2815,7 @@ def MCMC(all_arg):
 				cov_parA=cov_par
 				W_shapeA=W_shape
 				tree_likA = tree_lik
-				if analyze_tree ==1:
+				if analyze_tree >=1:
 					r_treeA = r_tree
 					m_treeA = m_tree
 					
@@ -2837,7 +2848,10 @@ def MCMC(all_arg):
 					print "\tex.rates:", MA
 				if analyze_tree ==1:
 					print np.array([tree_likA, r_treeA+m_treeA, m_treeA])
-				
+				if analyze_tree==2:
+					ltreetemp,mtreetemp = (M[0]*r_tree) + (L[0]-M[0]), M[0]*r_tree
+					print np.array([tree_likA,ltreetemp,mtreetemp,ltreetemp-mtreetemp,LA[0]-MA[0]])
+					
 				if est_hyperP == 1: print "\thyper.prior.par", hyperPA
 
 				
@@ -2901,6 +2915,13 @@ def MCMC(all_arg):
 					log_state += list(timesMA[1:-1])
 				if analyze_tree ==1:
 					log_state += [tree_likA, r_treeA+m_treeA, m_treeA]
+				if analyze_tree ==2:
+					log_state += [tree_likA, (MA[0]*r_treeA) + (LA[0]-MA[0]), MA[0]*r_treeA]
+				if analyze_tree ==3:
+					log_state += [tree_likA, LA[0], MA[0]]
+					
+					
+					
 				
 			elif TDI == 2: # BD-MCMC
 				log_state+= [len(LA), len(MA), s_max,min(teA)]
@@ -3014,6 +3035,8 @@ p.add_argument('-log_marginal_rates',type=int,help='0) save summary file, defaul
 # phylo test
 p.add_argument('-tree',       type=str,help="Tree file (NEXUS format)",default="", metavar="")
 p.add_argument('-sampling',   type=float,help="Taxon sampling (phylogeny)",default=1., metavar=1.)
+p.add_argument('-bdc',      help='Run BDC:Compatible model', action='store_true', default=False)
+p.add_argument('-eqr',      help='Run BDC:Equal rate model', action='store_true', default=False)
 
 # PLOTS AND OUTPUT
 p.add_argument('-plot',       metavar='<input file>', type=str,help="RTT plot (type 1): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
@@ -3968,6 +3991,8 @@ if args.tree != "":
 		sys.exit("Tree format not recognized (NEXUS file required). \n")
 	tree_sampling_frac = args.sampling
 	analyze_tree = 1
+	if args.bdc: analyze_tree = 2
+	if args.eqr: analyze_tree = 3
 	TDI = 0
 
 
@@ -4136,7 +4161,7 @@ if TDI<2:
 		for i in range(1,time_framesL): head += "shift_sp_%s\t" % (i)
 		for i in range(1,time_framesM): head += "shift_ex_%s\t" % (i)
 	
-	if analyze_tree ==1:
+	if analyze_tree >=1:
 		head += "tree_lik\ttree_sp\ttree_ex\t"
 
 elif TDI == 2: head+="k_birth\tk_death\troot_age\tdeath_age\t"
