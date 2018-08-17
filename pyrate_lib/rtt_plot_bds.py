@@ -141,7 +141,7 @@ def get_prior_shift(t_start,t_end,bins_histogram):
 	G_rate = 1.  # mode at 1
 	min_time_frame_size = 1
 	iteration=0.
-	print "\nComputing empirical priors on rate shifts..."
+	print "Computing empirical priors on rate shifts..."
 	for rep in range(100000):
 		if rep % 10000 ==0:
 			sys.stdout.write(".")
@@ -214,7 +214,7 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 		max_rates += [hpd[1]]
 	
 	time_frames = bins_histogram-bins_histogram[1]/2.
-	print time_frames, min(times_of_shift), min_age
+	#print time_frames, min(times_of_shift), min_age
 	#quit()
 	time_frames = time_frames[1:]
 	#print len(time_frames),len(mean_rates), 
@@ -298,7 +298,7 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 			head = next(open(mcmc_file)).split() 
 			max_age_t = np.min(tbl[:,head.index("root_age")])
 			min_age_t = np.max(tbl[:,head.index("death_age")])
-			print "Age range:",max_age_t, min_age_t
+			print "\nAge range:",max_age_t, min_age_t
 			if max_age==0: max_age=max_age_t
 			nbins = int((max_age_t-min_age_t)/float(bin_size))
 			colors = ["#4c4cec","#e34a33"] # sp and ex rate

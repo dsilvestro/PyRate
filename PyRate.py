@@ -5,7 +5,7 @@ import random as rand
 import warnings, imp
 
 version= "PyRate"
-build  = "v2.0 - 20180531"
+build  = "v2.0 - 20180817"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
@@ -973,6 +973,13 @@ def update_rates_sliding_win(L,M,tot_L,mod_d3):
 	for i in range(len(M)): Mn[i]=update_parameter(M[i],0, inf, mod_d3, f_rate)
 	#Ln,Mn=Ln * scale_factor/tot_L , Mn * scale_factor/tot_L
 	return Ln,Mn, 1
+
+def update_parameter_normal_vec(oldL,d,f=.25):
+	S = np.shape(oldL)
+	ii = np.random.normal(0,d,S)
+	ff = np.random.binomial(1,f,S)
+	s= oldL + ii*ff	
+	return s
 
 
 def update_rates_multiplier(L,M,tot_L,mod_d3):
@@ -2316,6 +2323,9 @@ def MCMC(all_arg):
 			MA = LA*np.random.random()
 			r_treeA = np.random.random()
 			m_treeA = np.random.random()
+			if analyze_tree==4:
+				r_treeA = np.random.random(len(phylo_times_of_shift))
+				m_treeA = np.random.random(len(phylo_times_of_shift))
 
 	else: # restore values
 		[itt, n_proc_,PostA, likA, priorA,tsA,teA,timesLA,timesMA,LA,MA,q_ratesA, cov_parA, lik_fossilA,likBDtempA]=arg
@@ -2756,22 +2766,47 @@ def MCMC(all_arg):
 		prior += prior_root_age(maxTs,maxFA,maxFA)
 		
 		# add tree likelihood
-		if analyze_tree ==1:
+		if analyze_tree ==1: # independent rates model
 			r_tree, h1 = update_multiplier_proposal(r_treeA,1.1) # net diversification
 			m_tree, h2 = update_multiplier_proposal(m_treeA,1.1) # extinction rate
 			l_tree = m_tree+r_tree
 			tree_lik = treeBDlikelihood(tree_node_ages,l_tree,m_tree,rho=tree_sampling_frac)
 			hasting = hasting+h1+h2
-		elif analyze_tree ==2:
+		elif analyze_tree ==2: # compatible model (BDC)
 			r_tree = update_parameter(r_treeA, m=0, M=1, d=0.1, f=1)			
 			l_tree = (M[0]*r_tree) + (L[0]-M[0])
 			m_tree = M[0]*r_tree
 			tree_lik = treeBDlikelihood(tree_node_ages,l_tree,m_tree,rho=tree_sampling_frac)
-		elif analyze_tree ==3:
+		elif analyze_tree ==3: # equal rate model
 			r_tree = 0
 			l_tree = L[0]
 			m_tree = M[0]
 			tree_lik = treeBDlikelihood(tree_node_ages,l_tree,m_tree,rho=tree_sampling_frac)
+		elif analyze_tree ==4: # skyline independent model
+			m_tree,r_tree,h1,h2 = m_treeA+0., r_treeA+0.,0,0
+			ind = np.random.choice(range(len(m_tree)))
+			if np.random.random()<0.5:
+				m_tree[ind], h1 = update_multiplier_proposal(m_tree[ind],1.2) # extinction fraction
+			else:
+				r_tree[ind], h2 = update_multiplier_proposal(r_tree[ind],1.2) # speciation rate
+			l_tree = r_tree
+			m_tree_rate = m_tree*l_tree
+			#if np.random.random()<0.5:
+			#	m_tree, h2 = update_q_multiplier(m_treeA,d=1.1,f=0.5) # extinction rate
+			#	r_tree, h1 = r_treeA, 0
+			#else:
+			#	m_tree, h2 = m_treeA, 0
+			#	#r_tree, h1 = update_q_multiplier(r_treeA,d=1.1,f=0.5) # speciation rate	
+			#	r_tree, h1 = abs(update_parameter_normal_vec(r_treeA,d=.1)),0 # speciation rate	
+			#r_tree = update_parameter_normal_vec(r_treeA, d=0.1) # multiplier to extinction rate
+			#l_tree = r_tree*m_tree
+			
+			#l_tree = r_tree*m_tree # this allows extinction > speciation
+			#l_tree = r_tree+m_tree # this DOES NOT allow extinction > speciation
+			# args = (x,t,l,mu,sampling,posdiv=0,survival=1,groups=0)
+			tree_lik = treeBDlikelihoodSkyLine(tree_node_ages,phylo_times_of_shift,l_tree,m_tree_rate,tree_sampling_frac)
+			hasting = hasting+h1+h2
+			prior += sum(prior_gamma(l_tree,1.1,1)) + sum(prior_gamma(m_tree,1.1,1))
 		else: 
 			tree_lik = 0
 		
@@ -2851,6 +2886,9 @@ def MCMC(all_arg):
 				if analyze_tree==2:
 					ltreetemp,mtreetemp = (M[0]*r_tree) + (L[0]-M[0]), M[0]*r_tree
 					print np.array([tree_likA,ltreetemp,mtreetemp,ltreetemp-mtreetemp,LA[0]-MA[0]])
+				if analyze_tree==4:
+					ltreetemp,mtreetemp = list(r_treeA[::-1]+m_treeA[::-1]), list(m_treeA[::-1])
+					print np.array([tree_likA] + ltreetemp + mtreetemp)
 					
 				if est_hyperP == 1: print "\thyper.prior.par", hyperPA
 
@@ -2919,6 +2957,11 @@ def MCMC(all_arg):
 					log_state += [tree_likA, (MA[0]*r_treeA) + (LA[0]-MA[0]), MA[0]*r_treeA]
 				if analyze_tree ==3:
 					log_state += [tree_likA, LA[0], MA[0]]
+				if analyze_tree ==4:
+					#ltreetemp,mtreetemp = list(r_treeA[::-1]*m_treeA[::-1]), list(m_treeA[::-1])
+					ltreetemp, mtreetemp = list(r_treeA[::-1]), list(m_treeA[::-1])
+					log_tree_lik_temp = [tree_likA] + ltreetemp + mtreetemp					
+					log_state += log_tree_lik_temp
 					
 					
 					
@@ -3993,6 +4036,22 @@ if args.tree != "":
 	analyze_tree = 1
 	if args.bdc: analyze_tree = 2
 	if args.eqr: analyze_tree = 3
+	
+	if fix_Shift == 1:
+		print "Using Skyline indepdent model"
+		phylo_bds_likelihood = imp.load_source("phylo_bds_likelihood", "%s/pyrate_lib/phylo_bds_likelihood.py" % (self_path))
+		analyze_tree = 4
+		treeBDlikelihoodSkyLine = phylo_bds_likelihood.TreePar_LikShifts 
+		# args = (x,t,l,mu,sampling,posdiv=0,survival=1,groups=0)
+		tree_node_ages = np.sort(tree_node_ages)
+		phylo_times_of_shift = np.sort(np.array(list(fixed_times_of_shift) + [0]))
+		tree_sampling_frac = np.array([tree_sampling_frac] + list(np.ones(len(fixed_times_of_shift))))
+		print phylo_times_of_shift
+		print tree_node_ages
+		# print tree_sampling_frac
+		#quit()
+														
+	
 	TDI = 0
 
 
@@ -4058,9 +4117,8 @@ if args.PPmodeltest== 1:
 # CREATE C++ OBJECTS
 if hasFoundPyRateC:
 	if use_se_tbl==1:
-		fossil = [np.array([0])]
-	
-	PyRateC_setFossils(fossil) # saving all fossil data as C vector
+		pass
+	else: PyRateC_setFossils(fossil) # saving all fossil data as C vector
 
 	if args.qShift != "":  # q_shift times
 		tmpEpochs = np.sort(np.array(list(times_q_shift)+[max(FA)+1]+[0]))[::-1]
@@ -4162,7 +4220,12 @@ if TDI<2:
 		for i in range(1,time_framesM): head += "shift_ex_%s\t" % (i)
 	
 	if analyze_tree >=1:
-		head += "tree_lik\ttree_sp\ttree_ex\t"
+		if analyze_tree==4:
+			head += "tree_lik\t"
+			for i in range(time_framesL): head += "tree_sp_%s\t" % (i)
+			for i in range(time_framesL): head += "tree_ex_%s\t" % (i)				
+		else:
+			head += "tree_lik\ttree_sp\ttree_ex\t"
 
 elif TDI == 2: head+="k_birth\tk_death\troot_age\tdeath_age\t"
 elif TDI == 3: head+="k_birth\tk_death\tDPP_alpha_L\tDPP_alpha_M\troot_age\tdeath_age\t"
@@ -4186,7 +4249,7 @@ os.fsync(logfile)
 
 # OUTPUT 2 MARGINAL RATES
 if args.log_marginal_rates == -1: # default values
-	if TDI==4: log_marginal_rates_to_file = 0
+	if TDI==4 or use_ADE_model != 0: log_marginal_rates_to_file = 0
 	else: log_marginal_rates_to_file = 1
 else:
 	log_marginal_rates_to_file = args.log_marginal_rates
