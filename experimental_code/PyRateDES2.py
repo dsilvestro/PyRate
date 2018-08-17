@@ -88,10 +88,12 @@ p.add_argument('-red',      type=int, help='if -red 1: reduce dataset to taxa wi
 p.add_argument('-DivdD',    help='Use Diversity dependent Dispersal',  action='store_true', default=False)
 p.add_argument('-DivdE',    help='Use Diversity dependent Extinction', action='store_true', default=False)
 p.add_argument('-DdE',      help='Use Dispersal dependent Extinction', action='store_true', default=False)
+p.add_argument('-DisdE',    help='Use Dispersal-rate dependent Extinction', action='store_true', default=False)
 p.add_argument('-TdD',      help='Use Time dependent Dispersal',  action='store_true', default=False)
 p.add_argument('-TdE',      help='Use Time dependent Extinction', action='store_true', default=False)
 p.add_argument('-lgD',      help='Use logistic correlation Dispersal',  action='store_true', default=False)
 p.add_argument('-lgE',      help='Use logistic correlation Extinction', action='store_true', default=False)
+p.add_argument('-linE',      help='Use linear correlation Extinction', action='store_true', default=False)
 
 
 
@@ -248,11 +250,13 @@ else:
 	else: model_tag+= "_Dexp"
 	if args.TdE: model_tag+= "_TdE"
 	elif args.DivdE: model_tag+= "_DivdE"
+	elif args.DisdE: model_tag+= "_DisdE"
 	elif args.DdE: model_tag+= "_DdE"
 	else: model_tag+= "_Eexp"
 
 	if args.lgD: model_tag+= "_lgD"
 	if args.lgE: model_tag+= "_lgE"
+	if args.linE: model_tag+= "_linE"
 	# constraints
 	if equal_d is True: model_tag+= "_symd"
 	if equal_e is True: model_tag+= "_syme"
@@ -538,8 +542,6 @@ print "Diversity trajectories", div_traj_1,div_traj_2
 #		print j, a[j]
 	
 
-
-
 def get_num_dispersals(dis_rate_vec,r_vec):
 	Pr1 = 1- r_vec[Q_index[0:-1],1] # remove last value (time zero)
 	Pr2 = 1- r_vec[Q_index[0:-1],2] 
@@ -649,7 +651,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		# CHECK THIS: CHANGE TO VALUE CLOSE TO 1? i.e. for 'ghost' area 
 		if args.data_in_area == 1: r_vec[:,2] = small_number 
 		elif  args.data_in_area == 2: r_vec[:,1] = small_number		
-	else:
+	elif it>0:
 		gibbs_sample = 1
 		prior_exp_rate = gibbs_sampler_hp(np.concatenate((dis_rate_vec,ext_rate_vec)),hp_alpha,hp_beta)
 	
@@ -692,14 +694,29 @@ for it in range(n_generations * len(scal_fac_TI)):
 
 	marginal_dispersal_rate_temp = get_dispersal_rate_through_time(dis_vec,time_var_d1,time_var_d2,covar_par,x0_logistic,transf_d)
 	numD12,numD21 =  get_num_dispersals(marginal_dispersal_rate_temp,r_vec)
-	
+	rateD12,rateD21 = marginal_dispersal_rate_temp[:,0], marginal_dispersal_rate_temp[:,1]
+
+	model_DUO=1
 	if args.DdE: # Dispersal dep Extinction		
-		numD12res = rescale_vec_to_range(numD12, r=10., m=0)
-		numD21res = rescale_vec_to_range(numD21, r=10., m=0)		
+		#numD12res = rescale_vec_to_range(log(1+numD12), r=10., m=0)
+		#numD21res = rescale_vec_to_range(log(1+numD21), r=10., m=0)		
+		div_traj1,div_traj2 = get_est_div_traj(r_vec)
+		
+		numD12res = rescale_vec_to_range((1+numD12)/(1+div_traj2), r=10., m=0)
+		numD21res = rescale_vec_to_range((1+numD21)/(1+div_traj1), r=10., m=0)		
+
+ 		
+		
 		# NOTE THAT no. dispersals from 1=>2 affects extinction in 2 and vice versa
 		transf_e=1
  		time_var_e2,time_var_e1 = numD12res, numD21res
 		ext_vec = ext_rate_vec
+	elif args.DisdE: # Dispersal RATE dep Extinction		
+		rateD12res = log(rateD12)
+		rateD21res = log(rateD21)
+		transf_e=1
+ 		time_var_e2,time_var_e1 = rateD12res,rateD21res
+		ext_vec = ext_rate_vec		
 	elif args.DivdE: # Diversity dep Extinction
 		# NOTE THAT extinction in 1 depends diversity in 1
 		transf_e=1
@@ -717,8 +734,22 @@ for it in range(n_generations * len(scal_fac_TI)):
 		time_var_e1,time_var_e2=time_varE,time_varE
 		
 	if args.lgE: transf_e = 2
+	if args.linE: transf_e = 3
+
+	if model_DUO:
+		numD12res = rescale_vec_to_range(log(1+numD12), r=10., m=0)
+		numD21res = rescale_vec_to_range(log(1+numD21), r=10., m=0)		
+		# NOTE THAT no. dispersals from 1=>2 affects extinction in 2 and vice versa
+ 		time_var_e2two, time_var_e1two=  numD12res, numD21res
+		ext_vec = ext_rate_vec	
+		# LINEAR		
+		#_ Q_list, marginal_rates_temp= make_Q_Covar4VDdEDOUBLE(dis_vec,ext_vec,time_var_d1,time_var_d2,time_var_e1,time_var_e2,time_var_e1two,time_var_e2two,covar_par,x0_logistic,transf_d,transf_e=3)
+		# EXPON
+		Q_list, marginal_rates_temp= make_Q_Covar4VDdEDOUBLE(dis_vec,ext_vec,time_var_d1,time_var_d2,time_var_e1,time_var_e2,time_var_e1two,time_var_e2two,covar_par,x0_logistic,transf_d,transf_e=1)
+	else:
+		Q_list, marginal_rates_temp= make_Q_Covar4VDdE(dis_vec,ext_vec,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par,x0_logistic,transf_d,transf_e)
 	
-	Q_list, marginal_rates_temp= make_Q_Covar4VDdE(dis_vec,ext_vec,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par,x0_logistic,transf_d,transf_e)
+		
 	
 	#__      
 	#__      

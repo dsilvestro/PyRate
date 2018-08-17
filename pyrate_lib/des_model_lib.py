@@ -138,6 +138,20 @@ def transform_rate_logistic(r0,prm,trait):
 	rate_at_trait = r0 / ( 1. + exp( -k * (trait-x0) )    )
 	return rate_at_trait
 
+
+def get_dispersal_rate_through_time(dv_list,time_var_d1,time_var_d2,covar_par=np.zeros(4),x0_logistic=np.zeros(4),transf_d=0): 
+	if transf_d==1: # exponential
+		transf_d = np.array([dv_list[0][0] *exp(covar_par[0]*time_var_d1), dv_list[0][1] *exp(covar_par[1]*time_var_d2)]).T
+	elif transf_d==2: # logistic
+		transf_d12 = transform_rate_logistic(dv_list[0][0], [covar_par[0],x0_logistic[0]],time_var_d1)
+		transf_d21 = transform_rate_logistic(dv_list[0][1], [covar_par[1],x0_logistic[1]],time_var_d2)
+		transf_d = np.array([transf_d12,transf_d21]).T		
+	else: # time-dependent-dispersal
+		transf_d = dv_list
+	return transf_d
+
+
+
 def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par=np.zeros(4),x0_logistic=np.zeros(4),transf_d=0,transf_e=0): 
 	if transf_d==1: # exponential
 		transf_d = np.array([dv_list[0][0] *exp(covar_par[0]*time_var_d1), dv_list[0][1] *exp(covar_par[1]*time_var_d2)]).T
@@ -149,6 +163,8 @@ def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_v
 		transf_d = dv_list
 	if transf_e==1: # exponential
 		transf_e = np.array([ev_list[0][0] *exp(covar_par[2]*time_var_e1), ev_list[0][1] *exp(covar_par[3]*time_var_e2)]).T
+	elif transf_e==3: # linear
+		transf_e = np.array([ev_list[0][0] + (covar_par[2]*time_var_e1), ev_list[0][1] +(covar_par[3]*time_var_e2)]).T
 	elif transf_e==2: # logistic
 		transf_e1  = transform_rate_logistic(ev_list[0][0], [covar_par[2],x0_logistic[2]],time_var_e1)
 		transf_e2  = transform_rate_logistic(ev_list[0][1], [covar_par[3],x0_logistic[3]],time_var_e2)
@@ -171,7 +187,46 @@ def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_v
 		# fill diagonal values
 		np.fill_diagonal(Q, -np.sum(Q,axis=1))
 		Q_list.append(Q)
-	return Q_list
+	return Q_list, [transf_d,transf_e]
+
+
+def make_Q_Covar4VDdEDOUBLE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_var_e2,time_var_e1two,time_var_e2two,covar_par=np.zeros(4),x0_logistic=np.zeros(4),transf_d=0,transf_e=0): 
+	if transf_d==1: # exponential
+		transf_d = np.array([dv_list[0][0] *exp(covar_par[0]*time_var_d1), dv_list[0][1] *exp(covar_par[1]*time_var_d2)]).T
+	elif transf_d==2: # logistic
+		transf_d12 = transform_rate_logistic(dv_list[0][0], [covar_par[0],x0_logistic[0]],time_var_d1)
+		transf_d21 = transform_rate_logistic(dv_list[0][1], [covar_par[1],x0_logistic[1]],time_var_d2)
+		transf_d = np.array([transf_d12,transf_d21]).T		
+	else: # time-dependent-dispersal
+		transf_d = dv_list
+	if transf_e==1: # exponential
+		transf_e = np.array([ev_list[0][0] *exp(covar_par[2]*time_var_e1 + covar_par[3]*time_var_e1two), ev_list[0][1] *exp(covar_par[2]*time_var_e2 + covar_par[3]*time_var_e2two)]).T
+	elif transf_e==3: # linear DOUBLE
+		transf_e = np.array([ev_list[0][0] + (covar_par[2]*time_var_e1) + (covar_par[3]*time_var_e1two) , ev_list[0][1] +(covar_par[2]*time_var_e2) + (covar_par[3]*time_var_e2two) ]).T
+		transf_e[transf_e<0.0001] = 0.0001
+	elif transf_e==2: # logistic
+		transf_e1  = transform_rate_logistic(ev_list[0][0], [covar_par[2],x0_logistic[2]],time_var_e1)
+		transf_e2  = transform_rate_logistic(ev_list[0][1], [covar_par[3],x0_logistic[3]],time_var_e2)
+		transf_e = np.array([transf_e1 ,transf_e2 ]).T
+	else:
+		transf_e = ev_list
+
+	Q_list=[]
+	for i in range(len(transf_d)):
+		D=0
+		[d1,d2] = transf_d[i] # d1 A->B; d2 B->A;
+		[e1,e2] = transf_e[i]
+		Q= np.array([
+			[D, 0, 0, 0 ],
+			# [D, d1, d2, 0 ],
+			[e1,D, 0, d1],
+			[e2,0, D, d2],
+			[0 ,e2,e1,D ] 	
+		])
+		# fill diagonal values
+		np.fill_diagonal(Q, -np.sum(Q,axis=1))
+		Q_list.append(Q)
+	return Q_list, [transf_d,transf_e]
 
 
 def make_Q3A(dv,ev): # construct Q matrix
