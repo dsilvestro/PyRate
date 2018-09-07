@@ -2324,8 +2324,10 @@ def MCMC(all_arg):
 			r_treeA = np.random.random()
 			m_treeA = np.random.random()
 			if analyze_tree==4:
-				r_treeA = np.random.random(len(phylo_times_of_shift))
+				r_treeA = np.random.random(len(phylo_times_of_shift))+2.
 				m_treeA = np.random.random(len(phylo_times_of_shift))
+				if args_bdc: 
+					r_treeA = np.ones(len(phylo_times_of_shift))*0.8
 
 	else: # restore values
 		[itt, n_proc_,PostA, likA, priorA,tsA,teA,timesLA,timesMA,LA,MA,q_ratesA, cov_parA, lik_fossilA,likBDtempA]=arg
@@ -2784,29 +2786,23 @@ def MCMC(all_arg):
 			tree_lik = treeBDlikelihood(tree_node_ages,l_tree,m_tree,rho=tree_sampling_frac)
 		elif analyze_tree ==4: # skyline independent model
 			m_tree,r_tree,h1,h2 = m_treeA+0., r_treeA+0.,0,0
-			ind = np.random.choice(range(len(m_tree)))
-			if np.random.random()<0.5:
-				m_tree[ind], h1 = update_multiplier_proposal(m_tree[ind],1.2) # extinction fraction
-			else:
-				r_tree[ind], h2 = update_multiplier_proposal(r_tree[ind],1.2) # speciation rate
-			l_tree = r_tree
-			m_tree_rate = m_tree*l_tree
-			#if np.random.random()<0.5:
-			#	m_tree, h2 = update_q_multiplier(m_treeA,d=1.1,f=0.5) # extinction rate
-			#	r_tree, h1 = r_treeA, 0
-			#else:
-			#	m_tree, h2 = m_treeA, 0
-			#	#r_tree, h1 = update_q_multiplier(r_treeA,d=1.1,f=0.5) # speciation rate	
-			#	r_tree, h1 = abs(update_parameter_normal_vec(r_treeA,d=.1)),0 # speciation rate	
-			#r_tree = update_parameter_normal_vec(r_treeA, d=0.1) # multiplier to extinction rate
-			#l_tree = r_tree*m_tree
+			if args_bdc: # BDC model
+				ind = np.random.choice(range(len(m_tree)))
+				r_tree[ind] = update_parameter(r_treeA[ind], 0, 1, 0.1, 1)			
+				l_tree = L[::-1] - M[::-1] + M[::-1]*r_tree
+				m_tree = M[::-1]*r_tree #  so mu > 0
+			else:	
+				m_tree, h2 = update_q_multiplier(m_treeA,d=1.1,f=0.5) # extinction rate
+				r_tree, h1 = update_q_multiplier(r_treeA,d=1.1,f=0.5) # speciation rate
+				l_tree = r_tree*m_tree # this allows extinction > speciation
+				# args = (x,t,l,mu,sampling,posdiv=0,survival=1,groups=0)
 			
-			#l_tree = r_tree*m_tree # this allows extinction > speciation
-			#l_tree = r_tree+m_tree # this DOES NOT allow extinction > speciation
-			# args = (x,t,l,mu,sampling,posdiv=0,survival=1,groups=0)
-			tree_lik = treeBDlikelihoodSkyLine(tree_node_ages,phylo_times_of_shift,l_tree,m_tree_rate,tree_sampling_frac)
-			hasting = hasting+h1+h2
-			prior += sum(prior_gamma(l_tree,1.1,1)) + sum(prior_gamma(m_tree,1.1,1))
+			if np.min(l_tree)<=0:
+				tree_lik = -np.inf
+			else:
+				tree_lik = treeBDlikelihoodSkyLine(tree_node_ages,phylo_times_of_shift,l_tree,m_tree,tree_sampling_frac)
+				hasting = hasting+h1+h2
+				prior += sum(prior_gamma(l_tree,1.1,1)) + sum(prior_gamma(m_tree,1.1,1))
 		else: 
 			tree_lik = 0
 		
@@ -2887,7 +2883,7 @@ def MCMC(all_arg):
 					ltreetemp,mtreetemp = (M[0]*r_tree) + (L[0]-M[0]), M[0]*r_tree
 					print np.array([tree_likA,ltreetemp,mtreetemp,ltreetemp-mtreetemp,LA[0]-MA[0]])
 				if analyze_tree==4:
-					ltreetemp,mtreetemp = list(r_treeA[::-1]+m_treeA[::-1]), list(m_treeA[::-1])
+					ltreetemp,mtreetemp = list(r_treeA[::-1]*m_treeA[::-1]), list(m_treeA[::-1])
 					print np.array([tree_likA] + ltreetemp + mtreetemp)
 					
 				if est_hyperP == 1: print "\thyper.prior.par", hyperPA
@@ -2958,13 +2954,15 @@ def MCMC(all_arg):
 				if analyze_tree ==3:
 					log_state += [tree_likA, LA[0], MA[0]]
 				if analyze_tree ==4:
-					#ltreetemp,mtreetemp = list(r_treeA[::-1]*m_treeA[::-1]), list(m_treeA[::-1])
-					ltreetemp, mtreetemp = list(r_treeA[::-1]), list(m_treeA[::-1])
+					if args_bdc: # BDC model
+						ltreetemp = (MA[::-1]*r_treeA) + (LA[::-1]-MA[::-1])
+						mtreetemp =  MA[::-1]*r_treeA
+						ltreetemp = list(ltreetemp[::-1])
+						mtreetemp = list(mtreetemp[::-1])
+					else:	
+						ltreetemp,mtreetemp = list(r_treeA[::-1]*m_treeA[::-1]), list(m_treeA[::-1])
 					log_tree_lik_temp = [tree_likA] + ltreetemp + mtreetemp					
 					log_state += log_tree_lik_temp
-					
-					
-					
 				
 			elif TDI == 2: # BD-MCMC
 				log_state+= [len(LA), len(MA), s_max,min(teA)]
@@ -4048,6 +4046,8 @@ if args.tree != "":
 		tree_sampling_frac = np.array([tree_sampling_frac] + list(np.ones(len(fixed_times_of_shift))))
 		print phylo_times_of_shift
 		print tree_node_ages
+		if args.bdc: args_bdc = 1
+		else: args_bdc = 0
 		# print tree_sampling_frac
 		#quit()
 														
@@ -4133,10 +4133,13 @@ try: os.mkdir(path_dir)
 except(OSError): pass
 
 suff_out=out_name
-if TDI<=1: suff_out+= "BD%s-%s" % (args.mL,args.mM)
-if TDI==1: suff_out+= "_TI"
-if TDI==3: suff_out+= "dpp"
-if TDI==4: suff_out+= "rj"
+if args.eqr: suff_out+= "_EQR"
+elif args.bdc: suff_out+= "_BDC"
+else:
+	if TDI<=1: suff_out+= "BD%s-%s" % (args.mL,args.mM)
+	if TDI==1: suff_out+= "_TI"
+	if TDI==3: suff_out+= "dpp"
+	if TDI==4: suff_out+= "rj"
 
 # OUTPUT 0 SUMMARY AND SETTINGS
 o0 = "\n%s build %s\n" % (version, build)
