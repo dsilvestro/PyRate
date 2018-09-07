@@ -849,7 +849,8 @@ for it in range(n_generations * len(scal_fac_TI)):
 			else: rr = log(np.random.uniform(0,1))
 			if (lik_alter-(likA* scal_fac_TI[scal_fac_ind]))*map_power >= rr:
 				accepted_state=1
-
+	elif it==0: 
+		MLik=likA-1
 	if accepted_state:
 		dis_rate_vec_A= dis_rate_vec
 		ext_rate_vec_A= ext_rate_vec
