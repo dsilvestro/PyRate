@@ -48,7 +48,8 @@ p.add_argument('-b',     type=int,     help='burnin (number of generations)', de
 p.add_argument('-r',     type=float,   help='Data scaling (default option recommended)', default=0, metavar=0)
 p.add_argument('-plot',  type=str,     help='Plot rates-through-time (Log file)', default="", metavar="")
 p.add_argument('-var',   type=str,     help='Directory to continuous variables (takes all files)', default="", metavar="")
-p.add_argument('-T',     type=float,   help='Max age (truncate data)', default=-1, metavar=-1)
+p.add_argument('-maxT',     type=float,   help='Max age (truncate data)', default=-1, metavar=-1)
+p.add_argument('-minT',     type=float,   help='Min age (truncate data)', default=-1, metavar=-1)
 p.add_argument('-out',   type=str,     help='tag added to output file', default="", metavar="")
 p.add_argument('-bound', type=float,   help='absolute boundaries to local shrinkage (0 +/- bound)', default=np.inf, metavar=np.inf)
 p.add_argument('-rmDD',  type=int,     help='model (0: analysis includes self-diversity-dependence, 1: analysis excludes selfdiversity-dependence', default=0, metavar=0)
@@ -490,7 +491,7 @@ abline(v=-c(65,200,251,367,445),lty=2,col="gray")
 	sys.exit("\n")
 
 ##############################################################
-max_T = args.T
+max_T = args.maxT
 if max_T == -1: pass
 else: 
 	index_temp = np.arange(0,len(all_Times))
@@ -504,6 +505,21 @@ else:
 
 	index_temp = np.arange(0,len(ex_times))
 	index_included_ex_times = index_temp[ex_times<max_T]
+
+min_T = args.minT
+if max_T == -1: pass
+else: 
+	index_temp = np.arange(0,len(all_Times))
+	index_events_included = index_temp[all_Times>min_T]
+	
+	sp_times = all_Times[idx_s[fixed_focal_clade]]
+	ex_times = all_Times[idx_e[fixed_focal_clade]]
+	
+	index_temp = np.arange(0,len(sp_times))
+	index_included_sp_times = index_temp[sp_times>min_T]
+
+	index_temp = np.arange(0,len(ex_times))
+	index_included_ex_times = index_temp[ex_times>min_T]
 
 
 
