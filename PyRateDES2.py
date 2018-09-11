@@ -94,6 +94,7 @@ p.add_argument('-TdE',      help='Use Time dependent Extinction', action='store_
 p.add_argument('-lgD',      help='Use logistic correlation Dispersal',  action='store_true', default=False)
 p.add_argument('-lgE',      help='Use logistic correlation Extinction', action='store_true', default=False)
 p.add_argument('-linE',      help='Use linear correlation Extinction', action='store_true', default=False)
+p.add_argument('-cov_and_dispersal', help='Model with symmetric exticntion covarying with both a proxy and dispersal', action='store_true', default=False)
 
 
 
@@ -144,6 +145,10 @@ equal_e = args.syme
 equal_q = args.symq
 constraints_covar = np.array(args.constr)
 const_q = args.constq
+if args.cov_and_dispersal:
+	model_DUO= 1
+else: model_DUO= 0
+
 
 ### MCMC SETTINGS
 if args.A ==2: 
@@ -696,7 +701,6 @@ for it in range(n_generations * len(scal_fac_TI)):
 	numD12,numD21 =  get_num_dispersals(marginal_dispersal_rate_temp,r_vec)
 	rateD12,rateD21 = marginal_dispersal_rate_temp[:,0], marginal_dispersal_rate_temp[:,1]
 
-	model_DUO=1
 	if args.DdE: # Dispersal dep Extinction		
 		#numD12res = rescale_vec_to_range(log(1+numD12), r=10., m=0)
 		#numD21res = rescale_vec_to_range(log(1+numD21), r=10., m=0)		
