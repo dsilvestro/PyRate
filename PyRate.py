@@ -788,6 +788,9 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 	
 	
 	for f in files:
+		if platform.system() == "Windows" or platform.system() == "Microsoft":
+			f = f.replace("\\","/")
+		
 		try:
 			file_name =  os.path.splitext(os.path.basename(f))[0]
 			print file_name,			
