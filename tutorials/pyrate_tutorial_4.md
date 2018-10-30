@@ -9,7 +9,7 @@
   
 ***
 
-# Multivariate Birth-Death models (this tutorial is work in progress)
+# Multivariate Birth-Death models
 
 The MBD model allow the estimation of speciation and extinction rates as a function of multiple time-continuous variables [(Lehtonen, Silvestro et al. 2017)](https://www.nature.com/articles/s41598-017-05263-7). The model assumes linear or exponential functions linking the temporal variation of birth-death rates with changes in one or more variables.
 Under the MBD model a correlation parameter is estimated for each variable (for speciation and extinction).
@@ -33,13 +33,19 @@ To launch an MBD analysis, you must provide the input file and the path to all p
 
 `./PyRateMBD.py -d /example_files/Ferns_SE.txt -var /example_files/predictors_MBDmodel -m 1`
 
-where `-m 1` specifies the type of correlation model, the options being `-m 0` for exponential correlations (default) and `-m 1` for linear correlations. 
+where `-m 1` specifies the type of correlation model, the options being `-m 0` for exponential correlations (default) and `-m 1` for linear correlations.
+The flag `-var` is used to specify the path to a folder containing all predictors.
 
-Other available options are:  
-`-out outname` add a string to output file names   
-`-rmDD 1` remove self-diversity dependence  
-`-T 23` truncate at max time  
-`plot <logfile>` plot marginal rates through time as predicted by the MBD model  
+### Other available options are:  
+* `-out outname` add a string to output file names   
+* `-rmDD 1` remove self-diversity dependence (by default included in the analysis) 
+* `-T 23` truncate at max time 
+* `-n 10000000`  MCMC iterations
+* `-s 5000`      sampling frequency
+
+
+### Summarizing the results
+The command `-plot <logfile>` can be used to generate plots of the marginal speciation and extinction rates through time  as predicted by the MBD model. It also computes the shrinkage weights (_Wl_ and _Wm_ for speciation and extinction, respectively) for all predictors. The shrinkage weights quantify the statistical support for each correlation factor. The correlation parameters are indicated by _Gl_ and _Gm_ in the log files and their posterior estimate is also indicated in the plots produced by the `-plot` command (they can also easily be obtained by opening the _mcmc.log_ file in [Tracer](http://tree.bio.ed.ac.uk/software/tracer/)).
 
 ![Example RTT](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/Ferns_MBD_short_run.png)
 
