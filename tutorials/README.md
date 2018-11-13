@@ -28,6 +28,11 @@
 * [Age dependent extinction model](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#age-dependent-extinction-ade-model)
 
 ---
+### Dispersal Extinction Sampling models
+* [Preparing input data for DES analysis](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_5.md#input-data-preparation)
+* [Running a DES analysis (draft tutotrial)](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_5.md#running-a-des-analysis)
+
+---
 
 
 

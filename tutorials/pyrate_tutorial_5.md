@@ -1,8 +1,4 @@
-# Dispersal Extinction Sampling model]
-
-### Setup data
-After loading `pyrate_DES_utilities.R` library,
-follow the template in `pyrate_DES_input_example_script.R` to generate input files.
+# Dispersal Extinction Sampling model
 
 
 ## Input data preparation
@@ -79,6 +75,8 @@ plot(exp2)
 To launch PyRateDES open a Terminal window and browse to the PyRate directory 
 
 `cd /path/to/pyrate/code`
+
+PyRateDES2.py is an upgraded version of the original DES model which allows more flexibility in time-variable dispersal and extinction models.
 
 #### Time variable model (rate shifts)
 Launch a maximum likelihood analysis with shifts in preservation, dispersal, and extinction rates at 5.3 and 2.6 Ma.
