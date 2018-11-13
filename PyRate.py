@@ -2244,7 +2244,7 @@ def MCMC(all_arg):
 		timesLA, timesMA = init_times(maxTSA,time_framesL,time_framesM, min(teA))
 		if len(fixed_times_of_shift)>0: timesLA[1:-1],timesMA[1:-1]=fixed_times_of_shift,fixed_times_of_shift
 		if fix_edgeShift > 0:
-			print "HERE",edgeShifts,fix_edgeShift
+			print edgeShifts,fix_edgeShift
 			if fix_edgeShift == 1:
 				timesLA, timesMA = init_times(edgeShifts[0],time_framesL,time_framesM, edgeShifts[1]) # starting shift tims within allowed window
 				timesLA[0],timesMA[0]= maxTSA,maxTSA
@@ -2373,6 +2373,9 @@ def MCMC(all_arg):
 			stop_update=0
 			tsA, teA= fixed_ts, fixed_te
 			lik_fossilA=np.zeros(1)
+		elif it < fast_burnin:
+			rr=random.uniform(f_update_se*0.95,1) # change update freq
+			stop_update=I+1
 		else:
 			rr=random.uniform(0,1) #random.uniform(.8501, 1)
 			stop_update=I+1
@@ -2402,7 +2405,7 @@ def MCMC(all_arg):
 		
 		if rr<f_update_se: # ts/te
 			ts,te=update_ts_te(tsA,teA,mod_d1)
-			if use_gibbs_se_sampling:
+			if use_gibbs_se_sampling or it < fast_burnin:
 				ts,te = gibbs_update_ts_te(q_ratesA,np.sort(np.array([np.inf,0]+times_q_shift))[::-1])
 			tot_L=sum(ts-te)
 		elif rr<f_update_q: # q/alpha
@@ -2827,7 +2830,8 @@ def MCMC(all_arg):
 		if rr<f_update_se and use_gibbs_se_sampling==1:
 			accept_it = 1
 		
-		
+		if rr<f_update_se and it < fast_burnin:
+			accept_it = 1		
 		
 		#print Post, PostA, q_ratesA, sum(lik_fossil), sum(likBDtemp),  prior
 		if Post>-inf and Post<inf:
@@ -3107,6 +3111,7 @@ p.add_argument('-n',      type=int, help='mcmc generations',default=10000000, me
 p.add_argument('-s',      type=int, help='sample freq.', default=1000, metavar=1000)
 p.add_argument('-p',      type=int, help='print freq.',  default=1000, metavar=1000)
 p.add_argument('-b',      type=float, help='burnin', default=0, metavar=0)
+p.add_argument('-fast_burnin',      type=float, help='n. fast-burnin generations', default=0, metavar=0)
 p.add_argument('-thread', type=int, help='no. threads used for BD and NHPP likelihood respectively (set to 0 to bypass multi-threading)', default=[0,0], metavar=4, nargs=2)
 
 # MCMC ALGORITHMS
@@ -3275,6 +3280,8 @@ if frac1==0: f_update_se=0
 
 if args.se_gibbs: use_gibbs_se_sampling = 1
 else: use_gibbs_se_sampling = 0
+
+fast_burnin =args.fast_burnin
 
 
 multiR = args.multiR
