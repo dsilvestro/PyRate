@@ -15,6 +15,7 @@
 ### Plotting and summarizing output
 * [Plotting marginal rates (RJMCMC)](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#plot-rates-through-time-and-rate-shifts)
 * [Plotting and summarizing BDMCMC output](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#summarize-the-results)
+* [Plotting preservation rates through time](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#plot-preservation-rates-through-time)
 
 ---
 ### Birth-death models with time-continuous correlates

@@ -125,6 +125,84 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 #max_age=23.03
 #RTTplot_high_res(f,grid_cell_size,burnin,max_age)
 
+def RTTplot_Q(f,q_shift_file,burnin=0,max_age=0):
+	wd = "%s" % os.path.dirname(f)
+	name_file=os.path.splitext(os.path.basename(f))[0]
+	t=loadtxt(f, skiprows=max(1,burnin))
+	head = np.array(next(open(f)).split()) # should be faster
+	#print np.where(head=="beta")[0], np.where(head=="temperature")[0]
+	if "temperature" in head or "beta" in head:
+		if "temperature" in head: 
+			temp_index = np.where(head=="temperature")[0][0]
+		else: 
+			temp_index = np.where(head=="beta")[0][0]
+		temp_values = t[:,temp_index]
+		t = t[temp_values==1,:]
+		print "removed heated chains:",np.shape(t)
+	
+	head= list(head)
+	q_ind = [head.index(s) for s in head if "q_" in s]
+	root_ind  = head.index("root_age")
+	death_ind = head.index("death_age")
+	min_root_age = min(t[:,root_ind])
+	if max_age> 0: min_root_age=max_age
+	max_death_age= max(t[:,death_ind])
+
+	try: times_q_shift=np.sort(np.loadtxt(q_shift_file))[::-1]
+	except: times_q_shift=np.array([np.loadtxt(q_shift_file)])
+	
+	times_q_shift = times_q_shift[times_q_shift>max_death_age]
+	times_q_shift = times_q_shift[times_q_shift<min_root_age]
+	times_q_shift = np.sort(np.array(list(times_q_shift) + [max_death_age,min_root_age]))[::-1]
+	print times_q_shift
+	
+	means = []
+	hpdM  = []
+	hpdm  = []
+	data  = "library(scales)\n" 
+	if platform.system() == "Windows" or platform.system() == "Microsoft":
+		wd_forward = os.path.abspath(wd).replace('\\', '/')
+		data+= "\n\npdf(file='%s/%s_RTT_Qrates.pdf',width=0.6*9, height=0.6*7)\n" % (wd,name_file) # 9
+	else: 
+		data+= "\n\npdf(file='%s/%s_RTT_Qrates.pdf',width=0.6*9, height=0.6*7)\n" % (wd,name_file) # 9
+	
+	
+	max_y_axis,max_x_axis,min_x_axis = np.max(t[:,q_ind]),-np.max(times_q_shift),-np.min(times_q_shift)
+	
+	for i in range(len(q_ind)):
+		qtemp = t[:,q_ind[i]]
+		hpdtemp = util.calcHPD(qtemp,0.95)
+		#means.append(np.mean(qtemp),)
+		#hpdM.append(hpdtemp[1],hpdtemp[1])
+	      #hpdm.append(hpdtemp[0],hpdtemp[0])
+		time_slice = np.array([times_q_shift[i],times_q_shift[i+1]])
+		data += '\nage = c(%s, %s)' % (-time_slice[0],-time_slice[1])
+		data += '\nQ_mean = %s' %  np.mean(qtemp)
+		data += '\nQ_hpd_m = %s' % hpdtemp[0]
+		data += '\nQ_hpd_M = %s' % hpdtemp[1]
+		if i==0:
+			data += "\nplot(age,age,type = 'n', ylim = c(0, %s), xlim = c(%s,%s), ylab = 'Preservation rate', xlab = 'Ma',main='%s' )" \
+				% (max_y_axis,max_x_axis,min_x_axis,"Preservation rates") 			
+		else:
+			data += """\nsegments(x0=age[1], y0 = %s, x1 = age[1], y1 = Q_mean, col = "#756bb1", lwd=3)""" % (Q_mean_previous)
+		Q_mean_previous = np.mean(qtemp)
+		data += """\nsegments(x0=age[1], y0 = Q_mean, x1 = age[2], y1 = Q_mean, col = "#756bb1", lwd=3)""" 
+		data += """\npolygon( c(age, rev(age)), c(Q_hpd_m, Q_hpd_m, Q_hpd_M, Q_hpd_M), col = alpha("#756bb1",0.5), border = NA)""" 
+	data += "\nn <- dev.off()" 
+		
+	out="%s/%s_RTT_Qrates.r" % (wd,name_file)
+	newfile = open(out, "w") 
+	newfile.writelines(data)
+	newfile.close()
+	print "\nAn R script with the source for the RTT plot was saved as: %s_RTT_Qrates.r\n(in %s)" % (name_file, wd)
+	if platform.system() == "Windows" or platform.system() == "Microsoft":
+		cmd="cd %s & Rscript %s_RTT_Qrates.r" % (wd,name_file)
+	else: 
+		cmd="cd %s; Rscript %s/%s_RTT_Qrates.r" % (wd,wd,name_file)
+	os.system(cmd)
+	
+	print "done\n"
+
 
 
 # functionsto plot RTT when '-log_marginal_rates 0'
@@ -185,6 +263,7 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 	
 	if burnin<1: # define burnin as a fraction
 		burnin=min(int(burnin*len(post_rate)),int(0.9*len(post_rate)))
+	else: burnin = int(burnin)
 	
 	for i in range(burnin,len(post_rate)):
 		row = np.array(post_rate[i].split()).astype(float)

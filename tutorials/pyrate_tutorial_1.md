@@ -164,6 +164,15 @@ To generate a rates-through-time plot that combines all replicates, you can use 
 
 This will combine all the _marginal\_rates.log_ files which include `Canis_pbdb` in the file name and combine the results in a single plot.​ Different tags can be used to determine which files are to be combined.    
 
+
+#### Plot preservation rates through time
+Preservation rates estimated using the TPP model can be summarized and plotted using the command `-plotQ` followed by the `mcmc.log` file (including path to file):
+
+`PyRate.py -plotQ .../Canis_pbdb_data_mcmc.log -qShift epochs.txt -b 100`
+
+Note that the file with the times of rate shift (e.g. `PyRate-master/example_files/epochs_q.txt`) should be provided as well.
+
+
 ***
 ## Speciation and extinction rates within fixed time bins
 #### Analysis setup
