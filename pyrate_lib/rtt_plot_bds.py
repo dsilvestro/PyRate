@@ -42,7 +42,7 @@ def r_plot_code(res,wd,name_file,alpha=0.5,plot_title="RTT plot"):
 def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 	wd = "%s" % os.path.dirname(f)
 	name_file=os.path.splitext(os.path.basename(f))[0]
-	t=loadtxt(f, skiprows=max(1,burnin))
+	t=loadtxt(f, skiprows=max(1,int(burnin)))
 	head = np.array(next(open(f)).split()) # should be faster
 	#print np.where(head=="beta")[0], np.where(head=="temperature")[0]
 	if "temperature" in head or "beta" in head:
@@ -128,7 +128,7 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 def RTTplot_Q(f,q_shift_file,burnin=0,max_age=0):
 	wd = "%s" % os.path.dirname(f)
 	name_file=os.path.splitext(os.path.basename(f))[0]
-	t=loadtxt(f, skiprows=max(1,burnin))
+	t=loadtxt(f, skiprows=max(1,int(burnin)))
 	head = np.array(next(open(f)).split()) # should be faster
 	#print np.where(head=="beta")[0], np.where(head=="temperature")[0]
 	if "temperature" in head or "beta" in head:
