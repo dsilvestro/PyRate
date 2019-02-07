@@ -44,6 +44,7 @@ p.add_argument('-n',     type=int,     help='MCMC iterations', default=10000000,
 p.add_argument('-s',     type=int,     help='sampling freq.', default=5000, metavar=5000)
 p.add_argument('-p',     type=int,     help='print freq.', default=5000, metavar=5000)
 p.add_argument('-j',     type=int,     help='replicate', default=0, metavar=0)
+p.add_argument('-jvar',     type=int, help='replicate variable', default=-1, metavar=-1)
 p.add_argument('-b',     type=int,     help='burnin (number of generations)', default=1, metavar=1)
 p.add_argument('-r',     type=float,   help='Data scaling (default option recommended)', default=0, metavar=0)
 p.add_argument('-plot',  type=str,     help='Plot rates-through-time (Log file)', default="", metavar="")
@@ -53,6 +54,14 @@ p.add_argument('-minT',     type=float,   help='Min age (truncate data)', defaul
 p.add_argument('-out',   type=str,     help='tag added to output file', default="", metavar="")
 p.add_argument('-bound', type=float,   help='absolute boundaries to local shrinkage (0 +/- bound)', default=np.inf, metavar=np.inf)
 p.add_argument('-rmDD',  type=int,     help='model (0: analysis includes self-diversity-dependence, 1: analysis excludes selfdiversity-dependence', default=0, metavar=0)
+p.add_argument('-hsp',  type=int,     help='1: use Horshoe prior; 0: fixed prior', default=1, metavar=1)
+p.add_argument('-birth_model',  type=int,     help='1: use birth-only process', default=0, metavar=0)
+p.add_argument('-death_model',  type=int,     help='1: use death-only process', default=0, metavar=0)
+
+
+
+
+
 
 args = p.parse_args()
 
@@ -61,6 +70,15 @@ dataset=args.d
 n_iterations=args.n
 sampling_freq=args.s
 print_freq = args.p
+useHSP = args.hsp
+birth_model = args.birth_model
+death_model = args.death_model
+
+
+
+
+
+
 #t_file=np.genfromtxt(dataset, names=True, delimiter='\t', dtype=float)
 t_file=np.loadtxt(dataset, skiprows=1)
 
@@ -100,6 +118,11 @@ remove_selfDD = args.rmDD
 dir_to_files = args.var
 all_files="%s/*" % (dir_to_files)
 list_files_temp=list(sort(glob.glob(all_files)))
+
+if args.jvar != -1:
+	file_tag = "_%s_" % args.jvar
+	list_files_temp = [ list_files_temp[i] for i in range(len(list_files_temp)) if file_tag in list_files_temp[i] ]
+
 list_files = [""]+list_files_temp
 
 variable_names=[]
@@ -107,7 +130,8 @@ for i in range(len(list_files)):
 	name_var_file = os.path.splitext(os.path.basename(list_files[i]))[0]
 	if i==0: name_var_file = "Diversity dependence"
 	variable_names.append(name_var_file)
-	print i, name_var_file
+	if remove_selfDD and i==0: pass
+	else: print i, name_var_file
 
 # first item is empty because it's were the Dtraj goes
 print "Processing files..."
@@ -135,11 +159,11 @@ plot_RTT = False,False
 # NEW FUNCTION 
 if args.plot != "":
 	plot_RTT = True
-	summary_file = args.plot
-	name_file = os.path.splitext(os.path.basename(summary_file))[0]
-	print "Parsing log file:", summary_file
-	fixed_focal_clade,baseline_L,baseline_M,Gl_focal_clade,Gm_focal_clade,est_kl,est_km = lib_utilities.parse_hsp_logfile(summary_file,burnin)
-	fixed_focal_clade,baseline_L_list,baseline_M_list,Gl_focal_clade_list,Gm_focal_clade_list,est_kl,est_km = lib_utilities.parse_hsp_logfile_HPD(summary_file,burnin)
+	np.summary_file = args.plot
+	name_file = os.path.splitext(os.path.basename(np.summary_file))[0]
+	print "Parsing log file:", np.summary_file
+	fixed_focal_clade,baseline_L,baseline_M,Gl_focal_clade,Gm_focal_clade,est_kl,est_km = lib_utilities.parse_hsp_logfile(np.summary_file,burnin)
+	fixed_focal_clade,baseline_L_list,baseline_M_list,Gl_focal_clade_list,Gm_focal_clade_list,est_kl,est_km = lib_utilities.parse_hsp_logfile_HPD(np.summary_file,burnin)
 	#else: sys.exit("Unable to parse file.")
 
 
@@ -190,7 +214,8 @@ all_time_eve=all_events_temp2[0]
 idx_s = []
 idx_e = []
 for i in range(n_clades): # make trajectory curves for each clade
-	print "\tparsing variable", i
+	if remove_selfDD and i==0: pass
+	else: print "\tparsing variable", i
 	if i==0:
 		dd_focus_clade=getDT(all_events_temp2[0],s_list[i],e_list[i]) + np.zeros(len(all_events_temp2[0]))
 		# dd_focus_clade: raw diversity trajectory (not rescaled 0 to 1) is used in the likelihood calculation
@@ -219,12 +244,12 @@ for i in range(n_clades): # make trajectory curves for each clade
 		v = get_VarValue_at_timeMCDD(all_Times,Var_values,times_of_T_change_indexes,times_of_T_change,root_age,clade_indexes,curve_index )
 		
 		# CHECK
-		#__     print "\n\n\n\n\n\n"
-		#__     for j in range(len(all_Times)):
-		#__     	print "%s\t%s\t%s" % (all_Times[j],v[j],dd[j])
-		#__     
-		#__     print "\n\n\n\n\n\n"
-		#__     sys.exit()
+		#print "\n\n\n\n\n\n"
+		#for j in range(len(all_Times)):
+		#	print "%s\t%s" % (all_Times[j],v[j])#,dd[j])
+		#
+		#print "\n\n\n\n\n\n"
+		#sys.exit()
 		##print "\n\n\n\n\nso far..."
 
 # print Dtraj
@@ -258,8 +283,8 @@ def sample_tau_mod(lam,beta,tau):
 	truncate = (1-u)/u
 	theta = (beta/lam)
 	a = (len(lam.flatten())+1)/2.
-	b = sum((theta**2)/2)
-	# 1./b = scale parameter = 2/sum(theta**2) || cf. 2/(mu**2) = scale parameter above
+	b = np.sum((theta**2)/2)
+	# 1./b = scale parameter = 2/np.sum(theta**2) || cf. 2/(mu**2) = scale parameter above
 	new_eta = np.random.gamma( a, 1./b, len(tau)  )
 	new_tau = np.zeros(len(tau))+tau
 	new_tau[new_eta<truncate]= sqrt(1./new_eta[new_eta<truncate])
@@ -271,7 +296,7 @@ def sample_tau_mod(lam,beta,tau):
 #u = runif(1,0,1/(eta + 1))
 #ub = (1-u)/u
 #a = (p+1)/2
-#b = sum(Theta^2)/2
+#b = np.sum(Theta^2)/2
 #ub2 = pgamma(ub,a,rate=b)
 #u2 = runif(1,0,ub2)
 #eta = qgamma(u2,a,rate=b)
@@ -295,8 +320,9 @@ elif scaling ==2:
 	trasfRate_general = trasfMultiRateCladeScaling
 
 Dtraj = Dtraj*scale_factor
-#print scale_factor, np.max(Dtraj), np.max(Dtraj, axis=0)
+print "scale_factor",scale_factor, np.max(Dtraj), np.max(Dtraj, axis=0)
 print maxG, scale_factor
+
 
 if remove_selfDD==1:
     Dtraj = Dtraj[:,1:] # remove the diversity column
@@ -304,10 +330,16 @@ if remove_selfDD==1:
     scale_factor = scale_factor[1:] # remove the scale factor for diversity
     variable_names = variable_names[1:]
 
+print np.shape(Dtraj)
 
 GarrayA=init_Garray(n_clades) # 3d array so:
                               # Garray[i,:,:] is the 2d G for one clade
 			            # Garray[0,0,:] is G_lambda, Garray[0,1,:] is G_mu for clade 0
+					
+					
+if birth_model: GarrayA[fixed_focal_clade,1,:] = 0
+elif death_model: GarrayA[fixed_focal_clade,0,:] = 0
+					
 if plot_RTT is True: 
 	# G estimates are given per species but Dtraj are rescaled when:  scaling > 0 (default: scaling = 1)
 	GarrayA[fixed_focal_clade,0,:] += Gl_focal_clade/scale_factor 
@@ -522,7 +554,6 @@ else:
 	index_included_ex_times = index_temp[ex_times>min_T]
 
 
-
 t1=time.time()
 iteration=0
 while True:
@@ -548,8 +579,8 @@ while True:
 		m_at_events=trasfRate_general(m0[i],Garray_temp[i,1,:],Dtraj)
 		l_s1a=l_at_events[idx_s[i]]
 		m_e1a=m_at_events[idx_e[i]]
-		lik[i] = (sum(log(l_s1a))-sum(abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(dd_focus_clade[1:len(l_at_events)])) \
-		         +sum(log(m_e1a))-sum(abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(dd_focus_clade[1:len(l_at_events)])) )
+		lik[i] = (np.sum(log(l_s1a))-np.sum(abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(dd_focus_clade[1:len(l_at_events)])) \
+		         +np.sum(log(m_e1a))-np.sum(abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(dd_focus_clade[1:len(l_at_events)])) )
 		likA=lik
 
 	else:	
@@ -561,7 +592,7 @@ while True:
 		
 		if rr<sampling_freqs[0]:
 			rr2 = np.random.random()
-			if rr2<.5: 
+			if rr2<.5 and birth_model-death_model==1: 
 				l0=np.zeros(n_clades)+l0A
 				l0[focal_clade],hasting=update_multiplier_proposal(l0A[focal_clade],1.2)
 			else: 	
@@ -570,25 +601,38 @@ while True:
 
 		elif rr<sampling_freqs[1]: # update hypZ and hypR
 			gibbs_sampling=1
-			if  np.random.random() < 0.15:
-				Tau = sample_tau_mod(LAM[focal_clade,:,:],GarrayA[focal_clade,:,:],TauA)
+			if useHSP == 1:
+				if  np.random.random() > 0.15:
+					# Gibbs sampler (slice-sampling, Scott 2011)
+					LAM[focal_clade,0,:] = sample_lam_mod(LAM[focal_clade,0,:],GarrayA[focal_clade,0,:],Tau)
+					LAM[focal_clade,1,:] = sample_lam_mod(LAM[focal_clade,1,:],GarrayA[focal_clade,1,:],Tau)
+				else:
+					Tau = sample_tau_mod(LAM[focal_clade,:,:],GarrayA[focal_clade,:,:],TauA)
 			else:
-				# Gibbs sampler (slice-sampling, Scott 2011)
-				LAM[focal_clade,0,:] = sample_lam_mod(LAM[focal_clade,0,:],GarrayA[focal_clade,0,:],Tau)
-				LAM[focal_clade,1,:] = sample_lam_mod(LAM[focal_clade,1,:],GarrayA[focal_clade,1,:],Tau)
+				precision = 1./(Tau**2) # Tau is std here
+				T_hp_alpha,T_hp_beta=10.,1.
+				
+				if birth_model:      new_precision = np.random.gamma( T_hp_alpha+(n_clades)/2, scale =1./(T_hp_beta + np.sum(GarrayA[focal_clade,0,:]**2))/2   , size=1)
+				elif death_model:    new_precision = np.random.gamma( T_hp_alpha+(n_clades)/2, scale =1./(T_hp_beta + np.sum(GarrayA[focal_clade,1,:]**2))/2   , size=1)
+				else:	               new_precision = np.random.gamma( T_hp_alpha+(n_clades*2)/2, scale =1./(T_hp_beta + np.sum(GarrayA[focal_clade,:,:]**2))/2   , size=1)
+				Tau = np.sqrt(1./new_precision)
+					
 			# Gibbs sampler (Exponential + Gamma[2,2])
 			G_hp_alpha,G_hp_beta=1.,.01
 			#_  g_shape=G_hp_alpha+len(l0A)+len(m0A)
-			#_  rate=G_hp_beta+sum(l0A)+sum(m0A)
+			#_  rate=G_hp_beta+np.sum(l0A)+np.sum(m0A)
 			#_  hypRA = np.random.gamma(shape= g_shape, scale= 1./rate, size=1)
 			fixed_shape = 2.
-			post_rate_prm_Gamma_prior = np.random.gamma( shape=G_hp_alpha+fixed_shape*(len(l0A)+len(m0A)), scale=1./(G_hp_beta+sum(l0A)+sum(m0A)), size=1)
+			post_rate_prm_Gamma_prior = np.random.gamma( shape=G_hp_alpha+fixed_shape*(len(l0A)+len(m0A)), scale=1./(G_hp_beta+np.sum(l0A)+np.sum(m0A)), size=1)
 			hypRA = post_rate_prm_Gamma_prior
 			
 		else: # update Garray (effect size) 
 			Garray_temp= update_parameter_normal_2d_freq((GarrayA[focal_clade,:,:]),d=.5,f=.1,m=-maxG,M=maxG)
 			Garray=np.zeros(n_clades*n_clades*2).reshape(n_clades,2,n_clades)+GarrayA
 			Garray[focal_clade,:,:]=Garray_temp
+			if birth_model: Garray[fixed_focal_clade,1,:] *= 0
+			elif death_model: Garray[fixed_focal_clade,0,:] *= 0
+			
 			#print GarrayA[focal_clade,:,:]-Garray[focal_clade,:,:]
 
 		
@@ -601,12 +645,17 @@ while True:
 		m_e1a=m_at_events[idx_e[i]]
 		
 		if max_T==-1:
-			lik_clade = (sum(log(l_s1a))-sum(abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(dd_focus_clade[1:len(l_at_events)])) \
-			            +sum(log(m_e1a))-sum(abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(dd_focus_clade[1:len(l_at_events)])) )
+			lik_clade = [np.sum(log(l_s1a))-np.sum(abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(dd_focus_clade[1:len(l_at_events)])), \
+			             np.sum(log(m_e1a))-np.sum(abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(dd_focus_clade[1:len(l_at_events)])) ]
 		else:
-			lik_clade = (sum(log(l_s1a)[index_included_sp_times])-sum((abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(dd_focus_clade[1:len(l_at_events)]))[index_events_included-1] ) \
-			            +sum(log(m_e1a)[index_included_ex_times])-sum((abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(dd_focus_clade[1:len(l_at_events)]))[index_events_included-1] ) )
+			lik_clade = [np.sum(log(l_s1a)[index_included_sp_times])-np.sum((abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(dd_focus_clade[1:len(l_at_events)]))[index_events_included-1] ), \
+			             np.sum(log(m_e1a)[index_included_ex_times])-np.sum((abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(dd_focus_clade[1:len(l_at_events)]))[index_events_included-1] ) ]
 
+		if birth_model: lik_clade = lik_clade[0]
+		elif death_model: lik_clade = lik_clade[1]
+		else: lik_clade = np.sum(lik_clade)
+			
+			
 		ind_focal=np.ones(n_clades)
 		ind_focal[focal_clade]=0
 		lik = likA*ind_focal
@@ -614,29 +663,36 @@ while True:
 		###### END FOCAL
 
 	""" len(Rtemp[Rtemp==0]), where Rtemp=R[i,:,:]
-	should be equal to n_clades*2 - sum(R[i,:,:]) and len(Rtemp[Rtemp==0]) = sum(R[i,:,:]
+	should be equal to n_clades*2 - np.sum(R[i,:,:]) and len(Rtemp[Rtemp==0]) = np.sum(R[i,:,:]
 	BTW, it is n_clades*2 because the same prior is used for both l0 and m0
 	
 	THUS:
 	
-	sum_R_per_clade = np.sum(RA,axis=(1,2))
-	log(TauA) * (1-sum_R_per_clade) + log(1-TauA)*(sum_R_per_clade))
+	np.sum_R_per_clade = np.sum(RA,axis=(1,2))
+	log(TauA) * (1-np.sum_R_per_clade) + log(1-TauA)*(np.sum_R_per_clade))
 	
 	"""
-
-	prior = sum(pdf_normal(Garray[fixed_focal_clade,:,:],sd=LAM[fixed_focal_clade,:,:]*Tau ))
-	prior +=sum(pdf_cauchy(LAM[fixed_focal_clade,:,:]))
-	prior +=sum(pdf_cauchy(Tau))	
+	#if iteration % print_freq ==0: 
+	#	print pdf_normal( np.array([0,2,10,50]) ,sd=LAM[fixed_focal_clade,:,:]*Tau )
+	#	print np.max(Garray[fixed_focal_clade,:,:]), np.min(Garray[fixed_focal_clade,:,:])
+	#	#quit()
+	prior = np.sum(pdf_normal(Garray[fixed_focal_clade,:,:],sd=LAM[fixed_focal_clade,:,:]*Tau ))
+	if useHSP==1:
+		prior +=np.sum(pdf_cauchy(LAM[fixed_focal_clade,:,:]))
+		prior +=np.sum(pdf_cauchy(Tau))	
+	else:
+		T_hp_alpha,T_hp_beta=10.,1.
+		prior += prior_gamma(1./(Tau**2),T_hp_alpha,T_hp_beta)
 	#_ prior += prior_exponential(l0,hypRA)+prior_exponential(m0,hypRA)
 	fixed_shape = 2.
 	prior += prior_gamma(l0,fixed_shape,hypRA)+prior_gamma(m0,fixed_shape,hypRA)
 	
-	if (sum(lik) + prior) - postA + hasting >= log(np.random.random()) or iteration==0 or gibbs_sampling==1:
-		postA=sum(lik)+prior
+	if (np.sum(lik) + prior) - postA + hasting >= log(np.random.random()) or iteration==0 or gibbs_sampling==1:
+		postA=np.sum(lik)+prior
 		likA=lik
 		priorA=prior
 		l0A=l0
-                m0A=m0
+		m0A=m0
 		GarrayA=Garray
 		actualGarray=GarrayA[fixed_focal_clade,:,:]*scale_factor
 		TauA=Tau
@@ -645,7 +701,7 @@ while True:
 	if iteration % print_freq ==0: 
 		k= 1./(1+TauA**2 * LAM[fixed_focal_clade,:,:]**2) # Carvalho 2010 Biometrika, p. 471
 		loc_shrinkage = (1-k) # so if loc_shrinkage > 0 is signal, otherwise it's noise (cf. Carvalho 2010 Biometrika, p. 474)
-		print iteration, array([postA]), TauA, mean(LAM[fixed_focal_clade,:,:]), len(loc_shrinkage[loc_shrinkage>0.5]) #, sum(likA),sum(lik),prior, hasting
+		print iteration, array([postA]), TauA, mean(LAM[fixed_focal_clade,:,:]), len(loc_shrinkage[loc_shrinkage>0.5]) #, np.sum(likA),np.sum(lik),prior, hasting
 		#print likA
 		#print "l:",l0A
 		#print "m:", m0A
@@ -657,7 +713,7 @@ while True:
 		k= 1./(1+TauA**2 * LAM[fixed_focal_clade,:,:]**2) # Carvalho 2010 Biometrika, p. 471
 		loc_shrinkage = (1-k) # so if loc_shrinkage > 0 is signal, otherwise it's noise (cf. Carvalho 2010 Biometrika, p. 474)
 		#loc_shrinkage =LAM[fixed_focal_clade,:,:]**2
-		log_state=[iteration,postA,sum(likA)]+[priorA]+[l0A[fixed_focal_clade]]+[m0A[fixed_focal_clade]]+list(actualGarray.flatten())+list(loc_shrinkage.flatten())+[mean(LAM[fixed_focal_clade,:,:]),std(LAM[fixed_focal_clade,:,:])] +list(TauA) +[hypRA[0]]
+		log_state=[iteration,postA,np.sum(likA)]+[priorA]+[l0A[fixed_focal_clade]]+[m0A[fixed_focal_clade]]+list(actualGarray.flatten())+list(loc_shrinkage.flatten())+[mean(LAM[fixed_focal_clade,:,:]),std(LAM[fixed_focal_clade,:,:])] +list(TauA) +[hypRA[0]]
 		wlog.writerow(log_state)
 		logfile.flush()
 
