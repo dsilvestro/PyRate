@@ -59,8 +59,25 @@ Canis\_thooides | extinct | 1.8 | 4.9
 4. **Parse the raw data and generate PyRate input file**. Type in R:   
   `extract.ages(file="…/PyRate/example_files/Ursidae.txt", replicates=10)` This function includes `replicates` and `cutoff` options as the `extract.ages.pbdb()` function described above (option 1). 
 
+### Accounting for age dependence in multiple occurrences from the same site
+If a fossil assemblage or site contains several occurrences we should consider these occurrences as coeval even as we randomize their age within their temporal range. 
+This can be done by specifying a "Site" column in the input data, with a number specifying the ID of the assemblage for each occurrence. For instance in the example below, the first three occurrences were found in the same site and their random age will be identical.
 
 
+| Taxon\_name   | Status  | MinAge | MaxAge | Site
+| ------------- |:-------------:| -----:| -----:| -----:|
+Canis\_ferox | extinct | 4.9    | 10.3 | 1
+Canis\_lepophagus | extinct | 4.9 | 10.3  | 1
+Canis\_ferox | extinct | 4.9 | 10.3  | 1
+Canis\_ferox | extinct | 4.9 | 10.3  | 2
+Canis\_ferox | extinct | 4.9 | 5.3  | 3
+Canis\_edwardii | extinct | 0.3 | 4.9  | 4
+Canis\_armbrusteri | extinct | 0.3 | 4.9 | 4 
+Canis\_latrans | extant | 0.3 | 4.9  | 4 
+Canis\_latrans | extant | 1.8 | 4.9  | 5
+Canis\_thooides | extinct | 1.8 | 4.9  | 5
+
+*pyrate_utilities.r* (`extract.ages()`) will automatically resample fossil ages by site when a column named "Site" is included in the input table. **We thank Peter Wagner and Juan Cantalapiedra for input on this!**
 
 ***
 # Estimation of speciation and extinction rates through time
