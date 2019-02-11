@@ -5,7 +5,7 @@ import random as rand
 import warnings, imp
 
 version= "PyRate"
-build  = "v2.0 - 20190118"
+build  = "v2.0 - 20190211"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
@@ -171,7 +171,8 @@ def calc_model_probabilities(f,burnin):
 	L=file1.readlines()
 	head= L[0].split()
 	PAR1=["k_birth","k_death"]
-	k_ind= [head.index(s) for s in head if s in PAR1]
+	k_ind= [head.index(s) for s in head if s in PAR1]	
+	if len(k_ind)==0: k_ind =[head.index(s) for s in head if s in ["K_l","K_m"]]	
 	z1=t[burnin:,k_ind[0]]  # list of shifts (lambda)
 	z2=t[burnin:,k_ind[1]]  # list of shifts (mu)
 	y1= max(max(z1),max(z2))
