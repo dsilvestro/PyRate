@@ -57,6 +57,7 @@ p.add_argument('-rmDD',  type=int,     help='model (0: analysis includes self-di
 p.add_argument('-hsp',  type=int,     help='1: use Horshoe prior; 0: fixed prior', default=1, metavar=1)
 p.add_argument('-birth_model',  type=int,     help='1: use birth-only process', default=0, metavar=0)
 p.add_argument('-death_model',  type=int,     help='1: use death-only process', default=0, metavar=0)
+p.add_argument('-ignore_clade_col',  type=int,     help='1: ignore clade assignement (clades currently not supported)', default=1, metavar=1)
 
 
 
@@ -85,11 +86,13 @@ t_file=np.loadtxt(dataset, skiprows=1)
 name_file = os.path.splitext(os.path.basename(dataset))[0]
 wd = "%s" % os.path.dirname(dataset)
 
-
-clade_ID=t_file[:,0]
-clade_ID=clade_ID.astype(int)
 ts=t_file[:,2+2*args.j]
 te=t_file[:,3+2*args.j]
+if args.ignore_clade_col:
+	clade_ID = np.zeros(len(ts)).astype(int)
+else:
+	clade_ID=t_file[:,0]
+	clade_ID=clade_ID.astype(int)
 
 if args.plot != "":
 	j = np.arange((np.shape(t_file)[1]-2)/2)
@@ -146,7 +149,7 @@ for i in range(1,len(list_files)): # add data from curves
 	ts=np.concatenate((ts,time_var),axis=0)
 	te=np.concatenate((te,np.zeros(len(index_curve))),axis=0)
 	
-#print clade_ID, len(ts),len(te)
+# print clade_ID, len(ts),len(te)
 
 
 all_events=sort(np.concatenate((ts,te),axis=0))[::-1] # events are speciation/extinction that change the diversity trajectory
