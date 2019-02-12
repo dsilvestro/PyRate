@@ -24,14 +24,17 @@
 * [Correlation with a time-continuous variable](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#correlation-with-a-time-continuous-variable)
 * [Model testing using marginal likelihoods](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#model-testing-using-thermodynamic-integration-ti)
 
-### Other birth-death models
+### Multivariate BD models (multiple time-continuous correlates)
 * [Multivariate birth-death (PyRateMBD)](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#multivariate-birth-death-models-this-tutorial-is-work-in-progress)
+
+### Age-dependent and trait-dependent BD models
+* [Trait dependent birth-death models](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#trait-correlated-diversification)
 * [Age dependent extinction model](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#age-dependent-extinction-ade-model)
 
 ---
 ### Dispersal Extinction Sampling models
 * [Preparing input data for DES analysis](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_5.md#input-data-preparation)
-* [Running a DES analysis (draft tutotrial)](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_5.md#running-a-des-analysis)
+* [Running a DES analysis (draft tutorial)](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_5.md#running-a-des-analysis)
 
 ---
 
