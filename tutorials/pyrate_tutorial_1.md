@@ -2,7 +2,7 @@
 
 # PyRate Tutorial \#1
 
-#### Mar 2018  
+#### Feb 2019
 
 ***
 #### Contents
@@ -10,8 +10,7 @@
 * [Generate PyRate input file (option 2)](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#generate-pyrate-input-file-option-2)  
 * [Estimation of speciation and extinction rates through time](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#estimation-of-speciation-and-extinction-rates-through-time)    
 
-Useful links:  
-[PyRate code](https://github.com/dsilvestro/PyRate)  [PyRate wiki](https://github.com/dsilvestro/PyRate/wiki)  
+* [Return to Index](https://github.com/dsilvestro/PyRate/tree/master/tutorials#pyrate-tutorials---index) 
 ***
 
 # Generate PyRate input file (option 1)

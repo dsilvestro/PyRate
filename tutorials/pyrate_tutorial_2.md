@@ -2,12 +2,13 @@
 
 # PyRate Tutorial \#2
 
-#### Daniele Silvestro – June 2018
+#### June 2018
 ***  
 #### Contents
 * [Birth-death models with time-continuous correlates](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#birth-death-models-with-time-continuous-correlates)  
 * [Model testing](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#model-testing-using-thermodynamic-integration-ti)
 
+* [Return to Index](https://github.com/dsilvestro/PyRate/tree/master/tutorials#pyrate-tutorials---index) 
 ***
 
 

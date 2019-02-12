@@ -1,20 +1,24 @@
 <img src="https://github.com/dsilvestro/PyRate/blob/master/pyrate_lib/PyRate_logo1024.png" align="left" width="80">  
 
 # PyRate Tutorial \#4 MDB and ADE models
-#### Daniele Silvestro – June 2018
+#### Feb 2019
 ***
 #### Contents
 * [Multivariate Birth-Death models](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#multivariate-birth-death-models-this-tutorial-is-work-in-progress)  
-* [Age dependent extinction (ADE) model](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#age-depdendent-extinction-ade-model)
-  
+* [Trait-dependent diversification models (Covar model)](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#trait-correlated-diversification)
+* [Age dependent extinction (ADE) model](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#age-dependent-extinction-ade-model)
+
+* [Return to Index](https://github.com/dsilvestro/PyRate/tree/master/tutorials#pyrate-tutorials---index) 
 ***
 
-# Multivariate Birth-Death models
+# The Multivariate Birth-Death model (MBD)
 
 The MBD model allow the estimation of speciation and extinction rates as a function of multiple time-continuous variables [(Lehtonen, Silvestro et al. 2017)](https://www.nature.com/articles/s41598-017-05263-7). The model assumes linear or exponential functions linking the temporal variation of birth-death rates with changes in one or more variables.
 Under the MBD model a correlation parameter is estimated for each variable (for speciation and extinction).
 
-A Horseshoe prior algorithm (more details provided [here)](https://www.nature.com/articles/s41598-017-05263-7) is used to shrink around zero the correlation parameters, thus reducing the risk of over-parameterization and the need for explicit model testing. 
+A **Horseshoe prior algorithm** (more details provided [here)](https://www.nature.com/articles/s41598-017-05263-7) is used to shrink around zero the correlation parameters, thus reducing the risk of over-parameterization and the need for explicit model testing. 
+
+**Alternatively, gamma hyper-priors** can be used to constrain the correlation parameters and prevent over-parameterization (see [below](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#additional-options)). This option should be preferred when testing only few variables (e.g. 3-4 correlates).
 
 The MBD model is implemented in the program `PyRateMBD.py` and requires as main input file a [table with estimated speciation and extinction times](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#generate-input-file-for-pyratecontinuous). It additionally requires a set of predictors provided as separate files in a single directory.
 Each predictor should be provided as a tab-separated table with a header and two columns for time before present and predictor values, e.g.
@@ -36,18 +40,57 @@ To launch an MBD analysis, you must provide the input file and the path to all p
 where `-m 1` specifies the type of correlation model, the options being `-m 0` for exponential correlations (default) and `-m 1` for linear correlations.
 The flag `-var` is used to specify the path to a folder containing all predictors.
 
-### Other available options are:  
+### Additional options  
 * `-out outname` add a string to output file names   
 * `-rmDD 1` remove self-diversity dependence (by default included in the analysis) 
 * `-T 23` truncate at max time 
 * `-n 10000000`  MCMC iterations
 * `-s 5000`      sampling frequency
 
+The MBD analysis uses the Horseshoe prior by default. However, this can be replaced with gamma hyper-priors on the precision parameters (1/variance) of the Gaussian priors on the correlation parameters. This is done adding the flag: `-hsp 0`.
 
 ### Summarizing the results
-The command `-plot <logfile>` can be used to generate plots of the marginal speciation and extinction rates through time  as predicted by the MBD model. It also computes the shrinkage weights (_Wl_ and _Wm_ for speciation and extinction, respectively) for all predictors. The shrinkage weights quantify the statistical support for each correlation factor. The correlation parameters are indicated by _Gl_ and _Gm_ in the log files and their posterior estimate is also indicated in the plots produced by the `-plot` command (they can also easily be obtained by opening the _mcmc.log_ file in [Tracer](http://tree.bio.ed.ac.uk/software/tracer/)).
+The command `-plot <logfile>` can be used to generate plots of the marginal speciation and extinction rates through time  as predicted by the MBD model. When plotting the results of the MBD analyses, the input data, the directory containing all predictors, and the correlation model (linear or exponential) must be specified:
+
+`./PyRateMBD.py -d /example_files/Ferns_SE.txt -var /example_files/predictors_MBDmodel -m 1 -plot Ferns_SE_0_lin_MBD.log`
+
+When using the Horseshoe prior, the `plot` function also computes the shrinkage weights (_Wl_ and _Wm_ for speciation and extinction, respectively) for all predictors. The shrinkage weights quantify the statistical support for each correlation factor. The correlation parameters are indicated by _Gl_ and _Gm_ in the log files and their posterior estimate is also indicated in the plots produced by the `-plot` command (they can also easily be obtained by opening the _mcmc.log_ file in [Tracer](http://tree.bio.ed.ac.uk/software/tracer/)).
 
 ![Example RTT](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/Ferns_MBD_short_run.png)
+
+
+
+# Trait correlated diversification 
+PyRate implements birth-death models in which speciation and extinction rates change in a lineage-specific fashion as a function of an estimated correlation with a continuous trait (Covar models). The model is described [here](http://onlinelibrary.wiley.com/doi/10.1111/2041-210X.12263/abstract). 
+
+
+### Providing a trait file
+With the command `-trait_file` you can provide a table (tab-separated text file) with trait values for the species in your fossil data set. The first column of the table should include the species names (identical to those used in the PyRate file), the second column provides the trait values ([see example file](https://github.com/dsilvestro/PyRate/blob/master/example_files/Ursidae_bm.txt)). Species for which trait data are not available can be omitted from the table. Alternatively, they can be included in the table with trait value `NA`. These species will be still included in the analysis, but their trait value will be imputed by the MCMC.
+
+Trait values can (often should) be log-transformed. This can be deon using the command `logT`:  
+`-logT 0` trait is not transformed  
+`-logT 1` trait is log_e transformed  
+`-logT 2` trait is log10 transformed
+
+
+### Setting the Covar model
+Use the command `-mCov` to set Covar models in which the birth-death rates (and preservation rate) vary across lineages as the result of a correlation with a continuous trait, provided as an observed variable, based on estimated correlation parameters (cov_sp, cov_ex, cov_q).
+Examples:  
+`-mCov 1` correlated speciation rate  
+`-mCov 2` correlated extinction rate  
+`-mCov 3` correlated speciation and extinction rates  
+`-mCov 4` correlated preservation rate  
+`-mCov 5` correlated speciation, extinction, preservation rates  
+
+The default prior on the correlation parameters is a normal distribution centered in 0 and with standard deviation = 1. The standard deviation can be modified using the command `-pC`, e.g. `-pC 0.1` sets the standard deviation to 0.1. Alternatively, the standard deviation of the normal prior on the correlation parameter can be estimated directly from the data (using hyper-priors; more details are provided [here](https://royalsocietypublishing.org/doi/full/10.1098/rspb.2016.2361)). This is done setting `-pC 0`. **Note** that this option is generally preferred when more than one correlation parameters are estimated (i.e. with `-mCov 3` or `-mCov 5`).
+
+A typical analysis is launched with the following command:
+
+`./PyRate.py Ursidae_example_PyRate.py -trait_file Ursidae_bm.txt -mCov 5 -logT 10 -pC 0`
+
+Example files available [here](https://github.com/dsilvestro/PyRate/blob/master/example_files).
+
+
 
 
 # Age dependent extinction (ADE) model
