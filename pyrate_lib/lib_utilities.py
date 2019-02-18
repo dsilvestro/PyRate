@@ -40,12 +40,13 @@ def print_R_vec(name,v):
 	new_v=[]
 	if len(v)==0: vec= "%s=c()" % (name)
 	elif len(v)==1: vec= "%s=c(%s)" % (name,v[0])
+	elif len(v)==2: vec= "%s=c(%s,%s)" % (name,v[0],v[1])
 	else:
 		for j in range(0,len(v)): 
 			value=v[j]
 			if isnan(v[j]): value="NA"
 			new_v.append(value)
-
+		
 		vec="%s=c(%s, " % (name,new_v[0])
 		for j in range(1,len(v)-1): vec += "%s," % (new_v[j])
 		vec += "%s)"  % (new_v[j+1])
