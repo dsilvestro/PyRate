@@ -18,7 +18,7 @@ Under the MBD model a correlation parameter is estimated for each variable (for 
 
 A **Horseshoe prior algorithm** (more details provided [here)](https://www.nature.com/articles/s41598-017-05263-7) is used to shrink around zero the correlation parameters, thus reducing the risk of over-parameterization and the need for explicit model testing. 
 
-**Alternatively, gamma hyper-priors** can be used to constrain the correlation parameters and prevent over-parameterization (see [below](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#additional-options)). This option should be preferred when testing only few variables (e.g. 3-4 correlates).
+**Alternatively, gamma hyper-priors** can be used to constrain the correlation parameters and prevent over-parameterization (see [below](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#additional-options)). This option should be preferred when testing only few variables (e.g. 2-4 correlates).
 
 The MBD model is implemented in the program `PyRateMBD.py` and requires as main input file a [table with estimated speciation and extinction times](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#generate-input-file-for-pyratecontinuous). It additionally requires a set of predictors provided as separate files in a single directory.
 Each predictor should be provided as a tab-separated table with a header and two columns for time before present and predictor values, e.g.
@@ -43,7 +43,9 @@ The flag `-var` is used to specify the path to a folder containing all predictor
 ### Additional options  
 * `-out outname` add a string to output file names   
 * `-rmDD 1` remove self-diversity dependence (by default included in the analysis) 
-* `-T 23` truncate at max time 
+*  `-minT 2.58` truncate at min time (e.g. at 2.58 Ma)
+* `-maxT 23` truncate at max time (e.g. at 23 Ma)
+* `-hsp 0` use Gamma hyper-priors instead of the Horseshoe prior
 * `-n 10000000`  MCMC iterations
 * `-s 5000`      sampling frequency
 
@@ -107,3 +109,25 @@ The ADE model assumes that extinction rates are only a function of species age a
 `python PyRate.py <your_dataset> -ADE 1 -qShift epochs.txt -filter 23.03 5.3`
 
 will only analyze taxa with all occurrences in the Miocene. The output file from an ADE analysis includes the estimated shape and scale parameters of the Weibull distribution. If the shape parameter is not significantly different from 1, then there is no evidence of age dependent extinction rates. Shape parameters smaller than 1 indicate that extinction rate is highest at the very beginning of a species life span and decreases with species age. Conversely, shape parameter values larger than one indicate that extinction rates increase with time since a species origination. 
+
+
+# The Birth-Death Chronospecies (BDC) model
+
+Fossil and phylogenetic data can be jointly analyzed under the BDC model as described by [Silvestro, Warnock, Gavryushkina & Stadler 2018](https://www.nature.com/articles/s41467-018-07622-y). This analysis requires two input files: a standard PyRate input dataset (that can be generated as explained [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#generate-pyrate-input-file-option-2); see also [examples](https://github.com/dsilvestro/PyRate/tree/master/example_files/BDC_model)).
+
+To run a joint analysis of fossil and phylogenetic data you should provide the standard PyRate input file (occurrence data) and a tree file (NEXUS format):
+
+`python PyRate.py example_files/BDC_model/Feliformia.py -tree example_files/BDC_model/Feliformia.tre`
+
+Note that this function requires the [Dendropy library](https://dendropy.org). 
+
+By default the analysis assumes a constant rate birth-death model with independent rate parameters between fossil and phylogenetic data. 
+The flag `-bdc` enforces **compatible speciation and extinction rates under the BDC model**, whereas the flag `-eqr` sets the **rates to be equal**.
+
+To run under the **BDC skyline model** you can use the `-fixShift` command as explained [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#speciation-and-extinction-rates-within-fixed-time-bins), for example:
+
+`python PyRate.py example_files/BDC_model/Feliformia.py -tree example_files/BDC_model/Feliformia.tre -fixShift example_files/epochs.txt -bdc`
+
+This command sets up an analysis with rate shifts at the epochs boundaries under the BDC compatible model. 
+
+

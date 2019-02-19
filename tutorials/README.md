@@ -23,13 +23,12 @@
 * [Diversity dependent birth-death models](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#diversity-dependent-birth-death-models)
 * [Correlation with a time-continuous variable](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#correlation-with-a-time-continuous-variable)
 * [Model testing using marginal likelihoods](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#model-testing-using-thermodynamic-integration-ti)
-
-### Multivariate BD models (multiple time-continuous correlates)
 * [Multivariate birth-death (PyRateMBD)](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#multivariate-birth-death-models-this-tutorial-is-work-in-progress)
 
-### Age-dependent and trait-dependent BD models
+### Other birth-death models
 * [Trait dependent birth-death models](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#trait-correlated-diversification)
 * [Age dependent extinction model](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#age-dependent-extinction-ade-model)
+* [Birth-death Chronospecies model](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#the-birth-death-chronospecies-bdc-model)
 
 ---
 ### Dispersal Extinction Sampling models
