@@ -43,8 +43,14 @@ PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-af
 
 #### The ADE model is described here:
 
-* Hagen O., Andermann T., Quental T. B., Antonelli A., Silvestro D. (in press) Estimating Age-dependent Extinction: Contrasting Evidence from Fossils and Phylogenies. Systematic Biology, [doi: 10.1093/sysbio/syx082](https://academic.oup.com/sysbio/article/doi/10.1093/sysbio/syx082/4563320/Estimating-Agedependent-Extinction-Contrasting).
+* Hagen O., Andermann T., Quental T. B., Antonelli A., Silvestro D. (2017) Estimating Age-dependent Extinction: Contrasting Evidence from Fossils and Phylogenies. Systematic Biology, [doi: 10.1093/sysbio/syx082](https://academic.oup.com/sysbio/article/doi/10.1093/sysbio/syx082/4563320/Estimating-Agedependent-Extinction-Contrasting).
 
 * See tutorial [4](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md)
 
+
+#### The BDC model is described here:
+
+* Silvestro D., Warnock R., Gavryushkina A. & Stadler T. (2018) Closing the gap between palaeontological and neontological speciation and extinction rate estimates. Nature Communications, [doi: 10.1038/s41467-018-07622-y](https://www.nature.com/articles/s41467-018-07622-y).
+
+* See tutorial [4](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md)
 
