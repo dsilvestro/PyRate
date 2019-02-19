@@ -5,7 +5,7 @@ PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-af
 
 #### The program's documentation is available here: 
 * [Tutorials](https://github.com/dsilvestro/PyRate/tree/master/tutorials) (work in progress; Older [Wiki pages](https://github.com/dsilvestro/PyRate/wiki) are still available, although updated documentation is being only added to the Tutorials)
-* [Instructions](https://github.com/dsilvestro/PyRate/blob/master/pyrate_lib/fastPyRateC/README.md) to install the fastPyRateC library 
+* [System requirements](https://github.com/dsilvestro/PyRate/wiki#compatibility-and-installation) to run the program and [Instructions](https://github.com/dsilvestro/PyRate/blob/master/pyrate_lib/fastPyRateC/README.md) to install the fastPyRateC library 
 * For questions, suggestions or bugs [contact us](mailto:pyrate.help@gmail.com)
 
 
