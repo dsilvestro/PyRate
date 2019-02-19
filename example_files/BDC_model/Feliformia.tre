@@ -1,0 +1,255 @@
+#NEXUS
+[R-package APE, Tue Nov  1 14:28:08 2016]
+
+BEGIN TAXA;
+	DIMENSIONS NTAX = 121;
+	TAXLABELS
+		Acinonyx_jubatus
+		Puma_concolor
+		Puma_yagouaroundi
+		Lynx_canadensis
+		Lynx_lynx
+		Lynx_pardinus
+		Lynx_rufus
+		Felis_bieti
+		Felis_silvestris
+		Felis_catus
+		Felis_margarita
+		Felis_chaus
+		Felis_nigripes
+		Prionailurus_bengalensis
+		Prionailurus_iriomotensis
+		Prionailurus_viverrinus
+		Prionailurus_planiceps
+		Prionailurus_rubiginosus
+		Felis_manul
+		Leopardus_braccatus
+		Leopardus_colocolo
+		Leopardus_geoffroyi
+		Leopardus_guigna
+		Leopardus_tigrinus
+		Leopardus_pajeros
+		Leopardus_pardalis
+		Leopardus_wiedii
+		Leopardus_jacobitus
+		Catopuma_badia
+		Catopuma_temminckii
+		Pardofelis_marmorata
+		Caracal_caracal
+		Profelis_aurata
+		Leptailurus_serval
+		Neofelis_nebulosa
+		Panthera_leo
+		Panthera_pardus
+		Panthera_onca
+		Panthera_tigris
+		Uncia_uncia
+		Prionodon_linsang
+		Prionodon_pardicolor
+		Arctictis_binturong
+		Macrogalidia_musschenbroekii
+		Paradoxurus_hermaphroditus
+		Paradoxurus_jerdoni
+		Paradoxurus_zeylonensis
+		Paguma_larvata
+		Chrotogale_owstoni
+		Diplogale_hosei
+		Hemigalus_derbyanus
+		Cynogale_bennettii
+		Arctogalidia_trivirgata
+		Civettictis_civetta
+		Viverra_civettina
+		Viverra_megaspila
+		Viverra_zibetha
+		Viverra_tangalunga
+		Viverricula_indica
+		Genetta_abyssinica
+		Genetta_thierryi
+		Genetta_angolensis
+		Genetta_pardina
+		Genetta_bourloni
+		Genetta_poensis
+		Genetta_maculata
+		Genetta_tigrina
+		Genetta_genetta
+		Genetta_cristata
+		Genetta_piscivora
+		Genetta_servalina
+		Genetta_johnstoni
+		Genetta_victoriae
+		Poiana_leightoni
+		Poiana_richardsonii
+		Atilax_paludinosus
+		Herpestes_naso
+		Herpestes_vitticollis
+		Bdeogale_crassicauda
+		Bdeogale_jacksoni
+		Bdeogale_nigripes
+		Cynictis_penicillata
+		Paracynictis_selousi
+		Rhynchogale_melleri
+		Ichneumia_albicauda
+		Galerella_flavescens
+		Galerella_ochracea
+		Galerella_pulverulenta
+		Galerella_sanguinea
+		Herpestes_ichneumon
+		Herpestes_brachyurus
+		Herpestes_urva
+		Herpestes_edwardsi
+		Herpestes_fuscus
+		Herpestes_javanicus
+		Herpestes_semitorquatus
+		Herpestes_smithii
+		Crossarchus_alexandri
+		Crossarchus_ansorgei
+		Crossarchus_obscurus
+		Crossarchus_platycephalus
+		Dologale_dybowskii
+		Helogale_hirtula
+		Helogale_parvula
+		Liberiictis_kuhni
+		Mungos_gambianus
+		Mungos_mungo
+		Suricata_suricatta
+		Cryptoprocta_ferox
+		Eupleres_goudotii
+		Fossa_fossana
+		Galidia_elegans
+		Galidictis_fasciata
+		Galidictis_grandidieri
+		Mungotictis_decemlineata
+		Salanoia_concolor
+		Crocuta_crocuta
+		Hyaena_brunnea
+		Hyaena_hyaena
+		Proteles_cristata
+		Nandinia_binotata
+	;
+END;
+BEGIN TREES;
+	TRANSLATE
+		1	Acinonyx_jubatus,
+		2	Puma_concolor,
+		3	Puma_yagouaroundi,
+		4	Lynx_canadensis,
+		5	Lynx_lynx,
+		6	Lynx_pardinus,
+		7	Lynx_rufus,
+		8	Felis_bieti,
+		9	Felis_silvestris,
+		10	Felis_catus,
+		11	Felis_margarita,
+		12	Felis_chaus,
+		13	Felis_nigripes,
+		14	Prionailurus_bengalensis,
+		15	Prionailurus_iriomotensis,
+		16	Prionailurus_viverrinus,
+		17	Prionailurus_planiceps,
+		18	Prionailurus_rubiginosus,
+		19	Felis_manul,
+		20	Leopardus_braccatus,
+		21	Leopardus_colocolo,
+		22	Leopardus_geoffroyi,
+		23	Leopardus_guigna,
+		24	Leopardus_tigrinus,
+		25	Leopardus_pajeros,
+		26	Leopardus_pardalis,
+		27	Leopardus_wiedii,
+		28	Leopardus_jacobitus,
+		29	Catopuma_badia,
+		30	Catopuma_temminckii,
+		31	Pardofelis_marmorata,
+		32	Caracal_caracal,
+		33	Profelis_aurata,
+		34	Leptailurus_serval,
+		35	Neofelis_nebulosa,
+		36	Panthera_leo,
+		37	Panthera_pardus,
+		38	Panthera_onca,
+		39	Panthera_tigris,
+		40	Uncia_uncia,
+		41	Prionodon_linsang,
+		42	Prionodon_pardicolor,
+		43	Arctictis_binturong,
+		44	Macrogalidia_musschenbroekii,
+		45	Paradoxurus_hermaphroditus,
+		46	Paradoxurus_jerdoni,
+		47	Paradoxurus_zeylonensis,
+		48	Paguma_larvata,
+		49	Chrotogale_owstoni,
+		50	Diplogale_hosei,
+		51	Hemigalus_derbyanus,
+		52	Cynogale_bennettii,
+		53	Arctogalidia_trivirgata,
+		54	Civettictis_civetta,
+		55	Viverra_civettina,
+		56	Viverra_megaspila,
+		57	Viverra_zibetha,
+		58	Viverra_tangalunga,
+		59	Viverricula_indica,
+		60	Genetta_abyssinica,
+		61	Genetta_thierryi,
+		62	Genetta_angolensis,
+		63	Genetta_pardina,
+		64	Genetta_bourloni,
+		65	Genetta_poensis,
+		66	Genetta_maculata,
+		67	Genetta_tigrina,
+		68	Genetta_genetta,
+		69	Genetta_cristata,
+		70	Genetta_piscivora,
+		71	Genetta_servalina,
+		72	Genetta_johnstoni,
+		73	Genetta_victoriae,
+		74	Poiana_leightoni,
+		75	Poiana_richardsonii,
+		76	Atilax_paludinosus,
+		77	Herpestes_naso,
+		78	Herpestes_vitticollis,
+		79	Bdeogale_crassicauda,
+		80	Bdeogale_jacksoni,
+		81	Bdeogale_nigripes,
+		82	Cynictis_penicillata,
+		83	Paracynictis_selousi,
+		84	Rhynchogale_melleri,
+		85	Ichneumia_albicauda,
+		86	Galerella_flavescens,
+		87	Galerella_ochracea,
+		88	Galerella_pulverulenta,
+		89	Galerella_sanguinea,
+		90	Herpestes_ichneumon,
+		91	Herpestes_brachyurus,
+		92	Herpestes_urva,
+		93	Herpestes_edwardsi,
+		94	Herpestes_fuscus,
+		95	Herpestes_javanicus,
+		96	Herpestes_semitorquatus,
+		97	Herpestes_smithii,
+		98	Crossarchus_alexandri,
+		99	Crossarchus_ansorgei,
+		100	Crossarchus_obscurus,
+		101	Crossarchus_platycephalus,
+		102	Dologale_dybowskii,
+		103	Helogale_hirtula,
+		104	Helogale_parvula,
+		105	Liberiictis_kuhni,
+		106	Mungos_gambianus,
+		107	Mungos_mungo,
+		108	Suricata_suricatta,
+		109	Cryptoprocta_ferox,
+		110	Eupleres_goudotii,
+		111	Fossa_fossana,
+		112	Galidia_elegans,
+		113	Galidictis_fasciata,
+		114	Galidictis_grandidieri,
+		115	Mungotictis_decemlineata,
+		116	Salanoia_concolor,
+		117	Crocuta_crocuta,
+		118	Hyaena_brunnea,
+		119	Hyaena_hyaena,
+		120	Proteles_cristata,
+		121	Nandinia_binotata
+	;
+	TREE * UNTITLED = [&R] ((((((((((1:7,(2:5.1,3:5.1)'18':1.9)'17':4.5,(((4:2.3,5:2.3)'21':0.2,6:2.5)'20':2.2,7:4.7)'19':6.8)'16':0.4,(((((((8:1.3,9:1.3)'28':0.6,10:1.9)'27':1.3,11:3.2)'26':1.2,12:4.4)'25':0.2,13:4.6)'24':7,((((14:2.8,15:2.8)'32':0.5,16:3.3)'31':3.1,17:6.4)'30':0.2,18:6.6)'29':5)'23':0.1,19:11.7)'22':0.2)'15':1.9,((((20:1.5,21:1.5)'36':1.1,(22:1.2,(23:1,24:1)'38':0.2)'37':1.4,25:2.6)'35':0.8,(26:1.5,27:1.5)'39':1.9)'34':0.9,28:4.3)'33':9.5)'14':0.2,((29:5.2,30:5.2)'41':1.4,31:6.6)'40':7.4)'13':1.6,((32:3.7,33:3.7)'43':3.8,34:7.5)'42':8.1)'12':0.7,(35:9.2,(((36:2.9,37:2.9)'47':1,38:3.9)'46':2.2,(39:3.5,40:3.5)'48':2.6)'45':3.1)'44':7.1)'11':36.6,(41:10.9,42:10.9)'49':42)'10':0.1,(((((43:12.2,((44:8.8,(45:7,(46:4.3,47:4.3)'58':2.7)'57':1.8)'56':0.1,48:8.9)'55':3.3)'54':4.2,((49:7.7,(50:4.9,51:4.9)'61':2.8)'60':2.3,52:10)'59':6.4)'53':1.6,53:18)'52':5.6,(((54:9.7,(((55:2.6,56:2.6)'67':0.2,57:2.8)'66':1.2,58:4)'65':5.7)'64':2.5,59:12.2)'63':11.2,(((60:3.7,61:3.7)'70':6.6,((((((((62:0.9,63:0.9)'78':0.1,(64:0.3,65:0.3)'79':0.7)'77':0.4,66:1.4)'76':0.6,67:2)'75':2.6,68:4.6)'74':0.2,(69:4.6,(70:1.7,71:1.7)'81':2.9)'80':0.2)'73':3,72:7.8)'72':1.4,73:9.2)'71':1.1)'69':2,(74:4.5,75:4.5)'82':7.8)'68':11.1)'62':0.2)'51':8.2,((((((76:8.6,(77:3.7,78:3.7)'89':4.9)'88':2.7,(((((79:2.6,(80:2.4,81:2.4)'95':0.2)'94':4,(82:4.5,83:4.5)'96':2.1)'93':1.2,84:7.8)'92':1.3,85:9.1)'91':1.7,(((86:3.1,87:3.1)'99':4.9,(88:7.2,89:7.2)'100':0.8)'98':0.2,90:8.2)'97':2.6)'90':0.5)'87':0.1,((91:3.2,92:3.2)'102':7.7,(93:4.2,94:4.2,95:4.2,96:4.2,97:4.2)'103':6.7)'101':0.5)'86':0.2,((((98:2.1,99:2.1,(100:1.6,101:1.6)'108':0.5)'107':2.8,(102:3.7,(103:3.2,104:3.2)'110':0.5)'109':1.2)'106':1.2,(105:5.8,(106:2.7,107:2.7)'112':3.1)'111':0.3)'105':0.8,108:6.9)'104':4.7)'85':9.7,(109:18,((110:9.2,111:9.2)'115':7.3,(112:7.8,((113:3.8,114:3.8)'118':0.4,(115:1.7,116:1.7)'119':2.5)'117':3.6)'116':8.7)'114':1.5)'113':3.3)'84':5.7,((117:3,(118:1.2,119:1.2)'122':1.8)'121':2.3,120:5.3)'120':21.7)'83':4.8)'50':21.2)'9':0.2,121:53.2)'8';
+END;

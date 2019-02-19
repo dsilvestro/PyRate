@@ -1,0 +1,29 @@
+#NEXUS
+[R-package APE, Sat Nov  5 11:14:31 2016]
+
+BEGIN TAXA;
+	DIMENSIONS NTAX = 8;
+	TAXLABELS
+		Ailuropoda_melanoleuca
+		Helarctos_malayanus
+		Ursus_americanus
+		Ursus_thibetanus
+		Ursus_arctos
+		Ursus_maritimus
+		Melursus_ursinus
+		Tremarctos_ornatus
+	;
+END;
+BEGIN TREES;
+	TRANSLATE
+		1	Ailuropoda_melanoleuca,
+		2	Helarctos_malayanus,
+		3	Ursus_americanus,
+		4	Ursus_thibetanus,
+		5	Ursus_arctos,
+		6	Ursus_maritimus,
+		7	Melursus_ursinus,
+		8	Tremarctos_ornatus
+	;
+	TREE * UNTITLED = [&R] (1:17.2,((((2:4.6,(3:3.6,4:3.6)'130':1)'129':0.2,(5:1.1,6:1.1)'131':3.7)'128':1.5,7:6.3)'127':9.1,8:15.4)'126':1.8)'125';
+END;
