@@ -24,9 +24,9 @@ p.add_argument('-seed',       type=int,   help='seed (if -1 -> random)', default
 p.add_argument('-mu_species', type=int,   help='set to 1 to save extinction rates foreach trait combination', default=0, metavar=0)
 p.add_argument('-traits',     type=int ,  help="index trait(s)",metavar='',nargs='+',default=[])
 p.add_argument('-const',      type=int ,  help="if set to 1: trait independent rate",metavar=0,default=0)
-p.add_argument('-out',        type=str, help='output string', default="", metavar="")
-p.add_argument('-bvs',        type=int,help='use BVS', default=1, metavar=1)
-p.add_argument('-pI',         type=float,help='output string', default=0.05, metavar=0.05)
+p.add_argument('-out',        type=str,   help='output string', default="", metavar="")
+p.add_argument('-bvs',        type=int,   help='use Bayesian Variable Selection', default=1, metavar=1)
+p.add_argument('-pI',         type=float, help='prior on indicators', default=0.05, metavar=0.05)
 
 
 
@@ -161,11 +161,10 @@ for i in traits_indx:
 	trait_name_vec.append(tr_name_list[i-2])
 
 # output directory
-self_path= os.path.dirname(sys.argv[0])
+self_path= [os.path.dirname(sys.argv[0]) , os.getcwd()]
 output_wd = os.path.dirname(args.d)
-if output_wd=="": output_wd= self_path
+if output_wd=="": output_wd= max(self_path)
 name_file = os.path.splitext(os.path.basename(args.d))[0]
-
 
 trait_tag = args.out
 if args.const== 1: trait_tag = "const_"
@@ -176,7 +175,7 @@ else:
 	
 
 
-print "Siza dataset after filtering time slice:", len(ts_list),len(te_list),len(tr_list)
+print "Size dataset after filtering time slice:", len(ts_list),len(te_list),len(tr_list)
 print "time range", max(ts_list), min(te_list)
 n_traits = len(tr_list[0])
 trait_categories_list = []
