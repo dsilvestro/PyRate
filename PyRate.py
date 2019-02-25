@@ -3774,8 +3774,10 @@ if model_cov>=1 or useDiscreteTraitModel == 1 or useBounded_BD == 1:
 			MidPoints=np.zeros(len(fossil_complete))
 			for i in range(len(fossil_complete)):
 				MidPoints[i]=np.mean([max(fossil_complete[i]),min(fossil_complete[i])])
-	
+				
+		MidPoints = MidPoints[taxa_included]
 		# fit linear regression (for species with trait value - even if without fossil data)
+		print len(trait_values), len(np.isfinite(trait_values)), len(taxa_names), len(MidPoints), len(have_record)
 		slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(MidPoints[np.isfinite(trait_values)],trait_values[np.isfinite(trait_values)])
 	
 		# 
@@ -3783,7 +3785,7 @@ if model_cov>=1 or useDiscreteTraitModel == 1 or useBounded_BD == 1:
 		meanGAUScomplete=np.zeros(len(MidPoints))
 		meanGAUScomplete[ind_nan_trait] = slope*MidPoints[ind_nan_trait] + intercept
 	
-		if use_se_tbl==1: meanGAUS= meanGAUScomplete
+		if use_se_tbl==1 or args.trait_file != "": meanGAUS= meanGAUScomplete
 		else:
 			trait_values= trait_values[np.array(have_record)]
 			meanGAUS= meanGAUScomplete[np.array(have_record)]
