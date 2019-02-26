@@ -256,6 +256,42 @@ def calc_BF(f1, f2):
 	print("\nModel A: %s\nModelB: %s" % (input_file_raw[best],input_file_raw[abs(best-1)]))
 	print("\nModel A received %s support against Model B\nBayes Factor: %s\n\n" % (support, round(abs(BF), 4)))
 
+
+
+def calc_BFlist(f1):
+	#f1 = os.path.basename(f1)
+	#print f1
+	tbl = np.genfromtxt(f1,"str")
+	file_list = tbl[:,tbl[0]=="file_name"]
+
+	f_list, l_list = list(), list()
+
+	for i in range(1, len(file_list)):
+		fn = str(file_list[i][0])
+		f_list.append(fn)
+		l_list.append(float(tbl[i,tbl[0]=="likelihood"]))
+
+	ml = l_list[l_list.index(max(l_list))]
+
+	l_list = np.array(l_list)
+	bf = 2*(ml - l_list)
+
+	print "Found %s models:" % (len(bf))
+	for i in range(len(bf)): print "model %s: '%s'" % (i,f_list[i])
+	
+	print "\nBest model:", f_list[(bf==0).nonzero()[0][0]], ml, "\n"
+	
+
+	for i in range(len(bf)):
+		BF = bf[i]
+		if abs(BF)==0: pass
+		else:	
+			if abs(BF)<2: support="negligible"
+			elif abs(BF)<6: support="positive"
+			elif abs(BF)<10: support="strong"
+			else: support="very strong"	
+			print "Support in favor of model %s: %s (%s)" % (i, BF, support)
+
 def get_DT(T,s,e): # returns the Diversity Trajectory of s,e at times T (x10 faster)
 	B=np.sort(np.append(T,T[0]+1))+.000001 # the + .0001 prevents problems with identical ages
 	ss1 = np.histogram(s,bins=B)[0]
@@ -3482,8 +3518,11 @@ if path_dir_log_files != "":
 	quit()
 elif args.mProb != "": calc_model_probabilities(args.mProb,burnin)
 elif len(list_files_BF):
-	if len(list_files_BF)<2: sys.exit("\n2 '*marginal_likelihood.txt' files required.\n")
-	calc_BF(list_files_BF[0],list_files_BF[1])
+	print list_files_BF[0]
+	if len(list_files_BF)==1: calc_BFlist(list_files_BF[0])
+	else: calc_BF(list_files_BF[0],list_files_BF[1])
+     	#
+	#	sys.exit("\n2 '*marginal_likelihood.txt' files required.\n")
 	quit()
 elif args.combLog != "": # COMBINE LOG FILES
 	comb_log_files(args.combLog,burnin,args.tag,resample=args.resample,col_tag=args.col_tag)
