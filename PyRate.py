@@ -269,7 +269,7 @@ def calc_BFlist(f1):
 	for i in range(1, len(file_list)):
 		fn = str(file_list[i][0])
 		f_list.append(fn)
-		l_list.append(float(tbl[i,tbl[0]=="likelihood"]))
+		l_list.append(float(tbl[i,tbl[0]=="likelihood"][0]))
 
 	ml = l_list[l_list.index(max(l_list))]
 
