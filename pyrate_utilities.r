@@ -56,7 +56,8 @@ extract.ages <- function(file = NULL, replicates = 1, cutoff = NULL, random = TR
 	}
 
 	cat("#!/usr/bin/env python", "from numpy import * ", "",  file=outfile, sep="\n")
-
+	
+	if("site" %in% colnames(dat)){}
 	for (j in 1:replicates){
 		times <- list()
 		cat ("\nreplicate", j)
@@ -75,7 +76,6 @@ extract.ages <- function(file = NULL, replicates = 1, cutoff = NULL, random = TR
 			rnd_ages <- apply(cbind(maxima, minima),1, function(x){round(runif(1,x[1],x[2]), digits = 6)})
 			names(rnd_ages) <- aggregate(dat[,3], by=list(dat$site),mean)[,1]
 			dat$new_age <- rnd_ages[match(dat$site,names(rnd_ages))]
-			dat <- dat[,-which(colnames(dat)=="site")]
 		}else{
 			if (isTRUE(rnd)){
 				dat$new_age <- round(runif(length(dat[,1]), min=apply(dat[,3:4],FUN=min,1), max=apply(dat[,3:4],FUN=max,1)), digits=6)
