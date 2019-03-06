@@ -1102,12 +1102,10 @@ def update_ts_te(ts, te, d1):
 #### GIBBS SAMPLER S/E
 def draw_se_gibbs(fa,la,q_rates,q_times):	
 	t = np.sort(np.array([fa, la] + list(q_times)))[::-1]
-
 	# sample ts
 	prior_to_fa = np.arange(len(q_times))[q_times>fa]
 	tfa = (q_times[prior_to_fa]-fa)[::-1] # time since fa
 	qfa = q_rates[prior_to_fa][::-1] # rates before fa
-
 	ts_temp=0
 	for i in range(len(qfa)):
 		q = qfa[i]
@@ -1115,12 +1113,11 @@ def draw_se_gibbs(fa,la,q_rates,q_times):
 		ts_temp = min(ts_temp+deltaT, tfa[i])		
 		if ts_temp < tfa[i]: 
 			break
-
+	
 	ts= ts_temp+fa
 	#print "TS:", ts, fa
 	#print q_times
 	#print la
-	
 	if la>0:
 		# sample te
 		after_la = np.arange(len(q_times))[q_times<la]
@@ -1143,7 +1140,7 @@ def draw_se_gibbs(fa,la,q_rates,q_times):
 			if attempt==100:
 				te_temp = np.random.uniform(0,la)
 				break
-	
+		
 		te= la-te_temp
 		#print "TE:", te
 	else:
@@ -1151,6 +1148,7 @@ def draw_se_gibbs(fa,la,q_rates,q_times):
 	return (ts,te)
 
 def gibbs_update_ts_te(q_rates,q_time_frames):
+	#print q_rates,q_time_frames
 	q_times= q_time_frames+0
 	q_times[0] = np.inf
 	new_ts = []
@@ -2443,7 +2441,16 @@ def MCMC(all_arg):
 		if rr<f_update_se: # ts/te
 			ts,te=update_ts_te(tsA,teA,mod_d1)
 			if use_gibbs_se_sampling or it < fast_burnin:
-				ts,te = gibbs_update_ts_te(q_ratesA,np.sort(np.array([np.inf,0]+times_q_shift))[::-1])
+				if sum(timesL[1:-1])==sum(times_q_shift):
+					ts,te = gibbs_update_ts_te(q_ratesA+LA+MA,np.sort(np.array([np.inf,0]+times_q_shift))[::-1])
+				else:
+					times_q_temp = np.sort(np.array([np.inf,0]+times_q_shift))[::-1]				
+					q_temp_time = np.sort(np.unique(list(times_q_shift)+list(timesLA[1:])+list(timesMA[1:])))[::-1]
+					q_rates_temp =  q_ratesA[np.digitize(q_temp_time,times_q_temp[1:])]
+					q_rates_temp += LA[np.digitize(q_temp_time,timesLA[1:])]
+					q_rates_temp += MA[np.digitize(q_temp_time,timesMA[1:])]				
+					ts,te = gibbs_update_ts_te(q_rates_temp,times_q_temp)
+				
 			tot_L=sum(ts-te)
 		elif rr<f_update_q: # q/alpha
 			q_rates=np.zeros(len(q_ratesA))+q_ratesA
