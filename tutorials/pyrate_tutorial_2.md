@@ -120,13 +120,13 @@ More details soon...
 
 You can use the TI algorithm to calculate the marginal likelihood of a model and **compare the fit of alternative models**. For example you can compare the fit of diversity-dependent models with linear vs exponential correlation or compare the fit of diversity-dependent models with that of temperature-dependent models. The analysis setup and model specification are the same described above and the TI algorithm is enabled by the flag  `-A 1`:
 
-`python PyRateContinuous.py -d .../Canidae_1_G_se_est.txt -m 0 -c temperature.txt -A 1`
+`python PyRateContinuousShift.py -d .../Canidae_1_G_se_est.txt -m 0 -c temperature.txt -A 1`
 
 PyRateContinuous will run TI using 10 scaling categories by default, and the the number of iteration (as specified by the flag `-n`) corresponds to the number of MCMC iterations for each category.   
 
 Running TI produces a single log file as output from which the marginal likelihood is calculated. Once you run the TI analyses under a range of alternative models, you can use the command `-mL` to calculate the marginal likelihoods of all models. This command expects the path to the log files and will calculate the marginal likelihood for each file in the directory with extension ".log". It is important to **specify an appropriate burnin** using the flag `-b`), for example:  
 
-`python PyRateContinuous.py -mL .../path_to_my_logfiles -b 100`
+`python PyRateContinuousShift.py -mL .../path_to_my_logfiles -b 100`
 
 This command will produce a single text file containing the marginal likelihoods of all models. It will also generate new log files that contain only the "cold" part of the MCMC states sampled by the TI algorithm. The content of these log files can be viewed in Tracer and used for parameter estimation. 
 
