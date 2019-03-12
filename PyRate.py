@@ -3136,7 +3136,7 @@ p.add_argument('-plot2',      metavar='<input file>', type=str,help="RTT plot (t
 p.add_argument('-plot3',      metavar='<input file>', type=str,help="RTT plot for fixed number of shifts: provide 'mcmc.log' file",default="")
 p.add_argument('-plotRJ',     metavar='<input file>', type=str,help="RTT plot for runs with '-log_marginal_rates 0': provide path to 'mcmc.log' files",default="")
 p.add_argument('-plotQ',      metavar='<input file>', type=str,help="Plot preservation rates through time: provide 'mcmc.log' file and '-qShift' argument ",default="")
-p.add_argument('-grid_plot',  type=float, help='Plot resolution in Myr (only for plot3 and plotRJ commands)', default=1., metavar=1.)
+p.add_argument('-grid_plot',  type=float, help='Plot resolution in Myr (only for plot3 and plotRJ commands). If set to 0: 100 equal time bins', default=0, metavar=0)
 p.add_argument('-root_plot',  type=float, help='User-defined root age for RTT plots', default=0, metavar=0)
 p.add_argument('-tag',        metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted (-plot and -plot2) or summarized in SE table (-ginput)",default="")
 p.add_argument('-ltt',        type=int,help='1) Plot lineages-through-time; 2) plot Log10(LTT)', default=0, metavar=0)
@@ -3481,6 +3481,7 @@ print args.plotQ
 list_files_BF=sort(args.BF)
 file_stem=args.tag
 root_plot=args.root_plot
+grid_plot = args.grid_plot
 if path_dir_log_files != "":
 	self_path = get_self_path()
 	if plot_type>=3:
@@ -3488,9 +3489,10 @@ if path_dir_log_files != "":
 		lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
 		rtt_plot_bds = imp.load_source("rtt_plot_bds", "%s/pyrate_lib/rtt_plot_bds.py" % (self_path))
 		if plot_type==3:
-			rtt_plot_bds.RTTplot_high_res(path_dir_log_files,args.grid_plot,int(burnin),root_plot)
+			if grid_plot==0: grid_plot=1
+			rtt_plot_bds.RTTplot_high_res(path_dir_log_files,grid_plot,int(burnin),root_plot)
 		elif plot_type==4:
-			rtt_plot_bds = rtt_plot_bds.plot_marginal_rates(path_dir_log_files,name_tag=file_stem,bin_size=args.grid_plot,burnin=burnin,min_age=0,max_age=root_plot,logT=args.logT)
+			rtt_plot_bds = rtt_plot_bds.plot_marginal_rates(path_dir_log_files,name_tag=file_stem,bin_size=grid_plot,burnin=burnin,min_age=0,max_age=root_plot,logT=args.logT)
 		elif plot_type== 5:
 			rtt_plot_bds = rtt_plot_bds.RTTplot_Q(path_dir_log_files,args.qShift,burnin=burnin,max_age=root_plot)
 		#except: sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.

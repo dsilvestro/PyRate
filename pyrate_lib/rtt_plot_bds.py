@@ -298,7 +298,7 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 	time_frames = time_frames[1:]
 	#print len(time_frames),len(mean_rates), 
 	n_mcmc_samples = len(post_rate)-burnin # number of samples used to normalize frequencies of rate shifts
-	return [time_frames,mean_rates,np.array(min_rates),np.array(max_rates),np.array(times_of_shift),n_mcmc_samples]
+	return [time_frames,mean_rates,np.array(min_rates),np.array(max_rates),np.array(times_of_shift),n_mcmc_samples, marginal_rates_list]
 
 def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulation=1):
 	
@@ -354,6 +354,36 @@ def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulat
 	out_str += "\nabline(h=bf6, lty=2)"
 	return out_str
 
+
+def plot_net_rate(resS,resE,col,min_age,max_age,plot_title,n_bins):
+	#computes and plots net RATES
+	marginal_rates_list	= resS[6]-resE[6]
+	mean_rates= np.mean(marginal_rates_list,axis=0)
+	min_rates,max_rates=[],[]
+	for i in range(n_bins):
+		hpd = util.calcHPD(marginal_rates_list[:,i],0.95)
+		min_rates += [hpd[0]]
+		max_rates += [hpd[1]]
+
+	out_str = "\n#Net Diversification Rate"
+
+	out_str += util.print_R_vec("\ntime",resS[0]-min_age)
+	minXaxis,maxXaxis= max_age-min_age,min_age-min_age
+	time_lab = "Time"
+
+	#right now I don't have support for log, but I think this is less likely to be needed for net rates
+	out_str += util.print_R_vec("\nnet_rate",mean_rates[::-1])
+	out_str += util.print_R_vec("\nnet_minHPD",np.array(min_rates[::-1]))
+	out_str += util.print_R_vec("\nnet_maxHPD",np.array(max_rates[::-1]))
+	out_str += "\nplot(time,time,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = 'Net Rate', xlab = 'Time (%s)',lwd=2, main='%s', col= '%s' )" \
+			% (min(0,1.1*np.nanmin(min_rates)),1.1*np.nanmax(max_rates),minXaxis,maxXaxis,time_lab,plot_title,col) 
+	out_str += "\npolygon(c(time, rev(time)), c(net_maxHPD, rev(net_minHPD)), col = alpha('%s',0.3), border = NA)" % (col)
+	out_str += "\nlines(time,net_rate, col = '%s', lwd=2)" % (col)
+	out_str += "\nabline(h=0,lty=2)\n"
+		
+	return out_str
+
+
 def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,max_age=0,logT=0):
 	direct="%s/*%s*mcmc.log" % (path_dir,name_tag)
 	files=glob.glob(direct)
@@ -367,9 +397,9 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 	if max_age>0: outname+= "t%s" % (int(max_age))
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
 		wd_forward = os.path.abspath(wd).replace('\\', '/')
-		r_str = "\n\npdf(file='%s/%sRTT_plots.pdf',width=10, height=10)\npar(mfrow=c(2,2))\nlibrary(scales)" % (wd_forward,outname)
+		r_str = "\n\npdf(file='%s/%sRTT_plots.pdf',width=10, height=15)\npar(mfrow=c(3,2))\nlibrary(scales)" % (wd_forward,outname)
 	else:
-		r_str = "\n\npdf(file='%s/%sRTT_plots.pdf',width=10, height=10)\npar(mfrow=c(2,2))\nlibrary(scales)" % (wd,outname)
+		r_str = "\n\npdf(file='%s/%sRTT_plots.pdf',width=10, height=15)\npar(mfrow=c(3,2))\nlibrary(scales)" % (wd,outname)
 	for mcmc_file in files:
 		if 2>1: #try:
 			name_file = os.path.splitext(os.path.basename(mcmc_file))[0]		
@@ -379,16 +409,22 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 			min_age_t = np.max(tbl[:,head.index("death_age")])
 			print "\nAge range:",max_age_t, min_age_t
 			if max_age==0: max_age=max_age_t
-			nbins = int((max_age_t-min_age_t)/float(bin_size))
-			colors = ["#4c4cec","#e34a33"] # sp and ex rate
+			if bin_size>0:
+				nbins = int((max_age_t-min_age_t)/float(bin_size))
+			else:
+				nbins = 100
+				bin_size = (max_age_t-min_age_t)/100.
+			colors = ["#4c4cec","#e34a33","#504A4B"] # sp and ex rate and net div rate
 			# sp file
 			f_name = mcmc_file.replace("mcmc.log","sp_rates.log")
-			res = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin)
-			r_str += get_r_plot(res,col=colors[0],parameter="Speciation rate",min_age=max(min_age_t,min_age),max_age=min(max_age,max_age_t),plot_title=name_file,plot_log=logT,run_simulation=1)
+			resS = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin)
+			r_str += get_r_plot(resS,col=colors[0],parameter="Speciation rate",min_age=max(min_age_t,min_age),max_age=min(max_age,max_age_t),plot_title=name_file,plot_log=logT,run_simulation=1)
 			# ex file
 			f_name = mcmc_file.replace("mcmc.log","ex_rates.log")
-			res = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin)
-			r_str += get_r_plot(res,col=colors[1],parameter="Extinction rate",min_age=max(min_age_t,min_age),max_age=min(max_age,max_age_t),plot_title="",plot_log=logT,run_simulation=0)
+			resE = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin)
+			r_str += get_r_plot(resE,col=colors[1],parameter="Extinction rate",min_age=max(min_age_t,min_age),max_age=min(max_age,max_age_t),plot_title="",plot_log=logT,run_simulation=0)
+			# net div rate
+			r_str += plot_net_rate(resS,resE,col=colors[2],min_age=max(min_age_t,min_age),max_age=min(max_age,max_age_t),plot_title='',n_bins= nbins)
 		#except:
 		#	print "Could not read file:", mcmc_file
 	r_str += "\n\nn <- dev.off()"
