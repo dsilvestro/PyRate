@@ -1425,7 +1425,7 @@ def BD_partial_lik_bounded(arg):
 	return lik
 
 
-# WORK IN PROGRESS
+# ADE model
 def cdf_WR(W_shape,W_scale,x):
 	return (x/W_scale)**(W_shape)
 
@@ -1639,29 +1639,6 @@ def HPP_vec_lik(arg):
 		lik = sum(-q_rates[ind]*d + log(q_rates[ind])*k_vec[ind]) - log(1-exp(sum(-q_rates[ind]*d))) -sum(log(np.arange(1,sum(k_vec)+1))) 
 	return lik
 
-def HPP_vec_lik_(arg):
-	[te,ts,time_frames,q_rates,i]=arg	
-	i=int(i) # species number
-	k_vec = occs_sp_bin[i] # no. occurrences per time bin per species
-	# e.g. k_vec = [0,0,1,12.,3,0]
-	
-	lik=0
-	TotTime=0
-	for j in range(1, len(time_frames)):
-		if ts<time_frames[j] or te>time_frames[j-1]: pass
-		else:
-			up = min(ts, time_frames[j-1])
-			lo = max(te, time_frames[j])
-			dT = up-lo
-			k = k_vec[j-1]
-			q=q_rates[j-1]
-			lik_temp = -q*(dT) + log(q)*k  - log(1-exp(-q*(dT)))
-			lik+= lik_temp
-			TotTime+=dT
-	#print ts-te
-	#print -q*(ts-te) + log(q)*k,  sum(-q_rates[ind]*d + log(q_rates[ind])*k_vec[ind])
-	return lik
-
 def HOMPP_lik(arg):
 	[m,M,shapeGamma,q_rate,i,cov_par, ex_rate]=arg
 	i=int(i)
@@ -1774,6 +1751,157 @@ def NHPPgamma(arg):
 	elif m==0 and use_DA == 0: lik = HOMPP_lik(arg)
 	else: lik=NHPP_lik(arg)
 	return lik
+
+
+
+###### BEGIN FUNCTIONS for FBD Range ########
+def init_ts_te_FBDrange(FA,LO):
+	ts,te = init_ts_te(FA,LO)
+	min_dt = min(get_DT_FBDrange(ts,ts,te)[1:])
+	while min_dt <= 1:
+		ts = ts+0.01*ts
+		#ts = np.random.exponential(5, len(FA)) + FA
+		#te = LO - np.random.exponential(5, len(LO))
+		#te[te<0] = np.random.uniform(LO[te<0],0)
+		dt = get_DT_FBDrange(ts,ts,te)
+		min_dt = min(dt[1:])
+		print dt
+	
+	#print "final", dt
+	#quit()
+	return ts, te
+
+def get_DT_FBDrange(T,s,e): # returns the Diversity Trajectory of s,e at times T (x10 faster)
+	T_list = np.array(list(T) + [np.max(T)+1])
+	B=np.sort(T_list)-.000001 # the - .0001 prevents problems with identical ages
+	#print "B", B
+	#print "T", T
+	#quit()
+	ss1 = np.histogram(s,bins=B)[0]
+	ee2 = np.histogram(e,bins=B)[0]
+	DD=(ss1-ee2)[::-1]
+	return np.cumsum(DD)[0:len(T)].astype(float)
+
+def get_k(array_all_fossils, times):
+	ff = np.histogram(array_all_fossils,bins=np.sort(times))[0]
+	return ff[::-1]
+
+def get_times_n_rates(timesQ, timesL, timesM, q_rates, L,M):
+	merged = list(timesQ[1:])+ list(timesL[1:])+ list(timesM[1:])
+	times = np.unique(merged)[::-1]
+	psi = q_rates[np.digitize(times,timesQ[1:])]
+	if len(L)>1: lam = L[np.digitize(times,timesL[1:])]
+	else: lam = np.zeros(len(psi))+L[0]
+	if len(M)>1: mu  = M[np.digitize(times,timesM[1:])]
+	else: mu = np.zeros(len(psi))+M[0]
+	times =np.insert(times,0, timesL[0])
+	return times, psi, lam, mu				
+
+def calcAi(lam,mu,psi):
+	Ai = abs(sqrt((lam-mu-psi)**2 + 4*lam*psi))
+	return Ai
+
+def calc_q(i, t, args):
+	[intervalAs, lam, mu, psi, times, l, rho] = args
+	intervalBs = np.zeros(l)
+	intervalPs = np.zeros(l)
+	
+	def calc_p(i, t): # ti: 
+		if t ==0: return 1.
+		ti = times[i+1]
+		Ai = intervalAs[i]
+		Bi = ((1 -2*(1-rho[i])* calc_p(i+1, ti)) * lam[i] +mu[i]+psi[i]) /Ai
+		p = lam[i] + mu[i] + psi[i] 
+		p -= Ai * ( ((1+Bi) -(1-Bi) * exp(-Ai*(t-ti)) ) / ((1+Bi) +(1-Bi) * exp(-Ai*(t-ti) )) )
+		p = p/(2. * lam[i])
+		intervalBs[i] = Bi
+		intervalPs[i] = p
+		return p
+	
+	p = calc_p(i, t)
+	Ai_t = intervalAs[i]*(t-times[i+1])
+	qi_t = (log(4)-Ai_t) - (2* log( exp(-Ai_t) *(1-intervalBs[i]) + (1+intervalBs[i]) ) )
+	return qi_t
+
+def calc_qt(i, t, args):
+	[intervalAs, lam, mu, psi, times, l, rho] = args
+	qt = .5 * ( calc_q(i, t, args) - (lam[i]+mu[i]+psi[i])*(t-times[i+1]) )
+	return qt
+
+def likelihood_rangeFBD(times, psi, lam, mu, ts, te, k=[], intervalAs=[], int_indx=[], div_traj=[], rho=0):
+	l  = len(times)-1 # number of intervals (combination of qShift, Kl, Km)
+	if rho: pass
+	else: rho = np.zeros(l)
+	
+	# only recompute if updating lam, mu, or psi
+	if len(intervalAs) > 0: pass
+	else: intervalAs = calcAi(lam,mu,psi)
+	
+	# only recompute if updating times or ts/te
+	if len(int_indx) > 0:
+		bint = int_indx[0]
+		oint = int_indx[1]
+		dint = int_indx[2]
+	else:		
+		bint = np.digitize(ts, times)-1 # which interval ts happens
+		oint = np.digitize(FA, times)-1 # which interval FA happens
+		dint = np.digitize(te, times)-1 # which interval te happens
+		int_indx = [bint, oint, dint]
+	
+	# only need to recompute div_traj when updating ts/te
+	if len(div_traj) > 0: pass
+	else: div_traj = get_DT_FBDrange(ts,ts,te)
+	# print div_traj
+	# print np.sort(ts)
+	# print np.sort(te)
+
+	# only need to update when changing times 
+	if len(k) > 0: pass
+	else: k = get_k(array_all_fossils, times)
+	
+	term0 = -log(lam[0])
+	if rho[0]>0: term0 += log(rho[0])*(n-m) 
+	
+	term1 = np.sum(k*log(psi)) 
+	
+	term2 = log(lam[bint])
+	
+	term3 = log(mu[dint])
+	term3[te==0] = 0. # only counts for extinct lineages
+	
+	gamma_i = div_traj-1. # attachment points: diversity -1 
+	#gamma_i[gamma_i<=0] = 1
+	gamma_i[0] = 1. # oldest range gets gamma= 1
+	if np.min(gamma_i)<1: return [-np.inf, intervalAs, int_indx, div_traj, k]
+	
+	log_gamma_i = log(gamma_i)
+	args = [intervalAs, lam, mu, psi, times, l, rho]
+	term4 = 0
+		
+	for i in range(tot_number_of_species):
+					
+		term4_q  = calc_q(bint[i],ts[i],args)-calc_q(oint[i], FA[i],args) 
+		term4_qt = calc_qt(oint[i], FA[i],args)-calc_qt(dint[i], te[i],args)
+		
+		qj_1= 0
+		for j in range(bint[i], oint[i]): 
+			qj_1 += calc_q(j+1, times[j+1], args)
+		
+		qtj_1= 0
+		for j in range(oint[i], dint[i]): 
+			qtj_1 += calc_qt(j+1, times[j+1], args)
+		
+		term4_qj = qj_1 + qtj_1
+		term4 += log_gamma_i[i] + term4_q + term4_qt + term4_qj # + term3[i] + term4[i]
+	
+	likelihood = np.sum([term1, term0+sum(term2),sum(term3), term4])
+	res = [likelihood, intervalAs, int_indx, div_traj, k]
+	
+	return res
+
+######  END FUNCTIONS for FBD Range  ########
+
+
 
 ###### BEGIN FUNCTIONS for BDMCMC ########
 
@@ -2266,7 +2394,10 @@ def MCMC(all_arg):
 	if it==0: # initialize chain
 		print("initializing chain...")
 		if fix_SE == 1: tsA, teA = fixed_ts, fixed_te
-		else: tsA, teA = init_ts_te(FA,LO)
+		elif FBDrange==0: tsA, teA = init_ts_te(FA,LO)
+		else: 
+			tsA, teA = init_ts_te_FBDrange(FA,LO)
+			res_FBD_A = []
 		if restore_chain == 1: 
 			tsA_temp, teA_temp = init_ts_te(FA,LO)
 			tsA, teA = restore_init_values[0], restore_init_values[1]
@@ -2438,7 +2569,10 @@ def MCMC(all_arg):
 		mod_d3= list_d3[tmp] # window size rates
 		mod_d4= list_d4[tmp] # window size shift times
 		
+		move_type = 0 # move types: 1) ts/te; 2) q rates; 3) timesL/M; 4) L/M rates; 
+		
 		if rr<f_update_se: # ts/te
+			move_type = 1
 			ts,te=update_ts_te(tsA,teA,mod_d1)
 			if use_gibbs_se_sampling or it < fast_burnin:
 				if sum(timesL[1:-1])==sum(times_q_shift):
@@ -2453,6 +2587,7 @@ def MCMC(all_arg):
 				
 			tot_L=sum(ts-te)
 		elif rr<f_update_q: # q/alpha
+			move_type = 2
 			q_rates=np.zeros(len(q_ratesA))+q_ratesA
 			if TPP_model == 1: 
 				q_rates, hasting = update_q_multiplier(q_ratesA,d=d2[1],f=f_qrate_update)
@@ -2466,6 +2601,7 @@ def MCMC(all_arg):
 
 		elif rr < f_update_lm: # l/m
 			if np.random.random()<f_shift and len(LA)+len(MA)>2: 
+				move_type = 3
 				if fix_edgeShift > 0:
 					if fix_edgeShift == 1:
 						timesL=update_times(timesLA, edgeShifts[0],edgeShifts[1],mod_d4,2,len(timesL)-2)
@@ -2483,6 +2619,7 @@ def MCMC(all_arg):
 					timesL=update_times(timesLA, maxTS,minTE,mod_d4,1,len(timesL))
 					timesM=update_times(timesMA, maxTS,minTE,mod_d4,1,len(timesM))
 			else: 
+				move_type = 4
 				if TDI<2: # 
 					if np.random.random()<.95 or est_hyperP == 0 or fix_hyperP == 1:
 						L,M,hasting=update_rates(LA,MA,3,mod_d3)
@@ -2520,7 +2657,7 @@ def MCMC(all_arg):
 
 		# NHPP Lik: multi-thread computation (ts, te)
 		# generate args lik (ts, te)
-		if fix_SE == 0:
+		if fix_SE == 0 and FBDrange==0:
 			ind1=range(0,len(fossil))
 			ind2=[]
 			if it>0 and rr<f_update_se: # recalculate likelihood only for ts, te that were updated
@@ -2617,6 +2754,42 @@ def MCMC(all_arg):
 			if it>0: 
 				lik_fossil[ind2] = lik_fossilA[ind2]
 
+		elif FBDrange==1:
+			if stop_update == inf and TDI==4: 
+				L,timesL,M,timesM,hasting2 = RJMCMC([LA,MA, timesLA, timesMA])
+				hasting += hasting2
+				move_type=0
+				
+			# move types: 1) ts/te; 2) q rates; 3) timesL/M; 4) L/M rates;
+			if it==0 or len(res_FBD_A)==0: move_type=0
+			
+			# only need to update if changed timesL/timesM or psi, lam, mu
+			if move_type in [2,3,4] or len(res_FBD_A)==0 or np.max(ts) != maxTSA:
+				times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp = get_times_n_rates(q_time_frames, timesL, timesM, q_rates, L, M)
+			else:
+				[times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp] = FBD_temp_A
+			
+			# times, psi, lam, mu, ts, te, k=0, intervalAs=0, int_indx=0, div_traj=0, rho=0
+			if move_type == 1: # updated ts/te
+				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te, intervalAs=res_FBD_A[1], k=res_FBD_A[4])
+			elif move_type in [2,4]: # updated q/s/e rates
+				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te,  int_indx=res_FBD_A[2], div_traj=res_FBD_A[3], k=res_FBD_A[4])
+			elif move_type in [3]: # updated times
+				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te,  intervalAs=res_FBD_A[1], div_traj=res_FBD_A[3])
+			else:
+				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te)
+			# res = [likelihood, intervalAs, int_indx, div_traj, k]
+			# if it % 1000==0:
+			# 	print times_fbd_temp
+			# 	print psi_fbd_temp
+			# 	print lam_fbd_temp
+			# 	print mu_fbd_temp
+			# 	print res_FBD[3]
+			# 	print res_FBD[4]
+			
+			lik_fossil = res_FBD[0]
+			
+		
 		else: lik_fossil=zeros(1)
 
 		if it>=stop_update or stop_update==inf: lik_fossil = lik_fossilA
@@ -2659,7 +2832,10 @@ def MCMC(all_arg):
 			# Birth-Death Lik: construct 2D array (args partial likelihood)
 			# parameters of each partial likelihood and prior (l)
 			if stop_update != inf:
-				if useDiscreteTraitModel == 1:
+				if FBDrange == 1:
+					likBDtemp = 0 # alrady included in lik_fossil
+				
+				elif useDiscreteTraitModel == 1:
 					if twotraitBD == 1:
 						likBDtemp = BD_lik_discrete_trait_continuous([ts,te,L,M,cov_par])
 					else:
@@ -2720,7 +2896,7 @@ def MCMC(all_arg):
 					likBDtemp, L,M, timesL, timesM, cov_par = Alg_3_1(args)
 					sys.stderr = original_stderr
 				
-				elif TDI==4: # run RJMCMC
+				elif TDI==4 and FBDrange==0: # run RJMCMC
 					stop_update = 0
 					L,timesL,M,timesM,hasting = RJMCMC([LA,MA, timesLA, timesMA])
 					#print  L,timesL,M,timesM #,hasting
@@ -2900,6 +3076,9 @@ def MCMC(all_arg):
 				if analyze_tree >=1:
 					r_treeA = r_tree
 					m_treeA = m_tree
+				if FBDrange==1:
+					res_FBD_A = res_FBD
+					FBD_temp_A = [times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp]
 					
 			
 		if it % print_freq ==0 or it==burnin:
@@ -3213,6 +3392,7 @@ p.add_argument('-twotrait',help='Discrete-trait-dependent extinction + Covar', a
 p.add_argument('-bound',   type=float, help='Bounded BD model', default=[np.inf, 0], metavar=0, nargs=2)
 p.add_argument('-edgeShift',type=float, help='Fixed times of shifts at the edges (when -mL/-mM > 3)', default=[np.inf, 0], metavar=0, nargs=2)
 p.add_argument('-qFilter', type=int, help='if set to zero all shifts in preservation rates are kept, even if outside observed timerange', default=1, metavar=1)
+p.add_argument('-FBDrange', type=int, help='use FBDrange likelihood (experimental)', default=0, metavar=0)
 
 
 # TUNING
@@ -3239,6 +3419,8 @@ rand.seed(rseed)  # set as argument/ use get seed function to get it and save it
 random.seed(rseed)
 np.random.seed(rseed)
 
+if  args.FBDrange==0: FBDrange = 0
+else: FBDrange = 1
 
 if args.useCPPlib==1 and hasFoundPyRateC == 1: 
 	#print("Loaded module FastPyRateC")
@@ -3654,10 +3836,13 @@ if use_se_tbl==0:
 	taxa_names = taxa_names[taxa_included]
 
 	FA,LO,N=np.zeros(len(fossil)),np.zeros(len(fossil)),np.zeros(len(fossil))
+	array_all_fossils = []
 	for i in range(len(fossil)):
 		FA[i]=max(fossil[i])
 		LO[i]=min(fossil[i])
 		N[i]=len(fossil[i])
+		array_all_fossils = array_all_fossils + list(fossil[i])
+	array_all_fossils = np.array(array_all_fossils)
 
 else:
 	print se_tbl_file
@@ -4308,6 +4493,7 @@ if useDiscreteTraitModel == 1:
 head += "tot_length"
 head=head.split('\t')
 
+tot_number_of_species = len(taxa_names)
 if fix_SE == 0:
 	for i in taxa_names: head.append("%s_TS" % (i))
 	for i in taxa_names: head.append("%s_TE" % (i))
