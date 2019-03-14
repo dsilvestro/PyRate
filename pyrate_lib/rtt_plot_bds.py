@@ -300,7 +300,7 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 	n_mcmc_samples = len(post_rate)-burnin # number of samples used to normalize frequencies of rate shifts
 	return [time_frames,mean_rates,np.array(min_rates),np.array(max_rates),np.array(times_of_shift),n_mcmc_samples, marginal_rates_list]
 
-def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulation=1):
+def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulation=1, plot_shifts=1):
 	
 	times = res[0]
 	rates = res[1][::-1]
@@ -314,9 +314,10 @@ def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulat
 	rates   = rates[indx]
 	rates_m = rates_m[indx]
 	rates_M = rates_M[indx]
-	shifts= shifts[shifts>min_age]
-	shifts= shifts[shifts<max_age]
-	
+	try:
+		shifts= shifts[shifts>min_age]
+		shifts= shifts[shifts<max_age]
+	except: plot_shifts=0
 	
 	out_str = "\n"
 	out_str += util.print_R_vec("\ntime",-times)
@@ -334,24 +335,25 @@ def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulat
 		out_str += "\npolygon(c(time, rev(time)), c(log10(maxHPD), rev(log10(minHPD))), col = alpha('%s',0.3), border = NA)" % (col)
 		out_str += "\nlines(time,log10(rate), col = '%s', lwd=2)" % (col)
 		
-	# add barplot rate shifts
-	bins_histogram = np.linspace(0,max_age,len(res[0]))
-	if len(shifts)>1: # rate shift sampled at least once
-		h = np.histogram(shifts,bins =bins_histogram) #,density=1)
-	else:
-		h = [np.zeros(len(bins_histogram)-1),bins_histogram]
-	a = h[1]
-	mids = (a-a[1]/2.)[1:]
-	out_str += util.print_R_vec("\nmids",-mids)
-	out_str += util.print_R_vec("\ncounts",h[0]/float(res[5]))
-	out_str += "\nplot(mids,counts,type = 'h', xlim = c(%s,%s), ylim=c(0,%s), ylab = 'Frequency of rate shift', xlab = 'Time',lwd=5,col='%s')" \
-	    % (-max_age,-min_age,max(max(h[0]/float(res[5])),0.2),col)
-	# get BFs
-	if run_simulation==1:
-		BFs = get_prior_shift(min_age,max_age,bins_histogram)
-		out_str += "\nbf2 = %s\nbf6 = %s" % (BFs[1],BFs[2])
-	out_str += "\nabline(h=bf2, lty=2)"
-	out_str += "\nabline(h=bf6, lty=2)"
+	if plot_shifts:
+		# add barplot rate shifts
+		bins_histogram = np.linspace(0,max_age,len(res[0]))
+		if len(shifts)>1: # rate shift sampled at least once
+			h = np.histogram(shifts,bins =bins_histogram) #,density=1)
+		else:
+			h = [np.zeros(len(bins_histogram)-1),bins_histogram]
+		a = h[1]
+		mids = (a-a[1]/2.)[1:]
+		out_str += util.print_R_vec("\nmids",-mids)
+		out_str += util.print_R_vec("\ncounts",h[0]/float(res[5]))
+		out_str += "\nplot(mids,counts,type = 'h', xlim = c(%s,%s), ylim=c(0,%s), ylab = 'Frequency of rate shift', xlab = 'Time',lwd=5,col='%s')" \
+		    % (-max_age,-min_age,max(max(h[0]/float(res[5])),0.2),col)
+		# get BFs
+		if run_simulation==1:
+			BFs = get_prior_shift(min_age,max_age,bins_histogram)
+			out_str += "\nbf2 = %s\nbf6 = %s" % (BFs[1],BFs[2])
+		out_str += "\nabline(h=bf2, lty=2)"
+		out_str += "\nabline(h=bf6, lty=2)"
 	return out_str
 
 
@@ -425,6 +427,10 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 			r_str += get_r_plot(resE,col=colors[1],parameter="Extinction rate",min_age=max(min_age_t,min_age),max_age=min(max_age,max_age_t),plot_title="",plot_log=logT,run_simulation=0)
 			# net div rate
 			r_str += plot_net_rate(resS,resE,col=colors[2],min_age=max(min_age_t,min_age),max_age=min(max_age,max_age_t),plot_title='',n_bins= nbins)
+			# longevity
+			lon_avg = 1./np.mean(resE[6],axis=0)	
+			r_str += get_r_plot([resE[0],lon_avg,lon_avg,lon_avg,0],col=colors[1],parameter="Mean longevity",min_age=max(min_age_t,min_age),max_age=min(max_age,max_age_t),plot_title="",plot_log=logT,run_simulation=0,plot_shifts=0)
+			
 		#except:
 		#	print "Could not read file:", mcmc_file
 	r_str += "\n\nn <- dev.off()"
