@@ -41,9 +41,10 @@ Finally, the additional flag `-tag` can be used to identify files that should be
 
 `python PyRate.py -ginput .../path_to_log_files -tag Canidae -b 100`  
 
-all log files conaining `Canidae` in the file name and the extension `*_mcmc.log` will be compbined into a single `...se_ext.txt`, with columns with the origin and extinction of each species given for each replicate.
+all log files containing `Canidae` in the file name and the extension `*_mcmc.log` will be combined into a single `...se_ext.txt`, with columns with the origin and extinction of each species given for each replicate.
 
-#### Plot range-through diversity trajectory (lineage through time plot)
+
+## Plot range-through diversity trajectory (lineage through time plot)
 The `...se_ext.txt` file can be used to produce lineage through time (LTT) plots based on range-through diversity. To do this, we need to provide the `...se_ext.txt` file using the `-d` command and use the flag `-ltt ` followed by a number to choose between different options:
 
 `python PyRate.py -d Canidae_1_G_se_est.txt -ltt 1`
@@ -59,12 +60,13 @@ Finally, with
 
 LTT plots from each replicate are shown as individual lines.
 
-By default, the LTT plot is based on diversity count within time bins the size of 1 time unit. To produce plots where the counts are based on a finer temporal resolution, you can use the command `-rescale`, which defines the number of time bins used for 1 time unit.
-For example with 
+By default, the LTT plot is based on diversity count within time bins the size of 1 time unit. To produce plots where the counts are based on a finer temporal resolution, you can use the command `-grid_plot`, which defines the size of time bins.
+For example with:
 
-`python PyRate.py -d Canidae_1_G_se_est.txt -ltt 1 -rescale 10`
+`python PyRate.py -d Canidae_1_G_se_est.txt -ltt 1 -grid_plot 0.1`
 
-The time bins used to calculate and plot diversity are 0.1 Myr (10 bins for each Myr).
+the diversity trajectory will be computed in 0.1 Myr time bins.
+
 
 ## Diversity-dependent birth-death models
 In diversity dependence models, origination and extinction rates may correlate linearly or exponentially to the clade's own sampled (range-through) diversity. To run an analysis with a diversity dependent birth-death model you can launch PyRateContinuous providing the input data (`-d` flag) and adding the flag `-DD`:  
