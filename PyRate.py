@@ -403,17 +403,20 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 		R_hpd_m,R_hpd_M=[],[]
 		sys.stdout.write(".")
 		sys.stdout.flush()
-		for time_ind in range(shape(R_tbl)[1]):
+		for time_ind in range(shape(L_tbl)[1]):
 			hpd1=np.around(calcHPD(L_tbl[:,time_ind],threshold),decimals=no_decimals)
 			hpd2=np.around(calcHPD(M_tbl[:,time_ind],threshold),decimals=no_decimals)
-			hpd3=np.around(calcHPD(R_tbl[:,time_ind],threshold),decimals=no_decimals)
-				
+			if len(r_ind)>0: 
+				hpd3=np.around(calcHPD(R_tbl[:,time_ind],threshold),decimals=no_decimals)
+			else:
+				hpd3 =  hpd1- hpd2	
 			L_hpd_m.append(hpd1[0])
 			L_hpd_M.append(hpd1[1])
-	                M_hpd_m.append(hpd2[0])
+			M_hpd_m.append(hpd2[0])
 			M_hpd_M.append(hpd2[1])
-	                R_hpd_m.append(hpd3[0])
+			R_hpd_m.append(hpd3[0])
 			R_hpd_M.append(hpd3[1])
+				
 		return [L_hpd_m,L_hpd_M,M_hpd_m,M_hpd_M,R_hpd_m,R_hpd_M]
 
 	def get_CI(threshold=.95):
@@ -433,9 +436,9 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 				
 			L_hpd_m.append(hpd1[0])
 			L_hpd_M.append(hpd1[1])
-	                M_hpd_m.append(hpd2[0])
+			M_hpd_m.append(hpd2[0])
 			M_hpd_M.append(hpd2[1])
-	                R_hpd_m.append(hpd3[0])
+			R_hpd_m.append(hpd3[0])
 			R_hpd_M.append(hpd3[1])
 		return [L_hpd_m,L_hpd_M,M_hpd_m,M_hpd_M,R_hpd_m,R_hpd_M]
 
@@ -447,7 +450,9 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 
 	L_tbl_mean=np.around(np.mean(L_tbl,axis=0),no_decimals)
 	M_tbl_mean=np.around(np.mean(M_tbl,axis=0),no_decimals)
-	R_tbl_mean=np.around(np.mean(R_tbl,axis=0),no_decimals)
+	if len(r_ind)>0: R_tbl_mean=np.around(np.mean(R_tbl,axis=0),no_decimals)
+	else: 
+		R_tbl_mean= L_tbl_mean-M_tbl_mean
 	mean_rates=np.array([L_tbl_mean,L_tbl_mean,M_tbl_mean,M_tbl_mean,R_tbl_mean,R_tbl_mean] )
 	
 	nonzero_rate = L_tbl_mean+ M_tbl_mean
@@ -455,7 +460,9 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 	
 	hpds95[:,NA_ind] = np.nan
 	#hpds50[:,NA_ind] = np.nan
+	print mean_rates
 	mean_rates[:,NA_ind] = np.nan
+	print "HPD", hpds95
 	#print(np.shape(np.array(hpds50)	), np.shape(L_tbl_mean))
 
 	########################################################
@@ -562,10 +569,10 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 	print "done\n"
 
 
-def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1): # change rescale to change bin size
+def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1.): # change rescale to change bin size
 	# plot_type=1 : ltt + min/max range
 	# plot_type=2 : log10 ltt + min/max range
-	step_size=int(step_size)
+	#step_size=int(step_size)
 	# read data
 	print "Processing data..."
 	tbl = np.loadtxt(tste_file,skiprows=1)
@@ -573,7 +580,7 @@ def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1): # change rescale to 
 	j_range=np.arange(j_max)
 	ts = tbl[:,2+2*j_range]*rescale
 	te = tbl[:,3+2*j_range]*rescale
-	time_vec = np.sort(np.linspace(np.min(te),np.max(ts),(np.max(ts)-np.min(te))/float(step_size) ))
+	time_vec = np.sort(np.linspace(np.min(te),np.max(ts),int((np.max(ts)-np.min(te))/float(step_size)) ))
 	
 	# create out file
 	wd = "%s" % os.path.dirname(tste_file)
@@ -3740,7 +3747,7 @@ if len(args.SE_stats)>0:
 	quit()
 
 if args.ltt>0:
-	plot_ltt(se_tbl_file,plot_type=args.ltt,rescale=args.rescale)
+	plot_ltt(se_tbl_file,plot_type=args.ltt,rescale=args.rescale, step_size=args.grid_plot)
 
 twotraitBD = 0
 if args.twotrait == 1:
