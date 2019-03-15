@@ -14,7 +14,7 @@
 
 
 # Birth-death models with time-continuous correlates
-This tutorial describes how to analyze data under birth-death models in which rates vary through time through linear or exponential correlations with a time-continuous variable. Time continuous variables may include a clade's own diversity (diversity dependence) or e.g. paleo-environmental variables such as temperature or sea level. Birth-death models with time-continuous correlates are implemented in the program "PyRateContinuousShift.py".
+This tutorial describes how to analyze data under birth-death models in which rates vary through time through linear or exponential correlations with a time-continuous variable. Time continuous variables may include a clade's own diversity (diversity dependence) or e.g. paleo-environmental variables such as temperature or sea level. Birth-death models with time-continuous correlates are implemented in the program "PyRateContinuous.py".
 
 ## Generate input file for PyRateContinuous
 The program does not model preservation and assumes that the times of origination and extinction of each lineage are known or have been estimated, typically in a previous PyRate analysis. Thus, the input file for PyRateContinuous.py is a simple table with the times of origination and extinction of each lineage. The table is formatted as tab-separated text file, with the first line containing column headers followed by one row for each species. Each row contains 4 columns: the first column indicates the clade assignment of species, this is only useful when using [MCDD models](https://github.com/dsilvestro/PyRate/wiki#pyratemcddpy-requires-library-pyrate_lib) and should be filled with 0s for all other analyses. The second column indicates a species numeric identifier (this values are arbitrary and only used for reference). Finally the third and fourth column contain the time of origin and extinction of each species, respectively.  
@@ -71,11 +71,11 @@ the diversity trajectory will be computed in 0.1 Myr time bins.
 ## Diversity-dependent birth-death models
 In diversity dependence models, origination and extinction rates may correlate linearly or exponentially to the clade's own sampled (range-through) diversity. To run an analysis with a diversity dependent birth-death model you can launch PyRateContinuous providing the input data (`-d` flag) and adding the flag `-DD`:  
 
-`python PyRateContinuousShift.py -d .../Canidae_1_G_se_est.txt -DD`
+`python PyRateContinuous.py -d .../Canidae_1_G_se_est.txt -DD`
 
 the program implements two models of of diversity dependence defined by the flag `-m`: an **exponential model** (`-m 0`) in which speciation and extinction rates are exponential functions of the clade's diversity and a **linear model** (`-m 1`) in which speciation and extinction rates linearly correlate with diversity.  
 
-`python PyRateContinuousShift.py -d .../Canidae_1_G_se_est.txt -DD -m 0`
+`python PyRateContinuous.py -d .../Canidae_1_G_se_est.txt -DD -m 0`
 
 For the purpose of model testing, you can also set `-m -1` which runs a null model in which speciation and extinction rates are constant and independent of diversity.  
 
@@ -91,7 +91,7 @@ The log file can be opened in Tracer to check if convergence has been reached an
 #### Plot speciation and extinction rates through time
 PyRateContinuous can be used to plot marginal speciation and extinction rates through time based on the estimated baseline rates and diversity dependence parameters. To generate an RTT plot you can type:
 
-`python PyRateContinuousShift.py -d .../Canidae_1_G_se_est.txt -DD -m 0 -b 100 -plot .../Canidae_1_G_se_est_DD_0_exp.log -b 200`
+`python PyRateContinuous.py -d .../Canidae_1_G_se_est.txt -DD -m 0 -b 100 -plot .../Canidae_1_G_se_est_DD_0_exp.log -b 200`
  
 This will generate an R script and a PDF file with the RTT plots showing speciation, extinction rates through time. The command `-b 200` specifies that the first 200 samples are discarded as burnin. 
 
@@ -101,7 +101,7 @@ You can fit birth-death models where the speciation and extinction rates are cha
 
 To run an analysis with temperature-dependent speciation and extinction rates you should use the command `-c` to provide the text file containing the variable:
  
-`python PyRateContinuousShift.py -d .../Canidae_1_G_se_est.txt -m 0 -c temperature.txt`
+`python PyRateContinuous.py -d .../Canidae_1_G_se_est.txt -m 0 -c temperature.txt`
 
 As with the diversity dependent model (see above) the flag `-m` is used to change between the default **exponential model** (`-m 0`) in which speciation and extinction rates are exponential functions of the time-continuous variable and a **linear model** (`-m 1`) in which a linear correlation is assumed.  
 
@@ -109,7 +109,7 @@ The time-continuous variable is by default rescaled so that its range of values 
 
 Rates through time plots can be generated using the command `-plot` as shown above for the DD model, e.g.
 
-`python PyRateContinuousShift.py -d .../Canidae_1_G_se_est.txt -m 0 -c temperature.txt -plot .../my_logfile.log -b 100`
+`python PyRateContinuous.py -d .../Canidae_1_G_se_est.txt -m 0 -c temperature.txt -plot .../my_logfile.log -b 100`
 
 
 ***
@@ -122,13 +122,13 @@ More details soon...
 
 You can use the TI algorithm to calculate the marginal likelihood of a model and **compare the fit of alternative models**. For example you can compare the fit of diversity-dependent models with linear vs exponential correlation or compare the fit of diversity-dependent models with that of temperature-dependent models. The analysis setup and model specification are the same described above and the TI algorithm is enabled by the flag  `-A 1`:
 
-`python PyRateContinuousShift.py -d .../Canidae_1_G_se_est.txt -m 0 -c temperature.txt -A 1`
+`python PyRateContinuous.py -d .../Canidae_1_G_se_est.txt -m 0 -c temperature.txt -A 1`
 
 PyRateContinuous will run TI using 10 scaling categories by default, and the the number of iteration (as specified by the flag `-n`) corresponds to the number of MCMC iterations for each category.   
 
 Running TI produces a single log file as output from which the marginal likelihood is calculated. Once you run the TI analyses under a range of alternative models, you can use the command `-mL` to calculate the marginal likelihoods of all models. This command expects the path to the log files and will calculate the marginal likelihood for each file in the directory with extension ".log". It is important to **specify an appropriate burnin** using the flag `-b`), for example:  
 
-`python PyRateContinuousShift.py -mL .../path_to_my_logfiles -b 100`
+`python PyRateContinuous.py -mL .../path_to_my_logfiles -b 100`
 
 This command will produce a single text file containing the marginal likelihoods of all models. It will also generate new log files that contain only the "cold" part of the MCMC states sampled by the TI algorithm. The content of these log files can be viewed in Tracer and used for parameter estimation. 
 
