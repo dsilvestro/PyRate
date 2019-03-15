@@ -1793,14 +1793,16 @@ def get_k(array_all_fossils, times):
 	ff = np.histogram(array_all_fossils,bins=np.sort(times))[0]
 	return ff[::-1]
 
-def get_times_n_rates(timesQ, timesL, timesM, q_rates, L,M):
+def get_times_n_rates(timesQ, timesL, timesM, q_rates, Lt,Mt):
+	Ltemp = 0+Lt
+	Mtemp = 0+Mt
 	merged = list(timesQ[1:])+ list(timesL[1:])+ list(timesM[1:])
 	times = np.unique(merged)[::-1]
 	psi = q_rates[np.digitize(times,timesQ[1:])]
-	if len(L)>1: lam = L[np.digitize(times,timesL[1:])]
-	else: lam = np.zeros(len(psi))+L[0]
-	if len(M)>1: mu  = M[np.digitize(times,timesM[1:])]
-	else: mu = np.zeros(len(psi))+M[0]
+	if len(Ltemp)>1: lam = Ltemp[np.digitize(times,timesL[1:])]
+	else: lam = np.zeros(len(psi))+Ltemp[0]
+	if len(Mtemp)>1: mu  = Mtemp[np.digitize(times,timesM[1:])]
+	else: mu = np.zeros(len(psi))+Mtemp[0]
 	times =np.insert(times,0, timesL[0])
 	return times, psi, lam, mu				
 
@@ -2760,18 +2762,26 @@ def MCMC(all_arg):
 
 			if it>0: 
 				lik_fossil[ind2] = lik_fossilA[ind2]
-
+				
+		# FBD range likelihood
 		elif FBDrange==1:
-			if stop_update == inf and TDI==4: 
+			move_type = 0
+			stop_update = 0
+			#if np.random.random()<0.01 and TDI==4:
+			#	rj_cat_HP = get_post_rj_HP(len(LA),len(MA)) # est Poisson hyperprior on number of rates (RJMCMC)
+			#	stop_update=inf
+			if np.random.random()< 0.3: 
+				stop_update=0
 				L,timesL,M,timesM,hasting2 = RJMCMC([LA,MA, timesLA, timesMA])
 				hasting += hasting2
 				move_type=0
 				
+			if it==0: stop_update=1
 			# move types: 1) ts/te; 2) q rates; 3) timesL/M; 4) L/M rates;
 			if it==0 or len(res_FBD_A)==0: move_type=0
 			
 			# only need to update if changed timesL/timesM or psi, lam, mu
-			if move_type in [2,3,4] or len(res_FBD_A)==0 or np.max(ts) != maxTSA:
+			if move_type in [0,2,3,4] or len(res_FBD_A)==0 or np.max(ts) != maxTSA:
 				times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp = get_times_n_rates(q_time_frames, timesL, timesM, q_rates, L, M)
 			else:
 				[times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp] = FBD_temp_A
@@ -2795,11 +2805,13 @@ def MCMC(all_arg):
 			# 	print res_FBD[4]
 			
 			lik_fossil = res_FBD[0]
+			#if it>1: print lik_fossil,lik_fossilA
 			
 		
-		else: lik_fossil=zeros(1)
-
-		if it>=stop_update or stop_update==inf: lik_fossil = lik_fossilA
+		else: lik_fossil=np.zeros(1)
+		
+		if FBDrange==0:
+			if it>=stop_update or stop_update==inf: lik_fossil = lik_fossilA
 
 		# pert_prior defines gamma prior on q_rates[1] - fossilization rate
 		if TPP_model == 1: 
@@ -2831,7 +2843,7 @@ def MCMC(all_arg):
 				likBDtemp = lik1+lik2
 		### DPP end
 		
-		else:
+		elif FBDrange == 0:
 			if TDI==4 and np.random.random()<0.01:
 				rj_cat_HP = get_post_rj_HP(len(LA),len(MA)) # est Poisson hyperprior on number of rates (RJMCMC)
 				stop_update=inf
@@ -2839,10 +2851,7 @@ def MCMC(all_arg):
 			# Birth-Death Lik: construct 2D array (args partial likelihood)
 			# parameters of each partial likelihood and prior (l)
 			if stop_update != inf:
-				if FBDrange == 1:
-					likBDtemp = 0 # alrady included in lik_fossil
-				
-				elif useDiscreteTraitModel == 1:
+				if useDiscreteTraitModel == 1:
 					if twotraitBD == 1:
 						likBDtemp = BD_lik_discrete_trait_continuous([ts,te,L,M,cov_par])
 					else:
@@ -2969,6 +2978,9 @@ def MCMC(all_arg):
 					else:
 						if argsG == 1: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args))
 						else: lik_fossil[ind1] = array(pool_ts.map(NHPP_lik, args))
+		
+		elif FBDrange == 1:
+			likBDtemp = 0 # alrady included in lik_fossil
 				
 		
 		lik= sum(lik_fossil) + sum(likBDtemp) + PoiD_const
@@ -3061,6 +3073,7 @@ def MCMC(all_arg):
 			accept_it = 1		
 		
 		#print Post, PostA, q_ratesA, sum(lik_fossil), sum(likBDtemp),  prior
+		#print sum(lik_fossil), sum(likBDtemp), PoiD_const
 		if Post>-inf and Post<inf:
 			r_acc = log(np.random.random())
 			if Post*tempMC3-PostA*tempMC3 + hasting >= r_acc or stop_update==inf and TDI in [2,3,4] or accept_it==1: # 
