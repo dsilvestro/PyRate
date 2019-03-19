@@ -1855,6 +1855,7 @@ def likelihood_rangeFBD(times, psi, lam, mu, ts, te, k=[], intervalAs=[], int_in
 		bint = np.digitize(ts, times)-1 # which interval ts happens
 		oint = np.digitize(FA, times)-1 # which interval FA happens
 		dint = np.digitize(te, times)-1 # which interval te happens
+		bint[bint<0] = 0
 		int_indx = [bint, oint, dint]
 
 	# only need to recompute div_traj when updating ts/te
