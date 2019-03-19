@@ -118,7 +118,7 @@ try:
 
 	from _FastPyRateC import PyRateC_BD_partial_lik, PyRateC_HOMPP_lik, PyRateC_setFossils, \
 						   PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
-													 PyRateC_NHPP_lik
+													 PyRateC_NHPP_lik, PyRateC_FBD_T4
 	hasFoundPyRateC = 1
 	print("Module FastPyRateC was loaded.")
   # Set that to true to enable sanity check (comparing python and c++ results)
@@ -1887,7 +1887,7 @@ def likelihood_rangeFBD(times, psi, lam, mu, ts, te, k=[], intervalAs=[], int_in
 	term4_c = 0
 
 	if hasFoundPyRateC: # We use the C version for term 4
-		term4_c = PyRateC_FBD_T4(tot_number_of_species, bint, dint, oint, inveralAs, lam, mu, psi, rho, gamma, times, ts, te, FA)
+		term4_c = PyRateC_FBD_T4(tot_number_of_species, bint, dint, oint, intervalAs, lam, mu, psi, rho, gamma_i, times, ts, te, FA)
 
 	if not hasFoundPyRateC or sanityCheckForPyRateC: # We use the python version if PyRateC not found or if sanity check is asked
 		log_gamma_i = log(gamma_i)
