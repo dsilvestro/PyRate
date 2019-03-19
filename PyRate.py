@@ -17,13 +17,13 @@ PyRate: A new program to estimate speciation and extinction rates from
 incomplete fossil record. Methods in Ecology and Evolution, 5, 1126-1131.
 """
 print("""
-                  %s - %s
+				  %s - %s
 
-             Bayesian estimation of origination,
-              extinction and preservation rates
-                 from fossil occurrence data
+			 Bayesian estimation of origination,
+			  extinction and preservation rates
+				 from fossil occurrence data
 
-                    pyrate.help@gmail.com
+					pyrate.help@gmail.com
 
 \n""" % (version, build))
 # check python version
@@ -117,7 +117,7 @@ try:
 	#print self_path, sys.path
 
 	from _FastPyRateC import PyRateC_BD_partial_lik, PyRateC_HOMPP_lik, PyRateC_setFossils, \
-                           PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
+						   PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
 													 PyRateC_NHPP_lik
 	hasFoundPyRateC = 1
 	print("Module FastPyRateC was loaded.")
@@ -176,12 +176,12 @@ def calc_model_probabilities(f,burnin):
 	z1=t[burnin:,k_ind[0]]  # list of shifts (lambda)
 	z2=t[burnin:,k_ind[1]]  # list of shifts (mu)
 	y1= max(max(z1),max(z2))
-	print("Model           Probability")
-	print("          Speciation  Extinction")
+	print("Model		   Probability")
+	print("		  Speciation  Extinction")
 	for i in range(1,int(y1)+1):
 		k_l=float(len(z1[z1==i]))/len(z1)
 		k_m=float(len(z2[z2==i]))/len(z2)
-		print("%s-rate    %s      %s" % (i,round(k_l,4),round(k_m,4)))
+		print("%s-rate	%s	  %s" % (i,round(k_l,4),round(k_m,4)))
 	print("\n")
 
 	try:
@@ -204,7 +204,7 @@ def calc_model_probabilities(f,burnin):
 		B = B[B[:,2].argsort()[::-1]]
 		cum_prob = np.cumsum(B[:,2])
 		print "Best BD/ID configurations (rel.pr >= 0.05)"
-		print "   B/I    D      Rel.pr"
+		print "   B/I	D	  Rel.pr"
 		print B[(np.round(B[:,2],3)>=0.05).nonzero()[0],:]
 
 	except: pass
@@ -339,7 +339,7 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 	print "found", len(files), "log files...\n"
 
 	########################################################
-	######           DETERMINE MIN ROOT AGE           ######
+	######		   DETERMINE MIN ROOT AGE		   ######
 	########################################################
 	if root_plot==0:
 		min_age=np.inf
@@ -358,7 +358,7 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 
 	print max_ind, root_plot
 	########################################################
-	######            COMBINE ALL LOG FILES           ######
+	######			COMBINE ALL LOG FILES		   ######
 	########################################################
 	print "\ncombining all files...",
 	file_n=0
@@ -394,7 +394,7 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 			print "skipping file:", f
 
 	########################################################
-	######               CALCULATE HPDs               ######
+	######			   CALCULATE HPDs			   ######
 	########################################################
 	print "\ncalculating HPDs...",
 	def get_HPD(threshold=.95):
@@ -466,7 +466,7 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 	#print(np.shape(np.array(hpds50)	), np.shape(L_tbl_mean))
 
 	########################################################
-	######                  PLOT RTTs                 ######
+	######				  PLOT RTTs				 ######
 	########################################################
 	print "\ngenerating R file...",
 	out="%s/%s_RTT.r" % (wd,name_file)
@@ -479,8 +479,8 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 	else: n_plots=3
 
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-	    wd_forward = os.path.abspath(wd).replace('\\', '/')
-	    Rfile+= "\n\npdf(file='%s/%s_RTT.pdf',width=10.8, height=8.4)\npar(mfrow=c(2,2))" % (wd_forward,name_file)
+		wd_forward = os.path.abspath(wd).replace('\\', '/')
+		Rfile+= "\n\npdf(file='%s/%s_RTT.pdf',width=10.8, height=8.4)\npar(mfrow=c(2,2))" % (wd_forward,name_file)
 	else:
 		Rfile+= "\n\npdf(file='%s/%s_RTT.pdf',width=10.8, height=8.4)\npar(mfrow=c(2,2))" % (wd,name_file)
 
@@ -562,7 +562,7 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 	newfile.close()
 	print "\nAn R script with the source for the RTT plot was saved as: %s_RTT.r\n(in %s)" % (name_file, wd)
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
-	    cmd="cd %s & Rscript %s_RTT.r" % (wd,name_file)
+		cmd="cd %s & Rscript %s_RTT.r" % (wd,name_file)
 	else:
 		cmd="cd %s; Rscript %s/%s_RTT.r" % (wd,wd,name_file)
 	os.system(cmd)
@@ -599,16 +599,16 @@ def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1.): # change rescale to
 		dtraj.append(get_DT(time_vec,ts[:,rep],te[:,rep])[::-1])
 	dtraj = np.array(dtraj)
 	div_mean = np.mean(dtraj,axis=0)
-	div_m    = np.min(dtraj,axis=0)
-	div_M    = np.max(dtraj,axis=0)
+	div_m	= np.min(dtraj,axis=0)
+	div_M	= np.max(dtraj,axis=0)
 
 	Ymin,Ymax,yaxis = 0,max(div_M)+1,""
 	if min(div_m)>5: Ymin = min(div_m)-1
 
 	if plot_type==2:
 		div_mean = log10(div_mean)
-		div_m    = log10(div_m   )
-		div_M    = log10(div_M   )
+		div_m	= log10(div_m   )
+		div_M	= log10(div_M   )
 		Ymin,Ymax,yaxis = min(div_m),max(div_M), " (Log10)"
 
 	# write to file
@@ -822,12 +822,12 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 		with open(outfile, 'w') as f:
 			#
 			for i in comb: f.write(i)
-		     #fmt_list=['%i']
-		     #if platform.system() == "Windows" or platform.system() == "Microsoft":
-		     #	np.savetxt(f, comb, delimiter="\t",fmt=fmt_list,newline="\r") #)
-		     #else:
-		     #	np.savetxt(f, comb, delimiter="\t",fmt=fmt_list,newline="\n") #)
-	           #
+			 #fmt_list=['%i']
+			 #if platform.system() == "Windows" or platform.system() == "Microsoft":
+			 #	np.savetxt(f, comb, delimiter="\t",fmt=fmt_list,newline="\r") #)
+			 #else:
+			 #	np.savetxt(f, comb, delimiter="\t",fmt=fmt_list,newline="\n") #)
+			   #
 		sys.exit("done")
 
 
@@ -1098,7 +1098,7 @@ def update_ts_te(ts, te, d1):
 	m = 0 #boundMin
 	ten[ten<m]=(m-ten[ten<m])+m
 	ten[ten>M] = te[ten>M]
-	ten[LO==0]=0                                     # indices of LO==0 (extant species)
+	ten[LO==0]=0									 # indices of LO==0 (extant species)
 	S= tsn-ten
 	if min(S)<=0: print S
 	tsn[SP_not_in_window] = max([boundMax, max(tsn[SP_in_window])])
@@ -1260,12 +1260,12 @@ def HPBD3(timesL,timesM,L,M,T,s):
 		M=arg[2]
 		N=arg[3]
 		Dt=-np.diff(T)
-	        r_t = (L - M)*Dt
+		r_t = (L - M)*Dt
 		Beta=  sum(exp((L - M)*Dt))
 		Alpha= sum(L*exp((L - M)*Dt))
 		lnBeta=  log(sum(exp((L - M)*Dt)))
 		lnAlpha= log(sum(L*exp((L - M)*Dt)))
-		#P   = (Beta/(Alpha*(1+Alpha))) *    (Alpha/(1+Alpha))**N
+		#P   = (Beta/(Alpha*(1+Alpha))) *	(Alpha/(1+Alpha))**N
 		if N>0: lnP = (lnBeta-(lnAlpha+log(1+Alpha))) + (lnAlpha-log(1+Alpha))*N
 		else:	lnP = log((1+Alpha-Beta)/(Alpha*(1+Alpha)))
 		return lnP
@@ -1304,7 +1304,7 @@ def p1(t,l,m,rho):
 def treeBDlikelihood(x,l,m,rho,root=1,survival=1):
 	#_ lik = (root + 1) * log(p1(x[0], l, m, rho))
 	#_ for i in range(1, len(x)) :
-	#_     lik = lik + log(l * p1(x[i], l, m, rho))
+	#_	 lik = lik + log(l * p1(x[i], l, m, rho))
 	#_ if survival == 1:
 	#_ 	lik = lik - (root + 1) * log(1 - p0(x[0], l, m, rho))
 	#_ return lik
@@ -1318,10 +1318,10 @@ def treeBDlikelihood(x,l,m,rho,root=1,survival=1):
 def BD_lik_discrete_trait(arg):
 	[ts,te,L,M]=arg
 	S = ts-te
-	lik0 =  sum(log(L)*lengths_B_events )    #
-	lik1 = -sum(L*sum(S))                   # assumes that speiation can arise from any trait state
+	lik0 =  sum(log(L)*lengths_B_events )	#
+	lik1 = -sum(L*sum(S))				   # assumes that speiation can arise from any trait state
 	#lik1 = -sum([L[i]*sum(S[ind_trait_species==i]) for i in range(len(L))])
-	lik2 =  sum(log(M)*lengths_D_events)                                        # Trait specific extinction
+	lik2 =  sum(log(M)*lengths_D_events)										# Trait specific extinction
 	lik3 = -sum([M[i]*sum(S[ind_trait_species==i]) for i in range(len(M))]) # only species with a trait state can go extinct
 	return sum(lik0+lik1+lik2+lik3)
 
@@ -1353,7 +1353,7 @@ def BPD_lik_vec_times(arg):
 			len_ex_events=ee2[i]
 			inTS = np.fmin(ts,up)
 			inTE = np.fmax(te,lo)
-			S    = inTS-inTE
+			S	= inTS-inTE
 			# speciation
 			if use_poiD == 0:
 				lik1 = log(L[i])*len_sp_events
@@ -1385,10 +1385,10 @@ def get_sp_in_frame_br_length(ts,te,up,lo):
 	n_t_ts,n_t_te=zeros(len(ts)),zeros(len(ts))
 
 	n_t_ts[n_all_inframe]= ts[n_all_inframe]   # speciation events before time frame
-	n_t_ts[(n_t_ts>up).nonzero()]=up           # for which length is accounted only from $up$ rather than from $ts$
+	n_t_ts[(n_t_ts>up).nonzero()]=up		   # for which length is accounted only from $up$ rather than from $ts$
 
 	n_t_te[n_all_inframe]= te[n_all_inframe]   # extinction events in time frame
-	n_t_te[np.intersect1d((n_t_te<lo).nonzero()[0], n_all_inframe)]=lo     # for which length is accounted only until $lo$ rather than to $te$
+	n_t_te[np.intersect1d((n_t_te<lo).nonzero()[0], n_all_inframe)]=lo	 # for which length is accounted only until $lo$ rather than to $te$
 
 	# vector of br lengths within time frame  #(scaled by rho)
 	n_S=((n_t_ts[n_all_inframe]-n_t_te[n_all_inframe])) #*rhos[n_all_inframe])
@@ -1408,7 +1408,7 @@ def BD_partial_lik(arg):
 	if cov_par !=0: # covaring model: $r$ is vector of rates tranformed by trait
 		r=exp(log(rate)+cov_par*(con_trait-parGAUS[0])) # exp(log(rate)+cov_par*(con_trait-mean(con_trait[all_inframe])))
 		lik= sum(log(r[i_events])) + sum(-r[n_all_inframe]*n_S) #, cov_par
-	else:           # constant rate model
+	else:		   # constant rate model
 		no_events = len(i_events)
 		if par=="l" and up==max_age_fixed_ts:
 			no_events = no_events-no_starting_lineages
@@ -1426,7 +1426,7 @@ def BD_partial_lik_bounded(arg):
 	if cov_par !=0: # covaring model: $r$ is vector of rates tranformed by trait
 		r=exp(log(rate)+cov_par*(con_trait-parGAUS[0])) # exp(log(rate)+cov_par*(con_trait-mean(con_trait[all_inframe])))
 		lik= sum(log(r[i_events])) + sum(-r[n_all_inframe]*n_S) #, cov_par
-	else:           # constant rate model
+	else:		   # constant rate model
 		#print par, len(i_events), len(te)
 		lik= log(rate)*len(i_events) -rate*sum(n_S) #log(rate)*len(i_events) +sum(-rate*n_S)
 	return lik
@@ -1489,7 +1489,7 @@ def BD_age_partial_lik(arg):
 	lik1=(log_wei_pdf(br[te_time>0],W_shape,W_scale)) + (log(1-exp(-q*br[te_time>0])))
 	v=x_bins
 	# numerical integration + analytical for right tail
-	P = pdf_W_poi(W_shape,W_scale,q,v)                 # partial integral (0 => xLim) via numerical integration
+	P = pdf_W_poi(W_shape,W_scale,q,v)				 # partial integral (0 => xLim) via numerical integration
 	d= x_bin_size
 	const_int = (1- cdf_Weibull(xLim,W_shape,W_scale)) # partial integral (xLim => Inf) via CDF_weibull
 	lik2 = log( sum(P)*d  + const_int )
@@ -1543,7 +1543,7 @@ def BD_age_lik_vec_times(arg):
 	# the q density using the weighted mean is equal to (log(1-exp(-np.sum(q_rates*(br*Weigths).T,axis=1))))
 	# numerical integration + analytical for right tail
 	v=np.zeros((len(ts),len(x_bins)))+x_bins
-	P = pdf_W_poi(W_shape,W_scale_species,q_rate_species,v.T)                 # partial integral (0 => xLim) via numerical integration
+	P = pdf_W_poi(W_shape,W_scale_species,q_rate_species,v.T)				 # partial integral (0 => xLim) via numerical integration
 	d= x_bin_size
 	const_int = (1- cdf_Weibull(xLim,W_shape,W_scale_species)) # partial integral (xLim => Inf) via CDF_weibull
 	lik2 = log( np.sum(P,axis=0)*d  + const_int )
@@ -1567,7 +1567,7 @@ def pure_death_shift(arg):
 		len_ex_events=ee2[i]
 		inTS = np.fmin(ts,up)
 		inTE = np.fmax(te,lo)
-		S    = inTS-inTE
+		S	= inTS-inTE
 		# prob waiting times: qExp(S,mu) * samplingP(S,q) # CHECK for ANALYTICAL SOLUTION?
 		# prob extinction events: dExp(S[inTE>lo],mu) * samplingD(S[inTE>lo],mu)
 		# prob extant taxa: 1 - (dExp(S[inTE>lo],mu) * samplingD(S[inTE>lo],mu))/exp(P_waiting_time)
@@ -1693,8 +1693,8 @@ def NHPP_lik(arg):
 		a = 1 + (4*(C-GM))/(M-GM) # shape parameters a,b=3,3
 		b = 1 + (4*(-C+M))/(M-GM) # values will change in future implementations
 		#print M, GM
-		int_q = betainc(a,b,xB[:,k])* (M-GM)*q    # integral of beta(3,3) at time xB[k] (tranformed time 0)
-		MM=np.zeros((len(quant),k))+M     # matrix speciation times of length quant x no. fossils
+		int_q = betainc(a,b,xB[:,k])* (M-GM)*q	# integral of beta(3,3) at time xB[k] (tranformed time 0)
+		MM=np.zeros((len(quant),k))+M	 # matrix speciation times of length quant x no. fossils
 		aa=np.zeros((len(quant),k))+a[0]  # matrix shape parameters (3) of length quant x no. fossils
 		bb=np.zeros((len(quant),k))+b[0]  # matrix shape parameters (3) of length quant x no. fossils
 		X=np.append(x[x>0],[x[x>0]]*(len(quant)-1)).reshape(len(quant), k) # matrix of fossils of shape quant x no. fossils
@@ -1729,7 +1729,7 @@ def NHPPgamma(arg):
 
 	k=len(x[x>0])   # no. fossils for species i
 	x=sort(x)[::-1] # reverse
-	xB1= -(x-M)     # distance fossil-ts
+	xB1= -(x-M)	 # distance fossil-ts
 
 	if cov_par ==2: # transform preservation rate by trait value
 		q=exp(log(q_rate)+cov_par*(con_trait[i]-parGAUS[0]))
@@ -1883,31 +1883,39 @@ def likelihood_rangeFBD(times, psi, lam, mu, ts, te, k=[], intervalAs=[], int_in
 	gamma_i[0] = 1. # oldest range gets gamma= 1
 	if np.min(gamma_i)<1: return [-np.inf, intervalAs, int_indx, div_traj, k]
 
-	log_gamma_i = log(gamma_i)
-	args = [intervalAs, lam, mu, psi, times, l, rho]
 	term4 = 0
+	term4_c = 0
 
-	for i in range(tot_number_of_species):
+	if hasFoundPyRateC: # We use the C version for term 4
+		term4_c = PyRateC_FBD_T4(tot_number_of_species, bint, dint, oint, inveralAs, lam, mu, psi, rho, gamma, times, ts, te, FA)
 
-		term4_q  = calc_q(bint[i],ts[i],args)-calc_q(oint[i], FA[i],args)
-		term4_qt = calc_qt(oint[i], FA[i],args)-calc_qt(dint[i], te[i],args)
+	if not hasFoundPyRateC or sanityCheckForPyRateC: # We use the python version if PyRateC not found or if sanity check is asked
+		log_gamma_i = log(gamma_i)
+		args = [intervalAs, lam, mu, psi, times, l, rho]
 
-		qj_1= 0
-		for j in range(bint[i], oint[i]):
-			qj_1 += calc_q(j+1, times[j+1], args)
+		for i in range(tot_number_of_species):
 
-		qtj_1= 0
-		for j in range(oint[i], dint[i]):
-			qtj_1 += calc_qt(j+1, times[j+1], args)
+			term4_q  = calc_q(bint[i],ts[i],args)-calc_q(oint[i], FA[i],args)
+			term4_qt = calc_qt(oint[i], FA[i],args)-calc_qt(dint[i], te[i],args)
 
-		term4_qj = qj_1 + qtj_1
-		term4 += log_gamma_i[i] + term4_q + term4_qt + term4_qj # + term3[i] + term4[i]
+			qj_1= 0
+			for j in range(bint[i], oint[i]):
+				qj_1 += calc_q(j+1, times[j+1], args)
 
-	if sanityCheckForPyRateC == 1:
-        term4_C = PyRateC_FBD_T4(tot_number_of_species, bint, dint, oint, inveralAs, lam, mu, psi, rho, gamma, times, ts, te, FA)
-        absDivergence = abs(term4 - term4_C)
-        if absDivergence > sanityCheckThreshold:
-            print "[WARNING] PyRateC_FBD_T4 diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")"
+			qtj_1= 0
+			for j in range(oint[i], dint[i]):
+				qtj_1 += calc_qt(j+1, times[j+1], args)
+
+			term4_qj = qj_1 + qtj_1
+			term4 += log_gamma_i[i] + term4_q + term4_qt + term4_qj # + term3[i] + term4[i]
+
+		if hasFoundPyRateC and sanityCheckForPyRateC: # Sanity check only done if needed
+			absDivergence = abs(term4 - term4_C)
+			if absDivergence > sanityCheckThreshold:
+				print "[WARNING] PyRateC_FBD_T4 diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")"
+
+	if hasFoundPyRateC:
+		term4 = term4_c
 
 	likelihood = np.sum([term1, term0+sum(term2),sum(term3), term4])
 	res = [likelihood, intervalAs, int_indx, div_traj, k]
@@ -1962,14 +1970,14 @@ def born_prm(times, R, ind, tse):
 	#return n_times, R
 
 def kill_prm(times, R, ind):
-	P=np.diff(times)         # time intervals
+	P=np.diff(times)		 # time intervals
 	Pi= abs(P[ind]/times[0])
 	P2= P/(1-Pi)
-	P3=np.delete(P2, ind)    # remove interval
+	P3=np.delete(P2, ind)	# remove interval
 	Q2=times[0]+cumsum(P3)   # re-adjust length remaining time frames
 	Q3=insert(Q2,0,times[0]) # add root
 	Q3[len(Q3)-1]=0
-	R=np.delete(R,ind)       # remove corresponding rate
+	R=np.delete(R,ind)	   # remove corresponding rate
 	n_times= sort(Q3)[::-1]  # reverse array
 	#ind_rm= max(1,ind)
 	#n_times= np.delete(times,ind_rm)
@@ -2038,7 +2046,7 @@ def Alg_3_1(arg):
 				if LL == len(L)+len(M): IND=-1
 			else: # REMOVE PARAMETER
 				probDeath=np.cumsum(deathRate/deltaRate) # cumulative prob (used to randomly sample one
-				r=np.random.random()                          # parameter based on its deathRate)
+				r=np.random.random()						  # parameter based on its deathRate)
 				probDeath=sort(append(probDeath, r))
 				ind=np.where(probDeath==r)[0][0] # just in case r==1
 				if ind < len(L): timesL, L = kill_prm(timesL, L, ind)
@@ -2078,28 +2086,28 @@ def random_choice(vector):
 
 def add_DoubleShift_RJ_rand_gamma(rates,times):
 	r_time, r_time_ind = random_choice(np.diff(times))
-	delta_t_prime      = np.random.uniform(0,r_time,2)
-	t_prime            = times[r_time_ind] + delta_t_prime
-	times_prime        = np.sort(np.array(list(times)+list(t_prime)))[::-1]
-	a,b                = shape_gamma_RJ,rate_gamma_RJ
-	rate_prime         = np.random.gamma(a,scale=1./b,size=2)
-	log_q_prob         = -sum(prior_gamma(rate_prime,a,b)) +log(abs(r_time)) # prob latent parameters: Gamma pdf, - (Uniform pdf )
+	delta_t_prime	  = np.random.uniform(0,r_time,2)
+	t_prime			= times[r_time_ind] + delta_t_prime
+	times_prime		= np.sort(np.array(list(times)+list(t_prime)))[::-1]
+	a,b				= shape_gamma_RJ,rate_gamma_RJ
+	rate_prime		 = np.random.gamma(a,scale=1./b,size=2)
+	log_q_prob		 = -sum(prior_gamma(rate_prime,a,b)) +log(abs(r_time)) # prob latent parameters: Gamma pdf, - (Uniform pdf )
 	#print "PROB Q", prior_gamma(rate_prime,a,b), -log(1/abs(r_time))
-	rates_prime        = np.insert(rates,r_time_ind+1,rate_prime)
-	Jacobian           = 0 # log(1)
+	rates_prime		= np.insert(rates,r_time_ind+1,rate_prime)
+	Jacobian		   = 0 # log(1)
 	return rates_prime,times_prime,log_q_prob+Jacobian
 
 def remove_DoubleShift_RJ_rand_gamma(rates,times):
 	rm_shift_ind  = np.random.choice(range(2,len(times)-1))
 	rm_shift_ind  = np.array([rm_shift_ind-1,rm_shift_ind])
 	rm_shift_time = times[rm_shift_ind]
-	dT            = abs(times[rm_shift_ind[1]+1]-times[rm_shift_ind[0]-1]) # if rm t_i: U[t_i-1, t_i+1]
+	dT			= abs(times[rm_shift_ind[1]+1]-times[rm_shift_ind[0]-1]) # if rm t_i: U[t_i-1, t_i+1]
 	times_prime   = np.setdiff1d(times, rm_shift_time)[::-1]
-	rm_rate       = rates[rm_shift_ind]
-	a,b           = shape_gamma_RJ,rate_gamma_RJ
-	log_q_prob    = sum(prior_gamma(rm_rate,a,b)) -log(dT) # log_q_prob_rm = 1/(log_q_prob_add)
+	rm_rate	   = rates[rm_shift_ind]
+	a,b		   = shape_gamma_RJ,rate_gamma_RJ
+	log_q_prob	= sum(prior_gamma(rm_rate,a,b)) -log(dT) # log_q_prob_rm = 1/(log_q_prob_add)
 	rates_prime   = np.delete(rates,rm_shift_ind)
-	Jacobian      = 0 # log(1)
+	Jacobian	  = 0 # log(1)
 	return rates_prime,times_prime,log_q_prob+Jacobian
 
 
@@ -2116,15 +2124,15 @@ def add_shift_RJ_rand_gamma(rates,times):
 		r_time, r_time_ind = np.diff(times)[random_indx],random_indx
 	else:
 		r_time, r_time_ind = random_choice(np.diff(times))
-	delta_t_prime      = np.random.uniform(0,r_time)
-	t_prime            = times[r_time_ind] + delta_t_prime
-	times_prime        = np.sort(np.array(list(times)+[t_prime]))[::-1]
-	a,b                = shape_gamma_RJ,rate_gamma_RJ
-	rate_prime         = np.random.gamma(a,scale=1./b)
-	log_q_prob         = -prior_gamma(rate_prime,a,b) +log(abs(r_time)) # prob latent parameters: Gamma pdf, - (Uniform pdf )
+	delta_t_prime	  = np.random.uniform(0,r_time)
+	t_prime			= times[r_time_ind] + delta_t_prime
+	times_prime		= np.sort(np.array(list(times)+[t_prime]))[::-1]
+	a,b				= shape_gamma_RJ,rate_gamma_RJ
+	rate_prime		 = np.random.gamma(a,scale=1./b)
+	log_q_prob		 = -prior_gamma(rate_prime,a,b) +log(abs(r_time)) # prob latent parameters: Gamma pdf, - (Uniform pdf )
 	#print "PROB Q", prior_gamma(rate_prime,a,b), -log(1/abs(r_time))
-	rates_prime        = np.insert(rates,r_time_ind+1,rate_prime)
-	Jacobian           = 0 # log(1)
+	rates_prime		= np.insert(rates,r_time_ind+1,rate_prime)
+	Jacobian		   = 0 # log(1)
 	return rates_prime,times_prime,log_q_prob+Jacobian
 
 def remove_shift_RJ_rand_gamma(rates,times):
@@ -2138,13 +2146,13 @@ def remove_shift_RJ_rand_gamma(rates,times):
 		random_indx = np.random.choice(range(1,len(times)-1))
 	rm_shift_ind  = random_indx
 	rm_shift_time = times[rm_shift_ind]
-	dT            = abs(times[rm_shift_ind+1]-times[rm_shift_ind-1]) # if rm t_i: U[t_i-1, t_i+1]
+	dT			= abs(times[rm_shift_ind+1]-times[rm_shift_ind-1]) # if rm t_i: U[t_i-1, t_i+1]
 	times_prime   = times[times != rm_shift_time]
-	rm_rate       = rates[rm_shift_ind] ## CHECK THIS: could also be rates[rm_shift_ind-1] ???
-	a,b           = shape_gamma_RJ,rate_gamma_RJ
-	log_q_prob    = prior_gamma(rm_rate,a,b) -log(dT) # log_q_prob_rm = 1/(log_q_prob_add)
+	rm_rate	   = rates[rm_shift_ind] ## CHECK THIS: could also be rates[rm_shift_ind-1] ???
+	a,b		   = shape_gamma_RJ,rate_gamma_RJ
+	log_q_prob	= prior_gamma(rm_rate,a,b) -log(dT) # log_q_prob_rm = 1/(log_q_prob_add)
 	rates_prime   = rates[rates != rm_rate]
-	Jacobian      = 0 # log(1)
+	Jacobian	  = 0 # log(1)
 	return rates_prime,times_prime,log_q_prob+Jacobian
 
 def add_shift_RJ_weighted_mean(rates,times ):
@@ -2159,24 +2167,24 @@ def add_shift_RJ_weighted_mean(rates,times ):
 		r_time, r_time_ind = np.diff(times)[random_indx],random_indx
 	else:
 		r_time, r_time_ind = random_choice(np.diff(times))
-	delta_t_prime           = np.random.uniform(0,r_time)
-	t_prime                 = times[r_time_ind] + delta_t_prime
-	times_prime             = np.sort(np.array(list(times)+[t_prime]))[::-1]
-	time_i1                 = times[r_time_ind]
-	time_i2                 = times[r_time_ind+1]
+	delta_t_prime		   = np.random.uniform(0,r_time)
+	t_prime				 = times[r_time_ind] + delta_t_prime
+	times_prime			 = np.sort(np.array(list(times)+[t_prime]))[::-1]
+	time_i1				 = times[r_time_ind]
+	time_i2				 = times[r_time_ind+1]
 	p1 = (time_i1-t_prime)/(time_i1-time_i2)
 	p2 = (t_prime-time_i2)/(time_i1-time_i2)
 	u = np.random.beta(shape_beta_RJ,shape_beta_RJ)  #np.random.random()
-	rate_i                  = rates[r_time_ind]
-	rates_prime1            = exp( log(rate_i)-p2*log((1-u)/u) )
-	rates_prime2            = exp( log(rate_i)+p1*log((1-u)/u) )
-	rates_prime             = np.insert(rates,r_time_ind+1,rates_prime2)
+	rate_i				  = rates[r_time_ind]
+	rates_prime1			= exp( log(rate_i)-p2*log((1-u)/u) )
+	rates_prime2			= exp( log(rate_i)+p1*log((1-u)/u) )
+	rates_prime			 = np.insert(rates,r_time_ind+1,rates_prime2)
 	#print p1+p2
 	#print u,rates_prime1, rate_i,rates_prime2
 	#print time_i1,times_prime,time_i2
 	rates_prime[r_time_ind] = rates_prime1
-	log_q_prob              = log(abs(r_time))-prior_sym_beta(u,shape_beta_RJ) # prob latent parameters: Gamma pdf
-	Jacobian                = 2*log(rates_prime1+rates_prime2)-log(rate_i)
+	log_q_prob			  = log(abs(r_time))-prior_sym_beta(u,shape_beta_RJ) # prob latent parameters: Gamma pdf
+	Jacobian				= 2*log(rates_prime1+rates_prime2)-log(rate_i)
 	return rates_prime,times_prime,log_q_prob+Jacobian
 
 def remove_shift_RJ_weighted_mean(rates,times):
@@ -2189,27 +2197,27 @@ def remove_shift_RJ_weighted_mean(rates,times):
 	else:
 		random_indx = np.random.choice(range(1,len(times)-1))
 	rm_shift_ind  = random_indx
-	t_prime       = times[rm_shift_ind]
-	time_i1       = times[rm_shift_ind-1]
-	time_i2       = times[rm_shift_ind+1]
-	dT            = abs(times[rm_shift_ind+1]-times[rm_shift_ind-1]) # if rm t_i: U[t_i-1, t_i+1]
+	t_prime	   = times[rm_shift_ind]
+	time_i1	   = times[rm_shift_ind-1]
+	time_i2	   = times[rm_shift_ind+1]
+	dT			= abs(times[rm_shift_ind+1]-times[rm_shift_ind-1]) # if rm t_i: U[t_i-1, t_i+1]
 	times_prime   = times[times != t_prime]
 	p1 = (time_i1-t_prime)/(time_i1-time_i2)
 	p2 = (t_prime-time_i2)/(time_i1-time_i2)
-	rate_i1       = rates[rm_shift_ind-1]
-	rate_i2       = rates[rm_shift_ind]
-	rate_prime    = exp(p1 *log(rate_i1) + p2 *log(rate_i2))
+	rate_i1	   = rates[rm_shift_ind-1]
+	rate_i2	   = rates[rm_shift_ind]
+	rate_prime	= exp(p1 *log(rate_i1) + p2 *log(rate_i2))
 	#print p1,p2
 	#print rate_i1, rate_i2,rate_prime
 	#print t_prime, times_prime
-	rm_rate       = rates[rm_shift_ind]
+	rm_rate	   = rates[rm_shift_ind]
 	rates_prime   = rates[rates != rm_rate]
 	rates_prime[rm_shift_ind-1] = rate_prime
 	#print rates
 	#print rates_prime
-	u             = 1./(1+rate_i2/rate_i1) # == rate_i1/(rate_i1+rate_i2)
-	log_q_prob    = -log(dT)+prior_sym_beta(u,shape_beta_RJ) # log_q_prob_rm = 1/(log_q_prob_add)
-	Jacobian      = log(rate_prime)-(2*log(rate_i1+rate_i2))
+	u			 = 1./(1+rate_i2/rate_i1) # == rate_i1/(rate_i1+rate_i2)
+	log_q_prob	= -log(dT)+prior_sym_beta(u,shape_beta_RJ) # log_q_prob_rm = 1/(log_q_prob_add)
+	Jacobian	  = log(rate_prime)-(2*log(rate_i1+rate_i2))
 	return rates_prime,times_prime,log_q_prob+Jacobian
 
 def RJMCMC(arg):
@@ -2264,7 +2272,7 @@ def Poisson_prior(k,rate):
 
 def random_choice_P(vector):
 	probDeath=np.cumsum(vector/sum(vector)) # cumulative prob (used to randomly sample one
-	r=np.random.random()                          # parameter based on its deathRate)
+	r=np.random.random()						  # parameter based on its deathRate)
 	probDeath=sort(append(probDeath, r))
 	ind=np.where(probDeath==r)[0][0] # just in case r==1
 	return [vector[ind], ind]
@@ -2391,12 +2399,12 @@ def get_init_values(mcmc_log_file,taxa_names):
 			mu  = tbl[last_row,m_index]
 			hyp = tbl[last_row,hyp_index]
 		except:
-			lam = np.array([float(len(ts))/sum(ts-te)      ])    # const rate ML estimator
-			mu  = np.array([float(len(te[te>0]))/sum(ts-te)])    # const rate ML estimator
+			lam = np.array([float(len(ts))/sum(ts-te)	  ])	# const rate ML estimator
+			mu  = np.array([float(len(te[te>0]))/sum(ts-te)])	# const rate ML estimator
 			hyp = np.ones(2)
 	else:
-		lam = np.array([float(len(ts))/sum(ts-te)      ])    # const rate ML estimator
-		mu  = np.array([float(len(te[te>0]))/sum(ts-te)])    # const rate ML estimator
+		lam = np.array([float(len(ts))/sum(ts-te)	  ])	# const rate ML estimator
+		mu  = np.array([float(len(te[te>0]))/sum(ts-te)])	# const rate ML estimator
 		hyp = np.ones(2)
 	#print
 
@@ -2580,7 +2588,7 @@ def MCMC(all_arg):
 
 		# autotuning
 		if TDI != 1: tmp=0
-		mod_d1= d1           # window size ts, te
+		mod_d1= d1		   # window size ts, te
 		mod_d3= list_d3[tmp] # window size rates
 		mod_d4= list_d4[tmp] # window size shift times
 
@@ -3305,114 +3313,114 @@ def marginal_likelihood(marginal_file, l, t):
 ########################## PARSE ARGUMENTS #######################################
 p = argparse.ArgumentParser() #description='<input file>')
 
-p.add_argument('-v',         action='version', version=version_details)
-p.add_argument('-seed',      type=int, help='random seed', default=-1,metavar=-1)
+p.add_argument('-v',		 action='version', version=version_details)
+p.add_argument('-seed',	  type=int, help='random seed', default=-1,metavar=-1)
 p.add_argument('-useCPPlib', type=int, help='Use C++ library if available (boolean)', default=1,metavar=1)
-p.add_argument('-cite',      help='print PyRate citation', action='store_true', default=False)
+p.add_argument('-cite',	  help='print PyRate citation', action='store_true', default=False)
 p.add_argument('input_data', metavar='<input file>', type=str,help='Input python file - see template',default=[],nargs='*')
-p.add_argument('-j',         type=int, help='number of data set in input file', default=1, metavar=1)
-p.add_argument('-trait',     type=int, help='number of trait for Cov model', default=1, metavar=1)
-p.add_argument('-logT',      type=int, help='Transform trait (or rates for -plotRJ): 0) False, 1) Ln(x), 2) Log10(x)', default=0, metavar=0)
-p.add_argument("-N",         type=float, help='number of exant species')
-p.add_argument("-wd",        type=str, help='path to working directory', default="")
-p.add_argument("-out",       type=str, help='output tag', default="")
+p.add_argument('-j',		 type=int, help='number of data set in input file', default=1, metavar=1)
+p.add_argument('-trait',	 type=int, help='number of trait for Cov model', default=1, metavar=1)
+p.add_argument('-logT',	  type=int, help='Transform trait (or rates for -plotRJ): 0) False, 1) Ln(x), 2) Log10(x)', default=0, metavar=0)
+p.add_argument("-N",		 type=float, help='number of exant species')
+p.add_argument("-wd",		type=str, help='path to working directory', default="")
+p.add_argument("-out",	   type=str, help='output tag', default="")
 p.add_argument('-singleton', type=float, help='Remove singletons (min no. occurrences)', default=0, metavar=0)
 p.add_argument('-frac_sampled_singleton', type=float, help='Random fraction of singletons not removed', default=0, metavar=0)
 p.add_argument("-rescale",   type=float, help='Rescale data (e.g. -rescale 1000: 1 -> 1000, time unit = 1Ky)', default=1, metavar=1)
 p.add_argument("-translate", type=float, help='Shift data (e.g. -translate 10: 1My -> 10My)', default=0, metavar=0)
-p.add_argument('-d',         type=str,help="Load SE table",metavar='<input file>',default="")
-p.add_argument('-clade',     type=int, help='clade analyzed (set to -1 to analyze all species)', default=-1, metavar=-1)
+p.add_argument('-d',		 type=str,help="Load SE table",metavar='<input file>',default="")
+p.add_argument('-clade',	 type=int, help='clade analyzed (set to -1 to analyze all species)', default=-1, metavar=-1)
 p.add_argument('-trait_file',type=str,help="Load trait table",metavar='<input file>',default="")
 p.add_argument('-restore_mcmc',type=str,help="Load mcmc.log file",metavar='<input file>',default="")
-p.add_argument('-filter',     type=float,help="Filter lineages with all occurrences within time range ",default=[inf,0], metavar=inf, nargs=2)
+p.add_argument('-filter',	 type=float,help="Filter lineages with all occurrences within time range ",default=[inf,0], metavar=inf, nargs=2)
 p.add_argument('-filter_taxa',type=str,help="Filter lineages within list (drop all others) ",default="", metavar="taxa_file")
-p.add_argument('-initDiv',    type=int, help='Number of initial lineages (option only available with -d SE_table or -fixSE)', default=0, metavar=0)
+p.add_argument('-initDiv',	type=int, help='Number of initial lineages (option only available with -d SE_table or -fixSE)', default=0, metavar=0)
 p.add_argument('-PPmodeltest',help='Likelihood testing among preservation models', action='store_true', default=False)
 p.add_argument('-log_marginal_rates',type=int,help='0) save summary file, default for -A 4; 1) save marginal rate file, default for -A 0,2 ', default=-1,metavar=-1)
 # phylo test
-p.add_argument('-tree',       type=str,help="Tree file (NEXUS format)",default="", metavar="")
+p.add_argument('-tree',	   type=str,help="Tree file (NEXUS format)",default="", metavar="")
 p.add_argument('-sampling',   type=float,help="Taxon sampling (phylogeny)",default=1., metavar=1.)
-p.add_argument('-bdc',      help='Run BDC:Compatible model', action='store_true', default=False)
-p.add_argument('-eqr',      help='Run BDC:Equal rate model', action='store_true', default=False)
+p.add_argument('-bdc',	  help='Run BDC:Compatible model', action='store_true', default=False)
+p.add_argument('-eqr',	  help='Run BDC:Equal rate model', action='store_true', default=False)
 
 # PLOTS AND OUTPUT
-p.add_argument('-plot',       metavar='<input file>', type=str,help="RTT plot (type 1): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
-p.add_argument('-plot2',      metavar='<input file>', type=str,help="RTT plot (type 2): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
-p.add_argument('-plot3',      metavar='<input file>', type=str,help="RTT plot for fixed number of shifts: provide 'mcmc.log' file",default="")
-p.add_argument('-plotRJ',     metavar='<input file>', type=str,help="RTT plot for runs with '-log_marginal_rates 0': provide path to 'mcmc.log' files",default="")
-p.add_argument('-plotQ',      metavar='<input file>', type=str,help="Plot preservation rates through time: provide 'mcmc.log' file and '-qShift' argument ",default="")
+p.add_argument('-plot',	   metavar='<input file>', type=str,help="RTT plot (type 1): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
+p.add_argument('-plot2',	  metavar='<input file>', type=str,help="RTT plot (type 2): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
+p.add_argument('-plot3',	  metavar='<input file>', type=str,help="RTT plot for fixed number of shifts: provide 'mcmc.log' file",default="")
+p.add_argument('-plotRJ',	 metavar='<input file>', type=str,help="RTT plot for runs with '-log_marginal_rates 0': provide path to 'mcmc.log' files",default="")
+p.add_argument('-plotQ',	  metavar='<input file>', type=str,help="Plot preservation rates through time: provide 'mcmc.log' file and '-qShift' argument ",default="")
 p.add_argument('-grid_plot',  type=float, help='Plot resolution in Myr (only for plot3 and plotRJ commands). If set to 0: 100 equal time bins', default=0, metavar=0)
 p.add_argument('-root_plot',  type=float, help='User-defined root age for RTT plots', default=0, metavar=0)
-p.add_argument('-tag',        metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted (-plot and -plot2) or summarized in SE table (-ginput)",default="")
-p.add_argument('-ltt',        type=int,help='1) Plot lineages-through-time; 2) plot Log10(LTT)', default=0, metavar=0)
-p.add_argument('-mProb',      type=str,help="Input 'mcmc.log' file",default="")
-p.add_argument('-BF',         type=str,help="Input 'marginal_likelihood.txt' files",metavar='<2 input files>',nargs='+',default=[])
+p.add_argument('-tag',		metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted (-plot and -plot2) or summarized in SE table (-ginput)",default="")
+p.add_argument('-ltt',		type=int,help='1) Plot lineages-through-time; 2) plot Log10(LTT)', default=0, metavar=0)
+p.add_argument('-mProb',	  type=str,help="Input 'mcmc.log' file",default="")
+p.add_argument('-BF',		 type=str,help="Input 'marginal_likelihood.txt' files",metavar='<2 input files>',nargs='+',default=[])
 p.add_argument("-data_info",  help='Summary information about an input data', action='store_true', default=False)
 p.add_argument('-SE_stats',   type=str,help="Calculate and plot stats from SE table:",metavar='<extinction rate at the present, bin_size, #_simulations>',nargs='+',default=[])
-p.add_argument('-ginput',     type=str,help='generate SE table from *mcmc.log files', default="", metavar="<path_to_mcmc.log>")
-p.add_argument('-combLog',    type=str,help='Combine (and resample) log files', default="", metavar="<path_to_log_files>")
+p.add_argument('-ginput',	 type=str,help='generate SE table from *mcmc.log files', default="", metavar="<path_to_mcmc.log>")
+p.add_argument('-combLog',	type=str,help='Combine (and resample) log files', default="", metavar="<path_to_log_files>")
 p.add_argument('-resample',   type=int,help='Number of samples for each log file (-combLog). Use 0 to keep all samples.', default=0, metavar=0)
-p.add_argument('-col_tag',    type=str,help='Columns to be combined using combLog', default=[], metavar="column names",nargs='+')
+p.add_argument('-col_tag',	type=str,help='Columns to be combined using combLog', default=[], metavar="column names",nargs='+')
 p.add_argument('-check_names',type=str,help='Automatic check for typos in taxa names (provide SpeciesList file)', default="", metavar="<*_SpeciesList.txt file>")
 p.add_argument('-reduceLog',  type=str,help='Reduce file size (mcmc.log) to quickly assess convergence', default="", metavar="<*_mcmc.log file>")
 
 # MCMC SETTINGS
-p.add_argument('-n',      type=int, help='mcmc generations',default=10000000, metavar=10000000)
-p.add_argument('-s',      type=int, help='sample freq.', default=1000, metavar=1000)
-p.add_argument('-p',      type=int, help='print freq.',  default=1000, metavar=1000)
-p.add_argument('-b',      type=float, help='burnin', default=0, metavar=0)
-p.add_argument('-fast_burnin',      type=float, help='n. fast-burnin generations', default=0, metavar=0)
+p.add_argument('-n',	  type=int, help='mcmc generations',default=10000000, metavar=10000000)
+p.add_argument('-s',	  type=int, help='sample freq.', default=1000, metavar=1000)
+p.add_argument('-p',	  type=int, help='print freq.',  default=1000, metavar=1000)
+p.add_argument('-b',	  type=float, help='burnin', default=0, metavar=0)
+p.add_argument('-fast_burnin',	  type=float, help='n. fast-burnin generations', default=0, metavar=0)
 p.add_argument('-thread', type=int, help='no. threads used for BD and NHPP likelihood respectively (set to 0 to bypass multi-threading)', default=[0,0], metavar=4, nargs=2)
 
 # MCMC ALGORITHMS
-p.add_argument('-A',        type=int, help='0) parameter estimation, 1) marginal likelihood, 2) BDMCMC, 3) DPP, 4) RJMCMC', default=4, metavar=4)
+p.add_argument('-A',		type=int, help='0) parameter estimation, 1) marginal likelihood, 2) BDMCMC, 3) DPP, 4) RJMCMC', default=4, metavar=4)
 p.add_argument("-use_DA",   help='Use data augmentation for NHPP likelihood opf extant taxa', action='store_true', default=False)
-p.add_argument('-r',        type=int,   help='MC3 - no. MCMC chains', default=1, metavar=1)
-p.add_argument('-t',        type=float, help='MC3 - temperature', default=.03, metavar=.03)
-p.add_argument('-sw',       type=float, help='MC3 - swap frequency', default=100, metavar=100)
-p.add_argument('-M',        type=int,   help='BDMCMC/RJMCMC - frequency of model update', default=10, metavar=10)
-p.add_argument('-B',        type=int,   help='BDMCMC - birth rate', default=1, metavar=1)
-p.add_argument('-T',        type=float, help='BDMCMC - time of model update', default=1.0, metavar=1.0)
-p.add_argument('-S',        type=int,   help='BDMCMC - start model update', default=1000, metavar=1000)
-p.add_argument('-k',        type=int,   help='TI - no. scaling factors', default=10, metavar=10)
-p.add_argument('-a',        type=float, help='TI - shape beta distribution', default=.3, metavar=.3)
-p.add_argument('-dpp_f',    type=float, help='DPP - frequency ', default=500, metavar=500)
+p.add_argument('-r',		type=int,   help='MC3 - no. MCMC chains', default=1, metavar=1)
+p.add_argument('-t',		type=float, help='MC3 - temperature', default=.03, metavar=.03)
+p.add_argument('-sw',	   type=float, help='MC3 - swap frequency', default=100, metavar=100)
+p.add_argument('-M',		type=int,   help='BDMCMC/RJMCMC - frequency of model update', default=10, metavar=10)
+p.add_argument('-B',		type=int,   help='BDMCMC - birth rate', default=1, metavar=1)
+p.add_argument('-T',		type=float, help='BDMCMC - time of model update', default=1.0, metavar=1.0)
+p.add_argument('-S',		type=int,   help='BDMCMC - start model update', default=1000, metavar=1000)
+p.add_argument('-k',		type=int,   help='TI - no. scaling factors', default=10, metavar=10)
+p.add_argument('-a',		type=float, help='TI - shape beta distribution', default=.3, metavar=.3)
+p.add_argument('-dpp_f',	type=float, help='DPP - frequency ', default=500, metavar=500)
 p.add_argument('-dpp_hp',   type=float, help='DPP - shape of gamma HP on concentration parameter', default=2., metavar=2.)
 p.add_argument('-dpp_eK',   type=float, help='DPP - expected number of rate categories', default=2., metavar=2.)
 p.add_argument('-dpp_grid', type=float, help='DPP - size of time bins',default=1.5, metavar=1.5)
 p.add_argument('-dpp_nB',   type=float, help='DPP - number of time bins',default=0, metavar=0)
-p.add_argument('-rj_pr',       type=float, help='RJ - proposal (0: Gamma, 1: Weighted mean) ', default=1, metavar=1)
-p.add_argument('-rj_Ga',       type=float, help='RJ - shape of gamma proposal (if rj_pr 0)', default=1.5, metavar=1.5)
-p.add_argument('-rj_Gb',       type=float, help='RJ - rate of gamma proposal (if rj_pr 0)',  default=3., metavar=3.)
-p.add_argument('-rj_beta',     type=float, help='RJ - shape of beta multiplier (if rj_pr 1)',default=10, metavar=10)
-p.add_argument('-rj_dm',       type=float, help='RJ - allow double moves (0: no, 1: yes)',default=0, metavar=0)
+p.add_argument('-rj_pr',	   type=float, help='RJ - proposal (0: Gamma, 1: Weighted mean) ', default=1, metavar=1)
+p.add_argument('-rj_Ga',	   type=float, help='RJ - shape of gamma proposal (if rj_pr 0)', default=1.5, metavar=1.5)
+p.add_argument('-rj_Gb',	   type=float, help='RJ - rate of gamma proposal (if rj_pr 0)',  default=3., metavar=3.)
+p.add_argument('-rj_beta',	 type=float, help='RJ - shape of beta multiplier (if rj_pr 1)',default=10, metavar=10)
+p.add_argument('-rj_dm',	   type=float, help='RJ - allow double moves (0: no, 1: yes)',default=0, metavar=0)
 p.add_argument('-rj_bd_shift', type=float, help='RJ - 0: only sample shifts in speciation; 1: only sample shifts in extinction',default=0.5, metavar=0.5)
-p.add_argument('-se_gibbs',    help='Use aprroximate S/E Gibbs sampler', action='store_true', default=False)
+p.add_argument('-se_gibbs',	help='Use aprroximate S/E Gibbs sampler', action='store_true', default=False)
 
 # PRIORS
-p.add_argument('-pL',      type=float, help='Prior - speciation rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.1, 1.1], metavar=1.1, nargs=2)
-p.add_argument('-pM',      type=float, help='Prior - extinction rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.1, 1.1], metavar=1.1, nargs=2)
-p.add_argument('-pP',      type=float, help='Prior - preservation rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.5, 1.1], metavar=1.5, nargs=2)
-p.add_argument('-pS',      type=float, help='Prior - time frames (Dirichlet <shape>)', default=2.5, metavar=2.5)
-p.add_argument('-pC',      type=float, help='Prior - Covar parameters (Normal <standard deviation>) | (if pC=0 -> sd estimated)', default=1, metavar=1)
+p.add_argument('-pL',	  type=float, help='Prior - speciation rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.1, 1.1], metavar=1.1, nargs=2)
+p.add_argument('-pM',	  type=float, help='Prior - extinction rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.1, 1.1], metavar=1.1, nargs=2)
+p.add_argument('-pP',	  type=float, help='Prior - preservation rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.5, 1.1], metavar=1.5, nargs=2)
+p.add_argument('-pS',	  type=float, help='Prior - time frames (Dirichlet <shape>)', default=2.5, metavar=2.5)
+p.add_argument('-pC',	  type=float, help='Prior - Covar parameters (Normal <standard deviation>) | (if pC=0 -> sd estimated)', default=1, metavar=1)
 p.add_argument("-cauchy",  type=float, help='Prior - use hyper priors on sp/ex rates (if 0 -> estimated)', default=[-1, -1], metavar=-1, nargs=2)
 
 # MODEL
-p.add_argument("-mHPP",    help='Model - Homogeneous Poisson process of preservation', action='store_true', default=False)
+p.add_argument("-mHPP",	help='Model - Homogeneous Poisson process of preservation', action='store_true', default=False)
 #p.add_argument("-TPP_model",help='Model - Poisson process of preservation with shifts', action='store_true', default=False)
-p.add_argument('-mL',      type=int, help='Model - no. (starting) time frames (speciation)', default=1, metavar=1)
-p.add_argument('-mM',      type=int, help='Model - no. (starting) time frames (extinction)', default=1, metavar=1)
-p.add_argument('-mC',      help='Model - constrain time frames (l,m)', action='store_true', default=False)
-p.add_argument('-mCov',    type=int, help='COVAR model: 1) speciation, 2) extinction, 3) speciation & extinction, 4) preservation, 5) speciation & extinction & preservation', default=0, metavar=0)
-p.add_argument("-mG",      help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
+p.add_argument('-mL',	  type=int, help='Model - no. (starting) time frames (speciation)', default=1, metavar=1)
+p.add_argument('-mM',	  type=int, help='Model - no. (starting) time frames (extinction)', default=1, metavar=1)
+p.add_argument('-mC',	  help='Model - constrain time frames (l,m)', action='store_true', default=False)
+p.add_argument('-mCov',	type=int, help='COVAR model: 1) speciation, 2) extinction, 3) speciation & extinction, 4) preservation, 5) speciation & extinction & preservation', default=0, metavar=0)
+p.add_argument("-mG",	  help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
 p.add_argument('-mPoiD',   help='Poisson-death diversification model', action='store_true', default=False)
 p.add_argument('-mDeath',  help='Pure-death model', action='store_true', default=False)
-p.add_argument("-mBDI",    type=int, help='BDI sub-model - 0) birth-death, 1) immigration-death', default=-1, metavar=-1)
-p.add_argument("-ncat",    type=int, help='Model - Number of categories for Gamma heterogeneity', default=4, metavar=4)
+p.add_argument("-mBDI",	type=int, help='BDI sub-model - 0) birth-death, 1) immigration-death', default=-1, metavar=-1)
+p.add_argument("-ncat",	type=int, help='Model - Number of categories for Gamma heterogeneity', default=4, metavar=4)
 p.add_argument('-fixShift',metavar='<input file>', type=str,help="Input tab-delimited file",default="")
 p.add_argument('-qShift',  metavar='<input file>', type=str,help="Poisson process of preservation with shifts (Input tab-delimited file)",default="")
 p.add_argument('-fixSE',   metavar='<input file>', type=str,help="Input mcmc.log file",default="")
-p.add_argument('-ADE',     type=int, help='ADE model: 0) no age dependence 1) estimated age dep', default=0, metavar=0)
+p.add_argument('-ADE',	 type=int, help='ADE model: 0) no age dependence 1) estimated age dep', default=0, metavar=0)
 p.add_argument('-discrete',help='Discrete-trait-dependent BD model (requires -trait_file)', action='store_true', default=False)
 p.add_argument('-twotrait',help='Discrete-trait-dependent extinction + Covar', action='store_true', default=False)
 p.add_argument('-bound',   type=float, help='Bounded BD model', default=[np.inf, 0], metavar=0, nargs=2)
@@ -3422,18 +3430,18 @@ p.add_argument('-FBDrange', type=int, help='use FBDrange likelihood (experimenta
 
 
 # TUNING
-p.add_argument('-tT',     type=float, help='Tuning - window size (ts, te)', default=1., metavar=1.)
-p.add_argument('-nT',     type=int,   help='Tuning - max number updated values (ts, te)', default=5, metavar=5)
-p.add_argument('-tQ',     type=float, help='Tuning - window sizes (q/alpha: 1.2 1.2)', default=[1.2,1.2], nargs=2)
-p.add_argument('-tR',     type=float, help='Tuning - window size (rates)', default=1.2, metavar=1.2)
-p.add_argument('-tS',     type=float, help='Tuning - window size (time of shift)', default=1., metavar=1.)
-p.add_argument('-fR',     type=float, help='Tuning - fraction of updated values (rates)', default=.5, metavar=.5)
-p.add_argument('-fS',     type=float, help='Tuning - fraction of updated values (shifts)', default=.7, metavar=.7)
-p.add_argument('-fQ',     type=float, help='Tuning - fraction of updated values (q rates, TPP)', default=.5, metavar=.5)
-p.add_argument('-tC',     type=float, help='Tuning - window sizes cov parameters (l,m,q)', default=[.2, .2, .15], nargs=3)
-p.add_argument('-fU',     type=float, help='Tuning - update freq. (q: .02, l/m: .18, cov: .08)', default=[.02, .18, .08], nargs=3)
+p.add_argument('-tT',	 type=float, help='Tuning - window size (ts, te)', default=1., metavar=1.)
+p.add_argument('-nT',	 type=int,   help='Tuning - max number updated values (ts, te)', default=5, metavar=5)
+p.add_argument('-tQ',	 type=float, help='Tuning - window sizes (q/alpha: 1.2 1.2)', default=[1.2,1.2], nargs=2)
+p.add_argument('-tR',	 type=float, help='Tuning - window size (rates)', default=1.2, metavar=1.2)
+p.add_argument('-tS',	 type=float, help='Tuning - window size (time of shift)', default=1., metavar=1.)
+p.add_argument('-fR',	 type=float, help='Tuning - fraction of updated values (rates)', default=.5, metavar=.5)
+p.add_argument('-fS',	 type=float, help='Tuning - fraction of updated values (shifts)', default=.7, metavar=.7)
+p.add_argument('-fQ',	 type=float, help='Tuning - fraction of updated values (q rates, TPP)', default=.5, metavar=.5)
+p.add_argument('-tC',	 type=float, help='Tuning - window sizes cov parameters (l,m,q)', default=[.2, .2, .15], nargs=3)
+p.add_argument('-fU',	 type=float, help='Tuning - update freq. (q: .02, l/m: .18, cov: .08)', default=[.02, .18, .08], nargs=3)
 p.add_argument('-multiR', type=int,   help='Tuning - Proposals for l/m: 0) sliding win 1) muliplier ', default=1, metavar=1)
-p.add_argument('-tHP',    type=float, help='Tuning - window sizes hyperpriors on l and m', default=[1.2, 1.2], nargs=2)
+p.add_argument('-tHP',	type=float, help='Tuning - window sizes hyperpriors on l and m', default=[1.2, 1.2], nargs=2)
 
 args = p.parse_args()
 t1=time.time()
@@ -3461,26 +3469,26 @@ if args.cite:
 # PRIORS
 L_lam_r,L_lam_m = args.pL # shape and rate parameters of Gamma prior on sp rates
 M_lam_r,M_lam_m = args.pM # shape and rate parameters of Gamma prior on ex rates
-lam_s = args.pS                              # shape parameter dirichlet prior on time frames
+lam_s = args.pS							  # shape parameter dirichlet prior on time frames
 pert_prior = [args.pP[0],args.pP[1]] # gamma prior on foss. rate; beta on mode PERT distribution
 covar_prior_fixed=args.pC # std of normal prior on th covariance parameters
 
 # MODEL
-time_framesL=args.mL          # no. (starting) time frames (lambda)
-time_framesM=args.mM          # no. (starting) time frames (mu)
+time_framesL=args.mL		  # no. (starting) time frames (lambda)
+time_framesM=args.mM		  # no. (starting) time frames (mu)
 constrain_time_frames=args.mC # True/False
-pp_gamma_ncat=args.ncat		      # args.ncat
-if args.mG:             # number of gamma categories
+pp_gamma_ncat=args.ncat			  # args.ncat
+if args.mG:			 # number of gamma categories
 	argsG = 1
 	YangGammaQuant=(np.linspace(0,1,pp_gamma_ncat+1)-np.linspace(0,1,pp_gamma_ncat+1)[1]/2)[1:]
 else: argsG = 0
-model_cov=args.mCov           # boolean 0: no covariance 1: covariance (speciation,extinction) 2: covariance (speciation,extinction,preservation)
+model_cov=args.mCov		   # boolean 0: no covariance 1: covariance (speciation,extinction) 2: covariance (speciation,extinction,preservation)
 
 if args.mHPP: argsHPP=1
 else: argsHPP=0
 ############################ MCMC SETTINGS ############################
 # GENERAL SETTINGS
-TDI=args.A                  # 0: parameter estimation, 1: thermodynamic integration, 2: BD-MCMC
+TDI=args.A				  # 0: parameter estimation, 1: thermodynamic integration, 2: BD-MCMC
 if constrain_time_frames == 1 or args.fixShift != "":
 	if TDI in [2,4]:
 		print("\nConstrained shift times (-mC,-fixShift) cannot be used with BD/RJ MCMC alorithms. Using standard MCMC instead.\n")
@@ -3488,43 +3496,43 @@ if constrain_time_frames == 1 or args.fixShift != "":
 if args.ADE>=1 and TDI>1:
 	print("\nADE models (-ADE 1) cannot be used with BD/RJ MCMC alorithms. Using standard MCMC instead.\n")
 	TDI = 0
-mcmc_gen=args.n             # no. total mcmc generations
+mcmc_gen=args.n			 # no. total mcmc generations
 sample_freq=args.s
 print_freq=args.p
 burnin=args.b
-num_processes = args.thread[0]    # BDlik
+num_processes = args.thread[0]	# BDlik
 num_processes_ts = args.thread[1] # NHPPlik
 if num_processes+num_processes_ts==0: use_seq_lik = 1
 if use_seq_lik == 1: num_processes,num_processes_ts=0,0
 min_allowed_t=1.
 
 # RJ arguments
-addrm_proposal_RJ = args.rj_pr      # 0: random Gamma; 1: weighted mean
-shape_gamma_RJ    = args.rj_Ga
-rate_gamma_RJ     = args.rj_Gb
-shape_beta_RJ     = args.rj_beta
+addrm_proposal_RJ = args.rj_pr	  # 0: random Gamma; 1: weighted mean
+shape_gamma_RJ	= args.rj_Ga
+rate_gamma_RJ	 = args.rj_Gb
+shape_beta_RJ	 = args.rj_beta
 if addrm_proposal_RJ == 0:
-	add_shift_RJ    = add_shift_RJ_rand_gamma
+	add_shift_RJ	= add_shift_RJ_rand_gamma
 	remove_shift_RJ = remove_shift_RJ_rand_gamma
 elif addrm_proposal_RJ == 1:
-	add_shift_RJ    = add_shift_RJ_weighted_mean
+	add_shift_RJ	= add_shift_RJ_weighted_mean
 	remove_shift_RJ = remove_shift_RJ_weighted_mean
 allow_double_move = args.rj_dm
 
 
 
 # TUNING
-d1=args.tT                     # win-size (ts, te)
-frac1= args.nT                 # max number updated values (ts, te)
-d2=args.tQ                     # win-sizes (q,alpha)
-d3=args.tR                     # win-size (rates)
-f_rate=args.fR                 # fraction of updated values (rates)
-d4=args.tS                     # win-size (time of shift)
-f_shift=args.fS                # update frequency (time of shift) || will turn into 0 when no rate shifts
-f_qrate_update =args.fQ        # update frequency (preservation rates under TPP model)
-freq_list=args.fU              # generate update frequencies by parm category
-d5=args.tC                     # win-size (cov)
-d_hyperprior=np.array(args.tHP)          # win-size hyper-priors onf l/m (or W_scale)
+d1=args.tT					 # win-size (ts, te)
+frac1= args.nT				 # max number updated values (ts, te)
+d2=args.tQ					 # win-sizes (q,alpha)
+d3=args.tR					 # win-size (rates)
+f_rate=args.fR				 # fraction of updated values (rates)
+d4=args.tS					 # win-size (time of shift)
+f_shift=args.fS				# update frequency (time of shift) || will turn into 0 when no rate shifts
+f_qrate_update =args.fQ		# update frequency (preservation rates under TPP model)
+freq_list=args.fU			  # generate update frequencies by parm category
+d5=args.tC					 # win-size (cov)
+d_hyperprior=np.array(args.tHP)		  # win-size hyper-priors onf l/m (or W_scale)
 if model_cov==0: freq_list[2]=0
 f_update_se=1-sum(freq_list)
 if frac1==0: f_update_se=0
@@ -3584,7 +3592,7 @@ if model_cov==5: f_cov_par= [.33,.66,1 ]
 if covar_prior_fixed==0: est_COVAR_prior = 1
 else: est_COVAR_prior = 0
 
-if args.fixShift != "" or TDI==3:     # fix times of rate shift or DPP
+if args.fixShift != "" or TDI==3:	 # fix times of rate shift or DPP
 	try:
 		try: fixed_times_of_shift=sort(np.loadtxt(args.fixShift))[::-1]
 		except: fixed_times_of_shift=np.array([np.loadtxt(args.fixShift)])
@@ -3596,7 +3604,7 @@ if args.fixShift != "" or TDI==3:     # fix times of rate shift or DPP
 	except:
 		if TDI==3:
 			fixed_times_of_shift=np.arange(0,10000,args.dpp_grid)[::-1] # run fixed_times_of_shift[fixed_times_of_shift<max(FA)] below
-			fixed_times_of_shift=fixed_times_of_shift[:-1]              # after loading input file
+			fixed_times_of_shift=fixed_times_of_shift[:-1]			  # after loading input file
 			f_shift=0
 			time_framesL=len(fixed_times_of_shift)+1
 			time_framesM=len(fixed_times_of_shift)+1
@@ -3628,27 +3636,27 @@ else:
 	fix_edgeShift = 0
 	min_allowed_n_rates = 1
 # BDMCMC & MCMC SETTINGS
-runs=args.r              # no. parallel MCMCs (MC3)
+runs=args.r			  # no. parallel MCMCs (MC3)
 if runs>1 and TDI>0:
 	print("\nWarning: MC3 algorithm is not available for TI and BDMCMC. Using a single chain instead.\n")
 	runs,TDI=1,0
-num_proc = runs          # processors MC3
-temp_pr=args.t           # temperature MC3
+num_proc = runs		  # processors MC3
+temp_pr=args.t		   # temperature MC3
 IT=args.sw
-freq_Alg_3_1=args.M      # frequency of model update
-birthRate=args.B         # birthRate (=Poisson prior)
-len_cont_time=args.T     # length continuous time of model update
-start_Alg_3_1=args.S     # start sampling model after
+freq_Alg_3_1=args.M	  # frequency of model update
+birthRate=args.B		 # birthRate (=Poisson prior)
+len_cont_time=args.T	 # length continuous time of model update
+start_Alg_3_1=args.S	 # start sampling model after
 
 
 if runs==1 or use_seq_lik == 1:
 	IT=mcmc_gen
 
-if TDI==1:                # Xie et al. 2011; Baele et al. 2012
-	K=args.k-1.        # K+1 categories
+if TDI==1:				# Xie et al. 2011; Baele et al. 2012
+	K=args.k-1.		# K+1 categories
 	k=array(range(int(K+1)))
 	beta=k/K
-	alpha=args.a            # categories are beta distributed
+	alpha=args.a			# categories are beta distributed
 	temperatures=list(beta**(1./alpha))
 	temperatures[0]+= small_number # avoid exactly 0 temp
 	temperatures.reverse()
@@ -3663,9 +3671,9 @@ else:
 	list_d4=[d4]
 
 # ARGS DPP
-freq_dpp       = args.dpp_f
+freq_dpp	   = args.dpp_f
 hp_gamma_shape = args.dpp_hp
-target_k       = args.dpp_eK
+target_k	   = args.dpp_eK
 
 ############### PLOT RTT
 path_dir_log_files=""
@@ -3738,7 +3746,7 @@ elif len(list_files_BF):
 	print list_files_BF[0]
 	if len(list_files_BF)==1: calc_BFlist(list_files_BF[0])
 	else: calc_BF(list_files_BF[0],list_files_BF[1])
-     	#
+	 	#
 	#	sys.exit("\n2 '*marginal_likelihood.txt' files required.\n")
 	quit()
 elif args.combLog != "": # COMBINE LOG FILES
@@ -3934,7 +3942,7 @@ if len(fixed_times_of_shift)>0:
 
 
 
-if args.fixSE != "" or use_se_tbl==1:          # fix TS, TE
+if args.fixSE != "" or use_se_tbl==1:		  # fix TS, TE
 	if use_se_tbl==1: pass
 	else:
 		fix_SE=1
@@ -4001,7 +4009,7 @@ if model_cov>=1 or useDiscreteTraitModel == 1 or useBounded_BD == 1:
 				trait_values= np.array(matched_trait_values)
 				#print trait_values
 
-		else:             # Trait data from .py file
+		else:			 # Trait data from .py file
 			trait_values=input_data_module.get_continuous(max(args.trait-1,0))
 		#
 		if twotraitBD == 1:
@@ -4183,7 +4191,7 @@ if args.ADE == 2:
 	#print (np.diff(list_all_occs))
 	#
 	#quit()
-      #
+	  #
 	#n_sampled_species_bins = np.linspace(0,max(FA),100)
 	#dT_sampled_sp_bins = n_sampled_species_bins[1]
 	#n_sampled_species = np.zeros(len(n_sampled_species_bins)-1)
