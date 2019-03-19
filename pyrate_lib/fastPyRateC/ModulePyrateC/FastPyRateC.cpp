@@ -4,6 +4,7 @@
 #include <utility>
 #include <algorithm>
 #include <iostream>
+#include <map>
 #include <boost/math/distributions.hpp>
 #include <boost/math/special_functions/beta.hpp>
 #include <boost/math/special_functions/gamma.hpp>
@@ -694,7 +695,7 @@ double computeQ(int i, double t,
 							  const std::vector<double> &psi,
 							  const std::vector<double> &rho,
 							  const std::vector<double> &times) {
-
+	//std::cout << i << "  " << t << std::endl;
 	resultComputeP_t res = computeP(i, t, intervalAs, lam, mu, psi, rho, times);
 
 	double Ai_t = intervalAs[i]*(t-times[i+1]);
@@ -729,29 +730,38 @@ double PyRateC_FBD_T4(int nSpecies,
 										  std::vector<double> te,
 											std::vector<double> FA) {
 
+	/*typedef struct {size_t cntQ, cntQt;} countQ_t;
+	typedef std::map< std::pair<size_t, size_t>, countQ_t > mapCount_t;
+
+	mapCount_t  mapCount;*/
+
 	double term4 = 0.;
 	for(size_t i=0; i<nSpecies; i++) {
 
 		double term4_q_t1 = computeQ(bint[i], ts[i], intervalAs, lam, mu, psi, rho, times);
 		double term4_q_t2 = computeQ(oint[i], FA[i], intervalAs, lam, mu, psi, rho, times);
 		double term4_q  = term4_q_t1 - term4_q_t2;
+		//std::cout << i << " -- t4q = " <<  term4_q << std::endl;
 
 		double term4_qt_t1_q = term4_q_t2;
 		double term4_qt_t1 = computeQt(oint[i], FA[i], term4_qt_t1_q, lam, mu, psi, times);
 		double term4_qt_t2_q = computeQ(dint[i], te[i], intervalAs, lam, mu, psi, rho, times);
 		double term4_qt_t2 = computeQt(dint[i], te[i], term4_qt_t2_q, lam, mu, psi, times);
 		double term4_qt = term4_qt_t1 - term4_qt_t2;
+		//std::cout << i << " -- t4qt = " <<  term4_qt << std::endl;
 
 		double qj_1 = 0.;
-		for(size_t j=bint[i]; j<oint[i]; ++j) {
+		for(int j=bint[i]; j<oint[i]; ++j) {
 			qj_1 += computeQ(j+1, times[j+1], intervalAs, lam, mu, psi, rho, times);
 		}
+		//std::cout << i << " -- qj_1 = " <<  qj_1 << std::endl;
 
 		double qtj_1 = 0.;
-		for(size_t j=oint[i]; j<dint[i]; ++j) {
+		for(int j=oint[i]; j<dint[i]; ++j) {
 			double tmpQ = computeQ(j+1, times[j+1], intervalAs, lam, mu, psi, rho, times);
 			qtj_1 += computeQt(j+1, times[j+1], tmpQ, lam, mu, psi, times);
 		}
+		//std::cout << i << " -- qtj_1 = " <<  qtj_1 << std::endl;
 
 		double term4_qj = qj_1 + qtj_1;
 

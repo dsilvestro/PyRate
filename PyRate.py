@@ -1910,7 +1910,7 @@ def likelihood_rangeFBD(times, psi, lam, mu, ts, te, k=[], intervalAs=[], int_in
 			term4 += log_gamma_i[i] + term4_q + term4_qt + term4_qj # + term3[i] + term4[i]
 
 		if hasFoundPyRateC and sanityCheckForPyRateC: # Sanity check only done if needed
-			absDivergence = abs(term4 - term4_C)
+			absDivergence = abs(term4 - term4_c)
 			if absDivergence > sanityCheckThreshold:
 				print "[WARNING] PyRateC_FBD_T4 diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")"
 
