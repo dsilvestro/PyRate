@@ -180,16 +180,25 @@ print "time range", max(ts_list), min(te_list)
 n_traits = len(tr_list[0])
 trait_categories_list = []
 mu_list = []
+tr_list_transf = tr_list+0
+# transform traits to avoid gaps
 for i in range(n_traits):
 	trait_categories_list.append(len(np.unique(tr_list[:,i])))
-	print "states", np.unique(tr_list[:,i])
+	print "states:           ", np.unique(tr_list[:,i])
 	mu_list.append( np.ones(len(np.unique(tr_list[:,i])))/len(np.unique(tr_list[:,i])) )
+	
+	state_count = 0
+	tr_temp = tr_list_transf[:,i]
+	for j in np.sort(np.unique(tr_list[:,i])):
+		tr_temp[tr_temp==j] = state_count
+		state_count+=1
+	tr_list_transf[:,i] = tr_temp
+	print "states tranformed:", np.unique(tr_list_transf[:,i])
 
 n_lineages = len(ts_list)
 print mu_list, n_traits
 print np.shape(tr_list)
 print "states", trait_categories_list
-
 print "extinction rate (mle):", get_mle_mu(ts_list,te_list)
 
 print len(te_list[te_list>0]), (ts_list-te_list)
@@ -257,11 +266,10 @@ print trait_name_vec
 for i in range(n_traits):
 	head+= "\tI_%s" % (trait_name_vec[i])
 for i in range(n_traits):
-	for j in range(trait_categories_list[i]):
+	for j in np.sort(np.unique(tr_list[:,i])):
 		head+= "\tm_%s_%s" % (trait_name_vec[i],j)
 for i in range(n_traits):
 	head+= "\tsd_%s" % (trait_name_vec[i])
-
 
 head += "\tbeta_hp"
 
@@ -343,7 +351,7 @@ while iteration <= n_iterations:
 			transform_trait_multiplier = exp(Y_vec[i])/sum(exp(Y_vec[i])) #
 		# create array of multipliers (1 per species) based on trait states
 		# using trait states as indexes (must start from 0 and be sequential!)
-		sum_rates += transform_trait_multiplier[tr_list[:,i]]
+		sum_rates += transform_trait_multiplier[tr_list_transf[:,i]]
 		# calculate priors
 		prior_Y    += sum(prior_normal(Y_vec[i],m=0,sd=std_HP[i]))
 		prior_Tau  += prior_gamma(1./(std_HP[i]**2), Gamma_a_prior,Gamma_b_prior)
