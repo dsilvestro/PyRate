@@ -127,7 +127,7 @@ def range01(x, m=0, r=1):
 	temp = temp+m
 	return temp
 
-def est_s_e_q(fossil_complete,occs_sp_bin,model=0,exp_se=0,q_shift_times=[]):
+def est_s_e_q(fossil_complete,occs_sp_bin,model=0,exp_se=0,q_shift_times=[],q0_init=[]):
  	def calc_tot_lik_given_q(q_arg):
 		q=abs(q_arg[0])
 		ml_est = []
@@ -145,7 +145,10 @@ def est_s_e_q(fossil_complete,occs_sp_bin,model=0,exp_se=0,q_shift_times=[]):
 		return -tot_lik
 	
 	q0 = [1.1]
-	if model==2: q0= np.ones(len(q_shift_times)-1)
+	if model==2: 
+		if len(q0_init)> 0: q0 =q0_init
+		else:	q0= np.ones(len(q_shift_times)-1)
+	#print q0
 	optValues =Fopt(calc_tot_lik_given_q, q0, full_output=1, disp=0)
 	params=abs(array(optValues[0]))
 	lik= -(optValues[1])
@@ -284,3 +287,73 @@ def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
 	                      other_models[1], round(deltaAICs_[1],3), sig[1]  )
 	
 	
+
+
+
+def run_model_testing_n_shifts(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
+	# data are shifted by 100
+	fossil_complete=[Xdata[i]+0 for i in range(len(Xdata)) if min(Xdata[i])>0 and len(Xdata[i])>=min_n_fossils] # remove extant, and few occs
+	fossil_complete=[fossil_complete[i] for i in range(len(fossil_complete)) if max(fossil_complete[i])-min(fossil_complete[i])>0.1] # remove too short branches
+	
+	if len(fossil_complete) > 1:
+		print "Using",len(fossil_complete),"species for model testing"
+	else:
+		sys.exit("The number of lineages meeting the requirements for model testing is insufficient.")
+	
+	max_time_range_fossils = max([max(i) for i in fossil_complete])
+	min_time_range_fossils = min([min(i) for i in fossil_complete])
+	
+	if q_shift==0: 
+		q_shift = [min_time_range_fossils+ (max_time_range_fossils-min_time_range_fossils)/2.]
+	else: 
+		q_shift = np.array(q_shift)+0
+	
+	times_q_shift = np.sort(np.array(list(q_shift)+ [ max(max(q_shift),max_time_range_fossils)*10 ] +[0]))[::-1]
+	d_size = len(fossil_complete)
+	
+	# full model
+	occs_sp_bin =list()
+	for i in range(len(fossil_complete)):
+		occs_temp = fossil_complete[i]
+		h = np.histogram(occs_temp[occs_temp>0],bins=sort( times_q_shift ))[0][::-1]
+		occs_sp_bin.append(h)		
+	resTPPm = est_s_e_q(fossil_complete,occs_sp_bin,model=2,q_shift_times=times_q_shift,exp_se=1,q0_init=[0.5]*(len(times_q_shift)-1))
+	aic_temp = calcAICc(resTPPm[0],len(resTPPm[1]),d_size)
+	print "\nLik:", resTPPm[0], "AICs:", aic_temp
+	ml_est_rates = abs(np.array(resTPPm[1]))
+	print "Q times:",times_q_shift, "Rates:", ml_est_rates
+	
+	aic_best = aic_temp
+	def remove_one_shift(times_q_shift,ml_est_rates):
+		list_shifts=[]
+		list_rates =[]
+		list_AICs = []
+		for irm in range(1,len(times_q_shift)-1):
+			times_temp = times_q_shift[times_q_shift != times_q_shift[irm]]
+			occs_sp_bin =list()
+			for i in range(len(fossil_complete)):
+				occs_temp = fossil_complete[i]
+				h = np.histogram(occs_temp[occs_temp>0],bins=sort( times_temp ))[0][::-1]
+				occs_sp_bin.append(h)		
+			# optimize rate
+			q0 = ml_est_rates[ml_est_rates != ml_est_rates[irm]]
+			print q0
+			resTPPm = est_s_e_q(fossil_complete,occs_sp_bin,model=2,q_shift_times=times_temp,exp_se=1,q0_init = q0)
+			aic_temp = calcAICc(resTPPm[0],len(resTPPm[1]),d_size)
+			print "\nLik:", resTPPm[0],"AICs:", aic_temp
+			print "Q times:",times_temp, "Rates:", abs(np.array(resTPPm[1]))
+			list_AICs.append( aic_temp )
+			list_shifts.append( times_temp )
+			list_rates.append( abs(np.array(resTPPm[1])) )
+		
+		return list_AICs[np.argmin(list_AICs)], list_shifts[np.argmin(list_AICs)], list_rates[np.argmin(list_AICs)]
+	
+	while True:
+		minAIC, bestTimes, bestRates = remove_one_shift(times_q_shift,ml_est_rates)
+		print minAIC, aic_best
+		if minAIC - aic_best > 4:
+			print "break", minAIC, aic_best
+			#if minAIC < aic_best: 
+			aic_best = minAIC
+			times_q_shift = bestTimes
+			ml_est_rates = bestRates
