@@ -82,25 +82,24 @@ Canis\_thooides | extinct | 1.8 | 4.9  | 5
 # Estimation of speciation and extinction rates through time
 
 ## Defining the preservation model
-By default, PyRate assumes a **non-homogeneous Poisson process of preservation** (NHPP) in which preservation rates change during the lifespan of each lineage following a bell-shaped distribution (Silvestro et al. 2014 Syst Biol). Alternatively, a **homogeneous Poisson process (HPP)**, in which the preservation rate is constant through time, is also available, using the command `-mHPP`:
+**Non-homogeneous Poisson process of preservation (NHPP)**. By default, PyRate assumes an NHPP model in which preservation rates change during the lifespan of each lineage following a bell-shaped distribution (Silvestro et al. 2014 Syst Biol). 
+
+**Homogeneous Poisson process (HPP)**. Alternatively, an HPP model, in which the preservation rate is constant through time, is also available, using the command `-mHPP`:
 
 `python PyRate.py .../Canis_pbdb_data_PyRate.py -mHPP`
 
-Both NHPP and HPP models can be again paired with a **Gamma model of rate heterogeneity**, which enables us to account for heterogeneity in the preservation rate across lineages. This option only adds a single parameter to the model and should be used for all empirical data sets. To set the Gamma model we add the flag `-mG`:
-
-`python PyRate.py .../Canis_pbdb_data_PyRate.py -mG` [NHPP model]  
-`python PyRate.py .../Canis_pbdb_data_PyRate.py -mHPP -mG` [HPP model]
-
-
 **Time-variable Poisson process (TPP)**. An alternative model of preservation assumes that preservation rates are constant within a predefined time frame, but can vary across time frames (e.g. geological epochs). This model is particularly useful if we expect rate heterogeneity to occur mostly through time, rather than among lineages.
 
-We can set up a model in which preservation rates are estimated independently within each geological epoch by using the command `-qShift` and providing a file containing the times that delimit the different epochs (an example is provided in `PyRate-master/example_files/epochs_q.txt`):  
+We can set up a model in which preservation rates are estimated independently within each geological epoch by using the command `-qShift` and providing a file containing the times that delimit the different epochs (an example is provided in the example file _PyRate-master/example\_files/epochs\_q.txt_):  
 
 `python PyRate.py .../Canis_pbdb_data_PyRate.py -qShift .../epochs_q.txt`  
 
-Finally, a **TPP + Gamma model** can be used to **incorporate both temporal and across-lineages variation in the preservation rates**. This is perhaps the most realistic preservation model currently available in PyRate and is set with the following commands:
+**Gamma model of rate heterogeneity**. NHPP, HPP, and TPP models can all be coupled with a Gamma model of rate heterogeneity, which enables us to account for heterogeneity in the preservation rate across lineages. This option only adds a single parameter to the model and should be used for all empirical data sets. To set the Gamma model we add the flag `-mG`:
 
+`python PyRate.py .../Canis_pbdb_data_PyRate.py -mG` [NHPP model]  
+`python PyRate.py .../Canis_pbdb_data_PyRate.py -mHPP -mG` [HPP model]
 `python PyRate.py .../Canis_pbdb_data_PyRate.py -qShift .../epochs_q.txt -mG`  
+
 
 ### Model testing across preservation models
 A maximum likelihood test across (described [here](https://www.biorxiv.org/content/10.1101/316992v1)) is available to assess which of NHPP, HPP, or TPP is best supported by the data. To run the test you need to provide the input file and the file providing the times of rate shift for the TPP model and add the flag `-PPmodeltest`
@@ -141,7 +140,9 @@ Under these settings PyRate will run for 20 million iterations sampling every 5,
 
 
 ## Output files
-The PyRate analysis described above produces three output files, saved in a folder named *pyrate_mcmc_logs* in the same directory as the input file:
+**Note that the output from RJMCMC analyses is by default different, as described [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#rjmcmc-output).**
+
+The PyRate analysis described above produces three output files, saved in a folder named *pyrate\_mcmc\_logs* in the same directory as the input file:
 
 #### 1) sum.txt  
    Text file providing the complete list of settings used in the analysis.  
@@ -149,8 +150,6 @@ The PyRate analysis described above produces three output files, saved in a fold
 Tab-separated table with the MCMC samples of the posterior, prior, likelihoods of the preservation process and of the birth-death (indicated by *PP_lik* and *BD_lik*, respectively), the preservation rate (*q_rate*), the shape parameter of its gamma-distributed heterogeneity (*alpha*), the number of sampled rate shifts (*k_birth*, *k_death*), the time of origin of the oldest lineage (*root_age*), the total branch length (*tot_length*), and the times of speciation and extinction of all taxa in the data set (*\*_TS* and *\*_TE*, respectively). When using the TPP model of preservation, the preservation rates between shifts are indicated as *q_0, q_1, ... q_n* (from older to younger).
 #### 3) marginal_rates.log 
 Tab-separated table with the posterior samples of the marginal rates of speciation, extinction, and net diversification, calculated within 1 time unit (typically Myr). 
-
-**Note that the output from RJMCMC analyses is by default different, as described [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#rjmcmc-output).**
 
 
 ## Summarize the results
