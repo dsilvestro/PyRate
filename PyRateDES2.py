@@ -95,6 +95,9 @@ p.add_argument('-lgD',      help='Use logistic correlation Dispersal',  action='
 p.add_argument('-lgE',      help='Use logistic correlation Extinction', action='store_true', default=False)
 p.add_argument('-linE',      help='Use linear correlation Extinction', action='store_true', default=False)
 p.add_argument('-cov_and_dispersal', help='Model with symmetric exticntion covarying with both a proxy and dispersal', action='store_true', default=False)
+#p.add_argument('-const', type=int, help='Constant d/e rate ()',default=0)
+p.add_argument('-fU',     type=float, help='Tuning - update freq. (d, e, s)', default=[0, 0, 0], nargs=3)
+
 
 
 
@@ -149,20 +152,29 @@ if args.cov_and_dispersal:
 	model_DUO= 1
 else: model_DUO= 0
 
+# if args.const==1:
+# 	equal_d = True # this makes them symmatric not equal!
+# 	equal_e = True # this makes them symmatric not equal!
+# 	args.TdD = True
+# 	args.TdE = True
 
 ### MCMC SETTINGS
 if args.A ==2: 
 	runMCMC = 0 # approximate ML estimation
 	n_generations   = 100000
-	update_freq     = [.4,.8,1]
+	if sum(args.fU)==0:
+		update_freq     = [.4,.8,1]
+	else: update_freq = args.fU
 	sampling_freq   = 10
 	max_ML_iterations = 5000
 else: 
 	runMCMC = 1
 	n_generations   = args.n
-	update_freq     = [.33,.66,1]
-	if args.hp == True: 
-		update_freq = [.3,.6,.9]
+	if sum(args.fU)==0:
+		update_freq     = [.4,.8,1]
+		if args.hp == True: 
+			update_freq = [.3,.6,.9]
+	else: update_freq = args.fU
 	sampling_freq   = args.s
 
 print_freq      = args.p
@@ -432,7 +444,7 @@ if use_seq_lik is True: num_processes=0
 if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
 start_time=time.time()
 
-update_rate_freq = max(0.2, 1./sum(np.shape(dis_rate_vec)))
+update_rate_freq = max(0.1, 1.5/sum(np.size(dis_rate_vec)))
 print "Origination time (binned):", OrigTimeIndex, delta_t # update_rate_freq, update_freq
 l=1
 recursive = np.arange(OrigTimeIndex[l],len(delta_t))[::-1]

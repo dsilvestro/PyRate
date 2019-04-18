@@ -40,22 +40,24 @@ def update_multiplier_proposal_(i,d):
 def update_multiplier_proposal(i,d):
 	S=shape(i)
 	u = np.random.uniform(0,1,S) #*np.rint(np.random.uniform(0,f,S))
-	l = 2*log(d)
-	m = exp(l*(u-.5))
+	l = 2*np.log(d)
+	m = np.exp(l*(u-.5))
 	#print "\n",u,m,"\n"
  	ii = i * m
-	U=sum(log(m))
+	U=np.sum(log(m))
 	return ii, U
 
 def update_multiplier_proposal_freq(q,d=1.1,f=0.75):
 	S=np.shape(q)
 	ff=np.random.binomial(1,f,S)
+	if np.max(ff)==0: 
+		ff[ np.random.choice(S[0]),np.random.choice(S[1]) ] = 1
 	u = np.random.uniform(0,1,S)
-	l = 2*log(d)
-	m = exp(l*(u-.5))
+	l = 2*np.log(d)
+	m = np.exp(l*(u-.5))
 	m[ff==0] = 1.
  	new_q = q * m
-	U=sum(log(m))
+	U=np.sum(np.log(m))
 	return new_q,U
 
 
