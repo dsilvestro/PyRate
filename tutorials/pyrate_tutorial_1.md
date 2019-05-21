@@ -94,6 +94,14 @@ We can set up a model in which preservation rates are estimated independently wi
 
 `python PyRate.py .../Canis_pbdb_data_PyRate.py -qShift .../epochs_q.txt`  
 
+The default prior on the vector of preservation rates is a single gamma distribution with shape = 1.5 and rate = 1.5. These parameter values can be changed using the command `-pQ`, for example `-pQ 2 0.1` changes the shape to 2 and the rate to 0.1.
+Alternatively, the rate parameter of the prior can be estimated from the data to reduce the subjectivity of the choice and allow the prior to better adapt to the data. This option is available by setting the rate parameter to 0, e.g.: 
+
+`python PyRate.py .../Canis_pbdb_data_PyRate.py -qShift .../epochs_q.txt -pQ 1.5 0`
+
+When the rate is set to zero, PyRate assigns a vague exponential hyper-prior to the rate and samples the rate along with all other model parameters. This approach is recommended whenever multiple preservation rates are estimated
+
+
 **Gamma model of rate heterogeneity**. NHPP, HPP, and TPP models can all be coupled with a Gamma model of rate heterogeneity, which enables us to account for heterogeneity in the preservation rate across lineages. This option only adds a single parameter to the model and should be used for all empirical data sets. To set the Gamma model we add the flag `-mG`:
 
 `python PyRate.py .../Canis_pbdb_data_PyRate.py -mG` [NHPP model]  
