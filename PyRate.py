@@ -1472,7 +1472,6 @@ def BD_bd_rates_ADE_lik(arg):
 	de = d[e>0] #takes only the extinct species times
 	death_lik_de = sum(log_wr(de, W_shape, W_scale)) # log probability of death event
 	death_lik_wte = sum(-cdf_WR(W_shape,W_scale, d[te==0])) 
-	death_lik_de = sum(log_wr(de, W_shape, W_scale)) # log probability of death event
 	# analytical integration
 	death_lik_wte = sum(-m0*cdf_WR(W_shape,W_scale, d)) # log probability of waiting time until death event
 	lik = birth_lik + death_lik_de + death_lik_wte
@@ -2816,12 +2815,12 @@ def MCMC(all_arg):
 		# pert_prior defines gamma prior on q_rates[1] - fossilization rate
 		if TPP_model == 1: 
 			if pert_prior[1]>0:
-				prior = sum(prior_gamma(q_rates,pert_prior[0],pert_prior[1]))
+				prior = sum(prior_gamma(q_rates,pert_prior[0],pert_prior[1]))+ prior_uniform(alpha_pp_gamma,0,20)
 			else: # use hyperprior on Gamma rate on q
 				hpGammaQ_shape = 1.01 # hyperprior is essentially flat
 				hpGammaQ_rate =  0.1
 				post_rate_prm_Gq = np.random.gamma( shape=hpGammaQ_shape+pert_prior[0]*len(q_rates), scale=1./(hpGammaQ_rate+sum(q_rates)) )
-				prior = sum(prior_gamma(q_rates,pert_prior[0],post_rate_prm_Gq))
+				prior = sum(prior_gamma(q_rates,pert_prior[0],post_rate_prm_Gq)) + prior_uniform(alpha_pp_gamma,0,20)
 		else: prior = prior_gamma(q_rates[1],pert_prior[0],pert_prior[1]) + prior_uniform(q_rates[0],0,20)			
 		if est_hyperP == 1: prior += ( prior_uniform(hyperP[0],0,20)+prior_uniform(hyperP[1],0,20) ) # hyperprior on BD rates
 
@@ -3001,7 +3000,7 @@ def MCMC(all_arg):
 		priorBD= get_hyper_priorBD(timesL,timesM,L,M,maxTs,hyperP)
 		if use_ADE_model >= 1:
 			# M in this case is the vector of Weibull scales
-			priorBD+= sum(prior_normal(log(W_shape),2)) # Normal prior on log(W_shape): highest prior pr at W_shape=1
+			priorBD = sum(prior_normal(log(W_shape),2)) # Normal prior on log(W_shape): highest prior pr at W_shape=1
 		
 		
 		prior += priorBD
