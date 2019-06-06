@@ -3561,6 +3561,7 @@ p.add_argument('-pP',      type=float, help='Prior - preservation rate (Gamma <s
 p.add_argument('-pS',      type=float, help='Prior - time frames (Dirichlet <shape>)', default=2.5, metavar=2.5)
 p.add_argument('-pC',      type=float, help='Prior - Covar parameters (Normal <standard deviation>) | (if pC=0 -> sd estimated)', default=1, metavar=1)
 p.add_argument("-cauchy",  type=float, help='Prior - use hyper priors on sp/ex rates (if 0 -> estimated)', default=[-1, -1], metavar=-1, nargs=2)
+p.add_argument("-min_dt",  type=float, help='Prior - minimum allowed distance between rate shifts', default=1., metavar=1)
 
 # MODEL
 p.add_argument("-mHPP",    help='Model - Homogeneous Poisson process of preservation', action='store_true', default=False)
@@ -3661,7 +3662,7 @@ num_processes = args.thread[0]    # BDlik
 num_processes_ts = args.thread[1] # NHPPlik
 if num_processes+num_processes_ts==0: use_seq_lik = 1
 if use_seq_lik == 1: num_processes,num_processes_ts=0,0
-min_allowed_t=1.
+min_allowed_t=args.min_dt
 
 # RJ arguments
 addrm_proposal_RJ = args.rj_pr      # 0: random Gamma; 1: weighted mean
