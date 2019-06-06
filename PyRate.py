@@ -5,7 +5,7 @@ import random as rand
 import warnings, imp
 
 version= "PyRate"
-build  = "v2.0 - 20190211"
+build  = "v2.0 - 20190523"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
@@ -787,6 +787,176 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
 
 
 ########################## COMBINE LOG FILES ##############################
+def comb_rj_rates(infile, files,tag, resample, rate_type):
+	j=0
+	for f in files:
+		f_temp = open(f,'r')
+		x_temp = [line for line in f_temp.readlines()]
+		x_temp = x_temp[max(1,int(burnin)):]
+		x_temp =array(x_temp)
+		if 2>1: #try:
+			if resample>0:
+				r_ind= sort(np.random.randint(0,len(x_temp),resample))
+				x_temp = x_temp[r_ind]
+			if j==0: 
+				comb = x_temp
+			else:
+				comb = np.concatenate((comb,x_temp))
+			j+=1
+		#except: 
+		#	print "Could not process file:",f
+	
+	outfile = "%s/combined_%s%s_%s.log" % (infile,len(files),tag,rate_type)	
+	with open(outfile, 'w') as f:
+		for i in comb: f.write(i)
+
+def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type=""): 
+	j=0
+	for f in files:
+		if platform.system() == "Windows" or platform.system() == "Microsoft":
+			f = f.replace("\\","/")
+		
+		if 2>1: #try:
+			file_name =  os.path.splitext(os.path.basename(f))[0]
+			print file_name,			
+			t_file=loadtxt(f, skiprows=max(1,int(burnin)))
+			shape_f=shape(t_file)
+			print shape_f
+			#t_file = t[burnin:shape_f[0],:]#).astype(str)
+			# only sample from cold chain
+			
+			head = np.array(next(open(f)).split()) # should be faster\
+			if j == 0:
+				tbl_header = '\t'.join(head)	
+			if "temperature" in head or "beta" in head:
+				try: 
+					temp_index = np.where(head=="temperature")[0][0]
+				except(IndexError): 
+					temp_index = np.where(head=="beta")[0][0]
+			
+				temp_values = t_file[:,temp_index]
+				t_file = t_file[temp_values==1,:]
+				print "removed heated chains:",np.shape(t_file)
+				
+				
+			# exclude preservation rates under TPP model (they can mismatch)
+			if len(col_tag) == 0:
+				q_ind = np.array([i for i in range(len(head)) if "q_" in head[i]])
+				if len(q_ind)>0:
+					mean_q = np.mean(t_file[:,q_ind],axis=1)
+					t_file = np.delete(t_file,q_ind,axis=1)
+					t_file = np.insert(t_file,q_ind[0],mean_q,axis=1)
+				
+			shape_f=shape(t_file)
+			
+			if resample>0:
+				r_ind= sort(np.random.randint(0,shape_f[0],resample))
+				t_file = t_file[r_ind,:]
+			
+			
+
+		#except: print "ERROR in",f	
+		if len(col_tag) == 0:
+			if j==0: 
+				head_temp = np.array(next(open(f)).split())
+				head_temp = np.delete(head_temp,q_ind)
+				head_temp = np.insert(head_temp,q_ind[0],"mean_q")
+				tbl_header=""
+				for i in head_temp: tbl_header = tbl_header + "\t" + i
+				tbl_header+="\n"
+				comb = t_file
+			else:
+				comb = np.concatenate((comb,t_file),axis=0)
+		else: 
+			head_temp = next(open(f)).split() # should be faster
+			sp_ind_list=[]
+			for TAG in col_tag:
+				if TAG in head_temp:
+					sp_ind_list+=[head_temp.index(s) for s in head_temp if s == TAG]
+			
+			try: 
+				col_tag_ind = np.array([int(tag_i) for tag_i in col_tag])
+				sp_ind= np.array(col_tag_ind)
+			except:
+				sp_ind= np.array(sp_ind_list)
+
+			#print "COLTAG",col_tag, sp_ind, head_temp
+			#sys.exit()	
+			
+
+			#print "INDEXES",sp_ind
+			if j==0: 
+				head_temp= np.array(head_temp)
+				head_t= ["%s\t" % (i) for i in head_temp[sp_ind]]
+				tbl_header="it\t"
+				for i in head_t: tbl_header+=i
+				tbl_header+="\n"
+				print "found", len(head_t), "columns"
+				comb = t_file[:,sp_ind]
+			else:
+				comb = np.concatenate((comb,t_file[:,sp_ind]),axis=0)
+			
+		j+=1
+
+	#print shape(comb)	
+	if len(col_tag) == 0:
+		sampling_freq= comb[1,0]-comb[0,0]
+		comb[:,0] = (np.arange(0,len(comb))+1)*sampling_freq
+		fmt_list=['%i']
+		for i in range(1,np.shape(comb)[1]): fmt_list.append('%4f')
+	else: 
+		fmt_list=['%i']
+		for i in range(1,np.shape(comb)[1]+1): fmt_list.append('%4f')
+		comb = np.concatenate((np.zeros((len(comb[:,0]),1)),comb),axis=1)
+	comb[:,0] = (np.arange(0,len(comb)))
+
+	print np.shape(comb), len(fmt_list)
+	
+	outfile = "%s/combined_%s%s_%s.log" % (infile,len(files),tag,file_type)
+	
+	with open(outfile, 'w') as f:
+		f.write(tbl_header)
+		if platform.system() == "Windows" or platform.system() == "Microsoft":
+			np.savetxt(f, comb, delimiter="\t",fmt=fmt_list,newline="\r") #)
+		else:
+			np.savetxt(f, comb, delimiter="\t",fmt=fmt_list,newline="\n") #)
+
+def comb_log_files_smart(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
+	infile=path_to_files
+	sys.path.append(infile)
+	direct="%s/*%s*.log" % (infile,tag)
+	files=glob.glob(direct)
+	files=sort(files)
+	print "found", len(files), "log files...\n"
+	if len(files)==0: quit()
+	j=0
+	burnin = int(burnin)	
+	
+	# RJ rates files
+	files_temp = [f for f in files if "_sp_rates.log" in os.path.basename(f)]
+	if len(files_temp)>1: 
+		print "processing %s *_sp_rates.log files" % (len(files_temp))
+		comb_rj_rates(infile, files_temp,tag, resample, rate_type="sp_rates")
+	
+	files_temp = [f for f in files if "_ex_rates.log" in os.path.basename(f)]
+	if len(files_temp)>1: 
+		print "processing %s *_ex_rates.log files" % (len(files_temp))
+		comb_rj_rates(infile, files_temp,tag, resample, rate_type="ex_rates")
+
+	# MCMC files
+	files_temp = [f for f in files if "_mcmc.log" in os.path.basename(f)]
+	if len(files_temp)>1: 
+		print "processing %s *_mcmc.log files" % (len(files_temp))
+		comb_mcmc_files(infile, files_temp,burnin,tag,resample,col_tag,file_type="mcmc")
+	files_temp = [f for f in files if "_marginal_rates.log" in os.path.basename(f)]
+	if len(files_temp)>1: 
+		print "processing %s *_marginal_rates.log files" % (len(files_temp))
+		comb_mcmc_files(infile, files_temp,burnin,tag,resample,col_tag,file_type="marginal_rates")
+	
+	
+
+
+
 def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 	infile=path_to_files
 	sys.path.append(infile)
@@ -3336,6 +3506,7 @@ p.add_argument('-plotRJ',     metavar='<input file>', type=str,help="RTT plot fo
 p.add_argument('-plotQ',      metavar='<input file>', type=str,help="Plot preservation rates through time: provide 'mcmc.log' file and '-qShift' argument ",default="")
 p.add_argument('-grid_plot',  type=float, help='Plot resolution in Myr (only for plot3 and plotRJ commands). If set to 0: 100 equal time bins', default=0, metavar=0)
 p.add_argument('-root_plot',  type=float, help='User-defined root age for RTT plots', default=0, metavar=0)
+p.add_argument('-min_age_plot',type=float, help='User-defined minimum age for RTT plots (only with plotRJ option)', default=0, metavar=0)
 p.add_argument('-tag',        metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted (-plot and -plot2) or summarized in SE table (-ginput)",default="")
 p.add_argument('-ltt',        type=int,help='1) Plot lineages-through-time; 2) plot Log10(LTT)', default=0, metavar=0)
 p.add_argument('-mProb',      type=str,help="Input 'mcmc.log' file",default="")
@@ -3344,6 +3515,7 @@ p.add_argument("-data_info",  help='Summary information about an input data', ac
 p.add_argument('-SE_stats',   type=str,help="Calculate and plot stats from SE table:",metavar='<extinction rate at the present, bin_size, #_simulations>',nargs='+',default=[])
 p.add_argument('-ginput',     type=str,help='generate SE table from *mcmc.log files', default="", metavar="<path_to_mcmc.log>")
 p.add_argument('-combLog',    type=str,help='Combine (and resample) log files', default="", metavar="<path_to_log_files>")
+p.add_argument('-combLogRJ',  type=str,help='Combine (and resample) all log files form RJMCMC', default="", metavar="<path_to_log_files>")
 p.add_argument('-resample',   type=int,help='Number of samples for each log file (-combLog). Use 0 to keep all samples.', default=0, metavar=0)
 p.add_argument('-col_tag',    type=str,help='Columns to be combined using combLog', default=[], metavar="column names",nargs='+')
 p.add_argument('-check_names',type=str,help='Automatic check for typos in taxa names (provide SpeciesList file)', default="", metavar="<*_SpeciesList.txt file>")
@@ -3693,7 +3865,7 @@ if path_dir_log_files != "":
 			if grid_plot==0: grid_plot=1
 			rtt_plot_bds.RTTplot_high_res(path_dir_log_files,grid_plot,int(burnin),root_plot)
 		elif plot_type==4:
-			rtt_plot_bds = rtt_plot_bds.plot_marginal_rates(path_dir_log_files,name_tag=file_stem,bin_size=grid_plot,burnin=burnin,min_age=0,max_age=root_plot,logT=args.logT)
+			rtt_plot_bds = rtt_plot_bds.plot_marginal_rates(path_dir_log_files,name_tag=file_stem,bin_size=grid_plot,burnin=burnin,min_age=args.min_age_plot,max_age=root_plot,logT=args.logT)
 		elif plot_type== 5:
 			rtt_plot_bds = rtt_plot_bds.RTTplot_Q(path_dir_log_files,args.qShift,burnin=burnin,max_age=root_plot)
 		#except: sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
@@ -3736,6 +3908,9 @@ elif len(list_files_BF):
 	quit()
 elif args.combLog != "": # COMBINE LOG FILES
 	comb_log_files(args.combLog,burnin,args.tag,resample=args.resample,col_tag=args.col_tag)
+	sys.exit("\n")
+elif args.combLogRJ != "": # COMBINE LOG FILES
+	comb_log_files_smart(args.combLogRJ,burnin,args.tag,resample=args.resample,col_tag=args.col_tag)
 	sys.exit("\n")
 elif len(args.input_data)==0 and args.d == "": sys.exit("\nInput file required. Use '-h' for command list.\n")
 
