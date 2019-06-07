@@ -61,9 +61,16 @@ This will generate an R script and a PDF file with the RTT plots showing speciat
 
 Note that **this command requires the path to the log files (i.e. not the files themselves)**. If multiple compatible files are found in the directory, they will be plotted individually. All individual plots are however combined in a single R script and PDF file. To limit the plotting function to one or few selected log files, the command `-tag` can be used. For instance using the command `-tag Canis_pbdb` will result in RTT plots being computed only for log files containing "*Canis_pbdb*" in the file name.
 
-Additional commands are avaiable to adjust settings of the `plotRJ` function. The command `-grid_plot` defined the size of the temporal bins utilized to calculate marginal rates and times of rate shift. The default is `-grid_plot 1`, but this can be changed to any arbitrarily small value.
+Additional commands are avaiable to adjust settings of the `plotRJ` function. The command `-grid_plot` defined the size of the temporal bins utilized to calculate marginal rates and times of rate shift. The default is `-grid_plot 0`, which sets the bin size to obtain 100 bins across the dataset's time window.
+This can be changed to any arbitrarily small positive value to change the resolution of the plot. For example `-grid_plot 0.1` sets the bin size to 0.1 Myr.
 
-The command `-root_plot` can be used to truncate the plot to a given maximum age. For instance using `-root_plot 10` will only show marginal rates in the most recent 10 time units. Finally, the command `-logT 1` can be added to plot log10-transformed rates-through-time.
+The command `-root_plot` can be used to truncate the plot to a given maximum age. For instance using `-root_plot 10` will only show marginal rates in the most recent 10 time units. Similarly, `-min_age_plot` can be used to truncate the rates-through-time plot at a given minimum age. For instance 
+
+`python PyRate.py -plotRJ .../path_to_log_files/ -b 200 -root_plot 23 -min_age_plot 5.3` 
+
+generates a plot spanning only the Miocene. 
+
+The command `-logT 1` can be added to plot log10-transformed rates-through-time.
 
 ![Example RTT](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/RTT_plot_RJMCMC.png)
 
@@ -71,17 +78,17 @@ The command `-root_plot` can be used to truncate the plot to a given maximum age
 ## Combine log files from multiple replicates
 PyRate includes a utility function to combine output files from different runs into one file. Assuming that all output files form the previous analyses are in the same pyrate mcmc logs directory, the log files are combined using: 
 
-`python PyRate.py -combLog .../pyrate_mcmc_logs -b 1000 -tag mcmc`   
-`python PyRate.py -combLog .../pyrate_mcmc_logs -b 1000 -tag sp_rates`  
-`python PyRate.py -combLog .../pyrate_mcmc_logs -b 1000 -tag ex_rates`  
+`python PyRate.py -combLogRJ /pyrate_mcmc_logs -b 1000 -tag Canis`
 
- where: `-combLog .../pyrate_mcmc_logs` provides the full path to the log files, `-b 1000` specifies that the first 1,000 samples should be removed as burn-in, `-tag x` specifies that all files containing x in the file name should be combined. These commands generate output files named “combined\_[n]\_mcmc.log”, "combined\_[n]\_sp\_rates.log", and "combined\_[n]\_ex\_rates.log", where [n] is the number of combined replicates. 
- 
-For the `mcmc.log` file you can select which columns you want to include in the combined log file. For instance, adding the flag `-col_tag posterior root_age death_age` will combine only the three columns with headers `posterior`,`root_age`, and `death_age` (while ignoring all other parameters). Note that only `root_age`, and `death_age` are needed to run the [`-plotRJ`](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#plot-rates-through-time-and-rate-shifts) function.
+ where: `-combLogRJ .../pyrate_mcmc_logs` provides the full path to the log files, `-b 1000` specifies that the first 1,000 samples should be removed as burn-in, `-tag x` specifies that all and only files containing `x` (the word _Canis_ in the example above) in the file name should be combined. This command generates three output files named “combined\_[n]\_mcmc.log”, "combined\_[n]\_sp\_rates.log", and "combined\_[n]\_ex\_rates.log", where [n] is the number of combined replicates. 
 
 To avoid producing too large combined files you can sub-sample the log file, using the flag `-resample`. For example the command
 
-`python PyRate.py -combLog .../pyrate_mcmc_logs -b 1000 -tag mcmc -resample 100` 
+`python PyRate.py -combLogRJ .../pyrate_mcmc_logs -b 1000 -tag Canis -resample 100` 
 
 specifies that 100 random samples should be taken from each replicate and saved into the combined log files. 
+
+
+For the `mcmc.log` file you can also use the command `-combLog` (see also [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#combine-log-files-across-replicates)) to select which columns you want to include in the combined log file. For instance, adding the flag `-col_tag posterior root_age death_age` will combine only the three columns with headers `posterior`,`root_age`, and `death_age` (while ignoring all other parameters). Note that only `root_age`, and `death_age` are needed to run the [`-plotRJ`](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#plot-rates-through-time-and-rate-shifts) function.
+
 
