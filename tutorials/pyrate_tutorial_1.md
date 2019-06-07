@@ -161,7 +161,9 @@ Tab-separated table with the posterior samples of the marginal rates of speciati
 
 
 ## Summarize the results
-The log files can be opened in the program **Tracer** to check if the MCMC has converged and determine the proportion of burnin. 
+The log files can be opened in the program [**Tracer**](https://github.com/beast-dev/tracer/releases/tag/v1.7.1) to check if the MCMC has converged, for example looking the the Effective Sample Sizes (ESS), and determine the proportion of burnin. 
+When running multiple replicates the ESS values should be computed from the log files of each replicate (i.e. not from a [combined log file](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#combine-log-files-across-replicates)), because each replicate is based on a different randomized dataset and therefore might converge to slightly different solutions.
+These differences however can be used to incorporate the uncertainties in the dating of the fossil occurrences.
 
 The **mcmc.log** file can be used to calculate the sampling frequencies of birth-death models with different number of rate shifts. This is done by using the PyRate command `-mProb` followed by the log file:
 
