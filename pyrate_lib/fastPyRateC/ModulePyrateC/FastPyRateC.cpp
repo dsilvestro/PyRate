@@ -4,6 +4,7 @@
 #include <utility>
 #include <algorithm>
 #include <iostream>
+#include <map>
 #include <boost/math/distributions.hpp>
 #include <boost/math/special_functions/beta.hpp>
 #include <boost/math/special_functions/gamma.hpp>
@@ -175,8 +176,8 @@ void PyRateC_initEpochs(std::vector< double > aEpochs) {
 /******************************************************************************************/
 
 void BD_partial_lik_by_rate(
-  const std::vector<double> &ts, 
-  const std::vector<double> &te, 
+  const std::vector<double> &ts,
+  const std::vector<double> &te,
   const std::vector<double> &vTx,
   const std::vector<double> &rates,
   const std::string &par,
@@ -202,19 +203,19 @@ void BD_partial_lik_by_rate(
 
 		results.push_back(nEvent*log(rates[iR]) + -rates[iR]*totalBL);
 	}
-	
+
 }
 
 std::vector<double> PyRateC_BD_partial_lik(
-  std::vector<double> ts, 
-  std::vector<double> te, 
+  std::vector<double> ts,
+  std::vector<double> te,
   std::vector<double> timeFrameL,
   std::vector<double> timeFrameM,
   std::vector<double> ratesL,
   std::vector<double> ratesM) {
 
 	std::vector<double> results;
-	
+
 	BD_partial_lik_by_rate(ts, te, timeFrameL, ratesL, "l", results);
 	BD_partial_lik_by_rate(ts, te, timeFrameM, ratesM, "m", results);
 
@@ -227,8 +228,8 @@ std::vector<double> PyRateC_BD_partial_lik(
 /******************************************************************************************/
 
 std::vector<double> PyRateC_HOMPP_lik(
-	std::vector <int> ind, 
-	std::vector<double> ts, 
+	std::vector <int> ind,
+	std::vector<double> ts,
   std::vector<double> te,
 	double qRate,
   int N_GAMMA,
@@ -244,8 +245,8 @@ std::vector<double> PyRateC_HOMPP_lik(
 
 
 std::vector<double> PyRateC_HOMPP_lik(
-	std::vector <int> ind, 
-	std::vector<double> ts, 
+	std::vector <int> ind,
+	std::vector<double> ts,
   std::vector<double> te,
 	double qRate,
   std::vector<double> gammaRates,
@@ -377,7 +378,7 @@ std::vector<double> processDataAugNHPP(const std::vector<int> &ind, const std::v
 }
 
 
-std::vector<double> processNHPPLikelihood(const std::vector<int> &ind, const std::vector<double> &ts, const std::vector<double> &te, 
+std::vector<double> processNHPPLikelihood(const std::vector<int> &ind, const std::vector<double> &ts, const std::vector<double> &te,
 														 							const double qRate, const std::vector<double> &gammaRates) {
 
 	size_t N_GAMMA = gammaRates.size();
@@ -388,7 +389,7 @@ std::vector<double> processNHPPLikelihood(const std::vector<int> &ind, const std
 	double* LOG_Q_GAMMA_RATE = new double[N_GAMMA];
 	for(size_t iG=0; iG<N_GAMMA; ++iG) {
 		LOG_Q_GAMMA_RATE[iG] = log(gammaRates[iG]*qRate);
-	}	
+	}
 
 	std::vector<double> logLik(fossils.size(), 0.);
 	for(size_t iI=0; iI<ind.size(); ++iI) {
@@ -402,7 +403,7 @@ std::vector<double> processNHPPLikelihood(const std::vector<int> &ind, const std
 		}
 		// F -= nFossils * (log(tl^4) * fBeta(a,b)))
 		globalLik -= static_cast<double>(fossils[iF].size())*log(F_BETA*pow(tl,4.));
-	
+
 		double spLogLik = 0.;
 		if(fossils[iF].size() > 1) { // Go for gamma
 			double maxTmpL = 0.;
@@ -442,8 +443,8 @@ std::vector<double> processNHPPLikelihood(const std::vector<int> &ind, const std
 
 std::vector<double> PyRateC_NHPP_lik(
 	bool useDA,
-	std::vector <int> ind, 
-	std::vector<double> ts, 
+	std::vector <int> ind,
+	std::vector<double> ts,
   std::vector<double> te,
 	double qRate,
   int N_GAMMA,
@@ -460,8 +461,8 @@ std::vector<double> PyRateC_NHPP_lik(
 // NHPP_lik with median Gamma Rates
 std::vector<double> PyRateC_NHPP_lik(
 	bool useDA,
-	std::vector <int> ind, 
-	std::vector<double> ts, 
+	std::vector <int> ind,
+	std::vector<double> ts,
   std::vector<double> te,
 	double qRate,
   std::vector<double> gammaRates,
@@ -487,7 +488,7 @@ std::vector<double> PyRateC_NHPP_lik(
 	}
 
 	logLikNHPP = processNHPPLikelihood(indNHPP, ts, te, qRate, gammaRates);
-	
+
 	// Merge results
 	std::vector<double> logLik(fossils.size(), 0);
 	for(size_t iL=0; iL<logLik.size(); ++iL) {
@@ -504,9 +505,9 @@ std::vector<double> PyRateC_NHPP_lik(
 // Precompute some values
 void precomputeRatesAndLogRates(const std::vector<double> &qRates,
 																const std::vector<double> &gammaRates,
-																std::vector<double> &logGammaRates, 
+																std::vector<double> &logGammaRates,
   															std::vector<double> &logQRates,
-															  std::vector< std::vector <double> > &qGammas, 
+															  std::vector< std::vector <double> > &qGammas,
 																std::vector< std::vector <double> > &logQGammas) {
 
 	const size_t N_GAMMA = gammaRates.size();
@@ -529,7 +530,7 @@ void precomputeRatesAndLogRates(const std::vector<double> &qRates,
 }
 
 // Define a specie epoch span and estimated time in each epoch
-void defineEpochSpanAndTime(const double start, const double end, const std::vector<double> &aEpochs, 
+void defineEpochSpanAndTime(const double start, const double end, const std::vector<double> &aEpochs,
 										        std::pair<size_t, size_t> &span, std::vector<double> &timePerEpoch) {
 
 	bool startFound = false;
@@ -541,8 +542,8 @@ void defineEpochSpanAndTime(const double start, const double end, const std::vec
 				startFound = true;
 			}
 		}
-		
-		if(startFound) { // Search for end 
+
+		if(startFound) { // Search for end
 			if(end < aEpochs[iS] && end >= aEpochs[iS+1]) { // end found
 				span.second = iS;
 				if(timePerEpoch.empty()) { // First time, we use start
@@ -558,16 +559,16 @@ void defineEpochSpanAndTime(const double start, const double end, const std::vec
 					timePerEpoch.push_back(start - aEpochs[iS+1]);
 				} else { // Then we use whole epoch duration
 					timePerEpoch.push_back(aEpochs[iS] - aEpochs[iS+1]);
-				}		
+				}
 			}
 		}
 	}
 }
 
 // HPP_vec_lik using MEAN Yang discrete gamma rates
-std::vector<double> PyRateC_HPP_vec_lik(std::vector <int> ind, 
-													 						  std::vector<double> ts, 
-  												 							std::vector<double> te, 
+std::vector<double> PyRateC_HPP_vec_lik(std::vector <int> ind,
+													 						  std::vector<double> ts,
+  												 							std::vector<double> te,
 																				std::vector<double> epochs,
 																				std::vector<double> qRates,
 																				int N_GAMMA,
@@ -579,16 +580,16 @@ std::vector<double> PyRateC_HPP_vec_lik(std::vector <int> ind,
 }
 
 // HPP_vec_lik using MEDIAN Yang discrete gamma rates
-std::vector<double> PyRateC_HPP_vec_lik(std::vector <int> ind, 
-																				std::vector<double> ts, 
-																				std::vector<double> te, 
+std::vector<double> PyRateC_HPP_vec_lik(std::vector <int> ind,
+																				std::vector<double> ts,
+																				std::vector<double> te,
 																				std::vector<double> epochs,
 																				std::vector<double> qRates,
 																				std::vector<double> gammaRates) {
 
 	const size_t N_GAMMA = gammaRates.size();
 
-	// Get logGamma and logQRates 
+	// Get logGamma and logQRates
 	// This way we will required N_GAMMA + N_RATE log(...) instead of N_GAMMA*N_RATE
 	std::vector<double> logGammaRates, logQRates;
 	std::vector< std::vector <double> > qGammas, logQGammas;
@@ -606,7 +607,7 @@ std::vector<double> PyRateC_HPP_vec_lik(std::vector <int> ind,
 
 		size_t nFossils = fossils[iF].back() == 0 ? fossils[iF].size()-1 : fossils[iF].size();
 		if(N_GAMMA > 1 && nFossils > 1) {
-			double spLogLik = 0.; 
+			double spLogLik = 0.;
 			for(size_t iG = 0; iG < N_GAMMA; ++iG) {
 				// For each gamma compute :
 				// qGamma= YangGamma[i]*q_rates
@@ -630,7 +631,7 @@ std::vector<double> PyRateC_HPP_vec_lik(std::vector <int> ind,
 			}
 			logLik[iF] = spLogLik-logDivisor; // Average the sum
 		} else {
-			//lik = sum(-q_rates[ind]*d + log(q_rates[ind])*k_vec[ind]) - log(1-exp(sum(-q_rates[ind]*d))) -sum(log(np.arange(1,sum(k_vec)+1))) 
+			//lik = sum(-q_rates[ind]*d + log(q_rates[ind])*k_vec[ind]) - log(1-exp(sum(-q_rates[ind]*d))) -sum(log(np.arange(1,sum(k_vec)+1)))
 			double sum1 = 0.; // sum(-q_rates[ind]*d)
 			double sum2 = 0.; // sum(log(q_rates[ind])*k_vec[ind])
 			// For each epoch where the specie was living
@@ -641,9 +642,136 @@ std::vector<double> PyRateC_HPP_vec_lik(std::vector <int> ind,
 
 			double term1 = sum1+sum2; 														// sum(-qGamma[ind]*d + log(qGamma[ind])*k_vec[ind])
 			double term2 = -log(1-exp(sum1)); 										// - log(1-exp(sum(-q_rates[ind]*d)))
-			double term3 = -logFactorialFossilCntPerSpecie[iF];		// -sum(log(np.arange(1,sum(k_vec)+1))) 
+			double term3 = -logFactorialFossilCntPerSpecie[iF];		// -sum(log(np.arange(1,sum(k_vec)+1)))
 			logLik[iF] = term1+term2+term3;
 		}
 	}
 	return logLik;
+}
+
+
+/***************************************************************************************************************************/
+
+// Recursive function ? while t != 0 ?
+typedef struct {
+	double p, Bi;
+} resultComputeP_t;
+
+const double LOG_OF_4 = log(4);
+
+resultComputeP_t computeP(int i, double t,
+												  const std::vector<double> &intervalAs,
+							  					const std::vector<double> &lam,
+							  					const std::vector<double> &mu,
+													const std::vector<double> &psi,
+							  					const std::vector<double> &rho,
+							  					const std::vector<double> &times) {
+
+	resultComputeP_t res;
+
+	if (t == 0) {
+		res.p = 1.;
+		res.Bi = 0.;
+		return res;
+	}
+
+	double ti = times[i+1];
+	double Ai = intervalAs[i];
+
+	resultComputeP_t nextRes = computeP(i+1, ti, intervalAs, lam, mu, psi, rho, times);
+
+	res.Bi = ((1 -2*(1-rho[i]) * nextRes.p ) * lam[i] +mu[i]+psi[i]) / Ai;
+	res.p = lam[i] + mu[i] + psi[i];
+	res.p -= Ai * ( ((1+res.Bi) - (1-res.Bi) * exp(-Ai*(t-ti)) ) / ((1+res.Bi) + (1-res.Bi) * exp(-Ai*(t-ti) )) );
+	res.p = res.p / (2. * lam[i]);
+
+	return res;
+}
+
+double computeQ(int i, double t,
+								const std::vector<double> &intervalAs,
+							  const std::vector<double> &lam,
+							  const std::vector<double> &mu,
+							  const std::vector<double> &psi,
+							  const std::vector<double> &rho,
+							  const std::vector<double> &times) {
+	//std::cout << i << "  " << t << std::endl;
+	resultComputeP_t res = computeP(i, t, intervalAs, lam, mu, psi, rho, times);
+
+	double Ai_t = intervalAs[i]*(t-times[i+1]);
+	double qi_t = (LOG_OF_4-Ai_t) - (2* log( exp(-Ai_t) *(1-res.Bi) + (1+res.Bi) ) );
+	return qi_t;
+}
+
+double computeQt(int i, double t, double q,
+								 const std::vector<double> &lam,
+								 const std::vector<double> &mu,
+								 const std::vector<double> &psi,
+								 const std::vector<double> &times) {
+	double qt = .5 * ( q - (lam[i]+mu[i]+psi[i])*(t-times[i+1]) );
+	return qt;
+}
+
+
+
+//likelihood_rangeFBD
+double PyRateC_FBD_T4(int nSpecies,
+											std::vector<int> bint,
+											std::vector<int> dint,
+											std::vector<int> oint,
+											std::vector<double> intervalAs,
+											std::vector<double> lam,
+											std::vector<double> mu,
+											std::vector<double> psi,
+											std::vector<double> rho,
+											std::vector<double> gamma,
+											std::vector<double> times,
+											std::vector<double> ts,
+										  std::vector<double> te,
+											std::vector<double> FA) {
+
+	/*typedef struct {size_t cntQ, cntQt;} countQ_t;
+	typedef std::map< std::pair<size_t, size_t>, countQ_t > mapCount_t;
+
+	mapCount_t  mapCount;*/
+
+	double term4 = 0.;
+	for(size_t i=0; i<nSpecies; i++) {
+
+		double term4_q_t1 = computeQ(bint[i], ts[i], intervalAs, lam, mu, psi, rho, times);
+		double term4_q_t2 = computeQ(oint[i], FA[i], intervalAs, lam, mu, psi, rho, times);
+		double term4_q  = term4_q_t1 - term4_q_t2;
+		//std::cout << i << " -- t4q = " <<  term4_q << std::endl;
+
+		double term4_qt_t1_q = term4_q_t2;
+		double term4_qt_t1 = computeQt(oint[i], FA[i], term4_qt_t1_q, lam, mu, psi, times);
+		double term4_qt_t2_q = computeQ(dint[i], te[i], intervalAs, lam, mu, psi, rho, times);
+		double term4_qt_t2 = computeQt(dint[i], te[i], term4_qt_t2_q, lam, mu, psi, times);
+		double term4_qt = term4_qt_t1 - term4_qt_t2;
+		//std::cout << i << " -- t4qt = " <<  term4_qt << std::endl;
+
+		double qj_1 = 0.;
+		for(int j=bint[i]; j<oint[i]; ++j) {
+			qj_1 += computeQ(j+1, times[j+1], intervalAs, lam, mu, psi, rho, times);
+		}
+		//std::cout << i << " -- qj_1 = " <<  qj_1 << std::endl;
+
+		double qtj_1 = 0.;
+		for(int j=oint[i]; j<dint[i]; ++j) {
+			double tmpQ = computeQ(j+1, times[j+1], intervalAs, lam, mu, psi, rho, times);
+			qtj_1 += computeQt(j+1, times[j+1], tmpQ, lam, mu, psi, times);
+		}
+		//std::cout << i << " -- qtj_1 = " <<  qtj_1 << std::endl;
+
+		double term4_qj = qj_1 + qtj_1;
+
+		term4 += term4_q + term4_qt + term4_qj;
+	}
+
+	// log(gamma) sum
+	double sumLogGamma = 0.;
+	for(size_t i=0; i<gamma.size(); ++i) sumLogGamma += log(gamma[i]);
+	term4 += sumLogGamma;
+
+	return term4;
 }
