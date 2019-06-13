@@ -1641,12 +1641,7 @@ def BD_bd_rates_ADE_lik(arg):
 	d = s-e
 	de = d[e>0] #takes only the extinct species times
 	death_lik_de = sum(log_wr(de, W_shape, W_scale)) # log probability of death event
-<<<<<<< HEAD
 	death_lik_wte = sum(-cdf_WR(W_shape,W_scale, d[te==0])) 
-=======
-	death_lik_wte = sum(-cdf_WR(W_shape,W_scale, d[te==0]))
-	death_lik_de = sum(log_wr(de, W_shape, W_scale)) # log probability of death event
->>>>>>> f38fbf8e571b2e01c69cc0a85b14902876df4b17
 	# analytical integration
 	death_lik_wte = sum(-m0*cdf_WR(W_shape,W_scale, d)) # log probability of waiting time until death event
 	lik = birth_lik + death_lik_de + death_lik_wte
@@ -3010,13 +3005,8 @@ def MCMC(all_arg):
 				hpGammaQ_shape = 1.01 # hyperprior is essentially flat
 				hpGammaQ_rate =  0.1
 				post_rate_prm_Gq = np.random.gamma( shape=hpGammaQ_shape+pert_prior[0]*len(q_rates), scale=1./(hpGammaQ_rate+sum(q_rates)) )
-<<<<<<< HEAD
 				prior = sum(prior_gamma(q_rates,pert_prior[0],post_rate_prm_Gq)) + prior_uniform(alpha_pp_gamma,0,20)
 		else: prior = prior_gamma(q_rates[1],pert_prior[0],pert_prior[1]) + prior_uniform(q_rates[0],0,20)			
-=======
-				prior = sum(prior_gamma(q_rates,pert_prior[0],post_rate_prm_Gq))
-		else: prior = prior_gamma(q_rates[1],pert_prior[0],pert_prior[1]) + prior_uniform(q_rates[0],0,20)
->>>>>>> f38fbf8e571b2e01c69cc0a85b14902876df4b17
 		if est_hyperP == 1: prior += ( prior_uniform(hyperP[0],0,20)+prior_uniform(hyperP[1],0,20) ) # hyperprior on BD rates
 
 
@@ -3195,15 +3185,8 @@ def MCMC(all_arg):
 		priorBD= get_hyper_priorBD(timesL,timesM,L,M,maxTs,hyperP)
 		if use_ADE_model >= 1:
 			# M in this case is the vector of Weibull scales
-<<<<<<< HEAD
 			priorBD = sum(prior_normal(log(W_shape),2)) # Normal prior on log(W_shape): highest prior pr at W_shape=1
-		
-		
-=======
-			priorBD+= sum(prior_normal(log(W_shape),2)) # Normal prior on log(W_shape): highest prior pr at W_shape=1
 
-
->>>>>>> f38fbf8e571b2e01c69cc0a85b14902876df4b17
 		prior += priorBD
 		###
 		if model_cov >0: prior+=sum(prior_normal(cov_par,covar_prior))
@@ -3537,7 +3520,6 @@ p.add_argument('-plotRJ',	 metavar='<input file>', type=str,help="RTT plot for r
 p.add_argument('-plotQ',	  metavar='<input file>', type=str,help="Plot preservation rates through time: provide 'mcmc.log' file and '-qShift' argument ",default="")
 p.add_argument('-grid_plot',  type=float, help='Plot resolution in Myr (only for plot3 and plotRJ commands). If set to 0: 100 equal time bins', default=0, metavar=0)
 p.add_argument('-root_plot',  type=float, help='User-defined root age for RTT plots', default=0, metavar=0)
-<<<<<<< HEAD
 p.add_argument('-min_age_plot',type=float, help='User-defined minimum age for RTT plots (only with plotRJ option)', default=0, metavar=0)
 p.add_argument('-tag',        metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted (-plot and -plot2) or summarized in SE table (-ginput)",default="")
 p.add_argument('-ltt',        type=int,help='1) Plot lineages-through-time; 2) plot Log10(LTT)', default=0, metavar=0)
@@ -3548,16 +3530,6 @@ p.add_argument('-SE_stats',   type=str,help="Calculate and plot stats from SE ta
 p.add_argument('-ginput',     type=str,help='generate SE table from *mcmc.log files', default="", metavar="<path_to_mcmc.log>")
 p.add_argument('-combLog',    type=str,help='Combine (and resample) log files', default="", metavar="<path_to_log_files>")
 p.add_argument('-combLogRJ',  type=str,help='Combine (and resample) all log files form RJMCMC', default="", metavar="<path_to_log_files>")
-=======
-p.add_argument('-tag',		metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted (-plot and -plot2) or summarized in SE table (-ginput)",default="")
-p.add_argument('-ltt',		type=int,help='1) Plot lineages-through-time; 2) plot Log10(LTT)', default=0, metavar=0)
-p.add_argument('-mProb',	  type=str,help="Input 'mcmc.log' file",default="")
-p.add_argument('-BF',		 type=str,help="Input 'marginal_likelihood.txt' files",metavar='<2 input files>',nargs='+',default=[])
-p.add_argument("-data_info",  help='Summary information about an input data', action='store_true', default=False)
-p.add_argument('-SE_stats',   type=str,help="Calculate and plot stats from SE table:",metavar='<extinction rate at the present, bin_size, #_simulations>',nargs='+',default=[])
-p.add_argument('-ginput',	 type=str,help='generate SE table from *mcmc.log files', default="", metavar="<path_to_mcmc.log>")
-p.add_argument('-combLog',	type=str,help='Combine (and resample) log files', default="", metavar="<path_to_log_files>")
->>>>>>> f38fbf8e571b2e01c69cc0a85b14902876df4b17
 p.add_argument('-resample',   type=int,help='Number of samples for each log file (-combLog). Use 0 to keep all samples.', default=0, metavar=0)
 p.add_argument('-col_tag',	type=str,help='Columns to be combined using combLog', default=[], metavar="column names",nargs='+')
 p.add_argument('-check_names',type=str,help='Automatic check for typos in taxa names (provide SpeciesList file)', default="", metavar="<*_SpeciesList.txt file>")

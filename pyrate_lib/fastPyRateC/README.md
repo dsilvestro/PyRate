@@ -25,7 +25,7 @@ Note:
 
 ### Manual installation (all OSs):
 * Download the boost C++ library (https://dl.bintray.com/boostorg/release/1.66.0/source/boost_1_66_0.zip).
-`curl curl -fsSL https://dl.bintray.com/boostorg/release/1.66.0/source/boost_1_66_0.zip -o boost_1_66_0.zip`
+`curl -fsSL https://dl.bintray.com/boostorg/release/1.66.0/source/boost_1_66_0.zip -o boost_1_66_0.zip`
 
 * Unzip it inside the current folder (ModulePyRateC).
 `unzip boost_1_66_0.zip`
