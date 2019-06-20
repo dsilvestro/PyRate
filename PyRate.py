@@ -5,7 +5,7 @@ import random as rand
 import warnings, imp
 
 version= "PyRate"
-build  = "v2.0 - 20190523"
+build  = "v2.0 - 20190617"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
@@ -17,13 +17,13 @@ PyRate: A new program to estimate speciation and extinction rates from
 incomplete fossil record. Methods in Ecology and Evolution, 5, 1126-1131.
 """
 print("""
-				  %s - %s
+                 %s - %s
 
-			 Bayesian estimation of origination,
-			  extinction and preservation rates
-				 from fossil occurrence data
+          Bayesian estimation of origination,
+           extinction and preservation rates
+              from fossil occurrence data
 
-					pyrate.help@gmail.com
+                 pyrate.help@gmail.com
 
 \n""" % (version, build))
 # check python version
@@ -4701,8 +4701,8 @@ if useDiscreteTraitModel == 1:
 	for i in range(len(lengths_B_events)): head += "S_%s\t" % (i)
 head += "tot_length"
 head=head.split('\t')
+if use_se_tbl == 0: tot_number_of_species = len(taxa_names)
 
-tot_number_of_species = len(taxa_names)
 if fix_SE == 0:
 	for i in taxa_names: head.append("%s_TS" % (i))
 	for i in taxa_names: head.append("%s_TE" % (i))
