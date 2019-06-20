@@ -257,7 +257,7 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 	if nbins==0:
 		nbins = int(max_age-0)
 	post_rate=f.readlines()
-	bins_histogram = np.linspace(0,max_age,nbins+1)	
+	bins_histogram = np.linspace(min_age,max_age,nbins+1)	
 	marginal_rates_list = []
 	times_of_shift = []
 	
@@ -292,7 +292,7 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 		min_rates += [hpd[0]]
 		max_rates += [hpd[1]]
 	
-	time_frames = bins_histogram-bins_histogram[1]/2.
+	time_frames = bins_histogram-abs(bins_histogram[1]-bins_histogram[0])/2.
 	#print time_frames, min(times_of_shift), min_age
 	#quit()
 	time_frames = time_frames[1:]
@@ -362,22 +362,33 @@ def plot_net_rate(resS,resE,col,min_age,max_age,plot_title,n_bins):
 	marginal_rates_list	= resS[6]-resE[6]
 	mean_rates= np.mean(marginal_rates_list,axis=0)
 	min_rates,max_rates=[],[]
+	time_ax = []
 	for i in range(n_bins):
 		hpd = util.calcHPD(marginal_rates_list[:,i],0.95)
 		min_rates += [hpd[0]]
 		max_rates += [hpd[1]]
+	
+	times = abs(resS[0])
+	indx = np.intersect1d((times>=min_age).nonzero()[0], (times<=max_age).nonzero()[0])
+	times = times[indx]
 
 	out_str = "\n#Net Diversification Rate"
-
-	out_str += util.print_R_vec("\ntime",resS[0]-min_age)
-	minXaxis,maxXaxis= max_age-min_age,min_age-min_age
-
-	#right now I don't have support for log, but I think this is less likely to be needed for net rates
-	out_str += util.print_R_vec("\nnet_rate",mean_rates[::-1])
-	out_str += util.print_R_vec("\nnet_minHPD",np.array(min_rates[::-1]))
-	out_str += util.print_R_vec("\nnet_maxHPD",np.array(max_rates[::-1]))
+  	out_str += util.print_R_vec("\ntime",-times)
+	minXaxis,maxXaxis= min_age,max_age
+	
+	mean_rates = np.array(mean_rates)[::-1]
+	min_rates  = np.array(min_rates )[::-1]
+	max_rates  = np.array(max_rates )[::-1]
+	
+	mean_rates = mean_rates[indx]
+	min_rates  = min_rates[indx]
+	max_rates  = max_rates[indx]
+	
+	out_str += util.print_R_vec("\nnet_rate",mean_rates)
+	out_str += util.print_R_vec("\nnet_minHPD",np.array(min_rates))
+	out_str += util.print_R_vec("\nnet_maxHPD",np.array(max_rates))
 	out_str += "\nplot(time,time,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = 'Net Rate', xlab = 'Time',lwd=2, main='%s', col= '%s' )" \
-			% (min(0,1.1*np.nanmin(min_rates)),1.1*np.nanmax(max_rates),minXaxis,maxXaxis,plot_title,col) 
+			% (min(0,1.1*np.nanmin(min_rates)),1.1*np.nanmax(max_rates),-maxXaxis,-minXaxis,plot_title,col) 
 	out_str += "\npolygon(c(time, rev(time)), c(net_maxHPD, rev(net_minHPD)), col = alpha('%s',0.3), border = NA)" % (col)
 	out_str += "\nlines(time,net_rate, col = '%s', lwd=2)" % (col)
 	out_str += "\nabline(h=0,lty=2)\n"
@@ -385,7 +396,7 @@ def plot_net_rate(resS,resE,col,min_age,max_age,plot_title,n_bins):
 	return out_str
 
 
-def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,max_age=0,logT=0):
+def plot_marginal_rates(path_dir,name_tag="",bin_size=0.,burnin=0.2,min_age=0,max_age=0,logT=0):
 	direct="%s/*%s*mcmc.log" % (path_dir,name_tag)
 	files=glob.glob(direct)
 	files=np.sort(files)
@@ -396,6 +407,7 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 	if logT==1: outname = "Log_"
 	else: outname = ""
 	if max_age>0: outname+= "t%s" % (int(max_age))
+	if min_age>0: outname+= "-%s" % (int(min_age))
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
 		wd_forward = os.path.abspath(wd).replace('\\', '/')
 		r_str = "\n\npdf(file='%s/%sRTT_plots.pdf',width=10, height=15)\npar(mfrow=c(3,2))\nlibrary(scales)" % (wd_forward,outname)
@@ -410,11 +422,13 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 			min_age_t = np.max(tbl[:,head.index("death_age")])
 			print "\nAge range:",max_age_t, min_age_t
 			if max_age==0: max_age=max_age_t
+			print bin_size 
 			if bin_size>0:
 				nbins = int((max_age_t-min_age_t)/float(bin_size))
 			else:
 				nbins = 100
-				bin_size = (max_age_t-min_age_t)/100.
+				bin_size = (min(max_age,max_age_t)-max(min_age_t,min_age))/100.
+			print bin_size, nbins
 			colors = ["#4c4cec","#e34a33","#504A4B","#756bb1"] # sp and ex rate and net div rate
 			# sp file
 			f_name = mcmc_file.replace("mcmc.log","sp_rates.log")
