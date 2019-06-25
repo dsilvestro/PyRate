@@ -657,7 +657,7 @@ typedef struct {
 	double p, Bi;
 } resultComputeP_t;
 
-const double LOG_OF_4 = log(4);
+const double LOG_OF_4 = log(4.0);
 
 resultComputeP_t computeP(int i, double t,
 												  const std::vector<double> &intervalAs,
