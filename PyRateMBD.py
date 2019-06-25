@@ -54,7 +54,7 @@ p.add_argument('-minT',     type=float,   help='Min age (truncate data)', defaul
 p.add_argument('-out',   type=str,     help='tag added to output file', default="", metavar="")
 p.add_argument('-bound', type=float,   help='absolute boundaries to local shrinkage (0 +/- bound)', default=np.inf, metavar=np.inf)
 p.add_argument('-rmDD',  type=int,     help='model (0: analysis includes self-diversity-dependence, 1: analysis excludes selfdiversity-dependence', default=0, metavar=0)
-p.add_argument('-hsp',  type=int,     help='1: use Horshoe prior; 0: fixed prior', default=1, metavar=1)
+p.add_argument('-hsp',  type=int,     help='1: use Horshoe prior; 0: fixed prior (gamma conjugate prior on precision)', default=1, metavar=1)
 p.add_argument('-birth_model',  type=int,     help='1: use birth-only process', default=0, metavar=0)
 p.add_argument('-death_model',  type=int,     help='1: use death-only process', default=0, metavar=0)
 p.add_argument('-ignore_clade_col',  type=int,     help='1: ignore clade assignement (clades currently not supported)', default=1, metavar=1)
