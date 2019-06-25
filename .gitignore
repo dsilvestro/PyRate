@@ -2,3 +2,5 @@
 *.pyc
 
 *.log
+*.pyc
+example_files/DES_input_data/.Rapp.history
