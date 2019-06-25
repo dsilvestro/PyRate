@@ -240,7 +240,6 @@ extract.ages.tbl <- function(file = NULL,sep="\t", extant_species = c(), replica
 }
 
 extract.ages.14C <- function(file,outname = "_PyRate"){
-	file = "/Users/danielesilvestro/Desktop/UCLA_projects/Erik_PLOSone/sample_results_calib.txt"
 	dat <- read.table(file, header=T, stringsAsFactors=F, row.names=NULL, sep="\t", strip.white=T)
 	fname <- no.extension(basename(file))
 	outfile <- paste(dirname(file), "/", fname, outname, ".py", sep="")
