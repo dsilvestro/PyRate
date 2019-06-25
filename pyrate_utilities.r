@@ -244,7 +244,7 @@ extract.ages.14C <- function(file,outname = "_PyRate"){
 	fname <- no.extension(basename(file))
 	outfile <- paste(dirname(file), "/", fname, outname, ".py", sep="")
 
-	dat[,1] <- gsub("[[:blank:]]{1,}","_", dat1[,1])
+	dat[,1] <- gsub("[[:blank:]]{1,}","_", dat[,1])
 
 
 	colnames(dat)[1] = "Lineage"
