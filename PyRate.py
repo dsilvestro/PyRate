@@ -3949,7 +3949,9 @@ if len(args.SE_stats)>0:
 	quit()
 
 if args.ltt>0:
-	plot_ltt(se_tbl_file,plot_type=args.ltt,rescale=args.rescale, step_size=args.grid_plot)
+	grid_plot = args.grid_plot
+	if grid_plot==0: grid_plot=0.1
+	plot_ltt(se_tbl_file,plot_type=args.ltt,rescale=args.rescale, step_size=grid_plot)
 
 twotraitBD = 0
 if args.twotrait == 1:
