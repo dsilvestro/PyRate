@@ -540,3 +540,9 @@ def get_binned_continuous_variable(timebins, var_file):
 		mean_var.append(mean(values[np.intersect1d(in_range_M,in_range_m)]))
 	
 	return np.array(mean_var)
+
+def get_gamma_rates(a,YangGammaQuant,pp_gamma_ncat):
+	b=a
+	m = gdtrix(b,a,YangGammaQuant) # user defined categories
+	s=pp_gamma_ncat/sum(m) # multiplier to scale the so that the mean of the discrete distribution is one
+        return array(m)*s # SCALED VALUES
