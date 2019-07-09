@@ -6,6 +6,7 @@ np.set_printoptions(suppress=True) # prints floats, no scientific notation
 np.set_printoptions(precision=3) # rounds all array elements to 3rd digit
 import random as rand
 from itertools import *
+from scipy.special import gdtr, gdtrix
 
 def powerset(iterable):
 	# powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)
