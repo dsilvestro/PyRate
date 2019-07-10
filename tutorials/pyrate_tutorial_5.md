@@ -113,6 +113,7 @@ For instance you can test sea level as a predictor of dispersal and a climate pr
 
 #### DES analysis with heterogeneity in preservation rates across taxa
 You can include differences in preservation rates across taxa. The command `-mG` specifies a model where the mean preservation rate across all taxa equals q and the heterogeneity is given by a discretized Gamma distribution with `-ncat` categories.
+
 `./PyRateDES2.py -d input_data.txt -A 2 -mG -ncat 4 -TdD -TdE`
 
 ##### The likelihoods of different models (with different predictors or rate shifts) can be compared to perform model testing, for example using AIC scores. 
