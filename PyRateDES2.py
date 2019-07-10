@@ -155,6 +155,11 @@ else: model_DUO= 0
 argsG = args.mG
 pp_gamma_ncat = args.ncat
 
+if argsG != "" and args.DdE or argsG != "" and args.cov_and_dispersal:
+	sys.exit("Preservation heterogeneity not compatible with dispersal dependent extinction")
+if argsG != "" and args.DivdD or argsG != "" and args.DivdE:
+	sys.exit("Preservation heterogeneity not compatible with dispersal dependence")
+
 # if args.const==1:
 # 	equal_d = True # this makes them symmatric not equal!
 # 	equal_e = True # this makes them symmatric not equal!
@@ -656,7 +661,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 			if args.lgE and r[2] < .5: # update logistic mid point
 				x0_logistic=update_parameter_uni_2d_freq(x0_logistic_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)
 			else:	
-				covar_par=update_parameter_uni_2d_freq(covar_par_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)
+				covar_par=update_parameter_uni_2d_freq(covar_par_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)				
 			
 		else:
 			if equal_e is True:
@@ -679,12 +684,8 @@ for it in range(n_generations * len(scal_fac_TI)):
 		r_vec[:,3]=1
 		
 		# CHECK THIS: CHANGE TO VALUE CLOSE TO 1? i.e. for 'ghost' area 
-		if args.data_in_area == 1: 
-			r_vec[:,2] = small_number 
-			covar_par[[0,3]] = 0
-		elif  args.data_in_area == 2: 
-			r_vec[:,1] = small_number
-			covar_par[[1,2]] = 0		
+		if args.data_in_area == 1: r_vec[:,2] = small_number 
+		elif  args.data_in_area == 2: r_vec[:,1] = small_number
 	elif it>0:
 		gibbs_sample = 1
 		prior_exp_rate = gibbs_sampler_hp(np.concatenate((dis_rate_vec,ext_rate_vec)),hp_alpha,hp_beta)
@@ -724,6 +725,11 @@ for it in range(n_generations * len(scal_fac_TI)):
 		time_var_d1,time_var_d2=time_var,time_var
 
 	if args.lgD: transf_d = 2
+	
+	if args.data_in_area == 1: 
+		covar_par[[0,3]] = 0
+	elif  args.data_in_area == 2: 
+		covar_par[[1,2]] = 0
 	
 
 	marginal_dispersal_rate_temp = get_dispersal_rate_through_time(dis_vec,time_var_d1,time_var_d2,covar_par,x0_logistic,transf_d)
