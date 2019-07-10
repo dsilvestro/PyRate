@@ -728,8 +728,10 @@ for it in range(n_generations * len(scal_fac_TI)):
 	
 	if args.data_in_area == 1: 
 		covar_par[[0,3]] = 0
+		x0_logistic[[0,3]] = 0
 	elif  args.data_in_area == 2: 
 		covar_par[[1,2]] = 0
+		x0_logistic[[1,2]] = 0
 	
 
 	marginal_dispersal_rate_temp = get_dispersal_rate_through_time(dis_vec,time_var_d1,time_var_d2,covar_par,x0_logistic,transf_d)
