@@ -95,8 +95,7 @@ The `-TdD` and `-TdE` commands specify time-dependent dispersal and extinction r
 
 The command `-A 2` specifies that you want to use a maximum likelihood algorithm. 
 
-Note that if `input_data.txt` is in not in he same directory as `PyRateDES2.py` you need to specify its full path. The output files will be saved where the 
-
+Note that if `input_data.txt` is in not in he same directory as `PyRateDES2.py` you need to specify its full path. The output files will be saved where the `input_data.txt` was.
 
 #### Covariate D/E models
 You can use a time variable predictor (e.g. sea level or temperature) and model dispersal and/or extinction as an exponential function of the predictor. 
@@ -111,6 +110,11 @@ You can use different predictors for dispersal and extinction, e.g.
 `./PyRateDES2.py -d input_data.txt -A 2 -qtimes 5.3 2.6 -varD predictor_file1.txt -varE predictor_file2.txt`
 
 For instance you can test sea level as a predictor of dispersal and a climate proxy as a predictor for extinction. 
+
+#### DES analysis with heterogeneity in preservation rates across taxa
+You can include differences in preservation rates across taxa. The command `-mG` specifies a model where the mean preservation rate across all taxa equals q and the heterogeneity is given by a discretized Gamma distribution with `-ncat` categories.
+
+`./PyRateDES2.py -d input_data.txt -A 2 -mG -ncat 4 -TdD -TdE`
 
 ##### The likelihoods of different models (with different predictors or rate shifts) can be compared to perform model testing, for example using AIC scores. 
 

@@ -94,10 +94,11 @@ p.add_argument('-TdE',      help='Use Time dependent Extinction', action='store_
 p.add_argument('-lgD',      help='Use logistic correlation Dispersal',  action='store_true', default=False)
 p.add_argument('-lgE',      help='Use logistic correlation Extinction', action='store_true', default=False)
 p.add_argument('-linE',      help='Use linear correlation Extinction', action='store_true', default=False)
-p.add_argument('-cov_and_dispersal', help='Model with symmetric exticntion covarying with both a proxy and dispersal', action='store_true', default=False)
+p.add_argument('-cov_and_dispersal', help='Model with symmetric extinction covarying with both a proxy and dispersal', action='store_true', default=False)
 #p.add_argument('-const', type=int, help='Constant d/e rate ()',default=0)
 p.add_argument('-fU',     type=float, help='Tuning - update freq. (d, e, s)', default=[0, 0, 0], nargs=3)
-
+p.add_argument("-mG", help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
+p.add_argument("-ncat", type=int, help='Model - Number of categories for Gamma heterogeneity', default=4, metavar=4)
 
 
 
@@ -151,6 +152,13 @@ const_q = args.constq
 if args.cov_and_dispersal:
 	model_DUO= 1
 else: model_DUO= 0
+argsG = args.mG
+pp_gamma_ncat = args.ncat
+
+if argsG != "" and args.DdE or argsG != "" and args.cov_and_dispersal:
+	sys.exit("Preservation heterogeneity not compatible with dispersal dependent extinction")
+if argsG != "" and args.DivdD or argsG != "" and args.DivdE:
+	sys.exit("Preservation heterogeneity not compatible with dispersal dependence")
 
 # if args.const==1:
 # 	equal_d = True # this makes them symmatric not equal!
@@ -284,6 +292,7 @@ else:
 	for i in constraints_covar: model_tag+= "_%s" % (i)
 	if len(args.symCov)>0: model_tag+= "_symCov"
 	for i in args.symCov: model_tag+= "_%s" % (i)
+	if argsG is True: model_tag+= "_G" 
 		
 	out_log ="%s/%s_%s%s%s%s%s.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag,model_tag,args.out)
 	out_rates ="%s/%s_%s%s%s%s%s_marginal_rates.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag,model_tag,args.out)
@@ -418,6 +427,10 @@ elif  args.data_in_area == 2:
 
 print np.shape(ext_rate_vec)
 
+if argsG is True:
+        YangGammaQuant = (np.linspace(0,1,pp_gamma_ncat+1)-np.linspace(0,1,pp_gamma_ncat+1)[1]/2)[1:]
+alpha = array([10.]) # little sampling heterogeneity 
+
 #############################################
 ######               MCMC              ######
 #############################################
@@ -431,6 +444,8 @@ if args.lgD: head += "\tk_d12\tk_d21\tx0_d12\tx0_d21"
 else: head += "\tcov_d12\tcov_d21"
 if args.lgE: head += "\tk_e1\tk_e2\tx0_e1\tx0_e2"
 else: head += "\tcov_e1\tcov_e2"
+if argsG is True:
+        head+= "\talpha"
 head+="\thp_rate\tbeta"
 
 head=head.split("\t")
@@ -610,6 +625,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		# r_vec_A=     exp(-np.array([0,1.548902792,1.477082486,1,0,1.767267039,1.981165598,1,0,2.726853331,3.048116889,1])*.5).reshape(3,4) # r_vec  
 		likA=-inf
 		priorA=-inf
+		alphaA = alpha
 
 	dis_rate_vec = dis_rate_vec_A + 0.
 	ext_rate_vec = ext_rate_vec_A + 0.
@@ -645,7 +661,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 			if args.lgE and r[2] < .5: # update logistic mid point
 				x0_logistic=update_parameter_uni_2d_freq(x0_logistic_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)
 			else:	
-				covar_par=update_parameter_uni_2d_freq(covar_par_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)
+				covar_par=update_parameter_uni_2d_freq(covar_par_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)				
 			
 		else:
 			if equal_e is True:
@@ -656,6 +672,8 @@ for it in range(n_generations * len(scal_fac_TI)):
 	
 	elif r[0] <=update_freq[2]: # SAMPLING RATES
 		r_vec=update_parameter_uni_2d_freq(r_vec_A,d=0.1*scale_proposal,f=update_rate_freq)
+		if argsG is True:
+			alpha,hasting=update_multiplier_proposal(alphaA,d=1.1)
 		r_vec[:,0]=0
 		#--> CONSTANT Q IN AREA 2
                 if const_q ==1: r_vec[:,1] = r_vec[1,1]
@@ -667,7 +685,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		
 		# CHECK THIS: CHANGE TO VALUE CLOSE TO 1? i.e. for 'ghost' area 
 		if args.data_in_area == 1: r_vec[:,2] = small_number 
-		elif  args.data_in_area == 2: r_vec[:,1] = small_number		
+		elif  args.data_in_area == 2: r_vec[:,1] = small_number
 	elif it>0:
 		gibbs_sample = 1
 		prior_exp_rate = gibbs_sampler_hp(np.concatenate((dis_rate_vec,ext_rate_vec)),hp_alpha,hp_beta)
@@ -707,6 +725,13 @@ for it in range(n_generations * len(scal_fac_TI)):
 		time_var_d1,time_var_d2=time_var,time_var
 
 	if args.lgD: transf_d = 2
+	
+	if args.data_in_area == 1: 
+		covar_par[[0,3]] = 0
+		x0_logistic[[0,3]] = 0
+	elif  args.data_in_area == 2: 
+		covar_par[[1,2]] = 0
+		x0_logistic[[1,2]] = 0
 	
 
 	marginal_dispersal_rate_temp = get_dispersal_rate_through_time(dis_vec,time_var_d1,time_var_d2,covar_par,x0_logistic,transf_d)
@@ -806,11 +831,28 @@ for it in range(n_generations * len(scal_fac_TI)):
 			lik=0
 			if r[0] < update_freq[1] or it==0:
 				w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
-			for l in list_taxa_index:
-				Q_index_temp = np.array(range(0,len(w_list)))
-				l_temp = calc_likelihood_mQ_eigen([delta_t,r_vec,w_list,vl_list,vl_inv_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp])
-				#print l,  l_temp
-				lik +=l_temp 
+			if argsG is False:
+				for l in list_taxa_index:
+					Q_index_temp = np.array(range(0,len(w_list)))
+					l_temp = calc_likelihood_mQ_eigen([delta_t,r_vec,w_list,vl_list,vl_inv_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp])
+					#print l,  l_temp
+					lik +=l_temp 
+			else:
+				for l in list_taxa_index:
+					Q_index_temp = np.array(range(0,len(w_list)))
+					YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
+	                	        lik_vec = np.zeros(pp_gamma_ncat)
+                                        for i in range(pp_gamma_ncat): 
+                                        	r_vec_Gamma = exp(-bin_size * YangGamma[i] * -log(r_vec)/bin_size) # convert to probability scale
+                                                r_vec_Gamma[:,0] = 0
+                                                r_vec_Gamma[:,3] = 1
+                                                if args.data_in_area == 1:	                                               
+	                                                r_vec_Gamma[:,2] = small_number
+                                                elif  args.data_in_area == 2:
+	                                                r_vec_Gamma[:,1] = small_number
+	                                        lik_vec[i] =  calc_likelihood_mQ_eigen([delta_t,r_vec_Gamma,w_list,vl_list,vl_inv_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp])
+                                        lik2= lik_vec-np.max(lik_vec)
+                                        lik += sum(log(sum(exp(lik2))/pp_gamma_ncat)+np.max(lik_vec))
 			#print "elapsed time:", time.time()-t1
 		else:
 			#t1= time.time()
@@ -819,9 +861,26 @@ for it in range(n_generations * len(scal_fac_TI)):
 			#	lik += calc_likelihood_mQ([delta_t,r_vec,Q_list_old,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index])
 			#print "lik1:", lik
 			lik=0
-			for l in list_taxa_index:
-				Q_index_temp = np.array(range(0,len(Q_list)))
-				lik += calc_likelihood_mQ([delta_t,r_vec,Q_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp])
+			if argsG is False:
+				for l in list_taxa_index:
+					Q_index_temp = np.array(range(0,len(Q_list)))
+					lik += calc_likelihood_mQ([delta_t,r_vec,Q_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp])
+			else:
+				for l in list_taxa_index:
+					Q_index_temp = np.array(range(0,len(Q_list)))
+		                        YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
+	                	        lik_vec = np.zeros(pp_gamma_ncat)
+	                	        for i in range(pp_gamma_ncat): 
+                                                r_vec_Gamma = exp(-bin_size * YangGamma[i] * -log(r_vec)/bin_size) # convert to probability scale
+                                                r_vec_Gamma[:,0] = 0
+                                                r_vec_Gamma[:,3] = 1
+                                                if args.data_in_area == 1:	                                               
+	                                                r_vec_Gamma[:,2] = small_number
+                                                elif  args.data_in_area == 2:
+	                                                r_vec_Gamma[:,1] = small_number
+                                                lik_vec[i] = calc_likelihood_mQ([delta_t,r_vec_Gamma,Q_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp])
+                                        lik2= lik_vec-np.max(lik_vec)
+                                        lik += sum(log(sum(exp(lik2))/pp_gamma_ncat)+np.max(lik_vec))
 			#print "lik2",lik
 			#print "elapsed time:", time.time()-t1
 		
@@ -832,14 +891,48 @@ for it in range(n_generations * len(scal_fac_TI)):
 			#t1= time.time()
 			w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
 			Q_index_temp = np.array(range(0,len(w_list)))
-			args_mt_lik = [ [delta_t,r_vec,w_list,vl_list,vl_inv_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp] for l in list_taxa_index ]
-			lik= sum(np.array(pool_lik.map(calc_likelihood_mQ_eigen, args_mt_lik)))
+			if argsG is False:				
+				args_mt_lik = [ [delta_t,r_vec,w_list,vl_list,vl_inv_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp] for l in list_taxa_index ]
+				lik= sum(np.array(pool_lik.map(calc_likelihood_mQ_eigen, args_mt_lik)))
+			else:
+				YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
+                                liktmp = np.zeros((pp_gamma_ncat, nTaxa)) # row: ncat column: species
+                                for i in range(pp_gamma_ncat): 
+                                        r_vec_Gamma = exp(-bin_size * YangGamma[i] * -log(r_vec)/bin_size) # convert to probability scale
+                                        r_vec_Gamma[:,0] = 0
+                                        r_vec_Gamma[:,3] = 1
+                                        if args.data_in_area == 1:	                                               
+	                                        r_vec_Gamma[:,2] = small_number
+                                        elif  args.data_in_area == 2:
+	                                        r_vec_Gamma[:,1] = small_number
+                                        args_mt_lik = [ [delta_t,r_vec_Gamma,w_list,vl_list,vl_inv_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp] for l in list_taxa_index ]
+                                        liktmp[i,:] = np.array(pool_lik.map(calc_likelihood_mQ_eigen, args_mt_lik))
+                                liktmpmax = np.amax(liktmp, axis = 0)
+                                liktmp2 = liktmp - liktmpmax
+                                lik = sum(log(sum( exp(liktmp2), axis = 0 )/pp_gamma_ncat)+liktmpmax)
 			#print "l3",lik
 			#print "elapsed time:", time.time()-t1
 		else:
 			#t1= time.time()
-			args_mt_lik = [ [delta_t,r_vec,Q_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index] for l in list_taxa_index ]
-			lik= sum(np.array(pool_lik.map(calc_likelihood_mQ, args_mt_lik)))
+			if argsG is False:
+				args_mt_lik = [ [delta_t,r_vec,Q_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index] for l in list_taxa_index ]
+				lik= sum(np.array(pool_lik.map(calc_likelihood_mQ, args_mt_lik)))
+			else:
+				YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
+                                liktmp = np.zeros((pp_gamma_ncat, nTaxa)) # row: ncat column: species
+                                for i in range(pp_gamma_ncat): 
+                                        r_vec_Gamma = exp(-bin_size * YangGamma[i] * -log(r_vec)/bin_size) # convert to probability scale
+                                        r_vec_Gamma[:,0] = 0
+                                        r_vec_Gamma[:,3] = 1
+                                        if args.data_in_area == 1:	                                               
+	                                        r_vec_Gamma[:,2] = small_number
+                                        elif  args.data_in_area == 2:
+	                                        r_vec_Gamma[:,1] = small_number
+					args_mt_lik = [ [delta_t,r_vec_Gamma,Q_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index] for l in list_taxa_index ]
+					liktmp[i,:] = np.array(pool_lik.map(calc_likelihood_mQ, args_mt_lik))
+         			liktmpmax = np.amax(liktmp, axis = 0)
+                                liktmp2 = liktmp - liktmpmax
+                                lik = sum(log(sum( exp(liktmp2), axis = 0 )/pp_gamma_ncat)+liktmpmax)
 			#print "l4",lik
 			#print "elapsed time:", time.time()-t1
 
@@ -877,13 +970,14 @@ for it in range(n_generations * len(scal_fac_TI)):
 		x0_logistic_A=x0_logistic
 		marginal_rates_A = marginal_rates_temp
 		numD12A,numD21A = numD12,numD21
+		alphaA = alpha
 	
 	log_to_file=0	
 	if it % print_freq == 0:
 		sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
 		q_rates = -log(sampling_prob)/bin_size
 		print it,"\t",likA,lik,scal_fac_TI[scal_fac_ind]
-		print "\td:", dis_rate_vec_A.flatten(), "e:", ext_rate_vec_A.flatten(),"q:",q_rates
+		print "\td:", dis_rate_vec_A.flatten(), "e:", ext_rate_vec_A.flatten(),"q:",q_rates,"alpha:",alphaA
 		print "\ta/k:",covar_par_A,"x0:",x0_logistic_A
 	if it % sampling_freq == 0 and it >= burnin and runMCMC == 1:
 		log_to_file=1
@@ -917,6 +1011,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 			ML_ext_rate_vec = ext_rate_vec_A+0.
 			ML_covar_par    = covar_par_A   +0.
 			ML_r_vec        = r_vec_A       +0.
+			ML_alpha        = alphaA        +0.
 			ml_it=0
 		else:	ml_it +=1
 		# exit when ML convergence reached
@@ -925,7 +1020,8 @@ for it in range(n_generations * len(scal_fac_TI)):
 			dis_rate_vec_A = ML_dis_rate_vec
 			ext_rate_vec_A = ML_ext_rate_vec
 			covar_par_A    = ML_covar_par   
-			r_vec_A        = ML_r_vec       
+			r_vec_A        = ML_r_vec   
+			alphaA         = ML_alpha    
 			#if ml_it==100:
 			print scale_proposal, "changed to:",
 			scale_proposal = 0.1
@@ -948,6 +1044,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		if args.lgD: log_state = log_state+list(x0_logistic_A[0:2])
 		log_state = log_state+list(covar_par_A[2:4])	
 		if args.lgE: log_state = log_state+list(x0_logistic_A[2:4])
+		if argsG: log_state = log_state + list(alpha)
 		log_state = log_state+[prior_exp_rate]+[scal_fac_TI[scal_fac_ind]]
 		wlog.writerow(log_state)
 		logfile.flush()
