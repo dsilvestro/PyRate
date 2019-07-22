@@ -67,7 +67,6 @@ This can be done by specifying a "Site" column in the input data, with a number 
 | ------------- |:-------------:| -----:| -----:| -----:|
 Canis\_ferox | extinct | 4.9    | 10.3 | 1
 Canis\_lepophagus | extinct | 4.9 | 10.3  | 1
-Canis\_ferox | extinct | 4.9 | 10.3  | 1
 Canis\_ferox | extinct | 4.9 | 10.3  | 2
 Canis\_ferox | extinct | 4.9 | 5.3  | 3
 Canis\_edwardii | extinct | 0.3 | 4.9  | 4
