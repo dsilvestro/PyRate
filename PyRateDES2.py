@@ -155,9 +155,9 @@ else: model_DUO= 0
 argsG = args.mG
 pp_gamma_ncat = args.ncat
 
-if argsG != "" and args.DdE or argsG != "" and args.cov_and_dispersal:
+if argsG == True and args.DdE or argsG == True and args.cov_and_dispersal:
 	sys.exit("Preservation heterogeneity not compatible with dispersal dependent extinction")
-if argsG != "" and args.DivdD or argsG != "" and args.DivdE:
+if argsG == True and args.DivdD or argsG == True and args.DivdE:
 	sys.exit("Preservation heterogeneity not compatible with dispersal dependence")
 
 # if args.const==1:
