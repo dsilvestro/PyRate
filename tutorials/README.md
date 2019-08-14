@@ -24,6 +24,7 @@
 * [Diversity dependent birth-death models](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#diversity-dependent-birth-death-models)
 * [Correlation with a time-continuous variable](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#correlation-with-a-time-continuous-variable)
 * [Model testing using marginal likelihoods](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#model-testing-using-thermodynamic-integration-ti)
+* [Multiple-clade diversity dependent model](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#the-multiple-clade-diversity-dependent-model-mcdd)
 * [Multivariate birth-death model (multiple time-continuous correlates)](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#the-multivariate-birth-death-model-mbd)
 
 ### Other birth-death models
