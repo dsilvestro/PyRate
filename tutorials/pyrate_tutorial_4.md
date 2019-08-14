@@ -11,6 +11,27 @@
 * [Return to Index](https://github.com/dsilvestro/PyRate/tree/master/tutorials#pyrate-tutorials---index) 
 ***
 
+# The multiple-clade diversity-dependent model (MCDD)
+The original MCDD model described [here](https://www.pnas.org/content/112/28/8684) is implemented in the program `PyRateMCDD.py` and requires a single input file (see also [example file](https://github.com/dsilvestro/PyRate/blob/master/example_files/Carnivores_MCDD.txt)), which is a tab-separated table with 4 columns (or more if you have multiple replicates) and one row per species:
+
+* The first column identifies the clade the species belongs to, starting from 0, 1, 2, etc.  
+* The second column is a species identifier  
+* The third and fourth columns are the times of origination and extinction of the species as inferred in a previous PyRate analysis (these can be generated using the `-ginput` command as shown [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#generate-input-file-for-pyratecontinuous))
+
+If you have multiple replicates of the initial PyRate analysis, these can be added to the MCDD input file (see example file).
+
+One the input file is ready, you can run an analysis using:
+
+`PyRateMCDD.py -d /example_files/Carnivores_MCDD.txt -n 10000000 -s 10000`
+
+where the flags `-n` and `-s` specify the number of MCMC iterations and the sampling frequency, respectively. By default, the program analyzes all clades at once. However, you can also analyze a single clade at time (i.e. the birth-death process of a specific clade with diversity dependencies from its own diversity and the diversity of all other clades) using the flag `-c`. For example 
+
+`PyRateMCDD.py -d /example_files/Carnivores_MCDD.txt -n 10000000 -s 10000 -c 0` 
+
+will estimates the diversity dependent effects from all clades affecting the speciation and extinction of the first clade. 
+
+the MCDD model implements a Bayesian variable selection algorithm that can switch on and off the diversity dependent parameters depending on how important they are to explain rate variation using indicators that can take a value of 0 or 1. An alternative method that can be used to infer multiple-clade diversity dependence is implemented in the multivariate birth death model (MBD) described below and uses the horseshoe prior algorithm to perform variable selection. The performance of the two methods was compared in [this paper](http://www.evolutionary-ecology.com/abstracts/v18/3010.html), suggesting that the latter might be preferable.  
+
 # The Multivariate Birth-Death model (MBD)
 
 The MBD model allow the estimation of speciation and extinction rates as a function of multiple time-continuous variables [(Lehtonen, Silvestro et al. 2017)](https://www.nature.com/articles/s41598-017-05263-7). The model assumes linear or exponential functions linking the temporal variation of birth-death rates with changes in one or more variables.
@@ -39,6 +60,9 @@ To launch an MBD analysis, you must provide the input file and the path to all p
 
 where `-m 1` specifies the type of correlation model, the options being `-m 0` for exponential correlations (default) and `-m 1` for linear correlations.
 The flag `-var` is used to specify the path to a folder containing all predictors.
+
+### Using the MBD model to run multiple-clade diversity dependent analysis
+To use the MBD model in a multiple-clade diversity dependence analysis you should provide the diversity trajectories of all clades as predictors. Diversity trajectories files in the correct format can be generated using PyRate's `-ltt` [command](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#plot-range-through-diversity-trajectory-lineage-through-time-plot).
 
 ### Additional options  
 * `-out outname` add a string to output file names   

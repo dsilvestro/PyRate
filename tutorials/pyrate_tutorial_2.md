@@ -49,7 +49,9 @@ The `...se_ext.txt` file can be used to produce lineage through time (LTT) plots
 
 `python PyRate.py -d Canidae_1_G_se_est.txt -ltt 1`
 
-This plots the mean diversity through time, with the min and max range inferred from the replicates and shown as shaded area. When using
+This plots the mean diversity through time, with the min and max range inferred from the replicates and shown as shaded area. The command generates 3 output files: 1) a **pdf file** with the LTT plot, 2) a **table with the estimated diversity trajectory**, and 3) the **R script** used to generate the plot.
+
+When using
 
 `python PyRate.py -d Canidae_1_G_se_est.txt -ltt 2`
 
