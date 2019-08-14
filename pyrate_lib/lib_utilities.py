@@ -133,7 +133,7 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 				te = out_list[:,3+count]
 				print np.shape(ts)
 				title = name_file
-				time_events=sort(np.concatenate((ts,te),axis=0))[::-1]
+				time_events=sort(np.unique(np.concatenate((ts,te),axis=0)))[::-1]
 				div_trajectory = lib_DD_likelihood.get_DT(time_events,ts,te)
 
 				# R - plot lineages
