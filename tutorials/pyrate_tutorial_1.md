@@ -233,4 +233,4 @@ or a min age boundary shift using:
 
 `python PyRate.py <data_set> -A 4 -edgeShift inf 0`
 
-When summarizing the results, only rates estimated within the time window should be considered.
+When summarizing the results, only rates estimated within the time window should be considered, e.g. using the [`plotRJ` command](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#plot-rates-through-time-and-rate-shifts) with the flags `-root_plot` and `-min_age_plot`.
