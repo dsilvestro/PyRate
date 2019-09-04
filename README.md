@@ -4,7 +4,7 @@
 PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-affero-general-public-license-v3-(agpl-3.0)#summary).
 
 #### The program's documentation is available here: 
-* [Tutorials](https://github.com/dsilvestro/PyRate/tree/master/tutorials) (work in progress; Older [Wiki pages](https://github.com/dsilvestro/PyRate/wiki) are still available, although updated documentation is being only added to the Tutorials)
+* [PyRate Tutorials](https://github.com/dsilvestro/PyRate/tree/master/tutorials) (Wiki pages are no longer being updated)
 * [System requirements](https://github.com/dsilvestro/PyRate/wiki#compatibility-and-installation) to run the program and [Instructions](https://github.com/dsilvestro/PyRate/blob/master/pyrate_lib/fastPyRateC/README.md) to install the fastPyRateC library 
 * For questions, suggestions or bugs [contact us](mailto:pyrate.help@gmail.com)
 
@@ -52,5 +52,5 @@ PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-af
 
 * Silvestro D., Warnock R., Gavryushkina A. & Stadler T. (2018) Closing the gap between palaeontological and neontological speciation and extinction rate estimates. Nature Communications, [doi: 10.1038/s41467-018-07622-y](https://www.nature.com/articles/s41467-018-07622-y).
 
-* See tutorial [4](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md)
+* See tutorial [4](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#the-birth-death-chronospecies-bdc-model)
 
