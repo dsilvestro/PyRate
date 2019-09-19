@@ -4845,10 +4845,5 @@ else:
 	res=start_MCMC(0)
 print "\nfinished at:", time.ctime(), "\nelapsed time:", round(time.time()-t1,2), "\n"
 logfile.close()
-if log_marginal_rates_to_file==1:
-	marginal_file.close()
 
-#cmd="cd %s && cd .. && tar -czf %s.tar.gz %s;" % (path_dir, folder_name, folder_name)
-#print cmd
-#os.system(cmd)
 quit()

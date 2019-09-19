@@ -674,6 +674,8 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 		else: 
 			prior = 0
 	prior += prior_exponential(l0,rate=hypRA) + prior_exponential(m0,rate=hypRA)  # prior_normal_tau(Garray,precision=hypGA)
+	if lagged_model:
+		prior += prior_exponential(lag_time,rate=.1)
 	
 	if (lik_alter + prior + hasting) - postA >= log(rand.random()) or iteration==0 or GIBBS == 1:
 		postA=lik_alter+prior

@@ -2,10 +2,11 @@ f = "/Users/danielesilvestro/Dropbox (Personal)/SpeciesConcept/empirical_fossil_
 f = "/Users/danielesilvestro/Dropbox (Personal)/SpeciesConcept/tree_fossil_pyrate/pyrate_mcmc_logs/Ruminant_occurrences_crown_1BD1-1_mcmc.log"
 f = "/Users/danielesilvestro/Dropbox (Personal)/SpeciesConcept/empirical_fossil_clades/pyrate_mcmc_logs/Sphenisciformes_1BD1-1_mcmc.log"
 f = "/Users/danielesilvestro/Dropbox (Personal)/SpeciesConcept/tree_fossil_pyrate/spconcepts/fern030316_1BD1-1_mcmc.log"
-	
+
+f = "/Users/danielesilvestro/Desktop/tests_software/conifer_Fabien/pyrate_mcmc_logs/Conifers_merged_10_BDMCMC_hppL_G_se_est_0_BD1-1_mcmc.log"	
 
 library(latex2exp)
-
+TeX = function(x){return(x)}
 plot_fossil_phylo <- function(mcmc_file){
 	print(mcmc_file)
 	t = read.table(mcmc_file,h=T)
@@ -275,6 +276,7 @@ plot_fossil_phylo_skyline <- function(mcmc_file,burnin=0.2,maxR_arg=0){
 
 pdf(file="/Users/danielesilvestro/Documents/Projects/SpeciesConcept/final_empirical_data/fern_skyline/fern_BDCskyline.pdf",width=10,height=10)
 mcmc_file = "/Users/danielesilvestro/Documents/Projects/SpeciesConcept/final_empirical_data/fern_skyline/fern030316_125myr_priorBD1-1_mcmc.log"
+mcmc_file = "/Users/danielesilvestro/Downloads/paleobioDB_turtles_1_GBD1-1_mcmc.log"
 plot_fossil_phylo_skyline(mcmc_file,0.1)
 dev.off()
 mcmc_file = "/Users/danielesilvestro/Documents/Projects/SpeciesConcept/final_empirical_data/fern_skyline/fern030316_125myrBD1-1_mcmc.log"
