@@ -11,17 +11,15 @@ PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-af
 
 #### The main methods are described here:
 
+* Silvestro D., Salamin N., Antonelli A., Meyer X. (2019) Improved estimation of macroevolutionary rates from fossil data using a Bayesian framework. Paleobiology,
+[doi:10.1017/pab.2019.23](https://doi.org/10.1017/pab.2019.23)
+
 * Silvestro D., Schnitzler J., Liow L.H., Antonelli A. and Salamin N. (2014) Bayesian Estimation of Speciation and Extinction from Incomplete Fossil Occurrence Data. Systematic Biology, [63, 349-367](https://academic.oup.com/sysbio/article/63/3/349/1650079).
 
 * Silvestro D., Salamin N., Schnitzler J. (2014) PyRate: A new program to estimate speciation and extinction rates from incomplete fossil record. Methods in Ecology and Evolution, [5, 1126-1131](http://onlinelibrary.wiley.com/doi/10.1111/2041-210X.12263/abstract).
  
-* See tutorials [1](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md) and [2](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md)
+* See tutorials [1](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md), [2](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md), and [3](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md)
 
-#### The RJMCMC algorithm is described here:
-* Silvestro D., Antonelli A., Salamin N., Meyer X. (2018) Improved estimation of macroevolutionary rates from fossil data using a Bayesian framework. bioRxiv,
-[doi:10.1101/316992](https://www.biorxiv.org/content/early/2018/05/09/316992)
-
-* See tutorial [3](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md)
 
 #### The MCDD and MBD models are described here: 
 
