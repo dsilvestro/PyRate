@@ -6,7 +6,7 @@ np.set_printoptions(precision=3)
 import scipy.stats
 #np.random.seed(1234)
 
-n_simulations = 100
+n_simulations = 1000
 if n_simulations==1:
 	save_mcmc_samples = 1
 else:
@@ -52,34 +52,38 @@ def calcHPD(data, level=0.95) :
 	return np.array([d[i], d[i+nIn-1]])
 
 
-logfile = open("est_root.log", "w") 
+logfile = open("est_root_epochs.log", "w") 
 if save_mcmc_samples:
 	text_str = "iteration\tlikelihood\tmu0\troot\tq"
 	logfile.writelines(text_str)
 else:
-	text_str = "iteration\tlikelihood\tmu0_true\troot_true\tq_med_true\tepsilon_true\troot_obs\tmu0\troot\troot_m\troot_M\tq"
+	text_str = "iteration\tlikelihood\tNobs\tmu0_true\troot_true\tq_med_true\tepsilon_true\troot_obs\tmu0\troot\troot_m\troot_M\tq"
 	logfile.writelines(text_str)
 	n_samples = int((n_iterations - burnin)/sampling_freq)
 
 for replicate in range(n_simulations):
 	# observed time bins
-	true_root = np.random.uniform(50,180)
-	mid_points = np.array([200,180,160,150,140,130,120,110,100.,80.,65,38,15.,10,5,0.7])
-
-	Nobs = 1000
+	true_root = np.random.uniform(50,200)
+	mid_points = np.loadtxt("/Users/danielesilvestro/Software/PyRate_github/example_files/epochs_q.txt")
+	#mid_points = np.array([0]+list(mid_points))
+	#mid_points= mid_points[0:-1] + np.diff(mid_points)/2.
+	
+	
+	Nobs = np.random.randint(500,5000)
 	x_0 = 1
 	true_mu0 = (Nobs-x_0)/true_root
 
 	# MAKE DIV TRAJECTORY
 	Ntrue = Nobs - mid_points[mid_points<true_root]*true_mu0
 	# add noise
-	true_epsilon = 0.25
+	true_epsilon = np.random.gamma(2.,0.12)
 	Ntrue = np.rint(np.exp(np.random.normal(np.log(Ntrue),true_epsilon)))
 	print(Ntrue)
 
 	# MAKE UP FOSSIL DATA
 	# sampling probability
-	true_q = np.random.gamma(1.01,.01,len(mid_points))[mid_points<true_root]
+	true_q = np.exp( np.random.normal(-5,0.5,len(mid_points)))[mid_points<true_root]
+	#np.random.gamma(1.01,.01,len(mid_points))[mid_points<true_root]
 	# preserved occs
 	x = np.rint(Ntrue*true_q)
 	# remove first x values if they are == 0
@@ -93,7 +97,6 @@ for replicate in range(n_simulations):
 	x = x[c:]
 	age_oldest_obs_occ = np.sort(mid_points)[len(x)-1]
 	print(x)
-	print(age_oldest_obs_occ)
 	print("true_q",true_q, np.max(true_q)/np.min(true_q))
 
 
@@ -138,11 +141,11 @@ for replicate in range(n_simulations):
 		mean_values = np.mean(out_array,0)
 		print(mean_values)
 		root_hpd = calcHPD(out_array[:,2])
-		print(root_hpd)
+		print(true_root, root_hpd, age_oldest_obs_occ,"\n")
 		
-		text_str = "iteration\tlikelihood\tmu0_true\troot_true\tq_avg_true\tepsilon_true\troot_obs\tmu0\troot\troot_m\troot_M\tq"
-		text_str = "\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % ( replicate, mean_values[0], true_mu0, true_root, np.median(true_q), \
-				true_epsilon, age_oldest_obs_occ, mean_values[1],mean_values[2],root_hpd[0],root_hpd[1],mean_values[2] )
+		text_str = "iteration\tlikelihood\tNobs\tmu0_true\troot_true\tq_med_true\tepsilon_true\troot_obs\tmu0\troot\troot_m\troot_M\tq"
+		text_str = "\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % ( replicate, mean_values[0],Nobs, true_mu0, true_root, np.median(true_q), \
+				true_epsilon, age_oldest_obs_occ, mean_values[1],mean_values[2],root_hpd[0],root_hpd[1],mean_values[3] )
 		logfile.writelines(text_str)
 		logfile.flush()
 	
