@@ -6,7 +6,7 @@ np.set_printoptions(precision=3)
 import scipy.stats
 #np.random.seed(1234)
 
-n_simulations = 1000
+n_simulations = 100
 if n_simulations==1:
 	save_mcmc_samples = 1
 else:
@@ -52,19 +52,15 @@ def calcHPD(data, level=0.95) :
 	return np.array([d[i], d[i+nIn-1]])
 
 
-logfile = open("est_root_epochs.log", "w") 
-if save_mcmc_samples:
-	text_str = "iteration\tlikelihood\tmu0\troot\tq"
-	logfile.writelines(text_str)
-else:
-	text_str = "iteration\tlikelihood\tNobs\tmu0_true\troot_true\tq_med_true\tepsilon_true\troot_obs\tmu0\troot\troot_m\troot_M\tq"
-	logfile.writelines(text_str)
-	n_samples = int((n_iterations - burnin)/sampling_freq)
+logfile = open("est_root_epochs_epsilon0.5.log", "w") 
+text_str = "iteration\tlikelihood\tNobs\tmu0_true\troot_true\tq_med_true\tepsilon_true\troot_obs\troot\troot_m2\troot_M2\troot_m4\troot_M4\troot_m8\troot_M8"
+logfile.writelines(text_str)
+n_samples = 20
 
 for replicate in range(n_simulations):
 	# observed time bins
 	true_root = np.random.uniform(50,200)
-	mid_points = np.loadtxt("/Users/danielesilvestro/Software/PyRate_github/example_files/epochs_q.txt")
+	mid_points = np.linspace(0,500,500/5)
 	#mid_points = np.array([0]+list(mid_points))
 	#mid_points= mid_points[0:-1] + np.diff(mid_points)/2.
 	
@@ -75,17 +71,18 @@ for replicate in range(n_simulations):
 
 	# MAKE DIV TRAJECTORY
 	Ntrue = Nobs - mid_points[mid_points<true_root]*true_mu0
-	# add noise
-	true_epsilon = np.random.gamma(2.,0.12)
-	Ntrue = np.rint(np.exp(np.random.normal(np.log(Ntrue),true_epsilon)))
-	print(Ntrue)
 
-	# MAKE UP FOSSIL DATA
-	# sampling probability
-	true_q = np.exp( np.random.normal(-5,0.5,len(mid_points)))[mid_points<true_root]
+	# add noise
+	true_epsilon = np.random.uniform(0,0.5)
+	Ntrue = np.rint(np.exp(np.random.normal(np.log(Ntrue),true_epsilon)))
+	print( "Ntrue", Ntrue)
+
+
+	true_q = np.exp( np.random.normal(-5,1,len(mid_points)))[mid_points<true_root]
 	#np.random.gamma(1.01,.01,len(mid_points))[mid_points<true_root]
 	# preserved occs
-	x = np.rint(Ntrue*true_q)
+	x = np.rint(Ntrue*true_q)[::-1]
+	print(x)
 	# remove first x values if they are == 0
 	j,c=0,0
 	for i in range(len(x)):
@@ -94,58 +91,54 @@ for replicate in range(n_simulations):
 		else:
 			break
 
-	x = x[c:]
-	age_oldest_obs_occ = np.sort(mid_points)[len(x)-1]
-	print(x)
+	x = x[c:][::-1]
+	age_oldest_obs_occ = mid_points[len(x)-1]
 	print("true_q",true_q, np.max(true_q)/np.min(true_q))
 
-
-	# init parameters
-	root_A = 1
-	mu0_A = (Nobs-x_0)/(root_A+age_oldest_obs_occ)
-	q_A = np.random.gamma(1.1,.01)
-	Nest = Nobs - mid_points[mid_points<(root_A+age_oldest_obs_occ)]*mu0_A
-
-	x_augmented = np.concatenate( (np.zeros(len(Nest)-len(x)), x  )  )
-	q_augmented = np.repeat(q_A,len(x_augmented))
-
-	likA = np.sum(binomial_pmf(x_augmented,Nest,q_augmented))
-	if save_mcmc_samples==0:
-		out_array = np.zeros( (n_samples, 4 ) )
+	x_augmented = 0+x
+	out_array = np.zeros( (n_samples, 3 ) )
+	for root_index in range(n_samples):
+		x_augmented = np.concatenate( (x_augmented, np.zeros(1))  )
+		q_A = np.random.gamma(1.1,.01)
+		q_augmented = np.repeat(q_A,len(x_augmented))
 	
-	j=0
-	for iteration in range(n_iterations):
-		q,hastings = update_multiplier(q_A)	
-		root = np.fabs(np.random.normal(root_A,1) )
-		mu0 = (Nobs-x_0)/(root+age_oldest_obs_occ)
-		Nest = Nobs - mid_points[mid_points<(root+age_oldest_obs_occ)]*mu0
-		x_augmented = np.concatenate( (np.zeros(len(Nest)-len(x)), x  )  )
-		q_augmented = np.repeat(q,len(x_augmented))	
-		lik = np.sum(binomial_pmf(x_augmented,Nest,q_augmented))
-		if (lik - likA) + hastings  > np.log(np.random.random()):
-			likA = lik
-			q_A = q
-			root_A =root
-			mu0_A = mu0
+		root_A = mid_points[len(x_augmented)-1]
+		mu0_A = (Nobs-x_0)/(root_A)
+		Nest = Nobs - mid_points[mid_points<=(root_A)]*mu0_A
+		likA = np.sum(binomial_pmf(x_augmented,Nest,q_augmented))
+		j=0
+		n_iterations=5000
 	
-		if iteration % sampling_freq ==0:
-			if save_mcmc_samples:
-				text_str = "\n%s\t%s\t%s\t%s\t%s" % (iteration,likA,mu0_A,root_A+age_oldest_obs_occ,q_A)
-				logfile.writelines(text_str)
-				logfile.flush()
-			elif iteration >= burnin:
-				out_array[j] = np.array([likA,mu0_A,root_A+age_oldest_obs_occ,q_A])
-				j+=1
-	#print(out_array)
-	if save_mcmc_samples==0:
-		mean_values = np.mean(out_array,0)
-		print(mean_values)
-		root_hpd = calcHPD(out_array[:,2])
-		print(true_root, root_hpd, age_oldest_obs_occ,"\n")
-		
-		text_str = "iteration\tlikelihood\tNobs\tmu0_true\troot_true\tq_med_true\tepsilon_true\troot_obs\tmu0\troot\troot_m\troot_M\tq"
-		text_str = "\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % ( replicate, mean_values[0],Nobs, true_mu0, true_root, np.median(true_q), \
-				true_epsilon, age_oldest_obs_occ, mean_values[1],mean_values[2],root_hpd[0],root_hpd[1],mean_values[3] )
-		logfile.writelines(text_str)
-		logfile.flush()
+		for iteration in range(n_iterations):
+			q,hastings = update_multiplier(q_A)	
+			Nest = Nobs - mid_points[mid_points<=(root_A)]*mu0_A
+			q_augmented = np.repeat(q,len(x_augmented))	
+			lik = np.sum(binomial_pmf(x_augmented,Nest,q_augmented))
+			if (lik - likA)  > 0: 
+				likA = lik
+				q_A = q
+		out_array[root_index] = np.array([ likA,q_A,root_A ])
+	print(out_array)
+	
+	indx_max_lik = np.where(out_array[:,0]==np.max(out_array[:,0]))[0][0]
+	max_lik = out_array[indx_max_lik,0]
+	root_ml = out_array[indx_max_lik,2]
+	min_max_range = np.array([i for i in range(n_samples) if np.max(out_array[:,0])-out_array[i,0]<2])
+	root_min2 = np.min(out_array[min_max_range,2])
+	root_max2 = np.max(out_array[min_max_range,2])
+	min_max_range = np.array([i for i in range(n_samples) if np.max(out_array[:,0])-out_array[i,0]<4])
+	root_min4 = np.min(out_array[min_max_range,2])
+	root_max4 = np.max(out_array[min_max_range,2])		
+	min_max_range = np.array([i for i in range(n_samples) if np.max(out_array[:,0])-out_array[i,0]<8])
+	root_min8 = np.min(out_array[min_max_range,2])
+	root_max8 = np.max(out_array[min_max_range,2])		
+	
+	
+	
+	
+	text_str = "\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % ( replicate, max_lik, Nobs, true_mu0, true_root, 
+			np.median(true_q), true_epsilon, age_oldest_obs_occ, root_ml,root_min2,root_max2,root_min4,root_max4,root_min8,root_max8 )
+						
+	logfile.writelines(text_str)
+	logfile.flush()
 	
