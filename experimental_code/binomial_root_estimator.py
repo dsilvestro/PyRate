@@ -52,7 +52,7 @@ def calcHPD(data, level=0.95) :
 	return np.array([d[i], d[i+nIn-1]])
 
 
-logfile = open("est_root_epochs_epsilon0.5.log", "w") 
+logfile = open("est_root_epochs_epsilon0.5_bin25_0.log", "w") 
 text_str = "iteration\tlikelihood\tNobs\tmu0_true\troot_true\tq_med_true\tepsilon_true\troot_obs\troot\troot_m2\troot_M2\troot_m4\troot_M4\troot_m8\troot_M8"
 logfile.writelines(text_str)
 n_samples = 20
@@ -79,10 +79,11 @@ for replicate in range(n_simulations):
 
 
 	true_q = np.exp( np.random.normal(-5,1,len(mid_points)))[mid_points<true_root]
+	freq_zero_preservation = 0.25
+	true_q = true_q * np.random.binomial(1,1-freq_zero_preservation,len(true_q))
 	#np.random.gamma(1.01,.01,len(mid_points))[mid_points<true_root]
 	# preserved occs
-	x = np.rint(Ntrue*true_q)[::-1]
-	print(x)
+	x = np.rint(Ntrue*true_q)[::-1] # order is temporarily reversed
 	# remove first x values if they are == 0
 	j,c=0,0
 	for i in range(len(x)):
@@ -92,13 +93,16 @@ for replicate in range(n_simulations):
 			break
 
 	x = x[c:][::-1]
+	print(x)
 	age_oldest_obs_occ = mid_points[len(x)-1]
-	print("true_q",true_q, np.max(true_q)/np.min(true_q))
+	print(true_root, age_oldest_obs_occ)
+	#print("true_q",true_q, np.max(true_q)/np.min(true_q[true_q>0]))
 
 	x_augmented = 0+x
 	out_array = np.zeros( (n_samples, 3 ) )
 	for root_index in range(n_samples):
-		x_augmented = np.concatenate( (x_augmented, np.zeros(1))  )
+		if root_index > 0:
+			x_augmented = np.concatenate( (x_augmented, np.zeros(1))  )
 		q_A = np.random.gamma(1.1,.01)
 		q_augmented = np.repeat(q_A,len(x_augmented))
 	
@@ -106,6 +110,7 @@ for replicate in range(n_simulations):
 		mu0_A = (Nobs-x_0)/(root_A)
 		Nest = Nobs - mid_points[mid_points<=(root_A)]*mu0_A
 		likA = np.sum(binomial_pmf(x_augmented,Nest,q_augmented))
+		#print(x_augmented,Nest,q_augmented)
 		j=0
 		n_iterations=5000
 	
