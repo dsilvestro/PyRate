@@ -4,23 +4,47 @@ import numpy as np
 np.set_printoptions(suppress=True)
 np.set_printoptions(precision=3)  
 import scipy.stats
-#np.random.seed(1234)
+np.random.seed(1234)
 
-n_simulations = 100
+n_simulations = 1000
 if n_simulations==1:
 	save_mcmc_samples = 1
 else:
 	save_mcmc_samples = 0
+
 n_iterations = 50000
 burnin = 10000
 sampling_freq = 100
 
 
+def approx_log_fact(n):
+	# http://mathworld.wolfram.com/StirlingsApproximation.html
+	return np.log(np.sqrt((2*n+1./3)*np.pi)) + n*np.log(n) -n
+
+def get_log_factorial(n):
+	if n < 100: return np.log(scipy.special.factorial(n))
+	else: return approx_log_fact(n)
+
+def get_log_binomial_coefficient(n, k):
+	# np.log(scipy.special.binom(n, k))
+	return get_log_factorial(n) - (get_log_factorial(k) + get_log_factorial(n-k))
+
+def approx_log_binomiam_pmf(n, k, p):
+	return get_log_binomial_coefficient(n, k) + k*np.log(p) + (n-k)*np.log(1-p)
+
 def binomial_pmf(x,n,p):
 	# binomial distribution 
 	" P(k | n, p)  = n!/(k! * (n-k)!) * p^k * (1-p)^(n-k)   "
 	" scipy.stats.logpmf(x, n, p, loc=0) "
-	return scipy.stats.binom.logpmf(x, n, p, loc=0)
+	pmf = scipy.stats.binom.logpmf(x, n, p, loc=0)
+	return pmf
+	#if pmf > -np.inf:
+	#	return pmf
+	#else: 
+	#	return approx_log_binomiam_pmf(x,n,p)
+
+
+
 
 def normal_pdf(x,n,p):
 	return scipy.stats.norm.logpdf(x, n, p, loc=0)
@@ -53,7 +77,8 @@ def calcHPD(data, level=0.95) :
 
 
 logfile = open("est_root_epochs_epsilon0.5_bin25_0.log", "w") 
-text_str = "iteration\tlikelihood\tNobs\tmu0_true\troot_true\tq_med_true\tepsilon_true\troot_obs\troot\troot_m2\troot_M2\troot_m4\troot_M4\troot_m8\troot_M8"
+threshold_CI = 11.4
+text_str = "iteration\tlikelihood\tNobs\tmu0_true\troot_true\tq_med_true\tepsilon_true\troot_obs\troot\troot_m2\troot_M2\troot_m4\troot_M4\troot_mth\troot_Mth\tdelta_lik"
 logfile.writelines(text_str)
 n_samples = 20
 
@@ -96,13 +121,13 @@ for replicate in range(n_simulations):
 	print(x)
 	age_oldest_obs_occ = mid_points[len(x)-1]
 	print(true_root, age_oldest_obs_occ)
-	#print("true_q",true_q, np.max(true_q)/np.min(true_q[true_q>0]))
+	true_q[true_q>0.1] = 0.1
+	print("true_q",true_q, np.max(true_q)/np.min(true_q[true_q>0]))
 
 	x_augmented = 0+x
 	out_array = np.zeros( (n_samples, 3 ) )
 	for root_index in range(n_samples):
-		if root_index > 0:
-			x_augmented = np.concatenate( (x_augmented, np.zeros(1))  )
+		x_augmented = np.concatenate( (x_augmented, np.zeros(1))  )
 		q_A = np.random.gamma(1.1,.01)
 		q_augmented = np.repeat(q_A,len(x_augmented))
 	
@@ -125,25 +150,24 @@ for replicate in range(n_simulations):
 		out_array[root_index] = np.array([ likA,q_A,root_A ])
 	print(out_array)
 	
-	indx_max_lik = np.where(out_array[:,0]==np.max(out_array[:,0]))[0][0]
+	indx_max_lik = np.argmax(out_array[:,0])
 	max_lik = out_array[indx_max_lik,0]
 	root_ml = out_array[indx_max_lik,2]
-	min_max_range = np.array([i for i in range(n_samples) if np.max(out_array[:,0])-out_array[i,0]<2])
+	min_max_range = np.array([i for i in range(n_samples) if max_lik-out_array[i,0]<2])
 	root_min2 = np.min(out_array[min_max_range,2])
 	root_max2 = np.max(out_array[min_max_range,2])
-	min_max_range = np.array([i for i in range(n_samples) if np.max(out_array[:,0])-out_array[i,0]<4])
+	min_max_range = np.array([i for i in range(n_samples) if max_lik-out_array[i,0]<4])
 	root_min4 = np.min(out_array[min_max_range,2])
-	root_max4 = np.max(out_array[min_max_range,2])		
-	min_max_range = np.array([i for i in range(n_samples) if np.max(out_array[:,0])-out_array[i,0]<8])
+	root_max4 = np.max(out_array[min_max_range,2])	
+	min_max_range = np.array([i for i in range(n_samples) if max_lik-out_array[i,0]<threshold_CI])
 	root_min8 = np.min(out_array[min_max_range,2])
-	root_max8 = np.max(out_array[min_max_range,2])		
+	root_max8 = np.max(out_array[min_max_range,2])
+	index_binned_true_root = np.argmin((np.abs(out_array[:,2]-true_root)))
+	delta_lik_true_to_est_root = max_lik - out_array[index_binned_true_root,0]	
 	
-	
-	
-	
-	text_str = "\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % ( replicate, max_lik, Nobs, true_mu0, true_root, 
-			np.median(true_q), true_epsilon, age_oldest_obs_occ, root_ml,root_min2,root_max2,root_min4,root_max4,root_min8,root_max8 )
-						
+	text_str = "\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % ( replicate, max_lik, Nobs, true_mu0, true_root, 
+			np.median(true_q), true_epsilon, age_oldest_obs_occ, root_ml,root_min2,root_max2,root_min4,root_max4,root_min8,root_max8,delta_lik_true_to_est_root )
+	print(root_ml, delta_lik_true_to_est_root)				
 	logfile.writelines(text_str)
 	logfile.flush()
 	
