@@ -76,8 +76,15 @@ def calcHPD(data, level=0.95) :
 	return np.array([d[i], d[i+nIn-1]])
 
 
-logfile = open("est_root_epochs_epsilon0.5_bin25_0.log", "w") 
-threshold_CI = 11.4
+threshold_CI = 11
+freq_zero_preservation = 0 #.25
+log_q_mean = -5
+log_q_std = 1
+max_epsilon = 0.5
+out_name = "rootest_q_%s_%s_epsilon_%s_fZero_%s_thr_%s.log" % (abs(log_q_mean),log_q_std,max_epsilon,freq_zero_preservation,threshold_CI)
+
+
+logfile = open(out_name, "w") 
 text_str = "iteration\tlikelihood\tNobs\tmu0_true\troot_true\tq_med_true\tepsilon_true\troot_obs\troot\troot_m2\troot_M2\troot_m4\troot_M4\troot_mth\troot_Mth\tdelta_lik"
 logfile.writelines(text_str)
 n_samples = 20
@@ -85,7 +92,8 @@ n_samples = 20
 for replicate in range(n_simulations):
 	# observed time bins
 	true_root = np.random.uniform(50,200)
-	mid_points = np.linspace(0,500,500/5)
+	mid_points = np.linspace(2.5,500,int(500/5))
+	#print(mid_points)
 	#mid_points = np.array([0]+list(mid_points))
 	#mid_points= mid_points[0:-1] + np.diff(mid_points)/2.
 	
@@ -98,14 +106,14 @@ for replicate in range(n_simulations):
 	Ntrue = Nobs - mid_points[mid_points<true_root]*true_mu0
 
 	# add noise
-	true_epsilon = np.random.uniform(0,0.5)
+	true_epsilon = np.random.uniform(0,max_epsilon)
 	Ntrue = np.rint(np.exp(np.random.normal(np.log(Ntrue),true_epsilon)))
 	print( "Ntrue", Ntrue)
 
 
-	true_q = np.exp( np.random.normal(-5,1,len(mid_points)))[mid_points<true_root]
-	freq_zero_preservation = 0.25
+	true_q = np.exp( np.random.normal(log_q_mean,log_q_std,len(mid_points)))[mid_points<true_root]
 	true_q = true_q * np.random.binomial(1,1-freq_zero_preservation,len(true_q))
+	true_q[true_q>0.1] = 0.1
 	#np.random.gamma(1.01,.01,len(mid_points))[mid_points<true_root]
 	# preserved occs
 	x = np.rint(Ntrue*true_q)[::-1] # order is temporarily reversed
@@ -121,7 +129,6 @@ for replicate in range(n_simulations):
 	print(x)
 	age_oldest_obs_occ = mid_points[len(x)-1]
 	print(true_root, age_oldest_obs_occ)
-	true_q[true_q>0.1] = 0.1
 	print("true_q",true_q, np.max(true_q)/np.min(true_q[true_q>0]))
 
 	x_augmented = 0+x
