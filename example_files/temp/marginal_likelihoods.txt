@@ -1,2 +1,0 @@
-file_name	model	TI_categories	replicate	likelihood	lik_L_410-0	lik_M_410-0
-Ferns_SE_DD_0_expSp_expEx_HP	expEx	9	0	-8978.449	-7493.906	-1484.543
