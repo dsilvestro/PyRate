@@ -156,11 +156,6 @@ else: model_DUO= 0
 argsG = args.mG
 pp_gamma_ncat = args.ncat
 
-if argsG == True and args.DdE or argsG == True and args.cov_and_dispersal:
-	sys.exit("Preservation heterogeneity not compatible with dispersal dependent extinction")
-if argsG == True and args.DivdD or argsG == True and args.DivdE:
-	sys.exit("Preservation heterogeneity not compatible with dispersal dependence")
-
 # if args.const==1:
 # 	equal_d = True # this makes them symmatric not equal!
 # 	equal_e = True # this makes them symmatric not equal!
@@ -575,33 +570,75 @@ print "Diversity trajectories", div_traj_1,div_traj_2
 #	for i in range(len(div_traj)):
 #		j=len(a)-i-1
 #		print j, a[j]
+
+
+def get_weighted_est_div_traj_no_scaling(r_vec):
+        # Calculate diversity trajectory for each Gamma category and sum those
+	# For each taxon, we trace within likDES the relative contribution of each Gamma cat to the taxon' likelihood.
+	# We use this to 'weight' their occurrences, sum per Gamma and total sum across Gammas
+	# No scaling yet as in get_est_div_traj! 		
+	len_time_series = len(time_series)
+	data_temp1_sum_per_gamma = np.zeros((pp_gamma_ncat, len_time_series))
+	data_temp2_sum_per_gamma = np.zeros((pp_gamma_ncat, len_time_series))
+	YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)		
+	# Partial richnesses per gamma category
+	for i in range(pp_gamma_ncat):
+		# YangGamma's are not on probality scale but on rate scale!
+		Pr1 = 1 - exp(-bin_size * YangGamma[i] * -log(r_vec[Q_index, 1])/bin_size)  # Keep present
+		Pr2 = 1 - exp(-bin_size * YangGamma[i] * -log(r_vec[Q_index, 2])/bin_size)  
+		weights = np.repeat(weight_per_taxon[:,i], len_time_series).reshape(nTaxa, len_time_series)
+		data_temp1_weighted_per_gamma = weights * (data_temp1 / Pr1)
+		data_temp1_sum_per_gamma[i,:] = np.nansum(data_temp1_weighted_per_gamma, axis=0)
+		data_temp2_weighted_per_gamma = weights * (data_temp2 / Pr2)			
+		data_temp2_sum_per_gamma[i,:] = np.nansum(data_temp2_weighted_per_gamma, axis=0)
+	# Sum partial richnesses
+	numD1 = np.nansum(data_temp1_sum_per_gamma, axis=0)[0:-1]
+	numD2 = np.nansum(data_temp2_sum_per_gamma, axis=0)[0:-1]
 	
+	return numD1,numD2
+		
 
 def get_num_dispersals(dis_rate_vec,r_vec):
-	Pr1 = 1- r_vec[Q_index[0:-1],1] # remove last value (time zero)
-	Pr2 = 1- r_vec[Q_index[0:-1],2] 
-	# get dispersal rates through time
-	#d12 = dis_rate_vec[0][0] *exp(covar_par[0]*time_var)
-	#d21 = dis_rate_vec[0][1] *exp(covar_par[1]*time_var)
+        if argsG is False:
+	        Pr1 = 1- r_vec[Q_index[0:-1],1] # remove last value (time zero)
+	        Pr2 = 1- r_vec[Q_index[0:-1],2] 
+	        # get dispersal rates through time
+	        #d12 = dis_rate_vec[0][0] *exp(covar_par[0]*time_var)
+	        #d21 = dis_rate_vec[0][1] *exp(covar_par[1]*time_var)      
+	        numD1 = (div_traj_1/Pr1)
+	        numD2 = (div_traj_2/Pr2)
+	        
+	else:
+		numD1, numD2 = get_weighted_est_div_traj_no_scaling(r_vec)
+	
 	dr = dis_rate_vec
 	d12 = dr[:,0]
-	d21 = dr[:,1]
-	
-	numD12 = (div_traj_1/Pr1)*d12
-	numD21 = (div_traj_2/Pr2)*d21
+	d21 = dr[:,1]	
+	numD12 = numD1 * d12
+	numD21 = numD2 * d21
 	
 	return numD12,numD21
-
-def get_est_div_traj(r_vec):
-	Pr1 = 1- r_vec[Q_index[0:-1],1] # remove last value (time zero)
-	Pr2 = 1- r_vec[Q_index[0:-1],2] 
 	
-	numD1 = (div_traj_1/Pr1)
-	numD2 = (div_traj_2/Pr2)
+
+def get_est_div_traj(r_vec):  	
+        if argsG is False:
+	      	Pr1 = 1- r_vec[Q_index[0:-1],1] # remove last value (time zero)
+		Pr2 = 1- r_vec[Q_index[0:-1],2] 
+	
+	        numD1 = (div_traj_1/Pr1)
+	        numD2 = (div_traj_2/Pr2)
+	        
+	else:			
+		numD1, numD2 = get_weighted_est_div_traj_no_scaling(r_vec)
+		
 	numD1res = rescale_vec_to_range(numD1, r=10., m=0)
 	numD2res = rescale_vec_to_range(numD2, r=10., m=0)
 	
 	return numD1res,numD2res
+	
+
+# initialize weight per gamma cat per species to estimate diversity trajectory with heterogeneous preservation
+weight_per_taxon = np.ones((len(list_taxa_index), pp_gamma_ncat)) / pp_gamma_ncat
 
 #print Q_index
 # print dis_rate_vec
@@ -612,6 +649,8 @@ def get_est_div_traj(r_vec):
 ###################################################################################
 # Avoid code redundancy in mcmc and maximum likelihood
 def lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex,Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx):
+	# weight per gamma cat per species: multiply 
+	weight_per_taxon = np.zeros((len(list_taxa_index), pp_gamma_ncat)) 
 	if num_processes==0:
 		if use_Pade_approx==0:
 			#t1= time.time()
@@ -635,7 +674,7 @@ def lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present
 					l_temp = calc_likelihood_mQ_eigen([delta_t,r_vec,w_list,vl_list,vl_inv_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp])
 					#print l,  l_temp
 					lik +=l_temp 
-			else:
+			else:				
 				for l in list_taxa_index:
 					Q_index_temp = np.array(range(0,len(w_list)))
 					YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
@@ -649,8 +688,10 @@ def lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present
                                                 elif  args.data_in_area == 2:
 	                                                r_vec_Gamma[:,1] = small_number
 	                                        lik_vec[i] =  calc_likelihood_mQ_eigen([delta_t,r_vec_Gamma,w_list,vl_list,vl_inv_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp])
-                                        lik2= lik_vec-np.max(lik_vec)
-                                        lik += sum(log(sum(exp(lik2))/pp_gamma_ncat)+np.max(lik_vec))
+                                        lik_vec_max = np.max(lik_vec)
+                                        lik2 = lik_vec - lik_vec_max
+                                        lik += log(sum(exp(lik2))/pp_gamma_ncat) + lik_vec_max
+                                        weight_per_taxon[l,:] = lik_vec / sum(lik_vec) 
 			#print "elapsed time:", time.time()-t1
 		else:
 			#t1= time.time()
@@ -677,8 +718,9 @@ def lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present
                                                 elif  args.data_in_area == 2:
 	                                                r_vec_Gamma[:,1] = small_number
                                                 lik_vec[i] = calc_likelihood_mQ([delta_t,r_vec_Gamma,Q_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp])
-                                        lik2= lik_vec-np.max(lik_vec)
-                                        lik += sum(log(sum(exp(lik2))/pp_gamma_ncat)+np.max(lik_vec))
+                                        lik_vec_max = np.max(lik_vec)
+                                        lik2 = lik_vec - lik_vec_max
+                                        lik += log(sum(exp(lik2))/pp_gamma_ncat) + lik_vec_max
 			#print "lik2",lik
 			#print "elapsed time:", time.time()-t1
 		
@@ -733,7 +775,7 @@ def lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present
                                 lik = sum(log(sum( exp(liktmp2), axis = 0 )/pp_gamma_ncat)+liktmpmax)
 			#print "l4",lik
 			#print "elapsed time:", time.time()-t1
-	return lik
+	return lik, weight_per_taxon
 
 
 # Likelihood for a set of parameters 
@@ -811,7 +853,7 @@ def lik_opt(x, grad):
         Q_list, marginal_rates_temp= make_Q_Covar4VDdE(dis_vec,ext_vec,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par,x0_logistic,transf_d,transf_e)
         if use_Pade_approx==0:
 		w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
-        lik = lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST,OrigTimeIndex,Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx)
+        lik, weight_per_taxon = lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST,OrigTimeIndex,Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx)
 	print "lik", lik, x
         return lik
 
@@ -821,6 +863,10 @@ if args.A == 3:
 	sampling_freq   = 1
 	print_freq      = 1
 	# Define which initial value for the optimizer corresponds to which parameter
+	# opt_ind_xxx: indices for parameters to optimize
+	# x0: initial values
+	# xxx_bounds: bounds for optimization
+	
 	opt_ind_dis = np.arange(0, n_Q_times*nareas) 
 	if equal_d is True:
 		opt_ind_dis = np.repeat(np.arange(0, n_Q_times), 2)
@@ -848,11 +894,12 @@ if args.A == 3:
 		else: 
 			opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, n_Q_times)
 	
-	# Initial values
-	x0 = np.random.uniform(0.01,0.1, 1 + np.max(opt_ind_r_vec))
+	
+	x0 = np.random.uniform(0.01,0.1, 1 + np.max(opt_ind_r_vec)) # Initial values
 	lower_bounds = [0]*len(x0)
 	upper_bounds = [100]*len(x0)
-		
+	
+	# Covariates	
 	ind_counter = np.max(opt_ind_r_vec) + 1 		
 	if argsG:
 		alpha_ind = ind_counter
@@ -867,31 +914,52 @@ if args.A == 3:
 		x0 = np.concatenate((x0, 0., 0.), axis = None)
 		lower_bounds = lower_bounds + [-10] + [-10]
 		upper_bounds = upper_bounds + [10] + [10]
+		if 1 in args.symCov:
+	                opt_ind_covar_dis = opt_ind_covar_dis[0:-1]
+	                ind_counter = ind_counter - 1
+	                x0 = x0[0:-1]
+	                lower_bounds = lower_bounds[0:-1]
+	                upper_bounds = upper_bounds[0:-1]
 		if args.lgD:
 			opt_ind_x0_log_dis = np.array([ind_counter, ind_counter + 1])
 			ind_counter += 2
 			x0 = np.concatenate((x0, np.mean(time_var), np.mean(time_var)), axis = None)
-			print np.min(time_var)
 			lower_bounds = lower_bounds + [np.min(time_var).tolist()] + [np.min(time_var).tolist()]
-			upper_bounds = upper_bounds + [np.max(time_var).tolist()] + [np.max(time_var).tolist()]
+			upper_bounds = upper_bounds + [np.max(time_var).tolist()] + [np.max(time_var).tolist()]	       
+	                if 1 in args.symCov:
+	                        opt_ind_x0_log_dis = opt_ind_x0_log_dis[0:-1]
+	                        ind_counter = ind_counter - 1
+	                        x0 = x0[0:-1]
+	                        lower_bounds = lower_bounds[0:-1]
+	                        upper_bounds = upper_bounds[0:-1]
+	                
 	if args.TdE is False or args.DivdE:
 		opt_ind_covar_ext = np.array([ind_counter, ind_counter + 1])
 		ind_counter += 2 
 		x0 = np.concatenate((x0, 0., 0.), axis = None)
 		lower_bounds = lower_bounds + [-10] + [-10]
 		upper_bounds = upper_bounds + [10] + [10]
+		if 3 in args.symCov:
+	                opt_ind_covar_ext = opt_ind_covar_ext[0:-1]
+	                ind_counter = ind_counter - 1
+	                x0 = x0[0:-1]
+	                lower_bounds = lower_bounds[0:-1]
+	                upper_bounds = upper_bounds[0:-1]
 		if args.lgE:
 			opt_ind_x0_log_ext = np.array([ind_counter, ind_counter + 1])
 			ind_counter += 2
 			x0 = np.concatenate((x0, np.mean(time_var), np.mean(time_var)), axis = None)
-			print np.min(time_var).tolist()
 			lower_bounds = lower_bounds + [np.min(time_var).tolist()] + [np.min(time_var).tolist()]
-			upper_bounds = upper_bounds + [np.max(time_var).tolist()] + [np.max(time_var).tolist()]
-			
+			upper_bounds = upper_bounds + [np.max(time_var).tolist()] + [np.max(time_var).tolist()]		
+	                if 3 in args.symCov:
+	                        opt_ind_x0_log_ext = opt_ind_x0_log_ext[0:-1]
+	                        ind_counter = ind_counter - 1
+	                        x0 = x0[0:-1]
+	                        lower_bounds = lower_bounds[0:-1]
+	                        upper_bounds = upper_bounds[0:-1]
+	
         # Maximize likelihood
 	opt = nlopt.opt(nlopt.LN_SBPLX, len(x0))
-	print lower_bounds
-	print upper_bounds
 	opt.set_lower_bounds(lower_bounds) 
 	opt.set_upper_bounds(upper_bounds) 
 	opt.set_max_objective(lik_opt)	
@@ -1171,7 +1239,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	#	print it,  Q_list[0],Q_list_old,covar_par
 	if r[0] < update_freq[1] or it==0:
 				w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
-	lik = lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST,OrigTimeIndex,Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx)
+	lik, weight_per_taxon = lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST,OrigTimeIndex,Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx)
 		
 	prior= sum(prior_exp(dis_rate_vec,prior_exp_rate))+sum(prior_exp(ext_rate_vec,prior_exp_rate))+prior_normal(covar_par,0,1)
 	
