@@ -1,10 +1,9 @@
 # PyRate - Advanced settings
 
 
-### Fast bootstrap 
-
-##### `-fast_bootstrap <int>` 
-Specify number of MCMC iterations using approximate Gibbs sampler for times of origination and extinction for faster convergence (default: `-fast_bootstrap 0`)
+### Fast fast burnin 
+##### `-fast_fast_burnin <int>` 
+Specify number of MCMC iterations using approximate Gibbs sampler for times of origination and extinction for faster convergence (default: `-fast_burnin 0`)
 
 
 ### Tuning parameters
