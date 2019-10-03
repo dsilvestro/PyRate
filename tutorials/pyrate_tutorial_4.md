@@ -152,6 +152,8 @@ To run under the **BDC skyline model** you can use the `-fixShift` command as ex
 
 `python PyRate.py example_files/BDC_model/Feliformia.py -tree example_files/BDC_model/Feliformia.tre -fixShift example_files/epochs.txt -bdc`
 
-This command sets up an analysis with rate shifts at the epochs boundaries under the BDC compatible model. 
+This command sets up an analysis with rate shifts at the epochs boundaries under the BDC compatible model.
+
+Plotting functions in R to plot the results of the BDC and BDC-skyline models are available [here](https://github.com/dsilvestro/PyRate/blob/master/plot_functions_BDC_model.R).
 
 
