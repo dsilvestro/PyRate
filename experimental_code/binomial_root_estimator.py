@@ -12,9 +12,7 @@ if n_simulations==1:
 else:
 	save_mcmc_samples = 0
 
-n_iterations = 50000
-burnin = 10000
-sampling_freq = 100
+n_iterations = 5000
 
 
 def approx_log_fact(n):
@@ -77,28 +75,28 @@ def calcHPD(data, level=0.95) :
 
 
 threshold_CI = 11
-freq_zero_preservation = 0 #.25
-log_q_mean = -5
+freq_zero_preservation = 0.1
+log_q_mean = -8.52 # 1/5000 mean Nfossil ~ 60 as in empirical families
 log_q_std = 1
 max_epsilon = 0.5
 out_name = "rootest_q_%s_%s_epsilon_%s_fZero_%s_thr_%s.log" % (abs(log_q_mean),log_q_std,max_epsilon,freq_zero_preservation,threshold_CI)
 
 
 logfile = open(out_name, "w") 
-text_str = "iteration\tlikelihood\tNobs\tmu0_true\troot_true\tq_med_true\tepsilon_true\troot_obs\troot\troot_m2\troot_M2\troot_m4\troot_M4\troot_mth\troot_Mth\tdelta_lik"
+text_str = "iteration\tlikelihood\tNobs\tNfossils\tmu0_true\troot_true\tq_med_true\tepsilon_true\troot_obs\troot\troot_m2\troot_M2\troot_m4\troot_M4\troot_mth\troot_Mth\tdelta_lik"
 logfile.writelines(text_str)
 n_samples = 20
 
 for replicate in range(n_simulations):
 	# observed time bins
-	true_root = np.random.uniform(50,200)
-	mid_points = np.linspace(2.5,500,int(500/5))
+	true_root = np.random.uniform(10,180)
+	mid_points = np.linspace(2.5,500,int(500/2.5))
 	#print(mid_points)
 	#mid_points = np.array([0]+list(mid_points))
 	#mid_points= mid_points[0:-1] + np.diff(mid_points)/2.
 	
 	
-	Nobs = np.random.randint(500,5000)
+	Nobs = np.random.randint(100,20000)
 	x_0 = 1
 	true_mu0 = (Nobs-x_0)/true_root
 
@@ -108,8 +106,6 @@ for replicate in range(n_simulations):
 	# add noise
 	true_epsilon = np.random.uniform(0,max_epsilon)
 	Ntrue = np.rint(np.exp(np.random.normal(np.log(Ntrue),true_epsilon)))
-	print( "Ntrue", Ntrue)
-
 
 	true_q = np.exp( np.random.normal(log_q_mean,log_q_std,len(mid_points)))[mid_points<true_root]
 	true_q = true_q * np.random.binomial(1,1-freq_zero_preservation,len(true_q))
@@ -130,6 +126,7 @@ for replicate in range(n_simulations):
 	age_oldest_obs_occ = mid_points[len(x)-1]
 	print(true_root, age_oldest_obs_occ)
 	print("true_q",true_q, np.max(true_q)/np.min(true_q[true_q>0]))
+	print( "Ntrue", Ntrue, "Nfossils",np.sum(x))
 
 	x_augmented = 0+x
 	out_array = np.zeros( (n_samples, 3 ) )
@@ -143,9 +140,6 @@ for replicate in range(n_simulations):
 		Nest = Nobs - mid_points[mid_points<=(root_A)]*mu0_A
 		likA = np.sum(binomial_pmf(x_augmented,Nest,q_augmented))
 		#print(x_augmented,Nest,q_augmented)
-		j=0
-		n_iterations=5000
-	
 		for iteration in range(n_iterations):
 			q,hastings = update_multiplier(q_A)	
 			Nest = Nobs - mid_points[mid_points<=(root_A)]*mu0_A
@@ -167,13 +161,13 @@ for replicate in range(n_simulations):
 	root_min4 = np.min(out_array[min_max_range,2])
 	root_max4 = np.max(out_array[min_max_range,2])	
 	min_max_range = np.array([i for i in range(n_samples) if max_lik-out_array[i,0]<threshold_CI])
-	root_min8 = np.min(out_array[min_max_range,2])
-	root_max8 = np.max(out_array[min_max_range,2])
+	root_min_threshold = np.min(out_array[min_max_range,2])
+	root_max_threshold = np.max(out_array[min_max_range,2])
 	index_binned_true_root = np.argmin((np.abs(out_array[:,2]-true_root)))
 	delta_lik_true_to_est_root = max_lik - out_array[index_binned_true_root,0]	
 	
-	text_str = "\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % ( replicate, max_lik, Nobs, true_mu0, true_root, 
-			np.median(true_q), true_epsilon, age_oldest_obs_occ, root_ml,root_min2,root_max2,root_min4,root_max4,root_min8,root_max8,delta_lik_true_to_est_root )
+	text_str = "\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % ( replicate, max_lik, Nobs, np.sum(x), true_mu0, true_root, 
+			np.median(true_q), true_epsilon, age_oldest_obs_occ, root_ml,root_min2,root_max2,root_min4,root_max4,root_min_threshold,root_max_threshold,delta_lik_true_to_est_root )
 	print(root_ml, delta_lik_true_to_est_root)				
 	logfile.writelines(text_str)
 	logfile.flush()
