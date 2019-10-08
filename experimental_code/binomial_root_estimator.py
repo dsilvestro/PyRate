@@ -41,19 +41,18 @@ def binomial_pmf(x,n,p):
 	#else: 
 	#	return approx_log_binomiam_pmf(x,n,p)
 
-
-
-
 def normal_pdf(x,n,p):
 	return scipy.stats.norm.logpdf(x, n, p, loc=0)
+
+def update_normal(q,d=0.0001):
+	return np.random.normal(q,d)
 
 def update_multiplier(q,d=1.1):
 	u = np.random.uniform(0,1)
 	l = 2*np.log(d)
 	m = np.exp(l*(u-.5))
 	new_q = q * m
-	U=np.log(m)
-	return new_q,U
+	return new_q
 
 def calcHPD(data, level=0.95) :
 	assert (0 < level < 1)	
@@ -80,14 +79,16 @@ log_q_mean = -8.52 # 1/5000 mean Nfossil ~ 60 as in empirical families
 log_q_std = 1
 max_epsilon = 0.5
 increasing_q_rates = 1
+estimate_q_slope = 1
+
 if increasing_q_rates:
-	out_name = "rootest_q_%s_%s_epsilon_%s_fZero_%s_thr_%s_incr_q.log" % (abs(log_q_mean),log_q_std,max_epsilon,freq_zero_preservation,threshold_CI)
+	out_name = "test_q_%s_%s_epsilon_%s_fZero_%s_thr_%s_incr_q_estQslope%s.log" % (abs(log_q_mean),log_q_std,max_epsilon,freq_zero_preservation,threshold_CI,estimate_q_slope)
 else:
-	out_name = "rootest_q_%s_%s_epsilon_%s_fZero_%s_thr_%s.log" % (abs(log_q_mean),log_q_std,max_epsilon,freq_zero_preservation,threshold_CI)
+	out_name = "test_q_%s_%s_epsilon_%s_fZero_%s_thr_%s.log_estQslope%s" % (abs(log_q_mean),log_q_std,max_epsilon,freq_zero_preservation,threshold_CI,estimate_q_slope)
 
 
 logfile = open(out_name, "w") 
-text_str = "iteration\tlikelihood\tNobs\tNfossils\tmu0_true\troot_true\tq_med_true\tepsilon_true\troot_obs\troot\troot_m2\troot_M2\troot_m4\troot_M4\troot_mth\troot_Mth\tdelta_lik"
+text_str = "iteration\tlikelihood\tNobs\tNfossils\tmu0_true\troot_true\tq_med_true\tepsilon_true\troot_obs\troot_est\troot_m2\troot_M2\troot_m4\troot_M4\troot_mth\troot_Mth\tdelta_lik"
 logfile.writelines(text_str)
 n_samples = 20
 
@@ -95,10 +96,6 @@ for replicate in range(n_simulations):
 	# observed time bins
 	true_root = np.random.uniform(10,180)
 	mid_points = np.linspace(2.5,500,int(500/2.5))
-	#print(mid_points)
-	#mid_points = np.array([0]+list(mid_points))
-	#mid_points= mid_points[0:-1] + np.diff(mid_points)/2.
-	
 	
 	Nobs = np.random.randint(100,20000)
 	x_0 = 1
@@ -135,28 +132,36 @@ for replicate in range(n_simulations):
 	print( "Ntrue", Ntrue, "Nfossils",np.sum(x))
 
 	x_augmented = 0+x
-	out_array = np.zeros( (n_samples, 3 ) )
+	out_array = np.zeros( (n_samples, 4 ) )
 	for root_index in range(n_samples):
 		x_augmented = np.concatenate( (x_augmented, np.zeros(1))  )
-		q_A = np.random.gamma(1.1,.01)
-		q_augmented = np.repeat(q_A,len(x_augmented))
-	
 		root_A = mid_points[len(x_augmented)-1]
 		mu0_A = (Nobs-x_0)/(root_A)
 		Nest = Nobs - mid_points[mid_points<=(root_A)]*mu0_A
+		
+		q_A = np.random.gamma(1.1,.01)
+		slope_q_A = 0.
+		q_augmented = np.repeat(q_A,len(x_augmented)) + slope_q_A*( mid_points[mid_points<=(root_A)]/100. )		
+		
 		likA = np.sum(binomial_pmf(x_augmented,Nest,q_augmented))
 		#print(x_augmented,Nest,q_augmented)
 		for iteration in range(n_iterations):
-			q,hastings = update_multiplier(q_A)	
+			if np.random.random()>(0.5*estimate_q_slope) or iteration< 1000:
+				q = update_multiplier(q_A)	
+				slope_q = slope_q_A
+			else:
+				q = q_A
+				slope_q    = update_normal(slope_q_A)	
 			Nest = Nobs - mid_points[mid_points<=(root_A)]*mu0_A
-			q_augmented = np.repeat(q,len(x_augmented))	
+			q_augmented = np.repeat(q,len(x_augmented)) + slope_q*( mid_points[mid_points<=(root_A)]/100. )
 			lik = np.sum(binomial_pmf(x_augmented,Nest,q_augmented))
 			if (lik - likA)  > 0: 
 				likA = lik
 				q_A = q
-		out_array[root_index] = np.array([ likA,q_A,root_A ])
+				slope_q_A = slope_q
+		out_array[root_index] = np.array([ likA,q_A,root_A,slope_q_A ])
 	print(out_array)
-	
+		
 	indx_max_lik = np.argmax(out_array[:,0])
 	max_lik = out_array[indx_max_lik,0]
 	root_ml = out_array[indx_max_lik,2]
