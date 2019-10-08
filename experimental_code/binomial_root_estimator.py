@@ -79,7 +79,11 @@ freq_zero_preservation = 0.1
 log_q_mean = -8.52 # 1/5000 mean Nfossil ~ 60 as in empirical families
 log_q_std = 1
 max_epsilon = 0.5
-out_name = "rootest_q_%s_%s_epsilon_%s_fZero_%s_thr_%s.log" % (abs(log_q_mean),log_q_std,max_epsilon,freq_zero_preservation,threshold_CI)
+increasing_q_rates = 1
+if increasing_q_rates:
+	out_name = "rootest_q_%s_%s_epsilon_%s_fZero_%s_thr_%s_incr_q.log" % (abs(log_q_mean),log_q_std,max_epsilon,freq_zero_preservation,threshold_CI)
+else:
+	out_name = "rootest_q_%s_%s_epsilon_%s_fZero_%s_thr_%s.log" % (abs(log_q_mean),log_q_std,max_epsilon,freq_zero_preservation,threshold_CI)
 
 
 logfile = open(out_name, "w") 
@@ -108,6 +112,8 @@ for replicate in range(n_simulations):
 	Ntrue = np.rint(np.exp(np.random.normal(np.log(Ntrue),true_epsilon)))
 
 	true_q = np.exp( np.random.normal(log_q_mean,log_q_std,len(mid_points)))[mid_points<true_root]
+	if increasing_q_rates:
+		true_q = np.random.choice(true_q,len(true_q),replace=0,p=true_q/np.sum(true_q))
 	true_q = true_q * np.random.binomial(1,1-freq_zero_preservation,len(true_q))
 	true_q[true_q>0.1] = 0.1
 	#np.random.gamma(1.01,.01,len(mid_points))[mid_points<true_root]
@@ -124,8 +130,8 @@ for replicate in range(n_simulations):
 	x = x[c:][::-1]
 	print(x)
 	age_oldest_obs_occ = mid_points[len(x)-1]
-	print(true_root, age_oldest_obs_occ)
-	print("true_q",true_q, np.max(true_q)/np.min(true_q[true_q>0]))
+	print("true_root",true_root, "obs_root",age_oldest_obs_occ)
+	print("true_q (log10)",np.log10(true_q+0.000000001), np.max(true_q)/np.min(true_q[true_q>0]))
 	print( "Ntrue", Ntrue, "Nfossils",np.sum(x))
 
 	x_augmented = 0+x
