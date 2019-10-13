@@ -1383,12 +1383,24 @@ except(AttributeError): # for older versions of scipy
 		return -log(np.pi*s * (1+ (x/s)**2))
 
 def prior_times_frames(t, root, tip_age,a): # un-normalized Dirichlet (truncated)
-	diff_t, min_t = abs(np.diff(t)), min(t)
-	if min(diff_t)<=min_allowed_t: return -inf
+	diff_t, min_t = abs(np.diff(t)), np.min(t)
+	if np.min(diff_t)<=min_allowed_t: return -inf
 	elif (min_t<=tip_age+min_allowed_t) and (min_t>0): return -inf
 	else:
 		t_rel=diff_t/root
 		return (a-1)*log(t_rel)
+
+
+def get_min_diffTime(times):
+	diff_t = abs(np.diff(times))
+	if fix_edgeShift==1: # min and max bounds
+		diff_t = diff_t[1:-1]
+	elif fix_edgeShift==2: # max bound
+		diff_t = diff_t[1]
+	elif fix_edgeShift==3: # min bound
+		diff_t = diff_t[-1]
+	return np.min(diff_t)
+
 
 def prior_sym_beta(x,a):
 	# return log(x)*(a-1)+log(1-x)*(a-1) # un-normalized beta
@@ -3180,7 +3192,8 @@ def MCMC(all_arg):
 			prior += -log(maxTs-minTe)*(len(L)-1+len(M)-1)
 			prior += Poisson_prior(len(L),rj_cat_HP)+Poisson_prior(len(M),rj_cat_HP)
 			#if it % 100 ==0: print len(L),len(M), prior_old, -log(max(ts)-min(te))*(len(L)-1+len(M)-1), hasting
-			if min(abs(np.diff(timesL)))<=min_allowed_t or min(abs(np.diff(timesM)))<=min_allowed_t: prior = -np.inf
+						
+			if get_min_diffTime(timesL)<=min_allowed_t or get_min_diffTime(timesM)<=min_allowed_t: prior = -np.inf
 
 		priorBD= get_hyper_priorBD(timesL,timesM,L,M,maxTs,hyperP)
 		if use_ADE_model >= 1:
