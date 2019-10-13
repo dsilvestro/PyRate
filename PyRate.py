@@ -5,7 +5,7 @@ import random as rand
 import warnings, imp
 
 version= "PyRate"
-build  = "v2.0 - 20190617"
+build  = "v2.0 - 20191013"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
