@@ -95,6 +95,66 @@ f="your_path/PyRate_github/example_files/BDC_model/Ferns_BDCskyline_mcmc.log"
 plot_speciation_mode(f,time_bins,0.03)
 dev.off()
 
+# GET PLOTS AND P-VALUS FOR SKYLINE INDEPENDENT MODEL
+
+plot_fossil_phylo_skyline <- function(mcmc_file,burnin=0.2,maxR_arg=0){
+	library(latex2exp)
+	library(scales)
+	t = read.table(mcmc_file,h=T)
+	burnin=round(dim(t)[1]*0.25)
+	
+	col_lambda  = grep("lambda_",colnames(t))
+	col_mu      = grep("mu_",colnames(t))
+	col_tree_sp = grep("tree_sp",colnames(t))
+	col_tree_ex = grep("tree_ex",colnames(t))
+	
+	for (ind in 1:length(col_lambda)){
+		lambda_0 = t[burnin:dim(t)[1], col_lambda[ind] ]
+		mu_0     = t[burnin:dim(t)[1], col_mu[ind] ]
+		tree_sp  = t[burnin:dim(t)[1], col_tree_sp[ind] ]
+		tree_ex  = t[burnin:dim(t)[1], col_tree_ex[ind] ]
+
+		deltaSP = lambda_0-tree_sp
+		deltaEX = mu_0-tree_ex
+
+		treeDIV = tree_sp-tree_ex
+		fossDIV = lambda_0-mu_0
+
+		#hist(fossDIV-treeDIV)
+		comp = (fossDIV-treeDIV)
+		library(scales)
+		if (maxR_arg==0){
+			#maxR = max(c(lambda_0,mu_0,tree_sp ,tree_ex ))*1.2
+			maxR = sort(c(lambda_0,mu_0,tree_sp ,tree_ex ))[round(0.99*length(tree_ex)*4)]     *1.2
+		}else{
+			maxR = maxR_arg
+		}
+
+		name_bin = paste("Time bin",ind)
+		
+		plot(lambda_0~tree_sp,pch=19,col=alpha("blue",0.20), xlim=c(0,maxR),ylim=c(0,maxR),xlab="Phylogenetic estimates",
+			ylab="Fossil estimates",main= name_bin) #colnames(t)[col_lambda[ind]])
+		points(mu_0~tree_ex,pch=19,col=alpha("red",0.20))
+		abline(0,1, lty=2)
+
+		dSP = lambda_0-tree_sp
+		dEX = mu_0-tree_ex
+		minR = min(c(dSP,dEX,0))*1.2
+		maxR = max(c(dSP,dEX))*1.2
+
+		#hist(fossDIV-treeDIV)
+		comp = (dSP-dEX)
+		P = length(comp[comp> -1e-10])/length(comp)
+
+		plot(dSP~dEX,xlim=c(minR,maxR),ylim=c(minR,maxR),pch=19,col=alpha("black",0.20),xlab=TeX('$\\lambda^{*} - \\lambda$'),ylab=TeX('$\\mu^{*} - \\mu$'),main=paste("P =",round(min(P,1-P),3)) )
+		abline(0,1, lty=2)
+		
+	}
+}
+
+par(mfrow=c(4,4))
+f="your_path/PyRate_github/example_files/BDC_model/Ferns_Independent_skyline_mcmc.log"
+plot_fossil_phylo_skyline(f)
 
 
 
@@ -182,3 +242,10 @@ plot_fossil_phylo <- function(mcmc_file){
 	
 	
 }
+
+
+
+
+
+
+plot_fossil_phylo("/Users/danielesilvestro/Documents/Projects/SpeciesConcept/final_empirical_data/fern_skyline/fern030316_1_BDC_mcmc.log")
