@@ -248,6 +248,7 @@ if input_data=="":
 	time.sleep(1)
 	input_data = "%s/sim_%s_%s_%s_%s_%s_%s.txt" % (output_wd,simulation_no,n_taxa,sim_d_rate[0],sim_d_rate[1],sim_e_rate[0],sim_e_rate[1]) 
 	nTaxa, time_series, obs_area_series, OrigTimeIndex = parse_input_data(input_data,RHO_sampling,verbose,n_sampled_bins=n_bins)
+	print obs_area_series
 	if args.A==1: ti_tag ="_TI"
 	else: ti_tag=""
 	out_log = "%s/simContinuous_%s_b_%s_q_%s_mcmc_%s_%s_%s_%s_%s_%s_%s%s.log" \
@@ -515,33 +516,54 @@ x0_logistic_A =np.zeros(4)
 #############################################
 #####    time variable Q (no shifts)    #####
 #############################################
-try:
-	time_var_temp = get_binned_continuous_variable(time_series, args.varD)
-	# SHIFT TIME VARIABLE ()
-	time_var = time_var_temp-time_var_temp[len(delta_t)-1]
-	print "Rescaled variable",time_var, time_series
-	if args.varE=="":
-		time_varE=time_var
-	else:
-		## TEMP FOR EXTINCTION
-		time_var_temp = get_binned_continuous_variable(time_series, args.varE)
-		# SHIFT TIME VARIABLE ()
-		time_varE = time_var_temp-time_var_temp[len(delta_t)-1]
-		
-except:
-	time_var = np.ones(len(time_series)-1)
+#try:
+#	time_var_temp = get_binned_continuous_variable(time_series, args.varD)
+#	# SHIFT TIME VARIABLE ()
+#	time_var = time_var_temp-time_var_temp[len(delta_t)-1]
+#	print "Rescaled variable",time_var, time_series
+#	if args.varE=="":
+#		time_varE=time_var		
+#	else:
+#		## TEMP FOR EXTINCTION
+#		time_var_temp = get_binned_continuous_variable(time_series, args.varE)
+#		# SHIFT TIME VARIABLE ()
+#		time_varE = time_var_temp-time_var_temp[len(delta_t)-1]
+#		
+#except:
+#	time_var = np.ones(len(time_series)-1)
+#	print "Covariate-file not found"
+if args.varD != "" and args.varE != "":
+	time_var_temp = get_binned_continuous_variable(time_series, args.varD)	
+	time_varD = time_var_temp-time_var_temp[len(delta_t)-1]
+	print "Rescaled variable dispersal",time_varD, time_series
+	time_var_temp = get_binned_continuous_variable(time_series, args.varE)	
+	time_varE = time_var_temp-time_var_temp[len(delta_t)-1]
+	print "Rescaled variable extinction",time_varE, time_series
+elif args.varD != "":
+	time_var_temp = get_binned_continuous_variable(time_series, args.varD)	
+	time_varD = time_var_temp-time_var_temp[len(delta_t)-1]
+	print "Rescaled variable dispersal",time_varD, time_series
+	time_varE = np.ones(len(time_series)-1)
+elif args.varE != "":
+	time_varD = np.ones(len(time_series)-1)
+	time_var_temp = get_binned_continuous_variable(time_series, args.varE)	
+	time_varE = time_var_temp-time_var_temp[len(delta_t)-1]
+	print "Rescaled variable extinction",time_varE, time_series
+else:
+	time_varD = np.ones(len(time_series)-1)
+	time_varE = time_varD
 	print "Covariate-file not found"
-
-
+	
+#x0_logistic_A = np.array([np.mean(time_varD), np.mean(time_varD), np.mean(time_varE), np.mean(time_varE)])
 
 
 
 ratesfile = open(out_rates , "w",0) 
 head="it"
-for i in range(len(time_var)): head+= "\td12_%s" % (i)
-for i in range(len(time_var)): head+= "\td21_%s" % (i)
-for i in range(len(time_var)): head+= "\te1_%s" % (i)
-for i in range(len(time_var)): head+= "\te2_%s" % (i)
+for i in range(len(time_varD)): head+= "\td12_%s" % (i)
+for i in range(len(time_varD)): head+= "\td21_%s" % (i)
+for i in range(len(time_varD)): head+= "\te1_%s" % (i)
+for i in range(len(time_varD)): head+= "\te2_%s" % (i)
 head=head.split("\t")
 rlog=csv.writer(ratesfile, delimiter='\t')
 rlog.writerow(head)
@@ -603,8 +625,8 @@ def get_num_dispersals(dis_rate_vec,r_vec):
 	        Pr1 = 1- r_vec[Q_index[0:-1],1] # remove last value (time zero)
 	        Pr2 = 1- r_vec[Q_index[0:-1],2] 
 	        # get dispersal rates through time
-	        #d12 = dis_rate_vec[0][0] *exp(covar_par[0]*time_var)
-	        #d21 = dis_rate_vec[0][1] *exp(covar_par[1]*time_var)      
+	        #d12 = dis_rate_vec[0][0] *exp(covar_par[0]*time_varD)
+	        #d21 = dis_rate_vec[0][1] *exp(covar_par[1]*time_varD)      
 	        numD1 = (div_traj_1/Pr1)
 	        numD2 = (div_traj_2/Pr2)
 	        
@@ -634,7 +656,7 @@ def get_est_div_traj(r_vec):
 	numD1res = rescale_vec_to_range(numD1, r=10., m=0)
 	numD2res = rescale_vec_to_range(numD2, r=10., m=0)
 	
-	return numD1res,numD2res
+	return numD1,numD2 #numD1res,numD2res
 	
 
 # initialize weight per gamma cat per species to estimate diversity trajectory with heterogeneous preservation
@@ -642,7 +664,7 @@ weight_per_taxon = np.ones((len(list_taxa_index), pp_gamma_ncat)) / pp_gamma_nca
 
 #print Q_index
 # print dis_rate_vec
-# print time_series, time_var
+# print time_series, time_varD
 
 #get_num_dispersals(d12,d21,r_vec)
 
@@ -806,13 +828,13 @@ def lik_opt(x, grad):
 		dis_vec = dis_vec[Q_index,:] 
 		dis_vec = dis_vec[0:-1] 
 		transf_d = 0
-		time_var_d1,time_var_d2=time_var,time_var
+		time_var_d1,time_var_d2=time_varD,time_varD
 	elif args.DivdD: # Diversity dependent D
 		transf_d=1
 		time_var_d1,time_var_d2 = get_est_div_traj(r_vec)
 	else: # temp dependent D	
 		transf_d=1
-		time_var_d1,time_var_d2=time_var,time_var
+		time_var_d1,time_var_d2=time_varD,time_varD
 	if args.lgD: transf_d = 2
 	
 	# Extinction
@@ -827,7 +849,7 @@ def lik_opt(x, grad):
 		ext_vec = ext_vec[Q_index,:] 
 		ext_vec = ext_vec[0:-1] 
 		transf_e = 0
-		time_var_e1,time_var_e2=time_var,time_var		
+		time_var_e1,time_var_e2=time_varD,time_varD		
 	elif args.DivdE: # Diversity dep Extinction
 		# NOTE THAT extinction in 1 depends diversity in 1
 		transf_e = 1
@@ -843,12 +865,20 @@ def lik_opt(x, grad):
 	
 	if transf_d > 0:
 		covar_par[[0,1]] = x[opt_ind_covar_dis]
+		if args.data_in_area != 0:
+		        covar_par[[args.data_in_area - 1]] = x[opt_ind_covar_dis]
 		if transf_d == 2:
 			x0_logistic[[0,1]] = x[opt_ind_x0_log_dis]
+			if args.data_in_area != 0:
+		        	x0_logistic[[args.data_in_area - 1]] = x[opt_ind_x0_log_dis]
 	if transf_e > 0:
 		covar_par[[2,3]] = x[opt_ind_covar_ext]
+		if args.data_in_area != 0:
+		        covar_par[[args.data_in_area + 2]] = x[opt_ind_covar_ext]
 		if transf_e == 2:
 			x0_logistic[[2,3]] = x[opt_ind_x0_log_ext]
+			if args.data_in_area != 0:
+		        	x0_logistic[[args.data_in_area + 2]] = x[opt_ind_x0_log_ext]
 			
         Q_list, marginal_rates_temp= make_Q_Covar4VDdE(dis_vec,ext_vec,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par,x0_logistic,transf_d,transf_e)
         if use_Pade_approx==0:
@@ -867,17 +897,25 @@ if args.A == 3:
 	# x0: initial values
 	# xxx_bounds: bounds for optimization
 	
-	opt_ind_dis = np.arange(0, n_Q_times*nareas) 
+	if args.TdD is True:
+	        n_Q_times_dis = n_Q_times
+	else:
+		n_Q_times_dis = 1
+	opt_ind_dis = np.arange(0, n_Q_times_dis*nareas) 
 	if equal_d is True:
-		opt_ind_dis = np.repeat(np.arange(0, n_Q_times), 2)
-	if args.data_in_area == 1 or args.data_in_area == 2:
-		opt_ind_dis = np.arange(0, n_Q_times)
-			
-	opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, n_Q_times*nareas) 
+		opt_ind_dis = np.repeat(np.arange(0, n_Q_times_dis), 2)
+	if args.data_in_area != 0:
+		opt_ind_dis = np.arange(0, n_Q_times_dis)
+	
+	if args.TdE is True:
+	        n_Q_times_ext = n_Q_times
+	else:
+		n_Q_times_ext = 1		
+	opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, n_Q_times_ext*nareas) 
 	if equal_e is True:
-		opt_ind_ext = np.max(opt_ind_dis) + 1 + np.repeat(np.arange(0, n_Q_times), 2)
-	if args.data_in_area == 1 or args.data_in_area == 2:
-		opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, n_Q_times)
+		opt_ind_ext = np.max(opt_ind_dis) + 1 + np.repeat(np.arange(0, n_Q_times_ext), 2)
+	if args.data_in_area != 0:
+		opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, n_Q_times_ext)
 			
 	opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, n_Q_times*nareas)
 	if equal_q is True:
@@ -888,7 +926,7 @@ if args.A == 3:
 		opt_ind_r_vec = np.array([np.arange(1,nareas+1), np.ones(nareas, dtype = int)]).T.flatten()
 		opt_ind_r_vec[0] = 0
 		opt_ind_r_vec = np.max(opt_ind_ext) + 1 + opt_ind_r_vec 
-	if args.data_in_area == 1 or args.data_in_area == 2:
+	if args.data_in_area != 0:
 		if const_q ==1 or const_q ==2:
 			opt_ind_r_vec = np.max(opt_ind_ext) + 1	+ np.zeros(n_Q_times, dtype = int)
 		else: 
@@ -896,37 +934,39 @@ if args.A == 3:
 	
 	
 	x0 = np.random.uniform(0.01,0.1, 1 + np.max(opt_ind_r_vec)) # Initial values
-	lower_bounds = [0]*len(x0)
+	lower_bounds = [small_number]*len(x0)
 	upper_bounds = [100]*len(x0)
+	upper_bounds[-len(opt_ind_r_vec):] = [1 - small_number] * len(opt_ind_r_vec)
 	
-	# Covariates	
+	# Preservation heterogeneity
 	ind_counter = np.max(opt_ind_r_vec) + 1 		
 	if argsG:
 		alpha_ind = ind_counter
 		ind_counter += 1
 		x0 = np.concatenate((x0, 10.), axis = None) 
-		lower_bounds = lower_bounds + [0]
+		lower_bounds = lower_bounds + [small_number]
 		upper_bounds = upper_bounds + [100]
-	
+		
+	# Covariates
 	if args.TdD is False or args.DivdD:
 		opt_ind_covar_dis = np.array([ind_counter, ind_counter + 1])
 		ind_counter += 2
 		x0 = np.concatenate((x0, 0., 0.), axis = None)
 		lower_bounds = lower_bounds + [-10] + [-10]
 		upper_bounds = upper_bounds + [10] + [10]
-		if 1 in args.symCov:
+		if 1 in args.symCov or args.data_in_area != 0:
 	                opt_ind_covar_dis = opt_ind_covar_dis[0:-1]
 	                ind_counter = ind_counter - 1
 	                x0 = x0[0:-1]
 	                lower_bounds = lower_bounds[0:-1]
-	                upper_bounds = upper_bounds[0:-1]
+	                upper_bounds = upper_bounds[0:-1]	        
 		if args.lgD:
 			opt_ind_x0_log_dis = np.array([ind_counter, ind_counter + 1])
 			ind_counter += 2
-			x0 = np.concatenate((x0, np.mean(time_var), np.mean(time_var)), axis = None)
-			lower_bounds = lower_bounds + [np.min(time_var).tolist()] + [np.min(time_var).tolist()]
-			upper_bounds = upper_bounds + [np.max(time_var).tolist()] + [np.max(time_var).tolist()]	       
-	                if 1 in args.symCov:
+			x0 = np.concatenate((x0, np.mean(time_varD), np.mean(time_varD)), axis = None)
+			lower_bounds = lower_bounds + [np.min(time_varD).tolist()] + [np.min(time_varD).tolist()]
+			upper_bounds = upper_bounds + [np.max(time_varD).tolist()] + [np.max(time_varD).tolist()]	       
+	                if 1 in args.symCov or args.data_in_area != 0:
 	                        opt_ind_x0_log_dis = opt_ind_x0_log_dis[0:-1]
 	                        ind_counter = ind_counter - 1
 	                        x0 = x0[0:-1]
@@ -939,7 +979,7 @@ if args.A == 3:
 		x0 = np.concatenate((x0, 0., 0.), axis = None)
 		lower_bounds = lower_bounds + [-10] + [-10]
 		upper_bounds = upper_bounds + [10] + [10]
-		if 3 in args.symCov:
+		if 3 in args.symCov or args.data_in_area != 0:
 	                opt_ind_covar_ext = opt_ind_covar_ext[0:-1]
 	                ind_counter = ind_counter - 1
 	                x0 = x0[0:-1]
@@ -948,10 +988,10 @@ if args.A == 3:
 		if args.lgE:
 			opt_ind_x0_log_ext = np.array([ind_counter, ind_counter + 1])
 			ind_counter += 2
-			x0 = np.concatenate((x0, np.mean(time_var), np.mean(time_var)), axis = None)
-			lower_bounds = lower_bounds + [np.min(time_var).tolist()] + [np.min(time_var).tolist()]
-			upper_bounds = upper_bounds + [np.max(time_var).tolist()] + [np.max(time_var).tolist()]		
-	                if 3 in args.symCov:
+			x0 = np.concatenate((x0, np.mean(time_varE), np.mean(time_varE)), axis = None)
+			lower_bounds = lower_bounds + [np.min(time_varE).tolist()] + [np.min(time_varE).tolist()]
+			upper_bounds = upper_bounds + [np.max(time_varE).tolist()] + [np.max(time_varE).tolist()]		
+	                if 3 in args.symCov or args.data_in_area != 0:
 	                        opt_ind_x0_log_ext = opt_ind_x0_log_ext[0:-1]
 	                        ind_counter = ind_counter - 1
 	                        x0 = x0[0:-1]
@@ -969,7 +1009,7 @@ if args.A == 3:
 	minf = opt.last_optimum_value()
 	
 	# Format output
-	dis_rate_vec = np.zeros((n_Q_times,nareas))
+	dis_rate_vec = np.zeros((n_Q_times_dis,nareas))
 	if args.data_in_area == 1:
 		dis_rate_vec[:,1] = x[opt_ind_dis]
 	elif  args.data_in_area == 2:
@@ -977,7 +1017,7 @@ if args.A == 3:
 	else:
 		dis_rate_vec = np.array(x[opt_ind_dis]).reshape(n_Q_times,nareas)
 		
-	ext_rate_vec = np.zeros((n_Q_times,nareas))
+	ext_rate_vec = np.zeros((n_Q_times_ext,nareas))
 	if args.data_in_area == 1:
 		ext_rate_vec[:,0] = x[opt_ind_ext]
 	elif  args.data_in_area == 2:
@@ -1117,7 +1157,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		dis_vec = dis_rate_vec[Q_index,:]
 		dis_vec = dis_vec[0:-1]
 		transf_d=0
-		time_var_d1,time_var_d2=time_var,time_var
+		time_var_d1,time_var_d2=time_varD,time_varD
 	elif args.DivdD: # Diversity dependent D
 		transf_d=1
 		dis_vec = dis_rate_vec
@@ -1125,7 +1165,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	else: # temp dependent D	
 		transf_d=1
 		dis_vec = dis_rate_vec
-		time_var_d1,time_var_d2=time_var,time_var
+		time_var_d1,time_var_d2=time_varD,time_varD
 
 	if args.lgD: transf_d = 2
 	
@@ -1171,7 +1211,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		ext_vec = ext_rate_vec[Q_index,:]
 		ext_vec = ext_vec[0:-1]
 		transf_e=0
-		time_var_e1,time_var_e2=time_var,time_var
+		time_var_e1,time_var_e2=time_varD,time_varD
 	else: # Temp dependent Extinction
 		ext_vec = ext_rate_vec
 		transf_e=1
@@ -1210,7 +1250,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	#__      
 	#__      else:
 	#__      		time_var_e1,time_var_e2 = get_est_div_traj(r_vec) # diversity dependent extinction
-	#__      		Q_list= make_Q_Covar4VDdE(dis_vec[0:-1],ext_rate_vec,time_var,time_var_e1,time_var_e2,covar_par,transf_d=0)	
+	#__      		Q_list= make_Q_Covar4VDdE(dis_vec[0:-1],ext_rate_vec,time_varD,time_var_e1,time_var_e2,covar_par,transf_d=0)	
 	#__      	
 	#__      	
 	#__      elif args.DdE:
@@ -1218,7 +1258,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	#__      	# NOTE THAT no. dispersals from 1=>2 affects extinction in 2 and vice versa
  	#__      	time_var_e2,time_var_e1 = get_num_dispersals(dis_rate_vec,r_vec)
 	#__      	#print time_var_e1,time_var_e2
-	#__      	Q_list= make_Q_Covar4VDdE(dis_rate_vec,ext_rate_vec,time_var,time_var_e1,time_var_e2,covar_par)
+	#__      	Q_list= make_Q_Covar4VDdE(dis_rate_vec,ext_rate_vec,time_varD,time_var_e1,time_var_e2,covar_par)
 	#__      	#for i in [1,10,20]:
 	#__      	#	print Q_list[i]
 	#__      	#quit()
@@ -1227,10 +1267,10 @@ for it in range(n_generations * len(scal_fac_TI)):
 	#__      	# NOTE THAT extinction in 1 depends diversity in 1
  	#__      	time_var_e1,time_var_e2 = get_est_div_traj(r_vec)
 	#__      	#print time_var_e1,time_var_e2
-	#__      	Q_list= make_Q_Covar4VDdE(dis_rate_vec,ext_rate_vec,time_var,time_var_e1,time_var_e2,covar_par)
+	#__      	Q_list= make_Q_Covar4VDdE(dis_rate_vec,ext_rate_vec,time_varD,time_var_e1,time_var_e2,covar_par)
 	#__      else:
 	#__      	# TRANSFORM Q MATRIX	
-	#__      	Q_list= make_Q_Covar4V(dis_rate_vec,ext_rate_vec,time_var,covar_par)
+	#__      	Q_list= make_Q_Covar4V(dis_rate_vec,ext_rate_vec,time_varD,covar_par)
 	#__      	#print "Q2", Q_list[0], covar_par
 	#__      	#print Q_list[3]
 	
