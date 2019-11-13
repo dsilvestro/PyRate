@@ -1,3 +1,5 @@
+<img src="https://github.com/dsilvestro/PyRate/blob/master/pyrate_lib/PyRate_logo1024.png" align="left" width="80">  
+
 # PyRate tutorials - index
 
 
