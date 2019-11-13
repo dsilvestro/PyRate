@@ -2828,7 +2828,8 @@ def MCMC(all_arg):
 				if TDI<2: #
 					if np.random.random()<.95 or est_hyperP == 0 or fix_hyperP == 1:
 						L,M,hasting=update_rates(LA,MA,3,mod_d3)
-						if use_ADE_model == 1:
+						update_W_shape =1 
+						if use_ADE_model == 1 and update_W_shape:
 							W_shape, hasting2 = update_multiplier_proposal(W_shapeA,1.1)
 							hasting+=hasting2
 					else:

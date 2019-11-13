@@ -1,7 +1,7 @@
 library(scales)
 
 get_thresholds <- function(prior_pr){
-	prior_odds = (0.05/(1-0.05)) 
+	prior_odds = (prior_pr/(1-prior_pr)) 
 	BF = c(10,6,2)
 	A = exp(BF/2) * prior_odds
 	thr = A/ (A+1)
