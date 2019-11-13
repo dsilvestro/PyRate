@@ -17,7 +17,7 @@
 # Estimate rate variation using Reversible Jump MCMC
 
 ## Setting up an analysis using RJMCMC
-We have recently implemented a new algorithm in PyRate that uses RJMCMC (Green 1995) instead of BDMCMC (described in Silvestro et al. 2014 and available through the command `-A 2`). The method is is described by [Silvestro et al. 2018 bioRxiv](https://www.biorxiv.org/content/early/2018/05/09/316992) and simulations show that it is more accurate than BDMCMC.
+We have recently implemented a new algorithm in PyRate that uses RJMCMC (Green 1995) instead of BDMCMC (described in Silvestro et al. 2014 and available through the command `-A 2`). The method is is described in [this open access paper](https://www.cambridge.org/core/journals/paleobiology/article/improved-estimation-of-macroevolutionary-rates-from-fossil-data-using-a-bayesian-framework/334F08A74A6C92F1FEAD91A71FE59A1C) and simulations show that it is more accurate than BDMCMC.
 
 An analysis with RJMCMC is set up using the command `-A 4`. Note that this algorithm is available both for occurrence data
 e.g.:
