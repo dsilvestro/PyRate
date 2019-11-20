@@ -50,8 +50,11 @@ def update_multiplier_proposal(i,d):
 def update_multiplier_proposal_freq(q,d=1.1,f=0.75):
 	S=np.shape(q)
 	ff=np.random.binomial(1,f,S)
-	if np.max(ff)==0: 
-		ff[ np.random.choice(S[0]),np.random.choice(S[1]) ] = 1
+	if np.max(ff)==0:
+		if len(S) == 2: 
+			ff[ np.random.choice(S[0]),np.random.choice(S[1]) ] = 1
+		else:
+			ff[np.random.choice(S[0])] = 1
 	u = np.random.uniform(0,1,S)
 	l = 2*np.log(d)
 	m = np.exp(l*(u-.5))

@@ -159,7 +159,12 @@ def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_v
 	elif transf_d==2: # logistic
 		transf_d12 = transform_rate_logistic(dv_list[0][0], [covar_par[0],x0_logistic[0]],time_var_d1)
 		transf_d21 = transform_rate_logistic(dv_list[0][1], [covar_par[1],x0_logistic[1]],time_var_d2)
-		transf_d = np.array([transf_d12,transf_d21]).T		
+		transf_d = np.array([transf_d12,transf_d21]).T	
+	elif transf_d==4: # linear diversity dependence
+		transf_d = np.array([dv_list[0][0] + (covar_par[0] * time_var_d1), 
+		                     dv_list[0][1] + (covar_par[1] * time_var_d2)]).T
+		transf_d[np.isfinite(transf_d) == False] = 0
+		transf_d[transf_d < 0] = 0
 	else: # time-dependent-dispersal
 		transf_d = dv_list
 	if transf_e==1: # exponential
@@ -170,6 +175,10 @@ def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_v
 		transf_e1  = transform_rate_logistic(ev_list[0][0], [covar_par[2],x0_logistic[2]],time_var_e1)
 		transf_e2  = transform_rate_logistic(ev_list[0][1], [covar_par[3],x0_logistic[3]],time_var_e2)
 		transf_e = np.array([transf_e1 ,transf_e2 ]).T
+	elif transf_e==4: # linear diversity dependence
+		transf_e = np.array([ev_list[0][0] + (covar_par[2]*time_var_e1), 
+		                     ev_list[0][1] + (covar_par[3]*time_var_e2)]).T
+		transf_e[transf_e < 0] = 0
 	else:
 		transf_e = ev_list
 
