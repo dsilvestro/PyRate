@@ -718,7 +718,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	elif args.DivdD: # Diversity dependent D
 		transf_d=1
 		dis_vec = dis_rate_vec
-		time_var_d1,time_var_d2 = get_est_div_traj(r_vec)
+		time_var_d2,time_var_d1 = get_est_div_traj(r_vec)
 	else: # temp dependent D	
 		transf_d=1
 		dis_vec = dis_rate_vec
