@@ -2964,10 +2964,10 @@ def MCMC(all_arg):
 		elif FBDrange==1:
 			move_type = 0
 			stop_update = 0
-			#if np.random.random()<0.01 and TDI==4:
-			#	rj_cat_HP = get_post_rj_HP(len(LA),len(MA)) # est Poisson hyperprior on number of rates (RJMCMC)
-			#	stop_update=inf
-			if np.random.random()< 0.3:
+			if np.random.random()<0.01 and TDI==4:
+				rj_cat_HP = get_post_rj_HP(len(LA),len(MA)) # est Poisson hyperprior on number of rates (RJMCMC)
+				stop_update=inf
+			elif np.random.random()< 0.3 and TDI==4:
 				stop_update=0
 				L,timesL,M,timesM,hasting2 = RJMCMC([LA,MA, timesLA, timesMA])
 				hasting += hasting2
