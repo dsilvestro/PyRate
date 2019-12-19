@@ -21,7 +21,7 @@ PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-af
 * See tutorials [1](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md), [2](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md), and [3](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md)
 
 
-#### The MCDD and MBD models are described here: 
+#### The multivariate birth-death models (MCDD and MBD) are described here: 
 
 * Silvestro D., Antonelli A., Salamin N., Quental T. B. (2015) The role of clade competition in the diversification of North American canids. PNAS, [112, 8684-8689](http://www.pnas.org/content/112/28/8684).
 
@@ -32,21 +32,25 @@ PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-af
 * See tutorial [4](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md)
 
 
-#### The DES model is described here:
+#### The dispersal-extinction-cladogenesis model (DES) is described here:
 
 * Silvestro, D., Zizka A., Bacon C. D., Cascales-Minana B. and Salamin, N., Antonelli, A. (2016) Fossil Biogeography: A new model to infer dispersal, extinction and sampling from paleontological data. Philosophical Transactions of the Royal Society B [371:20150225](http://rstb.royalsocietypublishing.org/content/371/1691/20150225).
 
 * See tutorial [5](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_5.md)
 
 
-#### The ADE model is described here:
+#### The age-dependent extinction models (ADE) are described here:
+
+* Silvestro et al. (2019) A 450 million years long latitudinal gradient in age‐dependent extinction. Ecology Letters, [doi: 10.1111/ele.13441](https://onlinelibrary.wiley.com/doi/full/10.1111/ele.13441).
 
 * Hagen O., Andermann T., Quental T. B., Antonelli A., Silvestro D. (2017) Estimating Age-dependent Extinction: Contrasting Evidence from Fossils and Phylogenies. Systematic Biology, [doi: 10.1093/sysbio/syx082](https://academic.oup.com/sysbio/article/doi/10.1093/sysbio/syx082/4563320/Estimating-Agedependent-Extinction-Contrasting).
 
 * See tutorial [4](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md)
 
 
-#### The BDC model is described here:
+
+
+#### The birth death chrono-species model (BDC) is described here:
 
 * Silvestro D., Warnock R., Gavryushkina A. & Stadler T. (2018) Closing the gap between palaeontological and neontological speciation and extinction rate estimates. Nature Communications, [doi: 10.1038/s41467-018-07622-y](https://www.nature.com/articles/s41467-018-07622-y).
 
