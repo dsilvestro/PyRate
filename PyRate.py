@@ -1277,12 +1277,12 @@ def update_ts_te(ts, te, d1):
 
 
 #### GIBBS SAMPLER S/E
-def draw_se_gibbs(fa,la,q_rates,q_times):
+def draw_se_gibbs(fa,la,q_rates_L,q_rates_M,q_times):
 	t = np.sort(np.array([fa, la] + list(q_times)))[::-1]
 	# sample ts
 	prior_to_fa = np.arange(len(q_times))[q_times>fa]
 	tfa = (q_times[prior_to_fa]-fa)[::-1] # time since fa
-	qfa = q_rates[prior_to_fa][::-1] # rates before fa
+	qfa = q_rates_L[prior_to_fa][::-1] # rates before fa
 	ts_temp=0
 	for i in range(len(qfa)):
 		q = qfa[i]
@@ -1299,7 +1299,7 @@ def draw_se_gibbs(fa,la,q_rates,q_times):
 		# sample te
 		after_la = np.arange(len(q_times))[q_times<la]
 		tla = (la-q_times[after_la]) # time after la
-		qla = q_rates[after_la-1] # rates after la
+		qla = q_rates_M[after_la-1] # rates after la
 		#print "QLA", qla, tla
 		te_temp=0
 		i,attempt=0,0
@@ -1324,7 +1324,7 @@ def draw_se_gibbs(fa,la,q_rates,q_times):
 		te=0
 	return (ts,te)
 
-def gibbs_update_ts_te(q_rates,q_time_frames):
+def gibbs_update_ts_te(q_rates_L,q_rates_M,q_time_frames):
 	#print q_rates,q_time_frames
 	q_times= q_time_frames+0
 	q_times[0] = np.inf
@@ -1332,7 +1332,7 @@ def gibbs_update_ts_te(q_rates,q_time_frames):
 	new_te = []
 	for sp_indx in range(0,len(FA)):
 		#print "sp",sp_indx
-		s,e = draw_se_gibbs(FA[sp_indx],LO[sp_indx],q_rates,q_times)
+		s,e = draw_se_gibbs(FA[sp_indx],LO[sp_indx],q_rates_L,q_rates_M,q_times)
 		new_ts.append(s)
 		new_te.append(e)
 	return np.array(new_ts), np.array(new_te)
@@ -2781,14 +2781,14 @@ def MCMC(all_arg):
 			ts,te=update_ts_te(tsA,teA,mod_d1)
 			if use_gibbs_se_sampling or it < fast_burnin:
 				if sum(timesL[1:-1])==sum(times_q_shift):
-					ts,te = gibbs_update_ts_te(q_ratesA+LA+MA,np.sort(np.array([np.inf,0]+times_q_shift))[::-1])
+					ts,te = gibbs_update_ts_te(q_ratesA+LA,q_ratesA+MA,np.sort(np.array([np.inf,0]+times_q_shift))[::-1])
 				else:
 					times_q_temp = np.sort(np.array([np.inf,0]+times_q_shift))[::-1]
 					q_temp_time = np.sort(np.unique(list(times_q_shift)+list(timesLA[1:])+list(timesMA[1:])))[::-1]
 					q_rates_temp =  q_ratesA[np.digitize(q_temp_time,times_q_temp[1:])]
-					q_rates_temp += LA[np.digitize(q_temp_time,timesLA[1:])]
-					q_rates_temp += MA[np.digitize(q_temp_time,timesMA[1:])]
-					ts,te = gibbs_update_ts_te(q_rates_temp,times_q_temp)
+					q_rates_temp_L = q_rates_temp + LA[np.digitize(q_temp_time,timesLA[1:])]
+					q_rates_temp_M = q_rates_temp + MA[np.digitize(q_temp_time,timesMA[1:])]
+					ts,te = gibbs_update_ts_te(q_rates_temp_L,q_rates_temp_M,times_q_temp)
 
 			tot_L=sum(ts-te)
 		elif rr<f_update_q: # q/alpha
@@ -3818,9 +3818,11 @@ if args.edgeShift[0] != np.inf or args.edgeShift[1] != 0:
 		min_allowed_n_rates = 3
 	time_framesL = max(min_allowed_n_rates,args.mL) # change number of starting rates based on edgeShifts
 	time_framesM = max(min_allowed_n_rates,args.mM) # change number of starting rates based on edgeShifts
+	edgeShifts = np.array(edgeShifts)*args.rescale+args.translate
 else:
 	fix_edgeShift = 0
 	min_allowed_n_rates = 1
+
 # BDMCMC & MCMC SETTINGS
 runs=args.r			  # no. parallel MCMCs (MC3)
 if runs>1 and TDI>0:
@@ -4426,8 +4428,8 @@ if use_ADE_model >= 1:
 qFilter=args.qFilter # if set to zero all times of shifts (and preservation rates) are kept, even if they don't have occurrences
 if args.qShift != "":
 	if 2>1: #try:
-		try: times_q_shift=np.sort(np.loadtxt(args.qShift))[::-1]*args.rescale
-		except: times_q_shift=np.array([np.loadtxt(args.qShift)])*args.rescale
+		try: times_q_shift=np.sort(np.loadtxt(args.qShift))[::-1]*args.rescale + args.translate
+		except: times_q_shift=np.array([np.loadtxt(args.qShift)])*args.rescale + args.translate
 		# filter qShift times based on observed time frame
 		if qFilter == 1:
 			times_q_shift=times_q_shift[times_q_shift<max(FA)]
