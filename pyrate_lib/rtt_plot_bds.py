@@ -359,7 +359,12 @@ def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulat
 
 def plot_net_rate(resS,resE,col,min_age,max_age,plot_title,n_bins):
 	#computes and plots net RATES
-	marginal_rates_list	= resS[6]-resE[6]
+	resS_marginal_rate = resS[6]
+	resE_marginal_rate = resE[6]
+	# in case they have different number of samples
+	max_indx = np.min([resS_marginal_rate.shape[0], resE_marginal_rate.shape[0]])
+	marginal_rates_list	= resS_marginal_rate[0:max_indx,:] - resE_marginal_rate[0:max_indx,:]
+	
 	mean_rates= np.mean(marginal_rates_list,axis=0)
 	min_rates,max_rates=[],[]
 	time_ax = []
