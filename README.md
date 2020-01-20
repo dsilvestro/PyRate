@@ -45,7 +45,7 @@ PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-af
 
 * Hagen O., Andermann T., Quental T. B., Antonelli A., Silvestro D. (2017) Estimating Age-dependent Extinction: Contrasting Evidence from Fossils and Phylogenies. Systematic Biology, [doi: 10.1093/sysbio/syx082](https://academic.oup.com/sysbio/article/doi/10.1093/sysbio/syx082/4563320/Estimating-Agedependent-Extinction-Contrasting).
 
-* See tutorial [4](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md)
+* For the Bayesian implementation see tutorial [4](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#age-dependent-extinction-ade-model). The ADE-NN model (using neural networks) is available [here](https://github.com/dsilvestro/PyRate/tree/master/ADE-NN)
 
 
 
