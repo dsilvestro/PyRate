@@ -12,9 +12,11 @@ The original code was written using the Python library Tensorflow version 1 and 
 
 
 ## Input data
-The input data should be formatted as a text file with tab-separated columns (see directory: Example_data). Tables contain four columns following the format of standard PyRate input files (see [example](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#generate-pyrate-input-file-option-2)). **Note that the ADE-NN method as been only trained and tested on extinct species.** 
+The input data should be formatted as a text file with tab-separated columns (see directory: Example_data). Tables contain four columns following the format of standard PyRate input files (see [example](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#generate-pyrate-input-file-option-2)). **Note that the ADE-NN method as been only trained and tested on extinct species.** Extant species can be dropped from the dataset using the `-time_slice` option (see below).
 
 The full datasets analyzed in the original paper are available in this [Zenodo repository](https://zenodo.org/record/3537888#.XiWoXC2ZN24).
+**NOTE** 
+The method has been tested only on datasets of extinct species and currently does not explicitly account for extant species.
 
 ## Implementation - v.2
 The ADE-NN v.2 model is implemented in the program `ADE-NN-tf2.py` and relies on the program [ruNNEr](https://github.com/dsilvestro/ruNNer/) to perform the classification of empirical data sets into five categories of age-dependent extinction. Following the terminology used [here](https://onlinelibrary.wiley.com/doi/full/10.1111/ele.13441), the classes are labeled as:
