@@ -1946,6 +1946,7 @@ def NHPPgamma(arg):
 def init_ts_te_FBDrange(FA,LO):
 	ts,te = init_ts_te(FA,LO)
 	min_dt = min(get_DT_FBDrange(ts,ts,te)[1:])
+	print """\n Using the FBD-range likelihood function \n(Warnock, Heath, and Stadler; Paleobiology, in press)\n"""
 	while min_dt <= 1:
 		ts = ts+0.01*ts
 		#ts = np.random.exponential(5, len(FA)) + FA
@@ -1953,10 +1954,7 @@ def init_ts_te_FBDrange(FA,LO):
 		#te[te<0] = np.random.uniform(LO[te<0],0)
 		dt = get_DT_FBDrange(ts,ts,te)
 		min_dt = min(dt[1:])
-		print dt
-
-	#print "final", dt
-	#quit()
+	
 	return ts, te
 
 def get_DT_FBDrange(T,s,e): # returns the Diversity Trajectory of s,e at times T (x10 faster)
