@@ -8,7 +8,7 @@ The method is described in the [Open Access paper](https://onlinelibrary.wiley.c
 
 
 **NOTE**
-The original code was written using the Python library Tensorflow version 1 and is still available in the directory: 'v.1.', but will no longer be updated. The current version is based on Tensorflow v.2 and relies on the program **ruNNer**, which is available [here](https://github.com/dsilvestro/ruNNer/).
+The original code was written using the Python library Tensorflow version 1 and is still available in the directory: 'v.1.', but will no longer be updated. **The current version is based on Tensorflow v.2 and relies on the program *ruNNer*, which is available [here](https://github.com/dsilvestro/ruNNer/).**
 
 
 ## Input data
