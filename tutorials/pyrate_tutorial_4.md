@@ -1,7 +1,7 @@
 <img src="https://github.com/dsilvestro/PyRate/blob/master/pyrate_lib/PyRate_logo1024.png" align="left" width="80">  
 
-# PyRate Tutorial \#4 MDB and ADE models
-#### Feb 2019
+# PyRate Tutorial \#4
+#### Jan 2020
 ***
 #### Contents
 * [Multivariate Birth-Death models](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#multivariate-birth-death-models-this-tutorial-is-work-in-progress)  
@@ -119,9 +119,14 @@ Example files available [here](https://github.com/dsilvestro/PyRate/blob/master/
 
 
 
-# Age dependent extinction (ADE) model
+# Age dependent extinction (ADE) models
 
-Testing for age dependent extinction is more complicated than fitting a Weibull distribution to the estimated longevities of species because that would not account for the unobserved species, which are likely the short lived ones ([Hagen et al. 2017](https://academic.oup.com/sysbio/article/doi/10.1093/sysbio/syx082/4563320/Estimating-Agedependent-Extinction-Contrasting)). The ADE model is implemented in its own function in PyRate and requires an [input file](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#generate-pyrate-input-file-option-1) containing all occurrences.
+### Bayesian implementation of the ADE model
+NOTE: An alternative implementation of an Age Dependent Extinction model using deep neural networks (named ADE-NN) is described in this [Open Access paper](https://onlinelibrary.wiley.com/doi/full/10.1111/ele.13441) and the code implementing it is available [here](https://github.com/dsilvestro/PyRate/tree/master/ADE-NN).
+
+
+Testing for age dependent extinction is more complicated than fitting a Weibull distribution to the estimated longevities of species because that would not account for the unobserved species, which are likely the short lived ones ([Hagen et al. 2017](https://academic.oup.com/sysbio/article/doi/10.1093/sysbio/syx082/4563320/Estimating-Agedependent-Extinction-Contrasting)). 
+The ADE model is implemented in its own function in PyRate and requires an [input file](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#generate-pyrate-input-file-option-1) containing all occurrences.
 e.g.
 
 `python PyRate.py <your_dataset> -ADE 1 -qShift epochs.txt`
