@@ -28,8 +28,7 @@ and for data sets with fixed times of origination and extinction (see also tutor
 
 `python PyRate.py -d Canidae_1_G_se_est.txt -A 4`
 
-You can find more details about preparing input files [here]
-(https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#generate-pyrate-input-file-option-1)
+You can find more details about preparing input files [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#generate-pyrate-input-file-option-1)
 and [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#generate-pyrate-input-file-option-2)
 
 ## RJMCMC Output

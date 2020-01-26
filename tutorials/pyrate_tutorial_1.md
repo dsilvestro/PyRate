@@ -109,7 +109,7 @@ When the rate is set to zero, PyRate assigns a vague exponential hyper-prior to 
 
 
 ### Model testing across preservation models
-A maximum likelihood test across (described [here](https://www.biorxiv.org/content/10.1101/316992v1)) is available to assess which of NHPP, HPP, or TPP is best supported by the data. To run the test you need to provide the input file and the file providing the times of rate shift for the TPP model and add the flag `-PPmodeltest`
+A maximum likelihood test across (described [here](https://www.cambridge.org/core/journals/paleobiology/article/improved-estimation-of-macroevolutionary-rates-from-fossil-data-using-a-bayesian-framework/334F08A74A6C92F1FEAD91A71FE59A1C)) is available to assess which of NHPP, HPP, or TPP is best supported by the data. To run the test you need to provide the input file and the file providing the times of rate shift for the TPP model and add the flag `-PPmodeltest`
 
 ``python PyRate.py .../Canis_pbdb_data_PyRate.py -qShift .../epochs_q.txt -PPmodeltest``
 
