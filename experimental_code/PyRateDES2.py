@@ -1278,6 +1278,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	### GET LIST OF Q MATRICES ###
 	if args.TdD: # time dependent D
 		covar_par[0:2]=0
+		x0_logistic[0:2]=0
 		dis_vec = dis_rate_vec[Q_index,:]
 		dis_vec = dis_vec[0:-1]
 		transf_d=0
@@ -1334,6 +1335,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		ext_vec = ext_rate_vec
 	elif args.TdE: # Time dep Extinction
 		covar_par[2:4]=0
+		x0_logistic[2:4]=0
 		ext_vec = ext_rate_vec[Q_index,:]
 		ext_vec = ext_vec[0:-1]
 		transf_e=0
