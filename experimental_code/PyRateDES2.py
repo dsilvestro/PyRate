@@ -560,7 +560,12 @@ else:
 	time_varD = np.ones(len(time_series)-1)
 	time_varE = time_varD
 	print "Covariate-file not found"
-	
+
+bound_covar = 25.
+range_time_varD = np.max(time_varD) - np.min(time_varD)
+range_time_varE = np.max(time_varE) - np.min(time_varE)
+bound_covar_d = (1. + small_number) / (range_time_varD + small_number) * bound_covar
+bound_covar_e = (1. + small_number) / (range_time_varE + small_number) * bound_covar	
 #x0_logistic_A = np.array([np.mean(time_varD), np.mean(time_varD), np.mean(time_varE), np.mean(time_varE)])
 
 
@@ -1083,8 +1088,8 @@ if args.A == 3:
 			upper_bounds = upper_bounds + [np.inf] + [np.inf]
 		else:
 			x0 = np.concatenate((x0, 0., 0.), axis = None)
-			lower_bounds = lower_bounds + [-10] + [-10]
-			upper_bounds = upper_bounds + [10] + [10]
+			lower_bounds = lower_bounds + [-bound_covar_d] + [-bound_covar_d]
+			upper_bounds = upper_bounds + [bound_covar_d] + [bound_covar_d]
 		if 1 in args.symCov or args.data_in_area != 0:
 	                opt_ind_covar_dis = opt_ind_covar_dis[0:-1]
 	                ind_counter = ind_counter - 1
@@ -1113,8 +1118,8 @@ if args.A == 3:
 			upper_bounds = upper_bounds + [np.inf] + [np.inf]
 		else:
 			x0 = np.concatenate((x0, 0., 0.), axis = None)
-			lower_bounds = lower_bounds + [-10] + [-10]
-			upper_bounds = upper_bounds + [10] + [10]
+			lower_bounds = lower_bounds + [-bound_covar_e] + [-bound_covar_e]
+			upper_bounds = upper_bounds + [bound_covar_e] + [bound_covar_e]
 		if 3 in args.symCov or args.data_in_area != 0:
 	                opt_ind_covar_ext = opt_ind_covar_ext[0:-1]
 	                ind_counter = ind_counter - 1
