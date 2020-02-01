@@ -153,7 +153,7 @@ def get_dispersal_rate_through_time(dv_list,time_var_d1,time_var_d2,covar_par=np
 
 
 
-def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par=np.zeros(4),x0_logistic=np.zeros(4),transf_d=0,transf_e=0, offset_div1 = 0, offset_div2 = 0): 
+def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par=np.zeros(4),x0_logistic=np.zeros(4),transf_d=0,transf_e=0, offset_dis_div1 = 0, offset_dis_div2 = 0, offset_ext_div1 = 0, offset_ext_div2 = 0): 
 	if transf_d==1: # exponential
 		transf_d = np.array([dv_list[0][0] *exp(covar_par[0]*time_var_d1), dv_list[0][1] *exp(covar_par[1]*time_var_d2)]).T
 	elif transf_d==2: # logistic
@@ -161,8 +161,8 @@ def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_v
 		transf_d21 = transform_rate_logistic(dv_list[0][1], [covar_par[1],x0_logistic[1]],time_var_d2)
 		transf_d = np.array([transf_d12,transf_d21]).T	
 	elif transf_d==4: # linear diversity dependence
-		transf_d = np.array([(dv_list[0][0]/(1. - (offset_div1/covar_par[0]))) * (1. - (time_var_d1/covar_par[0])), 
-		                     (dv_list[0][1]/(1. - (offset_div2/covar_par[1]))) * (1. - (time_var_d2/covar_par[1]))]).T 
+		transf_d = np.array([(dv_list[0][0]/(1. - (offset_dis_div1/covar_par[0]))) * (1. - (time_var_d1/covar_par[0])), 
+		                     (dv_list[0][1]/(1. - (offset_dis_div2/covar_par[1]))) * (1. - (time_var_d2/covar_par[1]))]).T 
 		transf_d[transf_d <= 0] = 1e-5
 	else: # time-dependent-dispersal
 		transf_d = dv_list
@@ -175,8 +175,8 @@ def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_v
 		transf_e2  = transform_rate_logistic(ev_list[0][1], [covar_par[3],x0_logistic[3]],time_var_e2)
 		transf_e = np.array([transf_e1 ,transf_e2 ]).T
 	elif transf_e==4: # linear diversity dependence
-		base_e1 = ev_list[0][0] * (1. - (offset_div1/covar_par[2]))
-		base_e2 = ev_list[0][1] * (1. - (offset_div2/covar_par[3]))
+		base_e1 = ev_list[0][0] * (1. - (offset_ext_div1/covar_par[2]))
+		base_e2 = ev_list[0][1] * (1. - (offset_ext_div2/covar_par[3]))
 		transf_e = np.array([base_e1 / (1. - (time_var_e1/covar_par[2])), 
 		                     base_e2 / (1. - (time_var_e2/covar_par[3]))]).T
 		# Replace negative and infinite extinction rate when observed diversity is >= K by max extinction

@@ -624,14 +624,28 @@ Q_index_first_occ = Q_index_first_occ.astype(int)
 len_time_series = len(time_series)
 
 # Max diversity of area AB
-data_temp3 = 0.+data_temp
-data_temp3[data_temp3==1]=0
-data_temp3[data_temp3==2]=0
-data_temp3[data_temp3==3]=1
-div_traj_3 = np.nansum(data_temp3,axis=0)[0:-1]
-max_div_traj_3 = np.max(div_traj_3)
-offset_div1 = max_div_traj_3
-offset_div2 = max_div_traj_3
+offset_dis_div1 = 0.
+offset_dis_div2 = 0.
+if args.DivdD:
+	data_temp3 = 0.+data_temp
+	data_temp3[data_temp3==1]=0
+	data_temp3[data_temp3==2]=0
+	data_temp3[data_temp3==3]=1
+	div_traj_3 = np.nansum(data_temp3,axis=0)[0:-1]
+	max_div_traj_3 = np.max(div_traj_3)
+	offset_dis_div1 = max_div_traj_3
+	offset_dis_div2 = max_div_traj_3
+	
+# Median of diversity	
+offset_ext_div1 = 0.
+offset_ext_div2 = 0.
+if args.DivdE:
+	offset_ext_div1 = np.median(div_traj_1)
+	offset_ext_div2 = np.median(div_traj_2)
+	if 1 in args.symCov or 3 in args.symCov:
+		offset_ext_div = np.median( np.concatenate((div_traj_1, div_traj_2)) )
+		offset_ext_div1 = offset_ext_div
+		offset_ext_div2 = offset_ext_div
 
 argsDivdD = args.DivdD
 argsDivdE = args.DivdE
@@ -655,7 +669,7 @@ def div_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2):
 def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec, 
                     argsDivdD, argsDivdE, argsG,
                     r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ, 
-                    covar_par, offset_div1, offset_div2,
+                    covar_par, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 		    time_series, len_time_series, bin_first_occ, first_area):	
 	if argsG:
 		YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
@@ -686,7 +700,7 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 			dis_rate_vec_i = dis_rate_vec[0, ]
 			k_d1 = covar_par[0]
 			k_d2 = covar_par[1]
-			dis_rate_vec_i = dis_rate_vec_i / (1.- [offset_div2, offset_div1]/covar_par[0:2])			
+			dis_rate_vec_i = dis_rate_vec_i / (1.- [offset_dis_div2, offset_dis_div1]/covar_par[0:2])			
 		else:
 			dis_rate_vec_i = dis_rate_vec[Q_index_i, ]
 			k_d1 = np.inf
@@ -696,7 +710,7 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 			ext_rate_vec_i = ext_rate_vec[0, ] 
 			k_e1 = covar_par[2]
 			k_e2 = covar_par[3]	
-			ext_rate_vec_i = ext_rate_vec_i * (1 - ([offset_div1, offset_div2]/covar_par[2:4]))			
+			ext_rate_vec_i = ext_rate_vec_i * (1 - ([offset_ext_div1, offset_ext_div2]/covar_par[2:4]))			
 		else:
 			ext_rate_vec_i = ext_rate_vec[Q_index_i, ]
 			k_e1 = np.inf
@@ -981,7 +995,7 @@ def lik_opt(x, grad):
 		approx_d1,approx_d2 = approx_div_traj(nTaxa, dis_vec, ext_vec, 
 		                                      argsDivdD, argsDivdE, argsG,
                     				      r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ, 
-                    				      covar_par, offset_div1, offset_div2,
+                    				      covar_par, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 		                                      time_series, len_time_series, bin_first_occ, first_area)		    
 		if args.DivdD:
 			time_var_d2 = approx_d1 # Limits dispersal into 1
@@ -992,7 +1006,7 @@ def lik_opt(x, grad):
 		#print "Approx d1", time_var_d1
 		#print "Approx d2", time_var_d2		        	
 			
-        Q_list, marginal_rates_temp= make_Q_Covar4VDdE(dis_vec,ext_vec,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par,x0_logistic,transf_d,transf_e, offset_div1, offset_div2)
+        Q_list, marginal_rates_temp= make_Q_Covar4VDdE(dis_vec,ext_vec,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par,x0_logistic,transf_d,transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2)
         if use_Pade_approx==0:
 		w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
         lik, weight_per_taxon = lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST,OrigTimeIndex,Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx)
@@ -1349,7 +1363,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		approx_d1,approx_d2 = approx_div_traj(nTaxa, dis_vec, ext_vec, 
 		                                      argsDivdD, argsDivdE, argsG,
                     				      r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ, 
-                    				      covar_par, offset_div1, offset_div2,
+                    				      covar_par, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 		                                      time_series, len_time_series, bin_first_occ, first_area)
 		if args.DivdD:
 			time_var_d2 = approx_d1 # Limits dispersal into 1
@@ -1382,7 +1396,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		#print "x0_logistic", x0_logistic
 		#print "transf_d", transf_d
 		#print "transf_e", transf_e	        	
-		Q_list, marginal_rates_temp= make_Q_Covar4VDdE(dis_vec,ext_vec,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par,x0_logistic,transf_d,transf_e, offset_div1, offset_div2)
+		Q_list, marginal_rates_temp= make_Q_Covar4VDdE(dis_vec,ext_vec,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par,x0_logistic,transf_d,transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2)
 	
 		
 	
@@ -1465,7 +1479,9 @@ for it in range(n_generations * len(scal_fac_TI)):
 		q_rates = -log(sampling_prob)/bin_size
 		print it,"\t",likA,lik,scal_fac_TI[scal_fac_ind]
 		if argsDivdD:
-			dis_rate_vec_A[0,:] = dis_rate_vec_A[0,:] / (1. - ([offset_div2, offset_div1]/covar_par[0:2]))			
+			dis_rate_vec_A[0,:] = dis_rate_vec_A[0,:] / (1. - ([offset_dis_div2, offset_dis_div1]/covar_par[0:2]))
+		if argsDivdE:
+			ext_rate_vec_A[0,:] = ext_rate_vec_A[0,:] * (1. - ([offset_ext_div2, offset_ext_div1]/covar_par[2:4]))	
 		print "\td:", dis_rate_vec_A.flatten(), "e:", ext_rate_vec_A.flatten(),"q:",q_rates,"alpha:",alphaA		
 		print "\ta/k:",covar_par_A,"x0:",x0_logistic_A
 	if it % sampling_freq == 0 and it >= burnin and runMCMC == 1:
@@ -1529,7 +1545,9 @@ for it in range(n_generations * len(scal_fac_TI)):
 		sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
 		q_rates = -log(sampling_prob)/bin_size
 		if argsDivdD and args.A != 3:
-			dis_rate_vec_A[0,:] = dis_rate_vec_A[0,:] / (1. - ([offset_div2, offset_div1]/covar_par[0:2]))
+			dis_rate_vec_A[0,:] = dis_rate_vec_A[0,:] / (1. - ([offset_dis_div2, offset_dis_div1]/covar_par[0:2]))
+		if argsDivdE and args.A != 3:
+			ext_rate_vec_A[0,:] = ext_rate_vec_A[0,:] * (1. - ([offset_ext_div2, offset_ext_div1]/covar_par[2:4]))	
 		log_state= [it,likA+priorA, priorA,likA]+list(dis_rate_vec_A.flatten())+list(ext_rate_vec_A.flatten())+list(q_rates)		
 		log_state = log_state+list(covar_par_A[0:2])	
 		if args.lgD: log_state = log_state+list(x0_logistic_A[0:2])
