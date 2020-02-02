@@ -1,8 +1,8 @@
 # PyRate - Advanced settings
 
 
-### Fast fast burnin 
-##### `-fast_fast_burnin <int>` 
+### Fast burnin 
+##### `-fast_burnin <int>` 
 Specify number of MCMC iterations using approximate Gibbs sampler for times of origination and extinction for faster convergence (default: `-fast_burnin 0`)
 
 
