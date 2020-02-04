@@ -736,7 +736,8 @@ double PyRateC_FBD_T4(int nSpecies,
 	mapCount_t  mapCount;*/
 
 	double term4 = 0.;
-	for(size_t i=0; i<nSpecies; i++) {
+	assert(nSpecies>=0);
+	for(size_t i=0; i<(size_t)nSpecies; i++) {
 
 		double term4_q_t1 = computeQ(bint[i], ts[i], intervalAs, lam, mu, psi, rho, times);
 		double term4_q_t2 = computeQ(oint[i], FA[i], intervalAs, lam, mu, psi, rho, times);
