@@ -53,7 +53,7 @@ echo ""
 # Compiling the c++ code
 echo "############################"
 echo "Compiling the c++ code and installing the library"
-python3 setup.py install --install-purelib=../macOS --install-platlib=../macOS
+python3 setup.py install --install-purelib=../${folder} --install-platlib=../${folder}
 myLibPath=`ls build/lib*/*.so`
 myLibName=`basename ${myLibPath}`
 echo $myLibName
