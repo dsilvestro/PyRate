@@ -1,5 +1,11 @@
-### PyRate is a program to estimate speciation, extinction, and preservation rates from fossil occurrence data using a Bayesian framework. 
+<img src="https://github.com/dsilvestro/PyRate/blob/master/pyrate_lib/PyRate_logo1024.png" align="left" width="80">  
 
+### PyRate is a program to estimate speciation, extinction, and preservation rates from fossil occurrence data using a Bayesian framework.
+
+---
+**PyRate is being upgraded to Python v.3! A pre-release is available [here](https://github.com/dsilvestro/PyRate/tree/master/experimental_code/PyRate_for_python3).**
+
+---
 
 PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-affero-general-public-license-v3-(agpl-3.0)#summary).
 
@@ -7,6 +13,9 @@ PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-af
 * [PyRate Tutorials](https://github.com/dsilvestro/PyRate/tree/master/tutorials) (Wiki pages are no longer being updated)
 * [System requirements](https://github.com/dsilvestro/PyRate/wiki#compatibility-and-installation) to run the program and [Instructions](https://github.com/dsilvestro/PyRate/blob/master/pyrate_lib/fastPyRateC/README.md) to install the fastPyRateC library 
 * For questions, suggestions or bugs [contact us](mailto:pyrate.help@gmail.com)
+
+
+---
 
 
 #### The main methods are described here:
