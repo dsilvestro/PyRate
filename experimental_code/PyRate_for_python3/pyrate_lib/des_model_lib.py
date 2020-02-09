@@ -133,9 +133,11 @@ def make_Q_Covar4V(dv_list,ev_list,time_var,covar_par=np.zeros(4)): # construct 
 		Q_list.append(Q)
 	return Q_list
 
-def transform_rate_logistic(r0,prm,trait):
+def transform_rate_logistic(r_at_trait_mean,prm,trait):
 	# r0 is the max rate
-	k, x0 = prm # mid point and steepness
+	k, x0 = prm # steepness and mid point
+	trait_mean = np.mean(trait)
+	r0 = r_at_trait_mean * ( 1. + exp( -k * (trait_mean-x0) )    )
 	rate_at_trait = r0 / ( 1. + exp( -k * (trait-x0) )    )
 	return rate_at_trait
 
@@ -146,25 +148,25 @@ def get_dispersal_rate_through_time(dv_list,time_var_d1,time_var_d2,covar_par=np
 	elif transf_d==2: # logistic
 		transf_d12 = transform_rate_logistic(dv_list[0][0], [covar_par[0],x0_logistic[0]],time_var_d1)
 		transf_d21 = transform_rate_logistic(dv_list[0][1], [covar_par[1],x0_logistic[1]],time_var_d2)
-		transf_d = np.array([transf_d12,transf_d21]).T		
+		transf_d = np.array([transf_d12,transf_d21]).T
 	else: # time-dependent-dispersal
 		transf_d = dv_list
 	return transf_d
 
 
 
-def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par=np.zeros(4),x0_logistic=np.zeros(4),transf_d=0,transf_e=0): 
+def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par=np.zeros(4),x0_logistic=np.zeros(4),transf_d=0,transf_e=0, offset_dis_div1 = 0, offset_dis_div2 = 0, offset_ext_div1 = 0, offset_ext_div2 = 0): 
 	if transf_d==1: # exponential
 		transf_d = np.array([dv_list[0][0] *exp(covar_par[0]*time_var_d1), dv_list[0][1] *exp(covar_par[1]*time_var_d2)]).T
 	elif transf_d==2: # logistic
 		transf_d12 = transform_rate_logistic(dv_list[0][0], [covar_par[0],x0_logistic[0]],time_var_d1)
 		transf_d21 = transform_rate_logistic(dv_list[0][1], [covar_par[1],x0_logistic[1]],time_var_d2)
-		transf_d = np.array([transf_d12,transf_d21]).T	
+		transf_d = np.array([transf_d12,transf_d21]).T
 	elif transf_d==4: # linear diversity dependence
-		transf_d = np.array([dv_list[0][0] + (covar_par[0] * time_var_d1), 
-		                     dv_list[0][1] + (covar_par[1] * time_var_d2)]).T
-		transf_d[np.isfinite(transf_d) == False] = 0
-		transf_d[transf_d < 0] = 0
+		transf_d = np.array([(dv_list[0][0]/(1. - (offset_dis_div1/covar_par[0]))) * (1. - (time_var_d1/covar_par[0])), 
+		                     (dv_list[0][1]/(1. - (offset_dis_div2/covar_par[1]))) * (1. - (time_var_d2/covar_par[1]))]).T 
+		transf_d[transf_d <= 0] = 1e-5
+		transf_d[np.isnan(transf_d)] = 1e-5
 	else: # time-dependent-dispersal
 		transf_d = dv_list
 	if transf_e==1: # exponential
@@ -176,9 +178,17 @@ def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_v
 		transf_e2  = transform_rate_logistic(ev_list[0][1], [covar_par[3],x0_logistic[3]],time_var_e2)
 		transf_e = np.array([transf_e1 ,transf_e2 ]).T
 	elif transf_e==4: # linear diversity dependence
-		transf_e = np.array([ev_list[0][0] + (covar_par[2]*time_var_e1), 
-		                     ev_list[0][1] + (covar_par[3]*time_var_e2)]).T
-		transf_e[transf_e < 0] = 0
+		base_e1 = ev_list[0][0] * (1. - (offset_ext_div1/covar_par[2]))
+		base_e2 = ev_list[0][1] * (1. - (offset_ext_div2/covar_par[3]))
+		transf_e = np.array([base_e1 / (1. - (time_var_e1/covar_par[2])), 
+		                     base_e2 / (1. - (time_var_e2/covar_par[3]))]).T
+		# Replace negative and infinite extinction rate when observed diversity is >= K by max extinction
+		rep_e1 = base_e1 / (1. - ((covar_par[2] - 1e-5)/covar_par[2]))
+		rep_e2 = base_e2 / (1. - ((covar_par[3] - 1e-5)/covar_par[3]))
+		transf_e[0, transf_e[0, ] < 0] = rep_e1 
+		transf_e[0, np.isfinite(transf_e[0, ]) == False] = rep_e1 
+		transf_e[1, transf_e[1, ] < 0] = rep_e2
+		transf_e[1, np.isfinite(transf_e[1, ]) == False] = rep_e2
 	else:
 		transf_e = ev_list
 
@@ -192,7 +202,7 @@ def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_v
 			# [D, d1, d2, 0 ],
 			[e1,D, 0, d1],
 			[e2,0, D, d2],
-			[0 ,e2,e1,D ]	
+			[0 ,e2,e1,D ] 	
 		])
 		# fill diagonal values
 		np.fill_diagonal(Q, -np.sum(Q,axis=1))
