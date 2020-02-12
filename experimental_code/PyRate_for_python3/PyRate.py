@@ -4814,13 +4814,10 @@ if fix_SE == 1 and fix_Shift == 1:
 	S_time_frame = np.array(S_time_frame)
 
 ########################## START MCMC ####################################
-t1 = time.time()
 if burnin<1 and burnin>0:
 	burnin = int(burnin*mcmc_gen)
 
 def start_MCMC(run):
-	t1 = time.clock()
-	print("started at: ",time.ctime())
 	# marginal_file is either for rates or for lik
 	return MCMC([0,run, IT, sample_freq, print_freq, temperatures, burnin, marginal_frames, list()])
 
