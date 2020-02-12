@@ -797,47 +797,47 @@ def comb_rj_rates(infile, files,tag, resample, rate_type):
 			if resample>0:
 				r_ind= sort(np.random.randint(0,len(x_temp),resample))
 				x_temp = x_temp[r_ind]
-			if j==0: 
+			if j==0:
 				comb = x_temp
 			else:
 				comb = np.concatenate((comb,x_temp))
 			j+=1
-		#except: 
+		#except:
 		#	print "Could not process file:",f
-	
-	outfile = "%s/combined_%s%s_%s.log" % (infile,len(files),tag,rate_type)	
+
+	outfile = "%s/combined_%s%s_%s.log" % (infile,len(files),tag,rate_type)
 	with open(outfile, 'w') as f:
 		for i in comb: f.write(i)
 
-def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type=""): 
+def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type=""):
 	j=0
 	for f in files:
 		if platform.system() == "Windows" or platform.system() == "Microsoft":
 			f = f.replace("\\","/")
-		
+
 		if 2>1: #try:
 			file_name =  os.path.splitext(os.path.basename(f))[0]
-			print(file_name, end=' ')			
+			print(file_name, end=' ')
 			t_file=loadtxt(f, skiprows=max(1,int(burnin)))
 			shape_f=shape(t_file)
 			print(shape_f)
 			#t_file = t[burnin:shape_f[0],:]#).astype(str)
 			# only sample from cold chain
-			
+
 			head = np.array(next(open(f)).split()) # should be faster\
 			if j == 0:
-				tbl_header = '\t'.join(head)	
+				tbl_header = '\t'.join(head)
 			if "temperature" in head or "beta" in head:
-				try: 
+				try:
 					temp_index = np.where(head=="temperature")[0][0]
-				except(IndexError): 
+				except(IndexError):
 					temp_index = np.where(head=="beta")[0][0]
-			
+
 				temp_values = t_file[:,temp_index]
 				t_file = t_file[temp_values==1,:]
 				print("removed heated chains:",np.shape(t_file))
-				
-				
+
+
 			# exclude preservation rates under TPP model (they can mismatch)
 			if len(col_tag) == 0:
 				q_ind = np.array([i for i in range(len(head)) if "q_" in head[i]])
@@ -845,18 +845,18 @@ def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type=""):
 					mean_q = np.mean(t_file[:,q_ind],axis=1)
 					t_file = np.delete(t_file,q_ind,axis=1)
 					t_file = np.insert(t_file,q_ind[0],mean_q,axis=1)
-				
+
 			shape_f=shape(t_file)
-			
+
 			if resample>0:
 				r_ind= sort(np.random.randint(0,shape_f[0],resample))
 				t_file = t_file[r_ind,:]
-			
-			
 
-		#except: print "ERROR in",f	
+
+
+		#except: print "ERROR in",f
 		if len(col_tag) == 0:
-			if j==0: 
+			if j==0:
 				head_temp = np.array(next(open(f)).split())
 				head_temp = np.delete(head_temp,q_ind)
 				head_temp = np.insert(head_temp,q_ind[0],"mean_q")
@@ -866,25 +866,25 @@ def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type=""):
 				comb = t_file
 			else:
 				comb = np.concatenate((comb,t_file),axis=0)
-		else: 
+		else:
 			head_temp = next(open(f)).split() # should be faster
 			sp_ind_list=[]
 			for TAG in col_tag:
 				if TAG in head_temp:
 					sp_ind_list+=[head_temp.index(s) for s in head_temp if s == TAG]
-			
-			try: 
+
+			try:
 				col_tag_ind = np.array([int(tag_i) for tag_i in col_tag])
 				sp_ind= np.array(col_tag_ind)
 			except:
 				sp_ind= np.array(sp_ind_list)
 
 			#print "COLTAG",col_tag, sp_ind, head_temp
-			#sys.exit()	
-			
+			#sys.exit()
+
 
 			#print "INDEXES",sp_ind
-			if j==0: 
+			if j==0:
 				head_temp= np.array(head_temp)
 				head_t= ["%s\t" % (i) for i in head_temp[sp_ind]]
 				tbl_header="it\t"
@@ -894,25 +894,25 @@ def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type=""):
 				comb = t_file[:,sp_ind]
 			else:
 				comb = np.concatenate((comb,t_file[:,sp_ind]),axis=0)
-			
+
 		j+=1
 
-	#print shape(comb)	
+	#print shape(comb)
 	if len(col_tag) == 0:
 		sampling_freq= comb[1,0]-comb[0,0]
 		comb[:,0] = (np.arange(0,len(comb))+1)*sampling_freq
 		fmt_list=['%i']
 		for i in range(1,np.shape(comb)[1]): fmt_list.append('%4f')
-	else: 
+	else:
 		fmt_list=['%i']
 		for i in range(1,np.shape(comb)[1]+1): fmt_list.append('%4f')
 		comb = np.concatenate((np.zeros((len(comb[:,0]),1)),comb),axis=1)
 	comb[:,0] = (np.arange(0,len(comb)))
 
 	print(np.shape(comb), len(fmt_list))
-	
+
 	outfile = "%s/combined_%s%s_%s.log" % (infile,len(files),tag,file_type)
-	
+
 	with open(outfile, 'w') as f:
 		f.write(tbl_header)
 		if platform.system() == "Windows" or platform.system() == "Microsoft":
@@ -929,30 +929,30 @@ def comb_log_files_smart(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 	print("found", len(files), "log files...\n")
 	if len(files)==0: quit()
 	j=0
-	burnin = int(burnin)	
-	
+	burnin = int(burnin)
+
 	# RJ rates files
 	files_temp = [f for f in files if "_sp_rates.log" in os.path.basename(f)]
-	if len(files_temp)>1: 
+	if len(files_temp)>1:
 		print("processing %s *_sp_rates.log files" % (len(files_temp)))
 		comb_rj_rates(infile, files_temp,tag, resample, rate_type="sp_rates")
-	
+
 	files_temp = [f for f in files if "_ex_rates.log" in os.path.basename(f)]
-	if len(files_temp)>1: 
+	if len(files_temp)>1:
 		print("processing %s *_ex_rates.log files" % (len(files_temp)))
 		comb_rj_rates(infile, files_temp,tag, resample, rate_type="ex_rates")
 
 	# MCMC files
 	files_temp = [f for f in files if "_mcmc.log" in os.path.basename(f)]
-	if len(files_temp)>1: 
+	if len(files_temp)>1:
 		print("processing %s *_mcmc.log files" % (len(files_temp)))
 		comb_mcmc_files(infile, files_temp,burnin,tag,resample,col_tag,file_type="mcmc")
 	files_temp = [f for f in files if "_marginal_rates.log" in os.path.basename(f)]
-	if len(files_temp)>1: 
+	if len(files_temp)>1:
 		print("processing %s *_marginal_rates.log files" % (len(files_temp)))
 		comb_mcmc_files(infile, files_temp,burnin,tag,resample,col_tag,file_type="marginal_rates")
-	
-	
+
+
 
 
 
@@ -1652,7 +1652,7 @@ def BD_bd_rates_ADE_lik(arg):
 	d = s-e
 	de = d[e>0] #takes only the extinct species times
 	death_lik_de = sum(log_wr(de, W_shape, W_scale)) # log probability of death event
-	death_lik_wte = sum(-cdf_WR(W_shape,W_scale, d[te==0])) 
+	death_lik_wte = sum(-cdf_WR(W_shape,W_scale, d[te==0]))
 	# analytical integration
 	death_lik_wte = sum(-m0*cdf_WR(W_shape,W_scale, d)) # log probability of waiting time until death event
 	lik = birth_lik + death_lik_de + death_lik_wte
@@ -1953,7 +1953,7 @@ def init_ts_te_FBDrange(FA,LO):
 		#te[te<0] = np.random.uniform(LO[te<0],0)
 		dt = get_DT_FBDrange(ts,ts,te)
 		min_dt = min(dt[1:])
-	
+
 	return ts, te
 
 def get_DT_FBDrange(T,s,e): # returns the Diversity Trajectory of s,e at times T (x10 faster)
@@ -2831,7 +2831,7 @@ def MCMC(all_arg):
 				if TDI<2: #
 					if np.random.random()<.95 or est_hyperP == 0 or fix_hyperP == 1:
 						L,M,hasting=update_rates(LA,MA,3,mod_d3)
-						update_W_shape =1 
+						update_W_shape =1
 						if use_ADE_model == 1 and update_W_shape:
 							W_shape, hasting2 = update_multiplier_proposal(W_shapeA,1.1)
 							hasting+=hasting2
@@ -3022,7 +3022,7 @@ def MCMC(all_arg):
 				hpGammaQ_rate =  0.1
 				post_rate_prm_Gq = np.random.gamma( shape=hpGammaQ_shape+pert_prior[0]*len(q_rates), scale=1./(hpGammaQ_rate+sum(q_rates)) )
 				prior = sum(prior_gamma(q_rates,pert_prior[0],post_rate_prm_Gq)) + prior_uniform(alpha_pp_gamma,0,20)
-		else: prior = prior_gamma(q_rates[1],pert_prior[0],pert_prior[1]) + prior_uniform(q_rates[0],0,20)			
+		else: prior = prior_gamma(q_rates[1],pert_prior[0],pert_prior[1]) + prior_uniform(q_rates[0],0,20)
 		if est_hyperP == 1: prior += ( prior_uniform(hyperP[0],0,20)+prior_uniform(hyperP[1],0,20) ) # hyperprior on BD rates
 
 
@@ -3196,7 +3196,7 @@ def MCMC(all_arg):
 			prior += -log(maxTs-minTe)*(len(L)-1+len(M)-1)
 			prior += Poisson_prior(len(L),rj_cat_HP)+Poisson_prior(len(M),rj_cat_HP)
 			#if it % 100 ==0: print len(L),len(M), prior_old, -log(max(ts)-min(te))*(len(L)-1+len(M)-1), hasting
-						
+
 			if get_min_diffTime(timesL)<=min_allowed_t or get_min_diffTime(timesM)<=min_allowed_t: prior = -np.inf
 
 		priorBD= get_hyper_priorBD(timesL,timesM,L,M,maxTs,hyperP)
@@ -4601,7 +4601,9 @@ if args.PPmodeltest== 1:
 if hasFoundPyRateC:
 	if use_se_tbl==1:
 		pass
-	else: PyRateC_setFossils(fossil) # saving all fossil data as C vector
+	else:
+		fossilForPyRateC = [ f.tolist() for f in fossil ]
+		PyRateC_setFossils(fossilForPyRateC) # saving all fossil data as C vector
 
 	if args.qShift != "":  # q_shift times
 		tmpEpochs = np.sort(np.array(list(times_q_shift)+[max(FA)+1]+[0]))[::-1]
