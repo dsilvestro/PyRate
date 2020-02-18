@@ -20,6 +20,7 @@ p.add_argument('-b',      type=int,   help='number of bins', default = 20)
 p.add_argument('-j',      type=int,   help='max PyRate replicate', default = 1)
 p.add_argument('-v',      type=int,   help='verbose', default = 0)
 p.add_argument('-N',      type=int,   help='specify diversity in first bin', default = -1)
+p.add_argument('-rescale',type=int,   help='rescale time axis', default = 1)
 
 
 args = p.parse_args()
@@ -31,7 +32,8 @@ path_infile = os.path.dirname(pyrate_file)
 input_file = os.path.splitext(os.path.basename(pyrate_file))[0]
 
 q_shifts = np.sort(np.loadtxt(args.q))[::-1] # reversed order from old to young to match PyRate
-n_bins = args.b                              # mcmc logfile output (reversed in get_q_rates_time_bins())
+rescale_factor = args.rescale # assumes only q_rates must be rescaled (not q_shift and fossil occcs)
+n_bins = args.b               # mcmc logfile output (reversed in get_q_rates_time_bins())
 
 verbose = args.v 
 modern_diversity = args.N
@@ -42,6 +44,9 @@ modern_diversity = args.N
 def parse_pyrate_file(j, time_bins): 
 	# get occurrences
 	x = input_data_module.get_data(j)
+	for i in range(len(x)):
+		x[i] = x[i]
+		
 	# merge all occs and get occs count per time bin
 	occs=[]
 	for i in x: 
@@ -78,10 +83,10 @@ def get_q_rates(logfile):
 	q_rates_index,alpha_index = [head.index(i) for i in head if "q_" in i],  (np.array(head)=="alpha").nonzero()[0]
 	root_index = (np.array(head)=="root_age").nonzero()[0]
 	tips_time_index = (np.array(head)=="death_age").nonzero()[0]
-	q_rates = btbl[:,q_rates_index]	
+	q_rates = btbl[:,q_rates_index] * rescale_factor	
 	alphas = btbl[:,alpha_index] 
-	roots = btbl[:,root_index] 
-	tips_time = btbl[:,tips_time_index] 
+	roots = btbl[:,root_index]
+	tips_time = btbl[:,tips_time_index]
 	return np.median(q_rates,axis=0),np.median(alphas),np.min(roots),np.max(tips_time),q_rates, alphas
 
 def get_q_rates_time_bins(q_rates,q_shifts,time_bins):
@@ -190,7 +195,7 @@ prior_A += scipy.stats.gamma.logpdf(q_multi_A,1,scale=1)
 lik_A   = np.sum(scipy.stats.binom.logpmf( x_obs, n_est, rho_bins ))
 
 # init mcmc file
-div_output_file = "%s/%s_mcmcdivGlnPr.log" % (path_infile, input_file)
+div_output_file = "%s/%s_mcmcdiv.log" % (path_infile, input_file)
 output_logfile = open(div_output_file , "w") 
 wlog=csv.writer(output_logfile, delimiter='\t')
 head = ["it","posterior","likelihood","prior","q_multi","sig2_hp"]
