@@ -151,6 +151,7 @@ equal_d = args.symd
 equal_e = args.syme
 equal_q = args.symq
 constraints_covar = np.array(args.constr)
+constraints_covar_true = len(constraints_covar) > 0
 const_q = args.constq
 if args.cov_and_dispersal:
 	model_DUO= 1
@@ -665,6 +666,7 @@ argsDivdD = args.DivdD
 argsDivdE = args.DivdE
 argsvarD = args.varD
 argsvarE = args.varE
+argsDdE = args.DdE
 
 # Use an ode solver to approximate the diversity trajectories
 def div_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2):
@@ -675,15 +677,35 @@ def div_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2):
 	lim_d1 = max(0, 1 - (div2 + div3)/k_d2) # Limit dispersal into area 1
 	lim_e1 = max(1e-05, 1 - (div1 + div3)/k_e1) # Increases extinction in area 2
 	lim_e2 = max(1e-05, 1 - (div2 + div3)/k_e2) # Increases extinction in area 1
-	dS = np.zeros(3)
+	dS = np.zeros(5)
 	dS[0] = -mu1/lim_e1 * div1 + mu2/lim_e2 * div3 - d12 * div1 * lim_d1
 	dS[1] = -mu2/lim_e2 * div2 + mu1/lim_e1 * div3 - d21 * div2 * lim_d2
 	dS[2] = -(mu1/lim_e1 + mu2/lim_e2) * div3 + d21 * div2 * lim_d2 + d12 * div1 * lim_d1
 	return dS
 
+def div_dep_ext_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, covar_mu1, covar_mu2):
+	div1 = div[0]
+	div2 = div[1]
+	div3 = div[2]
+	div13 = div[0] + div[2]
+	div23 = div[1] + div[2]
+	lim_d2 = max(0, 1 - (div1 + div3)/k_d1) # Limit dispersal into area 2
+	lim_d1 = max(0, 1 - (div2 + div3)/k_d2) # Limit dispersal into area 1
+	dS = np.zeros(5)
+	dS[3] = d21 * div2 * lim_d1 # Gain area 1
+	dS[4] = d12 * div1 * lim_d2 # Gain area 2
+	mu1 = mu1 * np.exp(covar_mu1 * dS[3]/(div13 + 0.00001))
+	mu2 = mu2 * np.exp(covar_mu2 * dS[4]/(div23 + 0.00001))
+	dS[0] = -mu1 * div1 + mu2 * div3 - dS[4]
+	dS[1] = -mu2 * div2 + mu1 * div3 - dS[3]
+	dS[2] = -(mu1 + mu2) * div3 + dS[3] + dS[4]
+	return dS
+
+#div_int = odeint(div_dep_ext_dt, np.array([1., 1., 0., 0., 0.]), [0, 1], args = (0.2, 0.2, 0.1, 0.1, np.inf, np.inf, 0.2, 0.2))
+#div_int
 
 def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec, 
-			argsDivdD, argsDivdE, argsvarD, argsvarE, argsG,
+			argsDivdD, argsDivdE, argsvarD, argsvarE, argsDdE, argsG,
 			r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ, 
 			covar_par, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 			time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE):
@@ -711,6 +733,8 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 	div_1 = np.zeros(len_time_series)
 	div_2 = np.zeros(len_time_series)
 	div_3 = np.zeros(len_time_series)
+	gain_1 = np.zeros(len_time_series)
+	gain_2 = np.zeros(len_time_series)
 	for i in range(len_time_series - 1):
 		Q_index_i = Q_index[i]
 
@@ -737,9 +761,12 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 		elif argsvarE:
 			ext_rate_vec_i = ext_rate_vec[0, ]
 			ext_rate_vec_i = ext_rate_vec_i * exp(covar_par[2:3]*time_varE_pad[i])
+		elif argsDdE:
+			ext_rate_vec_i = ext_rate_vec[0, ]
+			covar_mu1 = covar_par[2]
+			covar_mu2 = covar_par[3]
 		else:
 			ext_rate_vec_i = ext_rate_vec[Q_index_i, ]
-
 
 		d12 = dis_rate_vec_i[0]
 		d21 = dis_rate_vec_i[1]
@@ -760,20 +787,26 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 		new_3 = sum_sa_i + sum_sb_i
 
 		dt = [0., time_series_pad[i] - time_series_pad[i + 1] ]
-		div_t = np.zeros(3)
+		div_t = np.zeros(5)
 		div_t[0] = div_1[i] + new_1
 		div_t[1] = div_2[i] + new_2
 		div_t[2] = div_3[i] + new_3
 
-		div_int = odeint(div_dt, div_t, dt, args = (d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2))
+		if argsDdE:
+			div_int = odeint(div_dep_ext_dt, div_t, dt, args = (d12, d21, mu1, mu2, k_d1, k_d2, covar_mu1, covar_mu2), mxstep = 100)
+		else:
+			div_int = odeint(div_dt, div_t, dt, args = (d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2))
+
 		div_1[i + 1] = div_int[1,0]
 		div_2[i + 1] = div_int[1,1]
 		div_3[i + 1] = div_int[1,2]
-
+		gain_2[i + 1] = div_int[1,3]
+		gain_1[i + 1] = div_int[1,4]
+		
 	div_13 = div_1 + div_3
 	div_23 = div_2 + div_3
 
-	return div_13[1:], div_23[1:]
+	return div_13[1:], div_23[1:], gain_2[1:], gain_1[1:]
 
 
 # Calculate difference from a given diversity to the equilibrium diversity for two areas
@@ -790,15 +823,20 @@ def calc_diff_equil_two_areas(div):
 	else:
 		lim_d2 = max(0, 1 - div13/k_d[0]) # Limit dispersal into area 2
 		lim_d1 = max(0, 1 - div23/k_d[1]) # Limit dispersal into area 1
-		lim_e1 = max(1e-10, 1 - div13/k_e[0]) # Increases extinction in area 2
-		lim_e2 = max(1e-10, 1 - div23/k_e[1]) # Increases extinction in area 1
 		gain1 = dis[0] * div2 * lim_d2
-		loss1 = ext[0]/lim_e1 * div1 + ext[0]/lim_e1 * div3
 		gain2 = dis[1] * div1 * lim_d1
-		loss2 = ext[1]/lim_e2 * div2 + ext[1]/lim_e2 * div3
+		if argsDdE: # Dispersal dependent extinction
+			mu1 = ext[0] * np.exp(covar_par[2] * gain1/(div13 + 0.00001))
+			mu2 = ext[0] * np.exp(covar_par[3] * gain2/(div23 + 0.00001))
+		else: # Diversity dependent extinction
+			lim_e1 = max(1e-10, 1 - div13/k_e[0]) # Increases extinction in area 2
+			lim_e2 = max(1e-10, 1 - div23/k_e[1]) # Increases extinction in area 1
+			mu1 = ext[0]/lim_e1
+			mu2 = ext[1]/lim_e2
+		loss1 = mu1 * div1 + mu1 * div3
+		loss2 = mu2 * div2 + mu2 * div3
 		diff_equil = abs(gain1 - loss1) + abs(gain2 - loss2)
 	return diff_equil
-
 
 # Calculate difference from a given diversity to the equilibrium diversity for one area	
 def calc_diff_equil_one_area(div):
@@ -807,9 +845,13 @@ def calc_diff_equil_one_area(div):
 		diff_equil = 1e10
 	else:
 		lim_d = max(0, 1 - div_both/k_d)  # Limit dispersal into focal area
-		lim_e = max(1e-10, 1 - div_both/k_e) 
 		gain = dis * div[0] * lim_d
-		loss = ext/lim_e * div_both
+		if argsDdE: # Dispersal dependent extinction
+			mu = ext * np.exp(covar_par_equil * gain/(div_both + 0.00001))
+		else: # Diversity dependent extinction
+			lim_e = max(1e-10, 1 - div_both/k_e)
+			mu = ext/lim_e
+		loss = mu * div_both
 		diff_equil = abs(gain - loss)
 	return diff_equil
 
@@ -1028,6 +1070,9 @@ def lik_opt(x, grad):
 		transf_e = 4
 		#time_var_e1,time_var_e2 = get_est_div_traj(r_vec)
 		do_approx_div_traj = 1
+	elif args.DdE: # Dispersal dep Extinction
+		transf_e = 1
+		do_approx_div_traj = 1
 	else: # Temp dependent Extinction
 		transf_e = 1
 		time_var_e1,time_var_e2=time_varE,time_varE
@@ -1055,20 +1100,25 @@ def lik_opt(x, grad):
 			#if args.data_in_area != 0:
 			#	x0_logistic[[args.data_in_area + 2]] = x[opt_ind_x0_log_ext]
 				
+	# enforce constraints if any
+	if constraints_covar_true:
+		covar_par[constraints_covar] = 0
+		x0_logistic[constraints_covar] = 0
 	if do_approx_div_traj == 1:
-		approx_d1,approx_d2 = approx_div_traj(nTaxa, dis_vec, ext_vec,
-							argsDivdD, argsDivdE, argsvarD, argsvarE, argsG,
-							r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ,
-							covar_par, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-							time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE)
+		approx_d1,approx_d2,numD12,numD21 = approx_div_traj(nTaxa, dis_vec, ext_vec,
+								argsDivdD, argsDivdE, argsvarD, argsvarE, argsDdE, argsG,
+								r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ,
+								covar_par, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
+								time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE)
 		if args.DivdD:
 			time_var_d2 = approx_d1 # Limits dispersal into 1
 			time_var_d1 = approx_d2 # Limits dispersal into 2
 		if args.DivdE:
 			time_var_e1 = approx_d1
 			time_var_e2 = approx_d2
-		#print "Approx d1", time_var_d1
-		#print "Approx d2", time_var_d2
+		if args.DdE:
+			time_var_e2 = numD12
+			time_var_e1 = numD21
 			
 	Q_list, marginal_rates_temp= make_Q_Covar4VDdE(dis_vec,ext_vec,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par,x0_logistic,transf_d,transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2)
 	if use_Pade_approx==0:
@@ -1149,7 +1199,7 @@ if args.A == 3:
 			x0 = np.concatenate((x0, 0., 0.), axis = None)
 			lower_bounds = lower_bounds + [-bound_covar_d] + [-bound_covar_d]
 			upper_bounds = upper_bounds + [bound_covar_d] + [bound_covar_d]
-		if 1 in args.symCov or args.data_in_area != 0:
+		if 1 in args.symCov or args.data_in_area != 0 or np.isin(constraints_covar, 1):
 			opt_ind_covar_dis = opt_ind_covar_dis[0:-1]
 			ind_counter = ind_counter - 1
 			x0 = x0[0:-1]
@@ -1161,25 +1211,29 @@ if args.A == 3:
 			x0 = np.concatenate((x0, np.mean(time_varD), np.mean(time_varD)), axis = None)
 			lower_bounds = lower_bounds + [np.min(time_varD).tolist()] + [np.min(time_varD).tolist()]
 			upper_bounds = upper_bounds + [np.max(time_varD).tolist()] + [np.max(time_varD).tolist()]
-			if 1 in args.symCov or args.data_in_area != 0:
+			if 1 in args.symCov or args.data_in_area != 0 or np.isin(constraints_covar, 1):
 				opt_ind_x0_log_dis = opt_ind_x0_log_dis[0:-1]
 				ind_counter = ind_counter - 1
 				x0 = x0[0:-1]
 				lower_bounds = lower_bounds[0:-1]
 				upper_bounds = upper_bounds[0:-1]
 	
-	if args.TdE is False or args.DivdE:
+	if args.TdE is False or args.DivdE or args.DdE:
 		opt_ind_covar_ext = np.array([ind_counter, ind_counter + 1])
 		ind_counter += 2
 		if args.DivdE:
 			x0 = np.concatenate((x0, nTaxa + 0., nTaxa + 0.), axis = None)
 			lower_bounds = lower_bounds + [np.max(div_traj_1)] + [np.max(div_traj_2)]
 			upper_bounds = upper_bounds + [np.inf] + [np.inf]
+		elif args.DdE:
+			x0 = np.concatenate((x0, 0., 0.), axis = None)
+			lower_bounds = lower_bounds + [0.] + [0.]
+			upper_bounds = upper_bounds + [50.] + [50.]
 		else:
 			x0 = np.concatenate((x0, 0., 0.), axis = None)
 			lower_bounds = lower_bounds + [-bound_covar_e] + [-bound_covar_e]
 			upper_bounds = upper_bounds + [bound_covar_e] + [bound_covar_e]
-		if 3 in args.symCov or args.data_in_area != 0:
+		if 3 in args.symCov or args.data_in_area != 0 or np.isin(constraints_covar, 2):
 			opt_ind_covar_ext = opt_ind_covar_ext[0:-1]
 			ind_counter = ind_counter - 1
 			x0 = x0[0:-1]
@@ -1191,7 +1245,7 @@ if args.A == 3:
 			x0 = np.concatenate((x0, np.mean(time_varE), np.mean(time_varE)), axis = None)
 			lower_bounds = lower_bounds + [np.min(time_varE).tolist()] + [np.min(time_varE).tolist()]
 			upper_bounds = upper_bounds + [np.max(time_varE).tolist()] + [np.max(time_varE).tolist()]
-			if 3 in args.symCov or args.data_in_area != 0:
+			if 3 in args.symCov or args.data_in_area != 0 or np.isin(constraints_covar, 2):
 				opt_ind_x0_log_ext = opt_ind_x0_log_ext[0:-1]
 				ind_counter = ind_counter - 1
 				x0 = x0[0:-1]
@@ -1245,7 +1299,7 @@ if args.A == 3:
 		covar_par_A[[0,1]] = x[opt_ind_covar_dis]
 		if args.lgD:
 			x0_logistic_A[[0,1]] = x[opt_ind_x0_log_dis]
-	if args.TdE is False or args.DivdE:
+	if args.TdE is False or args.DivdE or args.DdE:
 		covar_par_A[[2,3]] = x[opt_ind_covar_ext]
 		if args.lgE:
 			x0_logistic_A[[2,3]] = x[opt_ind_x0_log_ext]	
@@ -1349,7 +1403,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	#dis_rate_vec[1:3,0] = dis_rate_vec[2,0]
 	
 	## CHANGE HERE TO FIRST OPTIMIZE DISPERSAL AND THEN EXTINCTION
-	if args.DdE and it < 100:
+	if args.DdE and it < 100 and args.A != 3:
 		covar_par[2:4]=0
 	
 	#x0_logistic = np.array([0,0,5,5])
@@ -1386,6 +1440,8 @@ for it in range(n_generations * len(scal_fac_TI)):
 	rateD12,rateD21 = marginal_dispersal_rate_temp[:,0], marginal_dispersal_rate_temp[:,1]
 
 	if args.DdE: # Dispersal dep Extinction
+		do_approx_div_traj = 1
+		# What to do with the rest in here?
 		#numD12res = rescale_vec_to_range(log(1+numD12), r=10., m=0)
 		#numD21res = rescale_vec_to_range(log(1+numD21), r=10., m=0)
 		div_traj1,div_traj2 = get_est_div_traj(r_vec)
@@ -1424,17 +1480,20 @@ for it in range(n_generations * len(scal_fac_TI)):
 		time_var_e1,time_var_e2=time_varE,time_varE
 	
 	if do_approx_div_traj == 1:
-		approx_d1,approx_d2 = approx_div_traj(nTaxa, dis_vec, ext_vec, 
-							argsDivdD, argsDivdE, argsvarD, argsvarE, argsG,
-							r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ, 
-							covar_par, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-							time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE)
+		approx_d1,approx_d2,numD12,numD21 = approx_div_traj(nTaxa, dis_vec, ext_vec,
+								argsDivdD, argsDivdE, argsvarD, argsvarE, argsDdE, argsG,
+								r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ,
+								covar_par, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
+								time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE)
 		if args.DivdD:
 			time_var_d2 = approx_d1 # Limits dispersal into 1
 			time_var_d1 = approx_d2 # Limits dispersal into 2
 		if args.DivdE:
 			time_var_e1 = approx_d1
 			time_var_e2 = approx_d2
+		if args.DdE:
+			time_var_e2 = numD12
+			time_var_e1 = numD21
 		
 	if args.lgE: transf_e = 2
 	if args.linE: transf_e = 3
@@ -1637,11 +1696,13 @@ for it in range(n_generations * len(scal_fac_TI)):
 				idx_ext = 0
 				idx_k_d = 1
 				idx_k_e = 2
+				covar_par_equil = covar_par[2] # For disp dep ext
 			if args.data_in_area == 2:
 				idx_dis = 0
 				idx_ext = 1
 				idx_k_d = 0
 				idx_k_e = 3
+				covar_par_equil = covar_par[3] # For disp dep ext
 			for i in range(slices_dis):
 				for y in range(slices_ext):
 					if args.data_in_area == 0:

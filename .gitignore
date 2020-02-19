@@ -5,3 +5,4 @@
 *.pyc
 example_files/DES_input_data/.Rapp.history
 .DS_Store
+experimental_code/PyRate_for_python3/pyrate_lib/__pycache__
