@@ -1,7 +1,7 @@
 from numpy import *
 import numpy as np
-import os,platform,glob,sys
-import lib_utilities as util
+import os, platform, glob, sys
+import pyrate_lib.lib_utilities as util
 import csv 
 
 def get_marginal_rates_plot3(times,rates,grid):
@@ -253,7 +253,7 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 	# 1. a vector of times (age of each marginal rate)
 	# 2-4. mean, min and max marginal rates (95% HPD)
 	# 5. a vector of times of rate shift
-	f = file(f_name,'U')
+	f = open(f_name,'U')
 	if nbins==0:
 		nbins = int(max_age-0)
 	post_rate=f.readlines()
@@ -454,7 +454,7 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=0.,burnin=0.2,min_age=0,ma
 		#	print "Could not read file:", mcmc_file
 	r_str += "\n\nn <- dev.off()"
 	out="%s/%sRTT_plots.r" % (wd,outname)
-	outfile = open(out, "wb") 
+	outfile = open(out, "w") 
 	outfile.writelines(r_str)
 	outfile.close()
 	if platform.system() == "Windows" or platform.system() == "Microsoft":

@@ -8,7 +8,7 @@ np.set_printoptions(precision=3)   # rounds all array elements to 3rd digit
 import collections
 import itertools
 from scipy import stats
-import lib_DD_likelihood
+import pyrate_lib.lib_DD_likelihood as lib_DD_likelihood
 self_path=os.getcwd()
 
 def rescale_vec_to_range(x, r=1., m=0):
