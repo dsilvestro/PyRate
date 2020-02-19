@@ -2,19 +2,15 @@
 # Created by Daniele Silvestro on 02/03/2012 => pyrate.help@gmail.com
 import argparse, os,sys, platform, time, csv, glob
 import random as rand
-import warnings, imp
+import warnings, importlib
 
 version= "PyRate"
-build  = "v3.0 - 20200201"
+build  = "v3.0 - 20200219"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
-citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
-Bayesian Estimation of Speciation and Extinction from Incomplete Fossil
-Occurrence Data. Systematic Biology, 63, 349-367.
-
-Silvestro, D., Salamin, N., Schnitzler, J. (2014)
-PyRate: A new program to estimate speciation and extinction rates from
-incomplete fossil record. Methods in Ecology and Evolution, 5, 1126-1131.
+citation= """Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
+Improved estimation of macroevolutionary rates from fossil data using a Bayesian framework. 
+Paleobiology, doi: 10.1017/pab.2019.23.
 """
 print(("""
                  %s - %s
@@ -31,18 +27,12 @@ V=list(sys.version_info[0:3])
 if V[0]<3: sys.exit("""\nYou need Python v.3 to run this version of PyRate""")
 
 # LOAD LIBRARIES
-try:
-	import argparse
-except(ImportError):
-	sys.exit("""\nError: argparse library not found.
-	You can upgrade to python 2.7 at: https://www.python.org/downloads/
-	or install argparse at: https://code.google.com/p/argparse/ \n""")
-
+import argparse
 try:
 	from numpy import *
 	import numpy as np
 except(ImportError):
-	sys.exit("\nError: numpy library not found.\nYou can download numpy at: http://sourceforge.net/projects/numpy/files/ \n")
+	sys.exit("\nError: numpy library not found.\nYou can install numpy using: 'pip3 intall numpy'\n")
 
 try:
 	import scipy
@@ -53,7 +43,7 @@ try:
 	import scipy.stats
 	from scipy.optimize import fmin_powell as Fopt1
 except(ImportError):
-	sys.exit("\nError: scipy library not found.\nYou can download scipy at: http://sourceforge.net/projects/scipy/files/ \n")
+	sys.exit("\nError: scipy library not found.\nYou can install scipy using: 'pip3 intall scipy'\n")
 
 try:
 	import multiprocessing, _thread
@@ -71,7 +61,7 @@ try:
 	use_seq_lik= 0
 	if platform.system() == "Windows" or platform.system() == "Microsoft": use_seq_lik= 1
 except(ImportError):
-	print("\nWarning: library multiprocessing not found.\nPyRate will use (slower) sequential likelihood calculation. \n")
+	print("\nWarning: library multiprocessing not found.\n")
 	use_seq_lik= 1
 
 if platform.system() == "Windows" or platform.system() == "Microsoft": use_seq_lik= 1
@@ -93,7 +83,7 @@ def get_self_path():
 	for path in path_list:
 		try:
 			self_path=path
-			lib_updates_priors = imp.load_source("lib_updates_priors", "%s/pyrate_lib/lib_updates_priors.py" % (self_path))
+			importlib.util.spec_from_file_location("test", "%s/pyrate_lib/lib_updates_priors.py" % (self_path))
 			break
 		except:
 			self_path = -1
@@ -469,7 +459,7 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 	########################################################
 	print("\ngenerating R file...", end=' ')
 	out="%s/%s_RTT.r" % (wd,name_file)
-	newfile = open(out, "wb")
+	newfile = open(out, "w")
 	Rfile="# %s files combined:\n" % (len(files))
 	for f in files: Rfile+="# \t%s\n" % (f)
 	Rfile+= """\n# 95% HPDs calculated using code from Biopy (https://www.cs.auckland.ac.nz/~yhel002/biopy/)"""
@@ -752,7 +742,7 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
 
 	###### R SCRIPT
 	R_file_name="%s/%s" % (wd,out_file_name+"_stats.R")
-	R_file=open(R_file_name, "wb")
+	R_file=open(R_file_name, "w")
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
 		tmp_wd = os.path.abspath(wd).replace('\\', '/')
 	else: tmp_wd = wd
@@ -2066,7 +2056,10 @@ def likelihood_rangeFBD(times, psi, lam, mu, ts, te, k=[], intervalAs=[], int_in
 	term4_c = 0
 
 	if hasFoundPyRateC: # We use the C version for term 4
-		term4_c = PyRateC_FBD_T4(tot_number_of_species, bint, dint, oint, intervalAs, lam, mu, psi, rho, gamma_i, times, ts, te, FA)
+		l_bint = bint.tolist()
+		l_dint = dint.tolist()
+		l_oint = oint.tolist()
+		term4_c = PyRateC_FBD_T4(tot_number_of_species, l_bint, l_dint, l_oint, intervalAs, lam, mu, psi, rho, gamma_i, times, ts, te, FA)
 
 	if not hasFoundPyRateC or sanityCheckForPyRateC: # We use the python version if PyRateC not found or if sanity check is asked
 		log_gamma_i = log(gamma_i)
@@ -3892,9 +3885,9 @@ grid_plot = args.grid_plot
 if path_dir_log_files != "":
 	self_path = get_self_path()
 	if plot_type>=3:
-		lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
-		lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
-		rtt_plot_bds = imp.load_source("rtt_plot_bds", "%s/pyrate_lib/rtt_plot_bds.py" % (self_path))
+		import pyrate_lib.lib_DD_likelihood as lib_DD_likelihood
+		import pyrate_lib.lib_utilities as lib_utilities
+		import pyrate_lib.rtt_plot_bds as rtt_plot_bds
 		if plot_type==3:
 			if grid_plot==0: grid_plot=1
 			rtt_plot_bds.RTTplot_high_res(path_dir_log_files,grid_plot,int(burnin),root_plot)
@@ -3979,7 +3972,6 @@ if args.twotrait == 1:
 ############################ LOAD INPUT DATA ############################
 match_taxa_trait = 0
 if use_se_tbl==0:
-	import imp
 	input_file_raw = os.path.basename(args.input_data[0])
 	input_file = os.path.splitext(input_file_raw)[0]  # file name without extension
 
@@ -3989,7 +3981,10 @@ if use_se_tbl==0:
 	else: output_wd=args.wd
 
 	print("\n",input_file, args.input_data, "\n")
-	try: input_data_module = imp.load_source(input_file, args.input_data[0])
+	try: 
+		test_spec = importlib.util.spec_from_file_location(input_file,args.input_data[0])
+		input_data_module = importlib.util.module_from_spec(test_spec)
+		test_spec.loader.exec_module(input_data_module)
 	except(IOError): sys.exit("\nInput file required. Use '-h' for command list.\n")
 
 	j=max(args.j-1,0)
@@ -4519,8 +4514,8 @@ if args.tree != "":
 	if args.eqr: analyze_tree = 3
 
 	if fix_Shift == 1:
-		print("Using Skyline indepdent model")
-		phylo_bds_likelihood = imp.load_source("phylo_bds_likelihood", "%s/pyrate_lib/phylo_bds_likelihood.py" % (self_path))
+		print("Using Skyline independent model")
+		import pyrate_lib.phylo_bds_likelihood as phylo_bds_likelihood
 		analyze_tree = 4
 		treeBDlikelihoodSkyLine = phylo_bds_likelihood.TreePar_LikShifts
 		# args = (x,t,l,mu,sampling,posdiv=0,survival=1,groups=0)
@@ -4602,6 +4597,10 @@ if hasFoundPyRateC:
 	if use_se_tbl==1:
 		pass
 	else:
+		fossilForPyRateC = [ f.tolist() for f in fossil ]
+		PyRateC_setFossils(fossilForPyRateC) # saving all fossil data as C vector
+
+		
 		fossilForPyRateC = [ f.tolist() for f in fossil ]
 		PyRateC_setFossils(fossilForPyRateC) # saving all fossil data as C vector
 
@@ -4750,7 +4749,7 @@ if TDI!=1 and use_ADE_model == 0 and useDiscreteTraitModel == 0 and log_marginal
 	marginal_frames= array([int(fabs(i-int(max_marginal_frame))) for i in range(int(max_marginal_frame)+1)])
 	if log_marginal_rates_to_file==1:
 		out_log_marginal = "%s/%s_marginal_rates.log" % (path_dir, suff_out)
-		marginal_file = open(out_log_marginal , "wb")
+		marginal_file = open(out_log_marginal , "w")
 		head="it\t"
 		for i in range(int(max_marginal_frame)+1): head += "l_%s\t" % i #int(fabs(int(max(FA))))
 		for i in range(int(max_marginal_frame)+1): head += "m_%s\t" % i #int(fabs(int(max(FA))))
@@ -4778,21 +4777,11 @@ elif log_marginal_rates_to_file==0:
 # OUTPUT 3 MARGINAL LIKELIHOOD
 elif TDI==1:
 	out_log_marginal_lik = "%s/%s_marginal_likelihood.txt" % (path_dir, suff_out)
-	marginal_file = open(out_log_marginal_lik , "wb")
+	marginal_file = open(out_log_marginal_lik , "w")
 	marginal_file.writelines(o)
 	marginal_frames=0
 else: marginal_frames=0
-# OUTPUT 4 MARGINAL SHIFT TIMES
-#if TDI==2:
-#	out_log_marginal_time = "%s/%s_marginal_t_shifts.log" % (path_dir, suff_out)
-#	marginal_file_time = open(out_log_marginal_time , "wb")
-#	head="it\t"
-#	for i in range(25): head += "t_l%s\t" % i #int(fabs(int(max(FA))))
-#	for i in range(25): head += "t_m%s\t" % i #int(fabs(int(max(FA))))
-#	head=head.split('\t')
-#	wmarg_t=csv.writer(marginal_file_time, delimiter='	')
-#	wmarg_t.writerow(head)
-#	marginal_file.flush()
+
 if fix_SE == 1 and fix_Shift == 1:
 	time_frames  = sort(np.array(list(fixed_times_of_shift) + [0,max(fixed_ts)]))
 	B = sort(time_frames)+0.000001 # add small number to avoid counting extant species as extinct
