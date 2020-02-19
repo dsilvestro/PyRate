@@ -16,18 +16,10 @@ np.set_printoptions(suppress=True)
 np.set_printoptions(precision=3)  
 from multiprocessing import Pool, freeze_support
 import _thread
-import imp
 
-try: 
-	self_path= os.path.dirname(sys.argv[0])
-	lib_updates_priors = imp.load_source("lib_updates_priors", "%s/pyrate_lib/lib_updates_priors.py" % (self_path))
-	lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
-	lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
-except:
-	self_path=os.getcwd()
-	lib_updates_priors = imp.load_source("lib_updates_priors", "%s/pyrate_lib/lib_updates_priors.py" % (self_path))
-	lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
-	lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
+import pyrate_lib.lib_updates_priors as lib_updates_priors
+import pyrate_lib.lib_DD_likelihood as lib_DD_likelihood
+import pyrate_lib.lib_utilities as lib_utilities
 
 from lib_updates_priors import *
 from lib_DD_likelihood  import *

@@ -1,7 +1,7 @@
 from numpy import *
 import numpy as np
 import os, platform, glob, sys
-import lib_utilities as util
+import pyrate_lib.lib_utilities as util
 import csv 
 
 def get_marginal_rates_plot3(times,rates,grid):
