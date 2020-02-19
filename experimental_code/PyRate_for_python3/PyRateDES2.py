@@ -1199,7 +1199,7 @@ if args.A == 3:
 			x0 = np.concatenate((x0, 0., 0.), axis = None)
 			lower_bounds = lower_bounds + [-bound_covar_d] + [-bound_covar_d]
 			upper_bounds = upper_bounds + [bound_covar_d] + [bound_covar_d]
-		if 1 in args.symCov or args.data_in_area != 0 or np.isin(constraints_covar, 1):
+		if 1 in args.symCov or args.data_in_area != 0 or np.isin(constraints_covar, 0):
 			opt_ind_covar_dis = opt_ind_covar_dis[0:-1]
 			ind_counter = ind_counter - 1
 			x0 = x0[0:-1]
@@ -1233,7 +1233,7 @@ if args.A == 3:
 			x0 = np.concatenate((x0, 0., 0.), axis = None)
 			lower_bounds = lower_bounds + [-bound_covar_e] + [-bound_covar_e]
 			upper_bounds = upper_bounds + [bound_covar_e] + [bound_covar_e]
-		if 3 in args.symCov or args.data_in_area != 0 or np.isin(constraints_covar, 2):
+		if 3 in args.symCov or args.data_in_area != 0 or np.isin(constraints_covar, 1):
 			opt_ind_covar_ext = opt_ind_covar_ext[0:-1]
 			ind_counter = ind_counter - 1
 			x0 = x0[0:-1]
