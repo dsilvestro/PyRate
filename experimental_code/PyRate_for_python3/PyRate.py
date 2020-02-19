@@ -1957,8 +1957,13 @@ def get_DT_FBDrange(T,s,e): # returns the Diversity Trajectory of s,e at times T
 	DD=(ss1-ee2)[::-1]
 	return np.cumsum(DD)[0:len(T)].astype(float)
 
+
+def get_L_FBDrange(T,s,e): # returns the Diversity Trajectory of s,e at times T (x10 faster)
+	Lvec = [np.sum(get_sp_in_frame_br_length(s, e, T[i], T[i+1])[1]) for i in range(len(T)-1)]
+	return np.array(Lvec)
+
 def get_k(array_all_fossils, times):
-	ff = np.histogram(array_all_fossils,bins=np.sort(times))[0]
+	ff = np.histogram(array_all_fossils[array_all_fossils>0],bins=np.sort(times))[0]
 	return ff[::-1]
 
 def get_times_n_rates(timesQ, timesL, timesM, q_rates, Lt,Mt):
@@ -2005,7 +2010,7 @@ def calc_qt(i, t, args):
 	qt = .5 * ( calc_q(i, t, args) - (lam[i]+mu[i]+psi[i])*(t-times[i+1]) )
 	return qt
 
-def likelihood_rangeFBD(times, psi, lam, mu, ts, te, k=[], intervalAs=[], int_indx=[], div_traj=[], rho=0):
+def likelihood_rangeFBD(times, psi, lam, mu, ts, te, k=[], intervalAs=[], int_indx=[], div_traj=[], rho=0, FALAmodel=0):
 	l  = len(times)-1 # number of intervals (combination of qShift, Kl, Km)
 	if rho: pass
 	else: rho = np.zeros(l)
@@ -2034,6 +2039,7 @@ def likelihood_rangeFBD(times, psi, lam, mu, ts, te, k=[], intervalAs=[], int_in
 	# print np.sort(te)
 
 	# only need to update when changing times
+	# if using FALA model: k == kappa' (Theorem 14 Stadler et al. 2018 JTB)
 	if len(k) > 0: pass
 	else: k = get_k(array_all_fossils, times)
 
@@ -2088,8 +2094,14 @@ def likelihood_rangeFBD(times, psi, lam, mu, ts, te, k=[], intervalAs=[], int_in
 
 	if hasFoundPyRateC:
 		term4 = term4_c
-
-	likelihood = np.sum([term1, term0+sum(term2),sum(term3), term4])
+	
+	if FALAmodel==2:
+		term5 = np.sum(psi * get_L_FBDrange(times,FA,LO))
+	else: 
+		term5 = 0
+	
+	
+	likelihood = np.sum([term1, term0+sum(term2),sum(term3), term4, term5])
 	res = [likelihood, intervalAs, int_indx, div_traj, k]
 
 	return res
@@ -2957,7 +2969,7 @@ def MCMC(all_arg):
 				lik_fossil[ind2] = lik_fossilA[ind2]
 
 		# FBD range likelihood
-		elif FBDrange==1:
+		elif FBDrange:
 			move_type = 0
 			stop_update = 0
 			if np.random.random()<0.01 and TDI==4:
@@ -2981,13 +2993,13 @@ def MCMC(all_arg):
 
 			# times, psi, lam, mu, ts, te, k=0, intervalAs=0, int_indx=0, div_traj=0, rho=0
 			if move_type == 1: # updated ts/te
-				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te, intervalAs=res_FBD_A[1], k=res_FBD_A[4])
+				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te, intervalAs=res_FBD_A[1], k=res_FBD_A[4], FALAmodel = FBDrange)
 			elif move_type in [2,4]: # updated q/s/e rates
-				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te,  int_indx=res_FBD_A[2], div_traj=res_FBD_A[3], k=res_FBD_A[4])
+				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te,  int_indx=res_FBD_A[2], div_traj=res_FBD_A[3], k=res_FBD_A[4], FALAmodel = FBDrange)
 			elif move_type in [3]: # updated times
-				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te,  intervalAs=res_FBD_A[1], div_traj=res_FBD_A[3])
+				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te,  intervalAs=res_FBD_A[1], div_traj=res_FBD_A[3], FALAmodel = FBDrange)
 			else:
-				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te)
+				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te, FALAmodel = FBDrange)
 			# res = [likelihood, intervalAs, int_indx, div_traj, k]
 			# if it % 1000==0:
 			#	print times_fbd_temp
@@ -3172,7 +3184,7 @@ def MCMC(all_arg):
 						if argsG == 1: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args))
 						else: lik_fossil[ind1] = array(pool_ts.map(NHPP_lik, args))
 
-		elif FBDrange == 1:
+		elif FBDrange:
 			likBDtemp = 0 # alrady included in lik_fossil
 
 
@@ -3289,7 +3301,7 @@ def MCMC(all_arg):
 				if analyze_tree >=1:
 					r_treeA = r_tree
 					m_treeA = m_tree
-				if FBDrange==1:
+				if FBDrange:
 					res_FBD_A = res_FBD
 					FBD_temp_A = [times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp]
 
@@ -3635,8 +3647,8 @@ rand.seed(rseed)  # set as argument/ use get seed function to get it and save it
 random.seed(rseed)
 np.random.seed(rseed)
 
-if  args.FBDrange==0: FBDrange = 0
-else: FBDrange = 1
+FBDrange = args.FBDrange
+
 
 if args.useCPPlib==1 and hasFoundPyRateC == 1:
 	#print("Loaded module FastPyRateC")
