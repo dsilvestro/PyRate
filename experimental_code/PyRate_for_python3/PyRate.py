@@ -5,7 +5,7 @@ import random as rand
 import warnings, importlib
 
 version= "PyRate"
-build  = "v3.0 - 20200219"
+build  = "v3.0 - 20200222"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
@@ -2010,7 +2010,7 @@ def calc_qt(i, t, args):
 	qt = .5 * ( calc_q(i, t, args) - (lam[i]+mu[i]+psi[i])*(t-times[i+1]) )
 	return qt
 
-def likelihood_rangeFBD(times, psi, lam, mu, ts, te, k=[], intervalAs=[], int_indx=[], div_traj=[], rho=0, FALAmodel=0):
+def likelihood_rangeFBD(times, psi, lam, mu, ts, te, k=[], intervalAs=[], int_indx=[], div_traj=[], rho=0, FALAmodel=0,alpha=1):
 	l  = len(times)-1 # number of intervals (combination of qShift, Kl, Km)
 	if rho: pass
 	else: rho = np.zeros(l)
@@ -2060,13 +2060,40 @@ def likelihood_rangeFBD(times, psi, lam, mu, ts, te, k=[], intervalAs=[], int_in
 
 	term4 = 0
 	term4_c = 0
-
-	if hasFoundPyRateC: # We use the C version for term 4
+	
+	if hasFoundPyRateC and alpha==1: # use the C version for term 4
 		l_bint = bint.tolist()
 		l_dint = dint.tolist()
 		l_oint = oint.tolist()
 		term4_c = PyRateC_FBD_T4(tot_number_of_species, l_bint, l_dint, l_oint, intervalAs, lam, mu, psi, rho, gamma_i, times, ts, te, FA)
+	
+	else:
+		log_gamma_i = log(gamma_i)
+		for i in range(tot_number_of_species):
+			lik_sp_i = []
+			for G_i in range(4):
+				psi_g = np.array([get_gamma_rates(i)[G_i] for i in psi])				
+				intervalAs = calcAi(lam,mu,psi_g)
+				args = [intervalAs, lam, mu, psi_g, times, l, rho]
 
+				term4_q  = calc_q(bint[i],ts[i],args)-calc_q(oint[i], FA[i],args)
+				term4_qt = calc_qt(oint[i], FA[i],args)-calc_qt(dint[i], te[i],args)
+
+				qj_1= 0
+				for j in range(bint[i], oint[i]):
+					qj_1 += calc_q(j+1, times[j+1], args)
+
+				qtj_1= 0
+				for j in range(oint[i], dint[i]):
+					qtj_1 += calc_qt(j+1, times[j+1], args)
+
+				term4_qj = qj_1 + qtj_1
+				lik_sp_i.append(log_gamma_i[i] + term4_q + term4_qt + term4_qj)
+			lik_sp_i = np.log(np.sum(np.exp(np.array(lik_sp_i))))
+			term4_c += lik_sp_i 
+
+		
+	
 	if not hasFoundPyRateC or sanityCheckForPyRateC: # We use the python version if PyRateC not found or if sanity check is asked
 		log_gamma_i = log(gamma_i)
 		args = [intervalAs, lam, mu, psi, times, l, rho]
@@ -2868,6 +2895,8 @@ def MCMC(all_arg):
 		if fix_SE == 0:
 			if TPP_model == 1:
 				q_time_frames = np.sort(np.array([max_ts,0]+times_q_shift))[::-1]
+			else:
+				q_time_frames = np.array([max_ts,0])
 
 		# NHPP Lik: multi-thread computation (ts, te)
 		# generate args lik (ts, te)
@@ -2993,13 +3022,17 @@ def MCMC(all_arg):
 
 			# times, psi, lam, mu, ts, te, k=0, intervalAs=0, int_indx=0, div_traj=0, rho=0
 			if move_type == 1: # updated ts/te
-				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te, intervalAs=res_FBD_A[1], k=res_FBD_A[4], FALAmodel = FBDrange)
+				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te, 
+						intervalAs=res_FBD_A[1], k=res_FBD_A[4], FALAmodel = FBDrange, alpha = alpha_pp_gamma)
 			elif move_type in [2,4]: # updated q/s/e rates
-				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te,  int_indx=res_FBD_A[2], div_traj=res_FBD_A[3], k=res_FBD_A[4], FALAmodel = FBDrange)
+				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te,  
+						int_indx=res_FBD_A[2], div_traj=res_FBD_A[3], k=res_FBD_A[4], FALAmodel = FBDrange, alpha = alpha_pp_gamma)
 			elif move_type in [3]: # updated times
-				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te,  intervalAs=res_FBD_A[1], div_traj=res_FBD_A[3], FALAmodel = FBDrange)
+				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te,  
+						intervalAs=res_FBD_A[1], div_traj=res_FBD_A[3], FALAmodel = FBDrange, alpha = alpha_pp_gamma)
 			else:
-				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te, FALAmodel = FBDrange)
+				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te, FALAmodel = FBDrange,
+						alpha = alpha_pp_gamma)
 			# res = [likelihood, intervalAs, int_indx, div_traj, k]
 			# if it % 1000==0:
 			#	print times_fbd_temp
@@ -3749,24 +3782,20 @@ else:
 
 if args.ginput != "" or args.check_names != "" or args.reduceLog != "":
 	try:
-		self_path = get_self_path()
-		pyrate_lib_path = "pyrate_lib"
-		sys.path.append(os.path.join(self_path,pyrate_lib_path))
-		import lib_DD_likelihood
-		import lib_utilities
-		import check_species_names
-
+		import pyrate_lib.lib_DD_likelihood
+		import pyrate_lib.lib_utilities
+		import pyrate_lib.check_species_names
 	except:
 		sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
 		You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
 
 	if args.ginput != "":
-		lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=-1,burnin=int(burnin)+1)
+		pyrate_lib.lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=-1,burnin=int(burnin)+1)
 	elif args.check_names != "":
 		SpeciesList_file = args.check_names
-		check_species_names.run_name_check(SpeciesList_file)
+		pyrate_lib.check_species_names.run_name_check(SpeciesList_file)
 	elif args.reduceLog != "":
-		lib_utilities.reduce_log_file(args.reduceLog,max(1,int(args.b)))
+		pyrate_lib.lib_utilities.reduce_log_file(args.reduceLog,max(1,int(args.b)))
 	quit()
 
 
@@ -4385,34 +4414,6 @@ if args.ADE == 2:
 	BPD_partial_lik = BD_age_partial_lik
 	out_name += "_CorrBD"
 	argsHPP = 1
-	#list_all_occs = []
-	#for i in range(len(fossil)):
-	#	f =fossil[i]
-	#	list_all_occs = list_all_occs + list(f[f>0])
-	#
-	#list_all_occs = np.sort(np.array(list_all_occs))
-	#print (np.diff(list_all_occs))
-	#
-	#quit()
-	  #
-	#n_sampled_species_bins = np.linspace(0,max(FA),100)
-	#dT_sampled_sp_bins = n_sampled_species_bins[1]
-	#n_sampled_species = np.zeros(len(n_sampled_species_bins)-1)
-	#for i in range(len(fossil)):
-	#	occs_temp = fossil[i]
-	#	hist = np.histogram(occs_temp[occs_temp>0],bins=sort( n_sampled_species_bins ))
-	#	h = hist[0][::-1]
-	#	h[h>1] = 1
-	#	print hist
-	#	n_sampled_species += h
-	#print log(n_sampled_species), sum(n_sampled_species)
-	#sampling_prob = 1 - exp(-dT_sampled_sp_bins*0.5)
-	#est_true_sp = log(1 + n_sampled_species + n_sampled_species*sampling_prob)
-	#print est_true_sp[::-1]
-	#print np.diff(n_sampled_species)[::-1], mean(np.diff(n_sampled_species)[::-1])/dT_sampled_sp_bins
-	#print np.mean(np.diff(est_true_sp)[::-1])/dT_sampled_sp_bins
-	#print np.mean(np.diff(log(n_sampled_species+1))[::-1])
-	#quit()
 
 est_hyperP = 0
 use_cauchy = 0
@@ -4623,7 +4624,10 @@ if hasFoundPyRateC:
 ############################ MCMC OUTPUT ############################
 try: os.mkdir(output_wd)
 except(OSError): pass
-path_dir = "%s/pyrate_mcmc_logs" % (output_wd)
+if output_wd !="":
+	path_dir = os.path.join(output_wd, "pyrate_mcmc_logs") 
+else: path_dir = "pyrate_mcmc_logs"
+
 folder_name="pyrate_mcmc_logs"
 try: os.mkdir(path_dir)
 except(OSError): pass
