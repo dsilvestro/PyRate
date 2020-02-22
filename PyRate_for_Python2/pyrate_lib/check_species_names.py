@@ -174,7 +174,7 @@ def check_taxa_names(w,out_file_name="output.txt"):
 	
 	word_combinations = itertools.combinations(words,2)
 	comb = len(list(itertools.combinations(words,2)))
-	print("Testing", comb, "combinations... (progress printed below)")
+	print "Testing", comb, "combinations... (progress printed below)"
 	start_time = time.time()
 	# sensitivity settings
 	max_length_diff = 2 # maximum allowed difference between string lengths
@@ -210,8 +210,8 @@ def check_taxa_names(w,out_file_name="output.txt"):
 				progress_percentage = round(100*(j/comb),2)
 				total_time = ((time.time()-start_time)*100/progress_percentage)/60.
 				time_left = total_time-(time.time()-start_time)/60
-				print(progress_percentage,"%", int(time_left),"min left")
-		except: print(taxon1, taxon2)
+				print progress_percentage,"%", int(time_left),"min left"
+		except: print taxon1, taxon2
 	all_scores = np.array(all_scores)
 	# top hits:
 	#print all_scores
@@ -234,7 +234,7 @@ def check_taxa_names(w,out_file_name="output.txt"):
 				log_line = list(all_scores[i][0:2])+[rank]
 				wlog.writerow(log_line)
 				logfile.flush()
-		if len(res)==0: print("No typos found!")
+		if len(res)==0: print "No typos found!"
 		passed = np.union1d(res,passed)
 		if len(passed)==len(all_scores): break
 		th1 -= 0.05
@@ -243,17 +243,17 @@ def check_taxa_names(w,out_file_name="output.txt"):
 
 
 def run_name_check(fossil_occs_file):
-	print("\nParsing input data...")
+	print "\nParsing input data..."
 	occs_names = np.loadtxt(fossil_occs_file,delimiter="\t",usecols=(0),skiprows=1,dtype="string")
 	unique_names = np.unique(occs_names)
-	print("Found %s unique taxa names" % (len(unique_names)))
+	print "Found %s unique taxa names" % (len(unique_names))
 	# run typos-check on this list
 	w = [s.replace(" ", "_") for s in occs_names]
 	out_file_name = os.path.splitext(fossil_occs_file)[0]+"_scores.txt"
 	check_taxa_names(w,out_file_name)
-	print("The results (if any potential typos were found) are written here:")
-	print(out_file_name)
-	print(""""Note that names of ranks 0 and 1 are the most likely cases of misspellings, \
+	print "The results (if any potential typos were found) are written here:"
+	print out_file_name
+	print """"Note that names of ranks 0 and 1 are the most likely cases of misspellings, \
 whereas ranks 2 and 3 are most likely truly different names. \
-This algorithm does NOT check for synonyms!\n""")
+This algorithm does NOT check for synonyms!\n"""
 

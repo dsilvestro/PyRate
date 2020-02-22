@@ -3,7 +3,7 @@
 from numpy import *
 import numpy as np
 import sys, os
-print("Birth-Death Sampler 18\n")
+print "Birth-Death Sampler 18\n"
 
 
 ##########################################################################
@@ -117,7 +117,7 @@ def simulate(L,M,timesL, timesM,root,scale,s_species, maxSP,gl=0,gm=0,Dtraj=[0],
 
 ############### SIMULATION SETTINGS ########################################
 def write_to_file(f, o):
-	sumfile = open(f , "w") 
+	sumfile = open(f , "wb") 
 	sumfile.writelines(o)
 	sumfile.close()
 
@@ -158,13 +158,13 @@ def random_choice_P(vector):
 
 
 if useDD==1:
-	print("Diversity dependent rates")
-	print("D\tsp.\tex.")
+	print "Diversity dependent rates"
+	print "D\tsp.\tex."
 	for i in [1,10,25,50,100]:
 		l_temp =trans_rate_linear(baseline_speciation_rate[0],DDl,i)
 		m_temp =trans_rate_linear(baseline_extinction_rate[0],DDm,i)
-		print("%s\t%s\t%s" % (i,l_temp,m_temp))
-	print("\n\n")
+		print "%s\t%s\t%s" % (i,l_temp,m_temp)
+	print "\n\n"
 
 for sim in range(n_reps):
 	i=0
@@ -197,21 +197,21 @@ for sim in range(n_reps):
 				FAtrue,LOtrue=simulate(L,M,timesL,timesM,root,scale,s_species, maxSP)
 		
 		n_extinct = len(LOtrue[LOtrue>0])
-	print("\nSim %s:" % (sim))
-	print("L", L, "M",M, "tL",timesL,"tM",timesM)
+	print "\nSim %s:" % (sim)
+	print "L", L, "M",M, "tL",timesL,"tM",timesM
 	ltt=""
 	for i in range(int(max(FAtrue))):
 		n=len(FAtrue[FAtrue>i])-len(LOtrue[LOtrue>i])
 		#nlog=int((n))
 		ltt += "\n%s\t%s\t%s" % (i, n, "*"*n)
-	print(ltt)
+	print ltt
 	#print "simulation:",i, "total no.", len(LOtrue),root
 	i += 1
 
-	print(len(LOtrue),len(L),len(M))
+	print len(LOtrue),len(L),len(M)
 	o="clade	species	ts	te\n"
 	for i in range(len(FAtrue)):
 		o+= "%s\t%s\t%s\t%s\n" % (0,i+1,FAtrue[i],LOtrue[i])
-	write_to_file("sim_%s.txt" % (sim), o) 	
+	write_to_file("sim_%s" % (sim), o) 	
 
 quit()

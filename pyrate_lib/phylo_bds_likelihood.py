@@ -11,7 +11,7 @@ def TreePar_inter(time,t):
 		else:
 			if (time<=t[i]): j=1 
 			else: i = i+1
-	if run_check==1: print "IIIII",i
+	if run_check==1: print("IIIII",i)
 	return i
 
 def TreePar_q2(i,time,t,l,mu,rho):
@@ -76,7 +76,7 @@ def TreePar_LikShifts(x,t,l,mu,sampling,posdiv=0,survival=1,groups=0):
 		res = res -2*log(1-TreePar_q2(TreePar_inter(mrca,t),mrca,t,l,mu,sampling ) )
 	
 	for j in range(0,(len(x)-1)):
-		if run_check==1: print j, res
+		if run_check==1: print(j, res)
 		ind  = TreePar_inter(x[j],t)-1
 		res = res +log(2*l[ind]) + log(TreePar_g(x[j],t,l,mu,sampling))
 	
@@ -107,6 +107,6 @@ if run_check==1:
 	       11.7092978 , 11.80412531, 12.78810896, 16.22804692, 24.22015229])
 
 
-	print TreePar_LikShifts(x,t,l,mu,sampling)
+	print(TreePar_LikShifts(x,t,l,mu,sampling))
 
 

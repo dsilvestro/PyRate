@@ -4,7 +4,7 @@ Estimation of corrected diversity trajectories using `mcmcDivE` requires a PyRat
 
 `python3 mcmcDivE.py -d path_to_input_file/pyrate_occ_data.py -q path_to_input_file/intervals.txt -m path_to_input_file/pyrate_mcmc.log`
 
-**NOTE** that unlike PyRate, mcmcDivE is implemented in Python v.3. 
+**NOTE** that like PyRate v.3, mcmcDivE requires Python v.3. 
 
 ### Additional (optional) commands are:  
 `-n`: the number of MCMC iterations

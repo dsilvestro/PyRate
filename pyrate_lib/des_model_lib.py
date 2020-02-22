@@ -19,7 +19,7 @@ def build_rho_index_vec(obs_state,nareas,possible_areas,verbose=0):
 	obs_state=set(obs_state)
 	r_vec_index=[]
 	r_neg_index=np.zeros((len(possible_areas),nareas))
-	if verbose ==1: print "anc_state\tobs_state\ttemp\tr_neg"
+	if verbose ==1: print("anc_state\tobs_state\ttemp\tr_neg")
 	for i in range(len(possible_areas)):
 		anc_state= set(possible_areas[i])
 		if 1>2: pass #len(anc_state)==0: temp = np.repeat(0,nareas)
@@ -40,11 +40,11 @@ def build_rho_index_vec(obs_state,nareas,possible_areas,verbose=0):
 					temp.append(nareas+1) # this option replaces (1 - r_{j}) with 1 | nareas+1 is index of r_vec = 1 
 				elif j not in anc_state and j in obs_state:
 					temp.append(0) # 0 is index of r_vec = 0
-				else: print "Warning: problem in function <build_rho_index_vec>"
+				else: print("Warning: problem in function <build_rho_index_vec>")
 		if verbose ==1: 
 			r_vec= np.array([0]+list(np.zeros(nareas)+0.25) +[1])
 			r_vec[1]=0.33
-			print anc_state,"\t",obs_state,"\t",temp,"\t",r_neg_index[i], abs(r_neg_index[i]-r_vec[temp]),np.prod(abs(r_neg_index[i]-r_vec[temp]))
+			print(anc_state,"\t",obs_state,"\t",temp,"\t",r_neg_index[i], abs(r_neg_index[i]-r_vec[temp]),np.prod(abs(r_neg_index[i]-r_vec[temp])))
 		r_vec_index.append(temp)	
 	#print "\nFINAL",np.array(r_vec_index),r_neg_index	, "\nEND"
 	#quit()
@@ -68,7 +68,7 @@ def make_Q(dv,ev): # construct Q matrix
 		[D, 0, 0, 0 ],
 		[e1,D, 0, d1],
 		[e2,0, D, d2],
-		[0 ,e2,e1,D ]  	
+		[0 ,e2,e1,D ]	
 	])
 	# fill diagonal values
 	np.fill_diagonal(Q, -np.sum(Q,axis=1))
@@ -86,7 +86,7 @@ def make_Q_list(dv_list,ev_list): # construct list of Q matrices
 			#[D, d1, d2, 0 ],
 			[e1,D, 0, d1],
 			[e2,0, D, d2],
-			[0 ,e2,e1,D ]  	
+			[0 ,e2,e1,D ]	
 		])
 		# fill diagonal values
 		np.fill_diagonal(Q, -np.sum(Q,axis=1))
@@ -106,7 +106,7 @@ def make_Q_Covar(dv_list,ev_list,time_var,covar_par=np.zeros(2)): # construct li
 			#[D, d1, d2, 0 ],
 			[e1,D, 0, d1],
 			[e2,0, D, d2],
-			[0 ,e2,e1,D ]   	
+			[0 ,e2,e1,D ]	
 		])
 		# fill diagonal values
 		np.fill_diagonal(Q, -np.sum(Q,axis=1))
@@ -126,16 +126,18 @@ def make_Q_Covar4V(dv_list,ev_list,time_var,covar_par=np.zeros(4)): # construct 
 			# [D, d1, d2, 0 ],
 			[e1,D, 0, d1],
 			[e2,0, D, d2],
-			[0 ,e2,e1,D ]  	
+			[0 ,e2,e1,D ]	
 		])
 		# fill diagonal values
 		np.fill_diagonal(Q, -np.sum(Q,axis=1))
 		Q_list.append(Q)
 	return Q_list
 
-def transform_rate_logistic(r0,prm,trait):
+def transform_rate_logistic(r_at_trait_mean,prm,trait):
 	# r0 is the max rate
-	k, x0 = prm # mid point and steepness
+	k, x0 = prm # steepness and mid point
+	trait_mean = np.mean(trait)
+	r0 = r_at_trait_mean * ( 1. + exp( -k * (trait_mean-x0) )    )
 	rate_at_trait = r0 / ( 1. + exp( -k * (trait-x0) )    )
 	return rate_at_trait
 
@@ -146,7 +148,7 @@ def get_dispersal_rate_through_time(dv_list,time_var_d1,time_var_d2,covar_par=np
 	elif transf_d==2: # logistic
 		transf_d12 = transform_rate_logistic(dv_list[0][0], [covar_par[0],x0_logistic[0]],time_var_d1)
 		transf_d21 = transform_rate_logistic(dv_list[0][1], [covar_par[1],x0_logistic[1]],time_var_d2)
-		transf_d = np.array([transf_d12,transf_d21]).T		
+		transf_d = np.array([transf_d12,transf_d21]).T
 	else: # time-dependent-dispersal
 		transf_d = dv_list
 	return transf_d
@@ -159,11 +161,12 @@ def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_v
 	elif transf_d==2: # logistic
 		transf_d12 = transform_rate_logistic(dv_list[0][0], [covar_par[0],x0_logistic[0]],time_var_d1)
 		transf_d21 = transform_rate_logistic(dv_list[0][1], [covar_par[1],x0_logistic[1]],time_var_d2)
-		transf_d = np.array([transf_d12,transf_d21]).T	
+		transf_d = np.array([transf_d12,transf_d21]).T
 	elif transf_d==4: # linear diversity dependence
 		transf_d = np.array([(dv_list[0][0]/(1. - (offset_dis_div1/covar_par[0]))) * (1. - (time_var_d1/covar_par[0])), 
 		                     (dv_list[0][1]/(1. - (offset_dis_div2/covar_par[1]))) * (1. - (time_var_d2/covar_par[1]))]).T 
 		transf_d[transf_d <= 0] = 1e-5
+		transf_d[np.isnan(transf_d)] = 1e-5
 	else: # time-dependent-dispersal
 		transf_d = dv_list
 	if transf_e==1: # exponential
@@ -238,7 +241,7 @@ def make_Q_Covar4VDdEDOUBLE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,
 			# [D, d1, d2, 0 ],
 			[e1,D, 0, d1],
 			[e2,0, D, d2],
-			[0 ,e2,e1,D ] 	
+			[0 ,e2,e1,D ]	
 		])
 		# fill diagonal values
 		np.fill_diagonal(Q, -np.sum(Q,axis=1))
@@ -324,7 +327,7 @@ def simulate_dataset(no_sim,d,e,n_taxa,n_bins=20,wd=""):
 				current_state = ind
 				#print rate, ind, current_state
 				#__ if ind == 0: # lineage is extinct
-				#__ 	break
+				#__	break
 			else: 
 				log_state=list(SimStates)
 				wlog.writerow(log_state)
@@ -392,7 +395,7 @@ def simulate_dataset_1area(no_sim,d,e,n_taxa,n_bins=20,wd="", area = 2):
 				current_state = ind
 				#print rate, ind, current_state
 				#__ if ind == 0: # lineage is extinct
-				#__ 	break
+				#__	break
 			else: 
 				log_state=list(SimStates)
 				wlog.writerow(log_state)
@@ -425,7 +428,7 @@ def parse_input_data(input_file_name,RHO_sampling=np.ones(2),verbose=0,n_sampled
 		DATA = DATA[ind_keep]
 		if reduce_data==1: # KEEPS ONLY TAXA WITH OCCURRENCES IN BOTH AREAS
 			DATA_temp = []
-			print "\n\n\n",shape(DATA), "\n\n\n"
+			print("\n\n\n",shape(DATA), "\n\n\n")
 			for i in range(np.shape(DATA)[0]):
 				d = DATA[i]
 				d=d[np.isfinite(d)]
@@ -433,14 +436,14 @@ def parse_input_data(input_file_name,RHO_sampling=np.ones(2),verbose=0,n_sampled
 				if len(areas)>0:
 					if len(areas)>1 or max(areas)==3:
 						DATA_temp.append(DATA[i])
-						print areas
+						print(areas)
 			DATA =  DATA_temp
 
 	time_series = DATA[0]
 	obs_area_series = transform_Array_Tuple(DATA[1:])
 	nTaxa = len(obs_area_series)
-	print time_series
-	print len(time_series),shape(obs_area_series)
+	print(time_series)
+	print(len(time_series),shape(obs_area_series))
 
 	###### SIMULATE SAMPLING ######
 	sampled_data=list()  #np.empty(nTaxa, dtype=object)
@@ -463,7 +466,7 @@ def parse_input_data(input_file_name,RHO_sampling=np.ones(2),verbose=0,n_sampled
 		
 			else:
 				sampling_fraction = sampling_fraction[np.array(obs[i])] # RHO[0] if area (0), RHO[1] if area (1), RHO[0,1] if area (0,1)
-				if verbose ==1: print sampling_fraction, np.array(obs[i])
+				if verbose ==1: print(sampling_fraction, np.array(obs[i]))
 				r=np.random.uniform(0,1,len(obs[i]))
 				ind=np.nonzero(r<sampling_fraction)[0]
 				if len(ind)>0: new_obs.append(tuple(np.array(obs[i])[ind]))	
@@ -533,11 +536,11 @@ def parse_input_data(input_file_name,RHO_sampling=np.ones(2),verbose=0,n_sampled
 		binned_obs_area_series = np.array(binned_DATA)
 		binned_OrigTimeIndex   = binned_OrigTimeIndex.astype(int)	
 	else:
-		print "Empirical bins"
+		print("Empirical bins")
 		binned_obs_area_series = np.array(sampled_data)
 		binned_OrigTimeIndex   = OrigTimeIndex.astype(int)
 		Binned_time = time_series
-		print Binned_time
+		print(Binned_time)
 					
 	return nTaxa, Binned_time, binned_obs_area_series, binned_OrigTimeIndex
 
@@ -562,4 +565,4 @@ def get_gamma_rates(a,YangGammaQuant,pp_gamma_ncat):
 	b=a
 	m = gdtrix(b,a,YangGammaQuant) # user defined categories
 	s=pp_gamma_ncat/sum(m) # multiplier to scale the so that the mean of the discrete distribution is one
-        return array(m)*s # SCALED VALUES
+	return array(m)*s # SCALED VALUES

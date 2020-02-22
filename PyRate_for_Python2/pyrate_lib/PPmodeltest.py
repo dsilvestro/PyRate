@@ -128,7 +128,7 @@ def range01(x, m=0, r=1):
 	return temp
 
 def est_s_e_q(fossil_complete,occs_sp_bin,model=0,exp_se=0,q_shift_times=[],q0_init=[]):
-	def calc_tot_lik_given_q(q_arg):
+ 	def calc_tot_lik_given_q(q_arg):
 		q=abs(q_arg[0])
 		ml_est = []
 		i=0
@@ -163,7 +163,7 @@ def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
 	fossil_complete=[fossil_complete[i] for i in range(len(fossil_complete)) if max(fossil_complete[i])-min(fossil_complete[i])>0.1] # remove too short branches
 	
 	if len(fossil_complete) > 1:
-		print(("Using",len(fossil_complete),"species for model testing"))
+		print "Using",len(fossil_complete),"species for model testing"
 	else:
 		sys.exit("The number of lineages meeting the requirements for model testing is insufficient.")
 	
@@ -188,11 +188,11 @@ def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
 	# resHPP = est_s_e_q(fossil_complete,occs_sp_bin,model=0,exp_se=0)
 	# if verbose ==1: print "HPP max likelihood:", resHPP[0], "q rate:", abs(resHPP[1])
 	resHPPm = est_s_e_q(fossil_complete,occs_sp_bin,model=0,exp_se=1)
-	if verbose ==1: print(("HPP* max likelihood:", resHPPm[0], "q rate:", abs(resHPPm[1])))
+	if verbose ==1: print "HPP* max likelihood:", resHPPm[0], "q rate:", abs(resHPPm[1])
 	# resTPP = est_s_e_q(fossil_complete,occs_sp_bin,model=2,q_shift_times=times_q_shift,exp_se=0)
 	# if verbose ==1: print "TPP max likelihood:", resTPP[0],"q rates:", abs(np.array(resTPP[1]))
 	resTPPm = est_s_e_q(fossil_complete,occs_sp_bin,model=2,q_shift_times=times_q_shift,exp_se=1)
-	if verbose ==1: print(("TPP* max likelihood:", resTPPm[0],"q rates:", abs(np.array(resTPPm[1]))))
+	if verbose ==1: print "TPP* max likelihood:", resTPPm[0],"q rates:", abs(np.array(resTPPm[1]))
 	resNHPP = est_s_e_q(fossil_complete,occs_sp_bin,model=1)
 	#if verbose ==1: print "NHPP max likelihood:", resNHPP[0],"q rate:", abs(resNHPP[1])
 	
@@ -201,7 +201,7 @@ def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
 		u = np.random.uniform(0,1)
 		l = 2*log(d)
 		m = exp(l*(u-.5))
-		ii = i * m
+	 	ii = i * m
 		return ii, sum(log(m))
 
 	def get_TSTEvalues(x,q=0.5,n=1000):
@@ -238,7 +238,7 @@ def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
 		#est_s = optim_se_given_q_NHPP(x,resNHPP[1])[1]
 		[ts,te] = get_TSTEvalues(x,q=resNHPP[1],n=10000)
 		liknhpp_Exp += NHPP_lik(x,resNHPP[1],ts,te)
-	if verbose ==1: print(("NHPP* max likelihood:", liknhpp_Exp,"q rate:",abs(resNHPP[1]),"\n"))
+	if verbose ==1: print "NHPP* max likelihood:", liknhpp_Exp,"q rate:",abs(resNHPP[1]),"\n"
 	
 	# get AICc scores
 	Liks = np.array([resHPPm[0],liknhpp_Exp,resTPPm[0]])
@@ -248,8 +248,8 @@ def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
 	models = np.array(["HPP","NHPP","TPP"])
 	best_model = models[AICs==min(AICs)]
 	other_models = models[models != best_model]
-	print(("models:", models))
-	print(("AICc scores:", AICs))
+	print "models:", models
+	print "AICc scores:", AICs
 	deltaAICs = AICs-min(AICs)
 	deltaAICs_ = deltaAICs[deltaAICs>0]
 	# empirical thresholds
@@ -273,7 +273,7 @@ def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
 		if deltaAICs[1] > dAIC_tpp[1][1]: sig += ["***"] # significance at 1% vs NHPP
 		elif deltaAICs[1] > dAIC_tpp[0][1]: sig += ["*"]
 	
-	print(("""
+	print """
 	--------------------------------------
 	Best model: %s
 	
@@ -284,7 +284,7 @@ def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
 	*   indicates significance at P < 0.05
 	--------------------------------------
 	""" % (best_model[0], other_models[0], round(deltaAICs_[0],3), sig[0], \
-	                      other_models[1], round(deltaAICs_[1],3), sig[1]  )))
+	                      other_models[1], round(deltaAICs_[1],3), sig[1]  )
 	
 	
 
@@ -296,7 +296,7 @@ def run_model_testing_n_shifts(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
 	fossil_complete=[fossil_complete[i] for i in range(len(fossil_complete)) if max(fossil_complete[i])-min(fossil_complete[i])>0.1] # remove too short branches
 	
 	if len(fossil_complete) > 1:
-		print(("Using",len(fossil_complete),"species for model testing"))
+		print "Using",len(fossil_complete),"species for model testing"
 	else:
 		sys.exit("The number of lineages meeting the requirements for model testing is insufficient.")
 	
@@ -319,9 +319,9 @@ def run_model_testing_n_shifts(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
 		occs_sp_bin.append(h)		
 	resTPPm = est_s_e_q(fossil_complete,occs_sp_bin,model=2,q_shift_times=times_q_shift,exp_se=1,q0_init=[0.5]*(len(times_q_shift)-1))
 	aic_temp = calcAICc(resTPPm[0],len(resTPPm[1]),d_size)
-	print(("\nLik:", resTPPm[0], "AICs:", aic_temp))
+	print "\nLik:", resTPPm[0], "AICs:", aic_temp
 	ml_est_rates = abs(np.array(resTPPm[1]))
-	print(("Q times:",times_q_shift, "Rates:", ml_est_rates))
+	print "Q times:",times_q_shift, "Rates:", ml_est_rates
 	
 	aic_best = aic_temp
 	def remove_one_shift(times_q_shift,ml_est_rates):
@@ -337,11 +337,11 @@ def run_model_testing_n_shifts(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
 				occs_sp_bin.append(h)		
 			# optimize rate
 			q0 = ml_est_rates[ml_est_rates != ml_est_rates[irm]]
-			print(q0)
+			print q0
 			resTPPm = est_s_e_q(fossil_complete,occs_sp_bin,model=2,q_shift_times=times_temp,exp_se=1,q0_init = q0)
 			aic_temp = calcAICc(resTPPm[0],len(resTPPm[1]),d_size)
-			print(("\nLik:", resTPPm[0],"AICs:", aic_temp))
-			print(("Q times:",times_temp, "Rates:", abs(np.array(resTPPm[1]))))
+			print "\nLik:", resTPPm[0],"AICs:", aic_temp
+			print "Q times:",times_temp, "Rates:", abs(np.array(resTPPm[1]))
 			list_AICs.append( aic_temp )
 			list_shifts.append( times_temp )
 			list_rates.append( abs(np.array(resTPPm[1])) )
@@ -350,9 +350,9 @@ def run_model_testing_n_shifts(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
 	
 	while True:
 		minAIC, bestTimes, bestRates = remove_one_shift(times_q_shift,ml_est_rates)
-		print((minAIC, aic_best))
+		print minAIC, aic_best
 		if minAIC - aic_best > 4:
-			print(("break", minAIC, aic_best))
+			print "break", minAIC, aic_best
 			#if minAIC < aic_best: 
 			aic_best = minAIC
 			times_q_shift = bestTimes

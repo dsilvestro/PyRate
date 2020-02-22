@@ -8,7 +8,7 @@ np.set_printoptions(precision=3)   # rounds all array elements to 3rd digit
 import collections
 import itertools
 from scipy import stats
-import lib_DD_likelihood
+import pyrate_lib.lib_DD_likelihood as lib_DD_likelihood
 self_path=os.getcwd()
 
 def rescale_vec_to_range(x, r=1., m=0):
@@ -64,9 +64,9 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 		path_dir = os.path.dirname(path_dir)
 		if path_dir=="": path_dir= self_path
 		
-	print "found", len(files), "log files...\n"
-	print files
-	print tag
+	print("found", len(files), "log files...\n")
+	print(files)
+	print(tag)
 	count=0
 
 	if len(files)==1 or tag != "":
@@ -88,7 +88,7 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 			path_dir = "%s/" % os.path.dirname(f)
 			wd = "%s" % os.path.dirname(f)
 			shape_f=list(shape(t_file))
-			print "%s" % (name_file),
+			print("%s" % (name_file), end=' ')
 			
 			
 			if len(files)>1 and tag=="":
@@ -110,7 +110,7 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 			y=[x for x in head if 'TE' in x]
 			#y=[x for x in head if 'te_' in x]
 			ind_te0 = head.index(y[0])
-			print len(w), "species", shape_f
+			print(len(w), "species", shape_f)
 			j=0
 			out_list=list()
 			if burnin<1: burnin = int(burnin*shape_f[0])
@@ -131,7 +131,7 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 				### plot lineages and LTT
 				ts = out_list[:,2+count]
 				te = out_list[:,3+count]
-				print np.shape(ts)
+				print(np.shape(ts))
 				title = name_file
 				time_events=sort(np.unique(np.concatenate((ts,te),axis=0)))[::-1]
 				div_trajectory = lib_DD_likelihood.get_DT(time_events,ts,te)
@@ -165,14 +165,14 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 				
 				r_file.writelines(r_script)
 				r_file.close()
-				print "\nAn LTT plot was saved as: %sLTT.pdf" % (name_file)
-				print "\nThe R script with the source for the LTT plot was saved as: %sLTT.r\n(in %s)" % (name_file, wd)
+				print("\nAn LTT plot was saved as: %sLTT.pdf" % (name_file))
+				print("\nThe R script with the source for the LTT plot was saved as: %sLTT.r\n(in %s)" % (name_file, wd))
 				if platform.system() == "Windows" or platform.system() == "Microsoft":
 					cmd="cd %s & Rscript %s_LTT.r" % (wd,name_file)
 				else: 
 					cmd="cd %s; Rscript %s/%s_LTT.r" % (wd,wd,name_file)
 				os.system(cmd)
-				print "done\n"
+				print("done\n")
 				
 				### end plot lineages and LTT
 				
@@ -182,16 +182,16 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 			else: out_array=np.hstack((out_array, out_list))
 			
 			if len(files)>1 and tag=="":
-				print shape(out_array)
+				print(shape(out_array))
 				for i in range(len(out_array[:,0])):
 					log_state=list(out_array[i,:])
 					wlog.writerow(log_state)
 					newfile.flush()
-				print "\nFile saved as:", outfile
+				print("\nFile saved as:", outfile)
 				newfile.close()
 			else: count+=1
 			
-		except: print "Could not read file:",name_file
+		except: print("Could not read file:",name_file)
 	#print shape(out_array)
 	#print out_array[1:5,:]
 	if len(files)==1 or tag != "":
@@ -202,7 +202,7 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 
 
 		newfile.close()
-		print "\nFile saved as:", outfile
+		print("\nFile saved as:", outfile)
 
 
 # import lib_utilities
@@ -216,9 +216,9 @@ def calc_marginal_likelihood(infile,burnin,extract_mcmc=1):
 	files=glob.glob(direct)
 	files=sort(files)
 	if len(files)==0:
-		print "log files not found."
+		print("log files not found.")
 		quit()
-	else: print "found", len(files), "log files...\n"	
+	else: print("found", len(files), "log files...\n")	
 	out_file="%s/marginal_likelihoods.txt" % (infile)
 	newfile =open(out_file,'wb')
 	tbl_header = "file_name\tmodel\tTI_categories\treplicate"
@@ -304,7 +304,7 @@ def calc_marginal_likelihood(infile,burnin,extract_mcmc=1):
 			sys.stdout.write(".")
 			sys.stdout.flush()
 		except:
-			print "\n WARNING: cannot read file:", f, "\n\n"
+			print("\n WARNING: cannot read file:", f, "\n\n")
 
 	newfile.close()
 
@@ -361,7 +361,7 @@ def parse_hsp_logfile_HPD(logfile,burnin=100):
 	fixed_focal_clade = int(fixed_focal_clade) 
 	
 		
-	print "\nGetting posterior parameter values..."
+	print("\nGetting posterior parameter values...")
 	# store l0,m0,gl,gm values for each MCMC iteration
 	L0_list,M0_list,gl_list,gm_list = list(),list(),list(),list()
 
@@ -440,7 +440,7 @@ def get_score(a,b,max_length_diff):
 	return score, s_diff
 
 def reduce_log_file(log_file,burnin=1): # written by Tobias Hofmann (tobias.hofmann@bioenv.gu.se)
-	print log_file
+	print(log_file)
 	target_columns = ["it","posterior","prior","PP_lik","BD_lik","q_rate","alpha","k_birth","k_death","root_age","death_age","q_","tot_length"]
 	workdir = os.path.dirname(log_file)
 	if workdir=="": workdir= self_path
@@ -449,7 +449,7 @@ def reduce_log_file(log_file,burnin=1): # written by Tobias Hofmann (tobias.hofm
 	outfile = "%s/%s_reducedLog.log" %(workdir,name_file)
 	output = open(outfile, "wb")
 	outlog=csv.writer(output, delimiter='\t')
-	print "Parsing header..."
+	print("Parsing header...")
 	head = next(open(log_file)).split()
 	w=[head.index(x) for x in head if x in target_columns]
 	
@@ -459,13 +459,13 @@ def reduce_log_file(log_file,burnin=1): # written by Tobias Hofmann (tobias.hofm
 		if head[i] in target_columns or "q_" in head[i]:
 			w.append(i)
 			col_names.append(head[i])
-	print w
-	print "Reading mcmc log file..."
+	print(w)
+	print("Reading mcmc log file...")
 	#log_file = "%s" % (log_file)
-	print log_file
+	print(log_file)
 	tbl = np.loadtxt(log_file,skiprows=burnin,usecols=(w))
-	print np.shape(tbl)	
+	print(np.shape(tbl))	
 	outlog.writerow(col_names)
 	for i in tbl: outlog.writerow(list(i))
-	print "The reduced log file was saved as: %s\n" % (outfile)
+	print("The reduced log file was saved as: %s\n" % (outfile))
 	

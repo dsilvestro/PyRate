@@ -2,7 +2,7 @@
 
 # PyRate Tutorial \#1
 
-#### Feb 2019
+#### Feb 2020
 
 ***
 #### Contents
@@ -12,6 +12,11 @@
 
 * [Return to Index](https://github.com/dsilvestro/PyRate/tree/master/tutorials#pyrate-tutorials---index) 
 ***
+
+**IMPORTANT NOTE:** Unlike [previous versions](https://github.com/dsilvestro/PyRate/tree/master/PyRate_for_python2) PyRate v.3 is based on Python v.3. While the program's usage remain unchanged, if Python v.3 is not the default version on your machine, you will need to use `python3 PyRate.py ...` to run the program. For questions, suggestions or bug reports [contact us](mailto:pyrate.help@gmail.com). To upgrade Python visit: [https://www.python.org/downloads/](https://www.python.org/downloads/).
+
+***
+
 
 # Generate PyRate input file (option 1)
 1. **Download fossil occurrences** for a clade from the [Paleobiology Database](https://paleobiodb.org/classic/displayDownloadGenerator). E.g. search for the genus *Canis* and save it as a cvs file, e.g. using the file name *Canis_pbdb_data.csv*. Before downloading the file, check the box "Show accepted names only" in the "Select by taxonomy" section, and uncheck the box "Include metadata at the beginning of the output" in the "Choose output options" section.

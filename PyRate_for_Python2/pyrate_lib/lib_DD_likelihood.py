@@ -6,7 +6,7 @@ from scipy.special import gamma
 from scipy.special import beta as f_beta
 import random as rand
 import sys, platform, time
-import multiprocessing, _thread
+import multiprocessing, thread
 import multiprocessing.pool
 import os, csv
 from scipy.special import gdtr, gdtrix
@@ -15,7 +15,7 @@ import scipy.stats
 np.set_printoptions(suppress=True) # prints floats, no scientific notation
 np.set_printoptions(precision=3) # rounds all array elements to 3rd digit
 from multiprocessing import Pool, freeze_support
-import _thread
+import thread
 small_number= 1e-10
 
 def pNtvar(arg):
@@ -24,7 +24,7 @@ def pNtvar(arg):
 	M=arg[2]
 	N=arg[3]
 	Dt=-np.diff(T)
-	r_t = (L - M)*Dt
+        r_t = (L - M)*Dt
 	#Beta=  sum(exp((L - M)*Dt))
 	Alpha= sum(L*exp((L - M)*Dt))
 	lnBeta=  log(sum(exp((L - M)*Dt)))
@@ -191,7 +191,7 @@ def intRate(t1,t2,events,R):            # R = rates_at_events (including t1,t2)
 	return rates[0],rates[len(rates)-1],sum(int_rate)
 
 def logDDBDlik(arg): # log lik
-	[s,e,l_at_events,m_at_events,events]=arg	
+	[s,e,l_at_events,m_at_events,events]=arg 	
 	l_s,l_e,l_int=intRate(s,e,events,l_at_events)
 	m_s,m_e,m_int=intRate(s,e,events,m_at_events)	
 	if l_s>0 and m_e>0:
@@ -202,7 +202,7 @@ def logDDBDlik(arg): # log lik
 
 
 def DDBDlik(arg): # lik
-	[s,e,l_at_events,m_at_events,events]=arg	
+	[s,e,l_at_events,m_at_events,events]=arg 	
 	l_s,l_e,l_int=intRate(s,e,events,l_at_events)
 	m_s,m_e,m_int=intRate(s,e,events,m_at_events)	
 	lik= l_s * exp(-l_int) * m_e * exp(-m_int)

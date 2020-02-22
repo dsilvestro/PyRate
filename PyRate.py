@@ -2,21 +2,17 @@
 # Created by Daniele Silvestro on 02/03/2012 => pyrate.help@gmail.com
 import argparse, os,sys, platform, time, csv, glob
 import random as rand
-import warnings, imp
+import warnings, importlib
 
 version= "PyRate"
-build  = "v2.0 - 20191013"
+build  = "v3.0 - 20200222"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
-citation= """Silvestro, D., Schnitzler, J., Liow, L.H., Antonelli, A. and Salamin, N. (2014)
-Bayesian Estimation of Speciation and Extinction from Incomplete Fossil
-Occurrence Data. Systematic Biology, 63, 349-367.
-
-Silvestro, D., Salamin, N., Schnitzler, J. (2014)
-PyRate: A new program to estimate speciation and extinction rates from
-incomplete fossil record. Methods in Ecology and Evolution, 5, 1126-1131.
+citation= """Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
+Improved estimation of macroevolutionary rates from fossil data using a Bayesian framework. 
+Paleobiology, doi: 10.1017/pab.2019.23.
 """
-print("""
+print(("""
                  %s - %s
 
           Bayesian estimation of origination,
@@ -25,25 +21,18 @@ print("""
 
                  pyrate.help@gmail.com
 
-\n""" % (version, build))
+\n""" % (version, build)))
 # check python version
 V=list(sys.version_info[0:3])
-if V[0]>2: sys.exit("""\nPyRate currently runs only under python 2. Python 3.X is currently not supported.
-	You can download to python 2.7 at: https://www.python.org/downloads/""")
+if V[0]<3: sys.exit("""\nYou need Python v.3 to run this version of PyRate""")
 
 # LOAD LIBRARIES
-try:
-	import argparse
-except(ImportError):
-	sys.exit("""\nError: argparse library not found.
-	You can upgrade to python 2.7 at: https://www.python.org/downloads/
-	or install argparse at: https://code.google.com/p/argparse/ \n""")
-
+import argparse
 try:
 	from numpy import *
 	import numpy as np
 except(ImportError):
-	sys.exit("\nError: numpy library not found.\nYou can download numpy at: http://sourceforge.net/projects/numpy/files/ \n")
+	sys.exit("\nError: numpy library not found.\nYou can install numpy using: 'pip3 intall numpy'\n")
 
 try:
 	import scipy
@@ -54,10 +43,10 @@ try:
 	import scipy.stats
 	from scipy.optimize import fmin_powell as Fopt1
 except(ImportError):
-	sys.exit("\nError: scipy library not found.\nYou can download scipy at: http://sourceforge.net/projects/scipy/files/ \n")
+	sys.exit("\nError: scipy library not found.\nYou can install scipy using: 'pip3 intall scipy'\n")
 
 try:
-	import multiprocessing, thread
+	import multiprocessing, _thread
 	import multiprocessing.pool
 	class NoDaemonProcess(multiprocessing.Process):
 		# make 'daemon' attribute always return False
@@ -72,7 +61,7 @@ try:
 	use_seq_lik= 0
 	if platform.system() == "Windows" or platform.system() == "Microsoft": use_seq_lik= 1
 except(ImportError):
-	print("\nWarning: library multiprocessing not found.\nPyRate will use (slower) sequential likelihood calculation. \n")
+	print("\nWarning: library multiprocessing not found.\n")
 	use_seq_lik= 1
 
 if platform.system() == "Windows" or platform.system() == "Microsoft": use_seq_lik= 1
@@ -94,12 +83,12 @@ def get_self_path():
 	for path in path_list:
 		try:
 			self_path=path
-			lib_updates_priors = imp.load_source("lib_updates_priors", "%s/pyrate_lib/lib_updates_priors.py" % (self_path))
+			importlib.util.spec_from_file_location("test", "%s/pyrate_lib/lib_updates_priors.py" % (self_path))
 			break
 		except:
 			self_path = -1
 	if self_path== -1:
-		print os.getcwd(), os.path.dirname(sys.argv[0])
+		print(os.getcwd(), os.path.dirname(sys.argv[0]))
 		sys.exit("pyrate_lib not found.\n")
 	return self_path
 
@@ -121,12 +110,12 @@ try:
 													 PyRateC_NHPP_lik, PyRateC_FBD_T4
 	hasFoundPyRateC = 1
 	print("Module FastPyRateC was loaded.")
-  # Set that to true to enable sanity check (comparing python and c++ results)
+	# Set that to true to enable sanity check (comparing python and c++ results)
 	sanityCheckForPyRateC = 0
 	sanityCheckThreshold = 1e-10
 	if sanityCheckForPyRateC == 1:
-		print "Sanity check for FastPyRateC is enabled."
-		print "Python and C results will be compared and any divergence greater than ", sanityCheckThreshold, " will be reported."
+		print("Sanity check for FastPyRateC is enabled.")
+		print("Python and C results will be compared and any divergence greater than ", sanityCheckThreshold, " will be reported.")
 except:
 	print("Module FastPyRateC was not found.")
 	hasFoundPyRateC = 0
@@ -166,7 +155,7 @@ def calc_model_probabilities(f,burnin):
 	num_it=shape(t)[0]
 	if num_it<10: sys.exit("\nNot enough samples in the log file!\n")
 	burnin=check_burnin(burnin, num_it)
-	print("First %s samples excluded as burnin.\n" % (burnin))
+	print(("First %s samples excluded as burnin.\n" % (burnin)))
 	file1=file(f, 'U')
 	L=file1.readlines()
 	head= L[0].split()
@@ -181,7 +170,7 @@ def calc_model_probabilities(f,burnin):
 	for i in range(1,int(y1)+1):
 		k_l=float(len(z1[z1==i]))/len(z1)
 		k_m=float(len(z2[z2==i]))/len(z2)
-		print("%s-rate	%s	  %s" % (i,round(k_l,4),round(k_m,4)))
+		print(("%s-rate	%s	  %s" % (i,round(k_l,4),round(k_m,4))))
 	print("\n")
 
 	try:
@@ -195,7 +184,7 @@ def calc_model_probabilities(f,burnin):
 				else: d[t] = 1
 
 			result = []
-			for (key, value) in d.items(): result.append(list(key) + [value])
+			for (key, value) in list(d.items()): result.append(list(key) + [value])
 			return result
 
 		BD_config = t[burnin:,np.array(k_ind)]
@@ -203,9 +192,9 @@ def calc_model_probabilities(f,burnin):
 		B[:,2]=B[:,2]/sum(B[:,2])
 		B = B[B[:,2].argsort()[::-1]]
 		cum_prob = np.cumsum(B[:,2])
-		print "Best BD/ID configurations (rel.pr >= 0.05)"
-		print "   B/I	D	  Rel.pr"
-		print B[(np.round(B[:,2],3)>=0.05).nonzero()[0],:]
+		print("Best BD/ID configurations (rel.pr >= 0.05)")
+		print("   B/I	D	  Rel.pr")
+		print(B[(np.round(B[:,2],3)>=0.05).nonzero()[0],:])
 
 	except: pass
 	quit()
@@ -253,8 +242,8 @@ def calc_BF(f1, f2):
 	else: support="very strong"
 	if BF>0: best=0
 	else: best=1
-	print("\nModel A: %s\nModelB: %s" % (input_file_raw[best],input_file_raw[abs(best-1)]))
-	print("\nModel A received %s support against Model B\nBayes Factor: %s\n\n" % (support, round(abs(BF), 4)))
+	print(("\nModel A: %s\nModelB: %s" % (input_file_raw[best],input_file_raw[abs(best-1)])))
+	print(("\nModel A received %s support against Model B\nBayes Factor: %s\n\n" % (support, round(abs(BF), 4))))
 
 
 
@@ -276,10 +265,10 @@ def calc_BFlist(f1):
 	l_list = np.array(l_list)
 	bf = 2*(ml - l_list)
 
-	print "Found %s models:" % (len(bf))
-	for i in range(len(bf)): print "model %s: '%s'" % (i,f_list[i])
+	print("Found %s models:" % (len(bf)))
+	for i in range(len(bf)): print("model %s: '%s'" % (i,f_list[i]))
 
-	print "\nBest model:", f_list[(bf==0).nonzero()[0][0]], ml, "\n"
+	print("\nBest model:", f_list[(bf==0).nonzero()[0][0]], ml, "\n")
 
 
 	for i in range(len(bf)):
@@ -290,7 +279,7 @@ def calc_BFlist(f1):
 			elif abs(BF)<6: support="positive"
 			elif abs(BF)<10: support="strong"
 			else: support="very strong"
-			print "Support in favor of model %s: %s (%s)" % (i, BF, support)
+			print("Support in favor of model %s: %s (%s)" % (i, BF, support))
 
 def get_DT(T,s,e): # returns the Diversity Trajectory of s,e at times T (x10 faster)
 	B=np.sort(np.append(T,T[0]+1))+.000001 # the + .0001 prevents problems with identical ages
@@ -324,7 +313,7 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 	path_dir = infile
 	sys.path.append(infile)
 	plot_title = file_stem.split('_')[0]
-	print "FILE STEM:",file_stem, plot_title
+	print("FILE STEM:",file_stem, plot_title)
 	if file_stem=="": direct="%s/*_marginal_rates.log" % infile
 	else: direct="%s/*%s*marginal_rates.log" % (infile,file_stem)
 	files=glob.glob(direct)
@@ -336,14 +325,14 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 
 	wd = "%s" % os.path.dirname(stem_file)
 	#print(name_file, wd)
-	print "found", len(files), "log files...\n"
+	print("found", len(files), "log files...\n")
 
 	########################################################
 	######		   DETERMINE MIN ROOT AGE		   ######
 	########################################################
 	if root_plot==0:
 		min_age=np.inf
-		print "determining min age...",
+		print("determining min age...", end=' ')
 		for f in files:
 			file_name =  os.path.splitext(os.path.basename(f))[0]
 			sys.stdout.write(".")
@@ -352,19 +341,19 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 			sp_ind= [head.index(s) for s in head if "l_" in s]
 			min_age=min(min_age,len(sp_ind))
 
-		print "Min root age:", min_age
+		print("Min root age:", min_age)
 		max_ind=min_age-1
 	else: max_ind = int(root_plot-1)
 
-	print max_ind, root_plot
+	print(max_ind, root_plot)
 	########################################################
 	######			COMBINE ALL LOG FILES		   ######
 	########################################################
-	print "\ncombining all files...",
+	print("\ncombining all files...", end=' ')
 	file_n=0
 	for f in files:
 		file_name =  os.path.splitext(os.path.basename(f))[0]
-		print file_name
+		print(file_name)
 		try:
 			t=loadtxt(f, skiprows=max(1,burnin))
 			sys.stdout.write(".")
@@ -391,12 +380,12 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 				M_tbl=np.concatenate((M_tbl,t[:,m_ind]),axis=0)
 				R_tbl=np.concatenate((R_tbl,t[:,r_ind]),axis=0)
 		except:
-			print "skipping file:", f
+			print("skipping file:", f)
 
 	########################################################
 	######			   CALCULATE HPDs			   ######
 	########################################################
-	print "\ncalculating HPDs...",
+	print("\ncalculating HPDs...", end=' ')
 	def get_HPD(threshold=.95):
 		L_hpd_m,L_hpd_M=[],[]
 		M_hpd_m,M_hpd_M=[],[]
@@ -460,17 +449,17 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 
 	hpds95[:,NA_ind] = np.nan
 	#hpds50[:,NA_ind] = np.nan
-	print mean_rates
+	print(mean_rates)
 	mean_rates[:,NA_ind] = np.nan
-	print "HPD", hpds95
+	print("HPD", hpds95)
 	#print(np.shape(np.array(hpds50)	), np.shape(L_tbl_mean))
 
 	########################################################
 	######				  PLOT RTTs				 ######
 	########################################################
-	print "\ngenerating R file...",
+	print("\ngenerating R file...", end=' ')
 	out="%s/%s_RTT.r" % (wd,name_file)
-	newfile = open(out, "wb")
+	newfile = open(out, "w")
 	Rfile="# %s files combined:\n" % (len(files))
 	for f in files: Rfile+="# \t%s\n" % (f)
 	Rfile+= """\n# 95% HPDs calculated using code from Biopy (https://www.cs.auckland.ac.nz/~yhel002/biopy/)"""
@@ -520,7 +509,7 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 				data += print_R_vec('\nR_hpd_M%s',R_hpd_M) % name[count]
 			if count==0:
 				max_x_axis,min_x_axis = -len(L_hpd_m), 0 # root to the present
- 				max_x_axis,min_x_axis = -(len(L_hpd_m)+.05*len(L_hpd_m)), -(len(L_hpd_m)-len(L_hpd_m[np.isfinite(L_hpd_m)]))+.05*len(L_hpd_m)
+				max_x_axis,min_x_axis = -(len(L_hpd_m)+.05*len(L_hpd_m)), -(len(L_hpd_m)-len(L_hpd_m[np.isfinite(L_hpd_m)]))+.05*len(L_hpd_m)
 				plot_L = "\ntrans=%s\nage=(0:(%s-1))* -1" % (alpha, len(L_hpd_m))
 				plot_L += "\nplot(age,age,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = 'Speciation rate', xlab = 'Ma',main='%s' )" \
 					% (0,1.1*np.nanmax(L_hpd_M),max_x_axis,min_x_axis,plot_title)
@@ -560,13 +549,13 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
 	Rfile += "\nn <- dev.off()"
 	newfile.writelines(Rfile)
 	newfile.close()
-	print "\nAn R script with the source for the RTT plot was saved as: %s_RTT.r\n(in %s)" % (name_file, wd)
+	print("\nAn R script with the source for the RTT plot was saved as: %s_RTT.r\n(in %s)" % (name_file, wd))
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
 		cmd="cd %s & Rscript %s_RTT.r" % (wd,name_file)
 	else:
 		cmd="cd %s; Rscript %s/%s_RTT.r" % (wd,wd,name_file)
 	os.system(cmd)
-	print "done\n"
+	print("done\n")
 
 
 def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1.): # change rescale to change bin size
@@ -574,7 +563,7 @@ def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1.): # change rescale to
 	# plot_type=2 : log10 ltt + min/max range
 	#step_size=int(step_size)
 	# read data
-	print "Processing data..."
+	print("Processing data...")
 	tbl = np.loadtxt(tste_file,skiprows=1)
 	j_max=(np.shape(tbl)[1]-1)/2
 	j_range=np.arange(j_max)
@@ -591,7 +580,7 @@ def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1.): # change rescale to
 
 
 	# calc ltt
-	print time_vec
+	print(time_vec)
 	dtraj = []
 	for rep in j_range:
 		sys.stdout.write(".")
@@ -632,7 +621,7 @@ def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1.): # change rescale to
 
 	###### R SCRIPT
 	R_file_name="%s/%s" % (wd,out_file_name+"_ltt.R")
-	R_file=open(R_file_name, "wb")
+	R_file=open(R_file_name, "w")
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
 		tmp_wd = os.path.abspath(wd).replace('\\', '/')
 	else: tmp_wd = wd
@@ -650,7 +639,7 @@ def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1.): # change rescale to
 
 	R_file.writelines(R_script)
 	R_file.close()
-	print "\nAn R script with the source for the stat plot was saved as: \n%s" % (R_file_name)
+	print("\nAn R script with the source for the stat plot was saved as: \n%s" % (R_file_name))
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
 		cmd="cd %s & Rscript %s" % (wd,out_file_name+"_ltt.R")
 	else:
@@ -665,7 +654,7 @@ def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1.): # change rescale to
 def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale,ltt_only=1):
 	step_size=int(step_size)
 	# read data
-	print "Processing data..."
+	print("Processing data...")
 	tbl = np.loadtxt(tste_file,skiprows=1)
 	j_max=(np.shape(tbl)[1]-1)/2
 	j=np.arange(j_max)
@@ -675,13 +664,13 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
 
 	if EXT_RATE==0:
 		EXT_RATE = len(te[te>0])/sum(ts-te) # estimator for overall extinction rate
-		print "estimated extinction rate:", EXT_RATE
+		print("estimated extinction rate:", EXT_RATE)
 
 	wd = "%s" % os.path.dirname(tste_file)
 	# create out file
 	out_file_name = os.path.splitext(os.path.basename(tste_file))[0]
 	out_file="%s/%s" % (wd,out_file_name+"_stats.txt")
-	out_file=open(out_file, "wb")
+	out_file=open(out_file, "w")
 
 	out_file.writelines("time\tdiversity\tm_div\tM_div\tmedian_age\tm_age\tM_age\tturnover\tm_turnover\tM_turnover\tlife_exp\tm_life_exp\tM_life_exp\t")
 
@@ -753,7 +742,7 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
 
 	###### R SCRIPT
 	R_file_name="%s/%s" % (wd,out_file_name+"_stats.R")
-	R_file=open(R_file_name, "wb")
+	R_file=open(R_file_name, "w")
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
 		tmp_wd = os.path.abspath(wd).replace('\\', '/')
 	else: tmp_wd = wd
@@ -776,13 +765,13 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
 	""" % (tmp_wd, out_file_name,out_file_name)
 	R_file.writelines(R_script)
 	R_file.close()
-	print "\nAn R script with the source for the stat plot was saved as: \n%s" % (R_file_name)
+	print("\nAn R script with the source for the stat plot was saved as: \n%s" % (R_file_name))
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
 		cmd="cd %s & Rscript %s" % (wd,out_file_name+"_stats.R")
 	else:
 		cmd="cd %s; Rscript %s" % (wd,out_file_name+"_stats.R")
 	os.system(cmd)
-	print "done\n"
+	print("done\n")
 
 
 
@@ -798,47 +787,47 @@ def comb_rj_rates(infile, files,tag, resample, rate_type):
 			if resample>0:
 				r_ind= sort(np.random.randint(0,len(x_temp),resample))
 				x_temp = x_temp[r_ind]
-			if j==0: 
+			if j==0:
 				comb = x_temp
 			else:
 				comb = np.concatenate((comb,x_temp))
 			j+=1
-		#except: 
+		#except:
 		#	print "Could not process file:",f
-	
-	outfile = "%s/combined_%s%s_%s.log" % (infile,len(files),tag,rate_type)	
+
+	outfile = "%s/combined_%s%s_%s.log" % (infile,len(files),tag,rate_type)
 	with open(outfile, 'w') as f:
 		for i in comb: f.write(i)
 
-def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type=""): 
+def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type=""):
 	j=0
 	for f in files:
 		if platform.system() == "Windows" or platform.system() == "Microsoft":
 			f = f.replace("\\","/")
-		
+
 		if 2>1: #try:
 			file_name =  os.path.splitext(os.path.basename(f))[0]
-			print file_name,			
+			print(file_name, end=' ')
 			t_file=loadtxt(f, skiprows=max(1,int(burnin)))
 			shape_f=shape(t_file)
-			print shape_f
+			print(shape_f)
 			#t_file = t[burnin:shape_f[0],:]#).astype(str)
 			# only sample from cold chain
-			
+
 			head = np.array(next(open(f)).split()) # should be faster\
 			if j == 0:
-				tbl_header = '\t'.join(head)	
+				tbl_header = '\t'.join(head)
 			if "temperature" in head or "beta" in head:
-				try: 
+				try:
 					temp_index = np.where(head=="temperature")[0][0]
-				except(IndexError): 
+				except(IndexError):
 					temp_index = np.where(head=="beta")[0][0]
-			
+
 				temp_values = t_file[:,temp_index]
 				t_file = t_file[temp_values==1,:]
-				print "removed heated chains:",np.shape(t_file)
-				
-				
+				print("removed heated chains:",np.shape(t_file))
+
+
 			# exclude preservation rates under TPP model (they can mismatch)
 			if len(col_tag) == 0:
 				q_ind = np.array([i for i in range(len(head)) if "q_" in head[i]])
@@ -846,18 +835,18 @@ def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type=""):
 					mean_q = np.mean(t_file[:,q_ind],axis=1)
 					t_file = np.delete(t_file,q_ind,axis=1)
 					t_file = np.insert(t_file,q_ind[0],mean_q,axis=1)
-				
+
 			shape_f=shape(t_file)
-			
+
 			if resample>0:
 				r_ind= sort(np.random.randint(0,shape_f[0],resample))
 				t_file = t_file[r_ind,:]
-			
-			
 
-		#except: print "ERROR in",f	
+
+
+		#except: print "ERROR in",f
 		if len(col_tag) == 0:
-			if j==0: 
+			if j==0:
 				head_temp = np.array(next(open(f)).split())
 				head_temp = np.delete(head_temp,q_ind)
 				head_temp = np.insert(head_temp,q_ind[0],"mean_q")
@@ -867,53 +856,53 @@ def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type=""):
 				comb = t_file
 			else:
 				comb = np.concatenate((comb,t_file),axis=0)
-		else: 
+		else:
 			head_temp = next(open(f)).split() # should be faster
 			sp_ind_list=[]
 			for TAG in col_tag:
 				if TAG in head_temp:
 					sp_ind_list+=[head_temp.index(s) for s in head_temp if s == TAG]
-			
-			try: 
+
+			try:
 				col_tag_ind = np.array([int(tag_i) for tag_i in col_tag])
 				sp_ind= np.array(col_tag_ind)
 			except:
 				sp_ind= np.array(sp_ind_list)
 
 			#print "COLTAG",col_tag, sp_ind, head_temp
-			#sys.exit()	
-			
+			#sys.exit()
+
 
 			#print "INDEXES",sp_ind
-			if j==0: 
+			if j==0:
 				head_temp= np.array(head_temp)
 				head_t= ["%s\t" % (i) for i in head_temp[sp_ind]]
 				tbl_header="it\t"
 				for i in head_t: tbl_header+=i
 				tbl_header+="\n"
-				print "found", len(head_t), "columns"
+				print("found", len(head_t), "columns")
 				comb = t_file[:,sp_ind]
 			else:
 				comb = np.concatenate((comb,t_file[:,sp_ind]),axis=0)
-			
+
 		j+=1
 
-	#print shape(comb)	
+	#print shape(comb)
 	if len(col_tag) == 0:
 		sampling_freq= comb[1,0]-comb[0,0]
 		comb[:,0] = (np.arange(0,len(comb))+1)*sampling_freq
 		fmt_list=['%i']
 		for i in range(1,np.shape(comb)[1]): fmt_list.append('%4f')
-	else: 
+	else:
 		fmt_list=['%i']
 		for i in range(1,np.shape(comb)[1]+1): fmt_list.append('%4f')
 		comb = np.concatenate((np.zeros((len(comb[:,0]),1)),comb),axis=1)
 	comb[:,0] = (np.arange(0,len(comb)))
 
-	print np.shape(comb), len(fmt_list)
-	
+	print(np.shape(comb), len(fmt_list))
+
 	outfile = "%s/combined_%s%s_%s.log" % (infile,len(files),tag,file_type)
-	
+
 	with open(outfile, 'w') as f:
 		f.write(tbl_header)
 		if platform.system() == "Windows" or platform.system() == "Microsoft":
@@ -927,33 +916,33 @@ def comb_log_files_smart(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 	direct="%s/*%s*.log" % (infile,tag)
 	files=glob.glob(direct)
 	files=sort(files)
-	print "found", len(files), "log files...\n"
+	print("found", len(files), "log files...\n")
 	if len(files)==0: quit()
 	j=0
-	burnin = int(burnin)	
-	
+	burnin = int(burnin)
+
 	# RJ rates files
 	files_temp = [f for f in files if "_sp_rates.log" in os.path.basename(f)]
-	if len(files_temp)>1: 
-		print "processing %s *_sp_rates.log files" % (len(files_temp))
+	if len(files_temp)>1:
+		print("processing %s *_sp_rates.log files" % (len(files_temp)))
 		comb_rj_rates(infile, files_temp,tag, resample, rate_type="sp_rates")
-	
+
 	files_temp = [f for f in files if "_ex_rates.log" in os.path.basename(f)]
-	if len(files_temp)>1: 
-		print "processing %s *_ex_rates.log files" % (len(files_temp))
+	if len(files_temp)>1:
+		print("processing %s *_ex_rates.log files" % (len(files_temp)))
 		comb_rj_rates(infile, files_temp,tag, resample, rate_type="ex_rates")
 
 	# MCMC files
 	files_temp = [f for f in files if "_mcmc.log" in os.path.basename(f)]
-	if len(files_temp)>1: 
-		print "processing %s *_mcmc.log files" % (len(files_temp))
+	if len(files_temp)>1:
+		print("processing %s *_mcmc.log files" % (len(files_temp)))
 		comb_mcmc_files(infile, files_temp,burnin,tag,resample,col_tag,file_type="mcmc")
 	files_temp = [f for f in files if "_marginal_rates.log" in os.path.basename(f)]
-	if len(files_temp)>1: 
-		print "processing %s *_marginal_rates.log files" % (len(files_temp))
+	if len(files_temp)>1:
+		print("processing %s *_marginal_rates.log files" % (len(files_temp)))
 		comb_mcmc_files(infile, files_temp,burnin,tag,resample,col_tag,file_type="marginal_rates")
-	
-	
+
+
 
 
 
@@ -963,7 +952,7 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 	direct="%s/*%s*.log" % (infile,tag)
 	files=glob.glob(direct)
 	files=sort(files)
-	print "found", len(files), "log files...\n"
+	print("found", len(files), "log files...\n")
 	if len(files)==0: quit()
 	j=0
 
@@ -986,7 +975,7 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 					comb = np.concatenate((comb,x_temp))
 				j+=1
 			except:
-				print "Could not process file:",f
+				print("Could not process file:",f)
 
 		outfile = "%s/combined_%s%s.log" % (infile,len(files),tag)
 		with open(outfile, 'w') as f:
@@ -1007,10 +996,10 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 
 		try:
 			file_name =  os.path.splitext(os.path.basename(f))[0]
-			print file_name,
+			print(file_name, end=' ')
 			t_file=loadtxt(f, skiprows=max(1,int(burnin)))
 			shape_f=shape(t_file)
-			print shape_f
+			print(shape_f)
 			#t_file = t[burnin:shape_f[0],:]#).astype(str)
 			# only sample from cold chain
 
@@ -1027,7 +1016,7 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 
 				temp_values = t_file[:,temp_index]
 				t_file = t_file[temp_values==1,:]
-				print "removed heated chains:",np.shape(t_file)
+				print("removed heated chains:",np.shape(t_file))
 			shape_f=shape(t_file)
 
 			if resample>0:
@@ -1036,7 +1025,7 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 
 
 
-		except: print "ERROR in",f
+		except: print("ERROR in",f)
 		if len(col_tag) == 0:
 			if j==0:
 				tbl_header = next(open(f))#.split()
@@ -1067,7 +1056,7 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 				tbl_header="it\t"
 				for i in head_t: tbl_header+=i
 				tbl_header+="\n"
-				print "found", len(head_t), "columns"
+				print("found", len(head_t), "columns")
 				comb = t_file[:,sp_ind]
 			else:
 				comb = np.concatenate((comb,t_file[:,sp_ind]),axis=0)
@@ -1086,7 +1075,7 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
 		comb = np.concatenate((np.zeros((len(comb[:,0]),1)),comb),axis=1)
 	comb[:,0] = (np.arange(0,len(comb)))
 
-	print np.shape(comb), len(fmt_list)
+	print(np.shape(comb), len(fmt_list))
 
 	outfile = "%s/combined_%s%s.log" % (infile,len(files),tag)
 
@@ -1178,7 +1167,7 @@ def update_multiplier_proposal(i,d):
 	u = np.random.uniform(0,1,S)
 	l = 2*log(d)
 	m = exp(l*(u-.5))
- 	ii = i * m
+	ii = i * m
 	return ii, sum(log(m))
 
 def update_rates_sliding_win(L,M,tot_L,mod_d3):
@@ -1211,7 +1200,7 @@ def update_rates_multiplier(L,M,tot_L,mod_d3):
 		l = 2*log(mod_d3)
 		m = exp(l*(u-.5))
 		m[ff==0] = 1.
-	 	newL = L * m
+		newL = L * m
 		U=sum(log(m))
 	else: U,newL = 0,L
 
@@ -1223,7 +1212,7 @@ def update_rates_multiplier(L,M,tot_L,mod_d3):
 	l = 2*log(mod_d3)
 	m = exp(l*(u-.5))
 	m[ff==0] = 1.
- 	newM = M * m
+	newM = M * m
 	U+=sum(log(m))
 	return newL,newM,U
 
@@ -1234,7 +1223,7 @@ def update_q_multiplier(q,d=1.1,f=0.75):
 	l = 2*log(d)
 	m = exp(l*(u-.5))
 	m[ff==0] = 1.
- 	new_q = q * m
+	new_q = q * m
 	U=sum(log(m))
 	return new_q,U
 
@@ -1244,7 +1233,7 @@ def update_times(times, max_time,min_time, mod_d4,a,b):
 	if np.random.random()< 1.5:
 		for i in range(a,b): rS[i]=update_parameter(times[i],min_time, max_time, mod_d4, 1)
 	else:
-		i = np.random.choice(range(a,b))
+		i = np.random.choice(list(range(a,b)))
 		rS[i]=update_parameter(times[i],min_time, max_time, mod_d4*3, 1)
 	y=sort(-rS)
 	y=-1*y
@@ -1252,7 +1241,7 @@ def update_times(times, max_time,min_time, mod_d4,a,b):
 
 def update_ts_te(ts, te, d1):
 	tsn, ten= zeros(len(ts))+ts, zeros(len(te))+te
-	f1=np.random.random_integers(1,frac1) #int(frac1*len(FA)) #-np.random.random_integers(0,frac1*len(FA)-1))
+	f1=np.random.randint(1,frac1) #int(frac1*len(FA)) #-np.random.random_integers(0,frac1*len(FA)-1))
 	ind=np.random.choice(SP_in_window,f1) # update only values in SP/EX_in_window
 	tsn[ind] = ts[ind] + (np.random.uniform(0,1,len(ind))-.5)*d1
 	M = np.inf #boundMax
@@ -1270,7 +1259,7 @@ def update_ts_te(ts, te, d1):
 	ten[ten>M] = te[ten>M]
 	ten[LO==0]=0									 # indices of LO==0 (extant species)
 	S= tsn-ten
-	if min(S)<=0: print S
+	if min(S)<=0: print(S)
 	tsn[SP_not_in_window] = max([boundMax, max(tsn[SP_in_window])])
 	ten[EX_not_in_window] = min([boundMin, min(ten[EX_in_window])])
 	return tsn,ten
@@ -1488,7 +1477,7 @@ def treeBDlikelihood(x,l,m,rho,root=1,survival=1):
 	#_ for i in range(1, len(x)) :
 	#_	 lik = lik + log(l * p1(x[i], l, m, rho))
 	#_ if survival == 1:
-	#_ 	lik = lik - (root + 1) * log(1 - p0(x[0], l, m, rho))
+	#_	lik = lik - (root + 1) * log(1 - p0(x[0], l, m, rho))
 	#_ return lik
 	lik1= (root + 1) * log(p1(x[0], l, m, rho))
 	lik2= sum(log(l * p1(x[1:], l, m, rho)))
@@ -1653,7 +1642,7 @@ def BD_bd_rates_ADE_lik(arg):
 	d = s-e
 	de = d[e>0] #takes only the extinct species times
 	death_lik_de = sum(log_wr(de, W_shape, W_scale)) # log probability of death event
-	death_lik_wte = sum(-cdf_WR(W_shape,W_scale, d[te==0])) 
+	death_lik_wte = sum(-cdf_WR(W_shape,W_scale, d[te==0]))
 	# analytical integration
 	death_lik_wte = sum(-m0*cdf_WR(W_shape,W_scale, d)) # log probability of waiting time until death event
 	lik = birth_lik + death_lik_de + death_lik_wte
@@ -1946,7 +1935,7 @@ def NHPPgamma(arg):
 def init_ts_te_FBDrange(FA,LO):
 	ts,te = init_ts_te(FA,LO)
 	min_dt = min(get_DT_FBDrange(ts,ts,te)[1:])
-	print """\n Using the FBD-range likelihood function \n(Warnock, Heath, and Stadler; Paleobiology, in press)\n"""
+	print("""\n Using the FBD-range likelihood function \n(Warnock, Heath, and Stadler; Paleobiology, in press)\n""")
 	while min_dt <= 1:
 		ts = ts+0.01*ts
 		#ts = np.random.exponential(5, len(FA)) + FA
@@ -1954,7 +1943,7 @@ def init_ts_te_FBDrange(FA,LO):
 		#te[te<0] = np.random.uniform(LO[te<0],0)
 		dt = get_DT_FBDrange(ts,ts,te)
 		min_dt = min(dt[1:])
-	
+
 	return ts, te
 
 def get_DT_FBDrange(T,s,e): # returns the Diversity Trajectory of s,e at times T (x10 faster)
@@ -1968,8 +1957,13 @@ def get_DT_FBDrange(T,s,e): # returns the Diversity Trajectory of s,e at times T
 	DD=(ss1-ee2)[::-1]
 	return np.cumsum(DD)[0:len(T)].astype(float)
 
+
+def get_L_FBDrange(T,s,e): # returns the Diversity Trajectory of s,e at times T (x10 faster)
+	Lvec = [np.sum(get_sp_in_frame_br_length(s, e, T[i], T[i+1])[1]) for i in range(len(T)-1)]
+	return np.array(Lvec)
+
 def get_k(array_all_fossils, times):
-	ff = np.histogram(array_all_fossils,bins=np.sort(times))[0]
+	ff = np.histogram(array_all_fossils[array_all_fossils>0],bins=np.sort(times))[0]
 	return ff[::-1]
 
 def get_times_n_rates(timesQ, timesL, timesM, q_rates, Lt,Mt):
@@ -2016,7 +2010,7 @@ def calc_qt(i, t, args):
 	qt = .5 * ( calc_q(i, t, args) - (lam[i]+mu[i]+psi[i])*(t-times[i+1]) )
 	return qt
 
-def likelihood_rangeFBD(times, psi, lam, mu, ts, te, k=[], intervalAs=[], int_indx=[], div_traj=[], rho=0):
+def likelihood_rangeFBD(times, psi, lam, mu, ts, te, k=[], intervalAs=[], int_indx=[], div_traj=[], rho=0, FALAmodel=0,alpha=1):
 	l  = len(times)-1 # number of intervals (combination of qShift, Kl, Km)
 	if rho: pass
 	else: rho = np.zeros(l)
@@ -2045,6 +2039,7 @@ def likelihood_rangeFBD(times, psi, lam, mu, ts, te, k=[], intervalAs=[], int_in
 	# print np.sort(te)
 
 	# only need to update when changing times
+	# if using FALA model: k == kappa' (Theorem 14 Stadler et al. 2018 JTB)
 	if len(k) > 0: pass
 	else: k = get_k(array_all_fossils, times)
 
@@ -2065,10 +2060,40 @@ def likelihood_rangeFBD(times, psi, lam, mu, ts, te, k=[], intervalAs=[], int_in
 
 	term4 = 0
 	term4_c = 0
+	
+	if hasFoundPyRateC and alpha==1: # use the C version for term 4
+		l_bint = bint.tolist()
+		l_dint = dint.tolist()
+		l_oint = oint.tolist()
+		term4_c = PyRateC_FBD_T4(tot_number_of_species, l_bint, l_dint, l_oint, intervalAs, lam, mu, psi, rho, gamma_i, times, ts, te, FA)
+	
+	else:
+		log_gamma_i = log(gamma_i)
+		for i in range(tot_number_of_species):
+			lik_sp_i = []
+			for G_i in range(4):
+				psi_g = np.array([get_gamma_rates(i)[G_i] for i in psi])				
+				intervalAs = calcAi(lam,mu,psi_g)
+				args = [intervalAs, lam, mu, psi_g, times, l, rho]
 
-	if hasFoundPyRateC: # We use the C version for term 4
-		term4_c = PyRateC_FBD_T4(tot_number_of_species, bint, dint, oint, intervalAs, lam, mu, psi, rho, gamma_i, times, ts, te, FA)
+				term4_q  = calc_q(bint[i],ts[i],args)-calc_q(oint[i], FA[i],args)
+				term4_qt = calc_qt(oint[i], FA[i],args)-calc_qt(dint[i], te[i],args)
 
+				qj_1= 0
+				for j in range(bint[i], oint[i]):
+					qj_1 += calc_q(j+1, times[j+1], args)
+
+				qtj_1= 0
+				for j in range(oint[i], dint[i]):
+					qtj_1 += calc_qt(j+1, times[j+1], args)
+
+				term4_qj = qj_1 + qtj_1
+				lik_sp_i.append(log_gamma_i[i] + term4_q + term4_qt + term4_qj)
+			lik_sp_i = np.log(np.sum(np.exp(np.array(lik_sp_i))))
+			term4_c += lik_sp_i 
+
+		
+	
 	if not hasFoundPyRateC or sanityCheckForPyRateC: # We use the python version if PyRateC not found or if sanity check is asked
 		log_gamma_i = log(gamma_i)
 		args = [intervalAs, lam, mu, psi, times, l, rho]
@@ -2092,12 +2117,18 @@ def likelihood_rangeFBD(times, psi, lam, mu, ts, te, k=[], intervalAs=[], int_in
 		if hasFoundPyRateC and sanityCheckForPyRateC: # Sanity check only done if needed
 			absDivergence = abs(term4 - term4_c)
 			if absDivergence > sanityCheckThreshold:
-				print "[WARNING] PyRateC_FBD_T4 diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")"
+				print("[WARNING] PyRateC_FBD_T4 diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")")
 
 	if hasFoundPyRateC:
 		term4 = term4_c
-
-	likelihood = np.sum([term1, term0+sum(term2),sum(term3), term4])
+	
+	if FALAmodel==2:
+		term5 = np.sum(psi * get_L_FBDrange(times,FA,LO))
+	else: 
+		term5 = 0
+	
+	
+	likelihood = np.sum([term1, term0+sum(term2),sum(term3), term4, term5])
 	res = [likelihood, intervalAs, int_indx, div_traj, k]
 
 	return res
@@ -2183,7 +2214,7 @@ def estimate_delta(likBDtemp, R,par,times, ts, te, cov_par, ind,deathRate,n_likB
 			#print up,lo,l,n_rates
 			args=[ts, te, up, lo, l, par, cov_par_one,len_L]
 			tempL+=BPD_partial_lik(args)
-		#print "LIK", 	tempL, sum(likBDtemp[ind:ind+len(R)])
+		#print "LIK",	tempL, sum(likBDtemp[ind:ind+len(R)])
 		D=min(tempL-sum(likBDtemp[ind:ind+len(R)]), 100) # to avoid overflows
 		deathRate[temp_l]=exp(D)
 	return deathRate #, n_likBD
@@ -2261,7 +2292,7 @@ def Alg_3_1(arg):
 
 ####### BEGIN FUNCTIONS for RJMCMC #######
 def random_choice(vector):
-	ind = np.random.choice(range(len(vector)))
+	ind = np.random.choice(list(range(len(vector))))
 	return [vector[ind], ind]
 
 def add_DoubleShift_RJ_rand_gamma(rates,times):
@@ -2278,7 +2309,7 @@ def add_DoubleShift_RJ_rand_gamma(rates,times):
 	return rates_prime,times_prime,log_q_prob+Jacobian
 
 def remove_DoubleShift_RJ_rand_gamma(rates,times):
-	rm_shift_ind  = np.random.choice(range(2,len(times)-1))
+	rm_shift_ind  = np.random.choice(list(range(2,len(times)-1)))
 	rm_shift_ind  = np.array([rm_shift_ind-1,rm_shift_ind])
 	rm_shift_time = times[rm_shift_ind]
 	dT			= abs(times[rm_shift_ind[1]+1]-times[rm_shift_ind[0]-1]) # if rm t_i: U[t_i-1, t_i+1]
@@ -2294,13 +2325,13 @@ def remove_DoubleShift_RJ_rand_gamma(rates,times):
 
 def add_shift_RJ_rand_gamma(rates,times):
 	if fix_edgeShift==1: # min and max bounds
-		random_indx = np.random.choice(range(1,len(times)-2))
+		random_indx = np.random.choice(list(range(1,len(times)-2)))
 		r_time, r_time_ind = np.diff(times)[random_indx],random_indx
 	elif fix_edgeShift==2: # max bound
-		random_indx = np.random.choice(range(1,len(times)-1))
+		random_indx = np.random.choice(list(range(1,len(times)-1)))
 		r_time, r_time_ind = np.diff(times)[random_indx],random_indx
 	elif fix_edgeShift==3: # min bound
-		random_indx = np.random.choice(range(0,len(times)-2))
+		random_indx = np.random.choice(list(range(0,len(times)-2)))
 		r_time, r_time_ind = np.diff(times)[random_indx],random_indx
 	else:
 		r_time, r_time_ind = random_choice(np.diff(times))
@@ -2317,13 +2348,13 @@ def add_shift_RJ_rand_gamma(rates,times):
 
 def remove_shift_RJ_rand_gamma(rates,times):
 	if fix_edgeShift==1:  # min and max bounds
-		random_indx = np.random.choice(range(2,len(times)-2))
+		random_indx = np.random.choice(list(range(2,len(times)-2)))
 	elif fix_edgeShift==2: # max bound
-		random_indx = np.random.choice(range(2,len(times)-1))
+		random_indx = np.random.choice(list(range(2,len(times)-1)))
 	elif fix_edgeShift==3: # min bound
-		random_indx = np.random.choice(range(1,len(times)-2))
+		random_indx = np.random.choice(list(range(1,len(times)-2)))
 	else:
-		random_indx = np.random.choice(range(1,len(times)-1))
+		random_indx = np.random.choice(list(range(1,len(times)-1)))
 	rm_shift_ind  = random_indx
 	rm_shift_time = times[rm_shift_ind]
 	dT			= abs(times[rm_shift_ind+1]-times[rm_shift_ind-1]) # if rm t_i: U[t_i-1, t_i+1]
@@ -2337,13 +2368,13 @@ def remove_shift_RJ_rand_gamma(rates,times):
 
 def add_shift_RJ_weighted_mean(rates,times ):
 	if fix_edgeShift==1: # min and max bounds
-		random_indx = np.random.choice(range(1,len(times)-2))
+		random_indx = np.random.choice(list(range(1,len(times)-2)))
 		r_time, r_time_ind = np.diff(times)[random_indx],random_indx
 	elif fix_edgeShift==2: # max bound
-		random_indx = np.random.choice(range(1,len(times)-1))
+		random_indx = np.random.choice(list(range(1,len(times)-1)))
 		r_time, r_time_ind = np.diff(times)[random_indx],random_indx
 	elif fix_edgeShift==3: # min bound
-		random_indx = np.random.choice(range(0,len(times)-2))
+		random_indx = np.random.choice(list(range(0,len(times)-2)))
 		r_time, r_time_ind = np.diff(times)[random_indx],random_indx
 	else:
 		r_time, r_time_ind = random_choice(np.diff(times))
@@ -2369,13 +2400,13 @@ def add_shift_RJ_weighted_mean(rates,times ):
 
 def remove_shift_RJ_weighted_mean(rates,times):
 	if fix_edgeShift==1:  # min and max bounds
-		random_indx = np.random.choice(range(2,len(times)-2))
+		random_indx = np.random.choice(list(range(2,len(times)-2)))
 	elif fix_edgeShift==2: # max bound
-		random_indx = np.random.choice(range(2,len(times)-1))
+		random_indx = np.random.choice(list(range(2,len(times)-1)))
 	elif fix_edgeShift==3: # min bound
-		random_indx = np.random.choice(range(1,len(times)-2))
+		random_indx = np.random.choice(list(range(1,len(times)-2)))
 	else:
-		random_indx = np.random.choice(range(1,len(times)-1))
+		random_indx = np.random.choice(list(range(1,len(times)-1)))
 	rm_shift_ind  = random_indx
 	t_prime	   = times[rm_shift_ind]
 	time_i1	   = times[rm_shift_ind-1]
@@ -2556,7 +2587,7 @@ def get_init_values(mcmc_log_file,taxa_names):
 		sp=head[te_i].split("_TE")[0]
 		if sp in taxa_names: te_index.append(te_i)
 	if len(ts_index) != len(ts_index_temp):
-		print "Excluded", len(ts_index) - len(ts_index_temp), "taxa"
+		print("Excluded", len(ts_index) - len(ts_index_temp), "taxa")
 
 	alpha_pp=1
 	try:
@@ -2613,7 +2644,7 @@ def MCMC(all_arg):
 		timesLA, timesMA = init_times(maxTSA,time_framesL,time_framesM, min(teA))
 		if len(fixed_times_of_shift)>0: timesLA[1:-1],timesMA[1:-1]=fixed_times_of_shift,fixed_times_of_shift
 		if fix_edgeShift > 0:
-			print edgeShifts,fix_edgeShift
+			print(edgeShifts,fix_edgeShift)
 			if fix_edgeShift == 1:
 				timesLA, timesMA = init_times(edgeShifts[0],time_framesL,time_framesM, edgeShifts[1]) # starting shift tims within allowed window
 				timesLA[0],timesMA[0]= maxTSA,maxTSA
@@ -2626,19 +2657,19 @@ def MCMC(all_arg):
 				timesLA, timesMA = init_times(maxTSA,time_framesL,time_framesM, edgeShifts[0]) # starting shift tims within allowed window
 				timesLA[-2],timesMA[-2]= edgeShifts[0],edgeShifts[0]
 			# if len(edgeShifts)==1:
-			# 	if args.edgeShifts[0] < np.inf:
-			# 		timesLA, timesMA = init_times(edgeShifts[0],time_framesL,time_framesM, 0) # starting shift tims within allowed window
-			# 		timesLA[1],timesMA[1]= edgeShifts[0],edgeShifts[0]
-			# 	else:
-			# 		timesLA, timesMA = init_times(maxTSA,time_framesL,time_framesM, edgeShifts[0]) # starting shift tims within allowed window
-			# 		timesLA[1],timesMA[1]= edgeShifts[0],edgeShifts[0]
+			#	if args.edgeShifts[0] < np.inf:
+			#		timesLA, timesMA = init_times(edgeShifts[0],time_framesL,time_framesM, 0) # starting shift tims within allowed window
+			#		timesLA[1],timesMA[1]= edgeShifts[0],edgeShifts[0]
+			#	else:
+			#		timesLA, timesMA = init_times(maxTSA,time_framesL,time_framesM, edgeShifts[0]) # starting shift tims within allowed window
+			#		timesLA[1],timesMA[1]= edgeShifts[0],edgeShifts[0]
 			# if len(edgeShifts)>1:
-			# 	timesLA, timesMA = init_times(edgeShifts[0],time_framesL,time_framesM, edgeShifts[1]) # starting shift tims within allowed window
-			# 	timesLA[0],timesMA[0]= maxTSA,maxTSA
-			# 	timesLA[1],timesMA[1]= edgeShifts[0],edgeShifts[0]
-			# 	timesLA[-2],timesMA[-2]= edgeShifts[1],edgeShifts[1]
-			print "times", timesLA
-			print "times", timesMA
+			#	timesLA, timesMA = init_times(edgeShifts[0],time_framesL,time_framesM, edgeShifts[1]) # starting shift tims within allowed window
+			#	timesLA[0],timesMA[0]= maxTSA,maxTSA
+			#	timesLA[1],timesMA[1]= edgeShifts[0],edgeShifts[0]
+			#	timesLA[-2],timesMA[-2]= edgeShifts[1],edgeShifts[1]
+			print("times", timesLA)
+			print("times", timesMA)
 				#quit()
 		if TDI<3:
 			LA = init_BD(len(timesLA))
@@ -2832,7 +2863,7 @@ def MCMC(all_arg):
 				if TDI<2: #
 					if np.random.random()<.95 or est_hyperP == 0 or fix_hyperP == 1:
 						L,M,hasting=update_rates(LA,MA,3,mod_d3)
-						update_W_shape =1 
+						update_W_shape =1
 						if use_ADE_model == 1 and update_W_shape:
 							W_shape, hasting2 = update_multiplier_proposal(W_shapeA,1.1)
 							hasting+=hasting2
@@ -2864,11 +2895,13 @@ def MCMC(all_arg):
 		if fix_SE == 0:
 			if TPP_model == 1:
 				q_time_frames = np.sort(np.array([max_ts,0]+times_q_shift))[::-1]
+			else:
+				q_time_frames = np.array([max_ts,0])
 
 		# NHPP Lik: multi-thread computation (ts, te)
 		# generate args lik (ts, te)
 		if fix_SE == 0 and FBDrange==0:
-			ind1=range(0,len(fossil))
+			ind1=list(range(0,len(fossil)))
 			ind2=[]
 			if it>0 and rr<f_update_se: # recalculate likelihood only for ts, te that were updated
 				ind1=((ts-te != tsA-teA).nonzero()[0]).tolist()
@@ -2882,7 +2915,7 @@ def MCMC(all_arg):
 				z[:,1]=ts
 				z[:,2]=q_rates[0]   # shape prm Gamma
 				z[:,3]=q_rates[1]   # baseline foss rate (q)
-				z[:,4]=range(len(fossil))
+				z[:,4]=list(range(len(fossil)))
 				z[:,5]=cov_par[2]  # covariance baseline foss rate
 				z[:,6]=M[len(M)-1] # ex rate
 				if useDiscreteTraitModel == 1: z[:,6] = mean(M)
@@ -2908,7 +2941,7 @@ def MCMC(all_arg):
 
 							absDivergence = abs(sum(lik_fossil2) - sum(lik_fossil))
 							if absDivergence > sanityCheckThreshold:
-								print "[WARNING] HPP_vec_lik diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")"
+								print("[WARNING] HPP_vec_lik diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")")
 
 					elif argsHPP == 1:
 						YangGamma = [1]
@@ -2926,7 +2959,7 @@ def MCMC(all_arg):
 
 							absDivergence = abs(sum(lik_fossil2) - sum(lik_fossil))
 							if absDivergence > sanityCheckThreshold:
-								print "[WARNING] PyRateC_HOMPP_lik diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")"
+								print("[WARNING] PyRateC_HOMPP_lik diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")")
 
 					else:
 						YangGamma = [1]
@@ -2944,7 +2977,7 @@ def MCMC(all_arg):
 
 							absDivergence = abs(sum(lik_fossil2) - sum(lik_fossil))
 							if absDivergence > sanityCheckThreshold:
-								print "[WARNING] PyRateC_NHPP_lik diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")"
+								print("[WARNING] PyRateC_NHPP_lik diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")")
 
 				else:
 					if num_processes_ts==0:
@@ -2965,7 +2998,7 @@ def MCMC(all_arg):
 				lik_fossil[ind2] = lik_fossilA[ind2]
 
 		# FBD range likelihood
-		elif FBDrange==1:
+		elif FBDrange:
 			move_type = 0
 			stop_update = 0
 			if np.random.random()<0.01 and TDI==4:
@@ -2989,21 +3022,25 @@ def MCMC(all_arg):
 
 			# times, psi, lam, mu, ts, te, k=0, intervalAs=0, int_indx=0, div_traj=0, rho=0
 			if move_type == 1: # updated ts/te
-				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te, intervalAs=res_FBD_A[1], k=res_FBD_A[4])
+				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te, 
+						intervalAs=res_FBD_A[1], k=res_FBD_A[4], FALAmodel = FBDrange, alpha = alpha_pp_gamma)
 			elif move_type in [2,4]: # updated q/s/e rates
-				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te,  int_indx=res_FBD_A[2], div_traj=res_FBD_A[3], k=res_FBD_A[4])
+				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te,  
+						int_indx=res_FBD_A[2], div_traj=res_FBD_A[3], k=res_FBD_A[4], FALAmodel = FBDrange, alpha = alpha_pp_gamma)
 			elif move_type in [3]: # updated times
-				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te,  intervalAs=res_FBD_A[1], div_traj=res_FBD_A[3])
+				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te,  
+						intervalAs=res_FBD_A[1], div_traj=res_FBD_A[3], FALAmodel = FBDrange, alpha = alpha_pp_gamma)
 			else:
-				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te)
+				res_FBD = likelihood_rangeFBD(times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp, ts, te, FALAmodel = FBDrange,
+						alpha = alpha_pp_gamma)
 			# res = [likelihood, intervalAs, int_indx, div_traj, k]
 			# if it % 1000==0:
-			# 	print times_fbd_temp
-			# 	print psi_fbd_temp
-			# 	print lam_fbd_temp
-			# 	print mu_fbd_temp
-			# 	print res_FBD[3]
-			# 	print res_FBD[4]
+			#	print times_fbd_temp
+			#	print psi_fbd_temp
+			#	print lam_fbd_temp
+			#	print mu_fbd_temp
+			#	print res_FBD[3]
+			#	print res_FBD[4]
 
 			lik_fossil = res_FBD[0]
 			#if it>1: print lik_fossil,lik_fossilA
@@ -3023,7 +3060,7 @@ def MCMC(all_arg):
 				hpGammaQ_rate =  0.1
 				post_rate_prm_Gq = np.random.gamma( shape=hpGammaQ_shape+pert_prior[0]*len(q_rates), scale=1./(hpGammaQ_rate+sum(q_rates)) )
 				prior = sum(prior_gamma(q_rates,pert_prior[0],post_rate_prm_Gq)) + prior_uniform(alpha_pp_gamma,0,20)
-		else: prior = prior_gamma(q_rates[1],pert_prior[0],pert_prior[1]) + prior_uniform(q_rates[0],0,20)			
+		else: prior = prior_gamma(q_rates[1],pert_prior[0],pert_prior[1]) + prior_uniform(q_rates[0],0,20)
 		if est_hyperP == 1: prior += ( prior_uniform(hyperP[0],0,20)+prior_uniform(hyperP[1],0,20) ) # hyperprior on BD rates
 
 
@@ -3092,7 +3129,7 @@ def MCMC(all_arg):
 
 							absDivergence = abs(sum(likBDtemp) - sum(likBDtemp2))
 							if absDivergence > sanityCheckThreshold:
-								print "[WARNING] BPD_partial_lik diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")"
+								print("[WARNING] BPD_partial_lik diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")")
 
 					else:
 						if num_processes==0:
@@ -3140,7 +3177,7 @@ def MCMC(all_arg):
 
 							absDivergence = abs(sum(likBDtemp) - sum(likBDtemp2))
 							if absDivergence > sanityCheckThreshold:
-								print "[WARNING] BPD_partial_lik diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")"
+								print("[WARNING] BPD_partial_lik diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")")
 
 					else:
 						if num_processes==0:
@@ -3159,7 +3196,7 @@ def MCMC(all_arg):
 				if fix_SE == 0 and TPP_model == 0 and argsHPP == 0 and use_DA == 1:
 					# NHPP calculated only if not -fixSE
 					# generate args lik (ts, te)
-					ind1=range(0,len(fossil))
+					ind1=list(range(0,len(fossil)))
 					lik_fossil=zeros(len(fossil))
 					# generate args lik (ts, te)
 					z=zeros(len(fossil)*7).reshape(len(fossil),7)
@@ -3167,7 +3204,7 @@ def MCMC(all_arg):
 					z[:,1]=ts
 					z[:,2]=q_rates[0]   # shape prm Gamma
 					z[:,3]=q_rates[1]   # baseline foss rate (q)
-					z[:,4]=range(len(fossil))
+					z[:,4]=list(range(len(fossil)))
 					z[:,5]=cov_par[2]  # covariance baseline foss rate
 					z[:,6]=M[len(M)-1] # ex rate
 					args=list(z[ind1])
@@ -3180,7 +3217,7 @@ def MCMC(all_arg):
 						if argsG == 1: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args))
 						else: lik_fossil[ind1] = array(pool_ts.map(NHPP_lik, args))
 
-		elif FBDrange == 1:
+		elif FBDrange:
 			likBDtemp = 0 # alrady included in lik_fossil
 
 
@@ -3197,7 +3234,7 @@ def MCMC(all_arg):
 			prior += -log(maxTs-minTe)*(len(L)-1+len(M)-1)
 			prior += Poisson_prior(len(L),rj_cat_HP)+Poisson_prior(len(M),rj_cat_HP)
 			#if it % 100 ==0: print len(L),len(M), prior_old, -log(max(ts)-min(te))*(len(L)-1+len(M)-1), hasting
-						
+
 			if get_min_diffTime(timesL)<=min_allowed_t or get_min_diffTime(timesM)<=min_allowed_t: prior = -np.inf
 
 		priorBD= get_hyper_priorBD(timesL,timesM,L,M,maxTs,hyperP)
@@ -3233,7 +3270,7 @@ def MCMC(all_arg):
 		elif analyze_tree ==4: # skyline independent model
 			m_tree,r_tree,h1,h2 = m_treeA+0., r_treeA+0.,0,0
 			if args_bdc: # BDC model
-				ind = np.random.choice(range(len(m_tree)))
+				ind = np.random.choice(list(range(len(m_tree))))
 				r_tree[ind] = update_parameter(r_treeA[ind], 0, 1, 0.1, 1)
 				l_tree = L[::-1] - M[::-1] + M[::-1]*r_tree
 				m_tree = M[::-1]*r_tree #  so mu > 0
@@ -3297,7 +3334,7 @@ def MCMC(all_arg):
 				if analyze_tree >=1:
 					r_treeA = r_tree
 					m_treeA = m_tree
-				if FBDrange==1:
+				if FBDrange:
 					res_FBD_A = res_FBD
 					FBD_temp_A = [times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp]
 
@@ -3305,9 +3342,9 @@ def MCMC(all_arg):
 		if it % print_freq ==0 or it==burnin:
 			try: l=[round(y, 2) for y in [PostA, likA, priorA, SA]]
 			except:
-				print "An error occurred."
-				print PostA,Post,lik, prior, prior_root_age(max(ts),max(FA),max(FA)), priorBD, max(ts),max(FA)
-				print prior_gamma(q_rates[1],pert_prior[0],pert_prior[1]) + prior_uniform(q_rates[0],0,20)
+				print("An error occurred.")
+				print(PostA,Post,lik, prior, prior_root_age(max(ts),max(FA),max(FA)), priorBD, max(ts),max(FA))
+				print(prior_gamma(q_rates[1],pert_prior[0],pert_prior[1]) + prior_uniform(q_rates[0],0,20))
 				quit()
 			if it>burnin and n_proc==0:
 				print_out= "\n%s\tpost: %s lik: %s (%s, %s) prior: %s tot.l: %s" \
@@ -3317,40 +3354,40 @@ def MCMC(all_arg):
 				print(print_out)
 				#if TDI==1: print "\tpower posteriors:", marginal_lik[0:10], "..."
 				if TDI==3:
-					print "\tind L", indDPP_L
-					print "\tind M", indDPP_M
+					print("\tind L", indDPP_L)
+					print("\tind M", indDPP_M)
 				else:
-					print "\tt.frames:", timesLA, "(sp.)"
-					print "\tt.frames:", timesMA, "(ex.)"
+					print("\tt.frames:", timesLA, "(sp.)")
+					print("\tt.frames:", timesMA, "(ex.)")
 				if use_ADE_model >= 1:
-					print "\tWeibull.shape:", round(W_shapeA,3)
-					print "\tWeibull.scale:", MA, 1./MA
+					print("\tWeibull.shape:", round(W_shapeA,3))
+					print("\tWeibull.scale:", MA, 1./MA)
 				else:
-					print "\tsp.rates:", LA
-					print "\tex.rates:", MA
+					print("\tsp.rates:", LA)
+					print("\tex.rates:", MA)
 				if analyze_tree ==1:
-					print np.array([tree_likA, r_treeA+m_treeA, m_treeA])
+					print(np.array([tree_likA, r_treeA+m_treeA, m_treeA]))
 				if analyze_tree==2:
 					ltreetemp,mtreetemp = (M[0]*r_tree) + (L[0]-M[0]), M[0]*r_tree
-					print np.array([tree_likA,ltreetemp,mtreetemp,ltreetemp-mtreetemp,LA[0]-MA[0]])
+					print(np.array([tree_likA,ltreetemp,mtreetemp,ltreetemp-mtreetemp,LA[0]-MA[0]]))
 				if analyze_tree==4:
 					ltreetemp,mtreetemp = list(r_treeA[::-1]*m_treeA[::-1]), list(m_treeA[::-1])
-					print np.array([tree_likA] + ltreetemp + mtreetemp)
+					print(np.array([tree_likA] + ltreetemp + mtreetemp))
 
-				if est_hyperP == 1: print "\thyper.prior.par", hyperPA
+				if est_hyperP == 1: print("\thyper.prior.par", hyperPA)
 
 
 				if model_cov>=1:
-					print "\tcov. (sp/ex/q):", cov_parA
-					if est_COVAR_prior == 1: print "\tHP_covar:",round(covar_prior,3)
- 				if fix_SE == 0:
+					print("\tcov. (sp/ex/q):", cov_parA)
+					if est_COVAR_prior == 1: print("\tHP_covar:",round(covar_prior,3))
+				if fix_SE == 0:
 					if TPP_model == 1:
-						print "\tq.rates:", q_ratesA, "\n\tGamma.prm:", round(alpha_pp_gammaA,3)
-					else: print "\tq.rate:", round(q_ratesA[1], 3), "\tGamma.prm:", round(q_ratesA[0], 3)
-					print "\tts:", tsA[0:5], "..."
-					print "\tte:", teA[0:5], "..."
-			if it<=burnin and n_proc==0: print("\n%s*\tpost: %s lik: %s prior: %s tot length %s" \
-			% (it, l[0], l[1], l[2], l[3]))
+						print("\tq.rates:", q_ratesA, "\n\tGamma.prm:", round(alpha_pp_gammaA,3))
+					else: print("\tq.rate:", round(q_ratesA[1], 3), "\tGamma.prm:", round(q_ratesA[0], 3))
+					print("\tts:", tsA[0:5], "...")
+					print("\tte:", teA[0:5], "...")
+			if it<=burnin and n_proc==0: print(("\n%s*\tpost: %s lik: %s prior: %s tot length %s" \
+			% (it, l[0], l[1], l[2], l[3])))
 
 		if n_proc != 0: pass
 		elif it % sample_freq ==0 and it>=burnin or it==0 and it>=burnin:
@@ -3492,7 +3529,7 @@ def marginal_rates(it, margL,margM, marginal_file, run):
 def marginal_likelihood(marginal_file, l, t):
 	mL=0
 	for i in range(len(l)-1): mL+=((l[i]+l[i+1])/2.)*(t[i]-t[i+1]) # Beerli and Palczewski 2010
-	print "\n Marginal likelihood:", mL
+	print("\n Marginal likelihood:", mL)
 	o= "\n Marginal likelihood: %s\n\nlogL: %s\nbeta: %s" % (mL,l,t)
 	marginal_file.writelines(o)
 	marginal_file.close()
@@ -3508,7 +3545,7 @@ p.add_argument('input_data', metavar='<input file>', type=str,help='Input python
 p.add_argument('-j',		 type=int, help='number of data set in input file', default=1, metavar=1)
 p.add_argument('-trait',	 type=int, help='number of trait for Cov model', default=1, metavar=1)
 p.add_argument('-logT',	  type=int, help='Transform trait (or rates for -plotRJ): 0) False, 1) Ln(x), 2) Log10(x)', default=0, metavar=0)
-p.add_argument("-N",		 type=float, help='number of exant species')
+p.add_argument("-N",		 type=int, help='number of exant species', default=-1)
 p.add_argument("-wd",		type=str, help='path to working directory', default="")
 p.add_argument("-out",	   type=str, help='output tag', default="")
 p.add_argument('-singleton', type=float, help='Remove singletons (min no. occurrences)', default=0, metavar=0)
@@ -3643,8 +3680,8 @@ rand.seed(rseed)  # set as argument/ use get seed function to get it and save it
 random.seed(rseed)
 np.random.seed(rseed)
 
-if  args.FBDrange==0: FBDrange = 0
-else: FBDrange = 1
+FBDrange = args.FBDrange
+
 
 if args.useCPPlib==1 and hasFoundPyRateC == 1:
 	#print("Loaded module FastPyRateC")
@@ -3745,24 +3782,20 @@ else:
 
 if args.ginput != "" or args.check_names != "" or args.reduceLog != "":
 	try:
-	 	self_path = get_self_path()
-	 	pyrate_lib_path = "pyrate_lib"
-	 	sys.path.append(os.path.join(self_path,pyrate_lib_path))
-		import lib_DD_likelihood
-		import lib_utilities
-		import check_species_names
-
- 	except:
+		import pyrate_lib.lib_DD_likelihood
+		import pyrate_lib.lib_utilities
+		import pyrate_lib.check_species_names
+	except:
 		sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
 		You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
 
 	if args.ginput != "":
-		lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=-1,burnin=int(burnin)+1)
+		pyrate_lib.lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=-1,burnin=int(burnin)+1)
 	elif args.check_names != "":
 		SpeciesList_file = args.check_names
-		check_species_names.run_name_check(SpeciesList_file)
+		pyrate_lib.check_species_names.run_name_check(SpeciesList_file)
 	elif args.reduceLog != "":
-		lib_utilities.reduce_log_file(args.reduceLog,max(1,int(args.b)))
+		pyrate_lib.lib_utilities.reduce_log_file(args.reduceLog,max(1,int(args.b)))
 	quit()
 
 
@@ -3846,7 +3879,7 @@ if runs==1 or use_seq_lik == 1:
 
 if TDI==1:				# Xie et al. 2011; Baele et al. 2012
 	K=args.k-1.		# K+1 categories
-	k=array(range(int(K+1)))
+	k=array(list(range(int(K+1))))
 	beta=k/K
 	alpha=args.a			# categories are beta distributed
 	temperatures=list(beta**(1./alpha))
@@ -3884,7 +3917,7 @@ elif args.plotRJ != "":
 elif args.plotQ != "":
 	path_dir_log_files=args.plotQ
 	plot_type=5
-print args.plotQ
+print(args.plotQ)
 
 list_files_BF=sort(args.BF)
 file_stem=args.tag
@@ -3893,9 +3926,9 @@ grid_plot = args.grid_plot
 if path_dir_log_files != "":
 	self_path = get_self_path()
 	if plot_type>=3:
-		lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
-		lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
-		rtt_plot_bds = imp.load_source("rtt_plot_bds", "%s/pyrate_lib/rtt_plot_bds.py" % (self_path))
+		import pyrate_lib.lib_DD_likelihood as lib_DD_likelihood
+		import pyrate_lib.lib_utilities as lib_utilities
+		import pyrate_lib.rtt_plot_bds as rtt_plot_bds
 		if plot_type==3:
 			if grid_plot==0: grid_plot=1
 			rtt_plot_bds.RTTplot_high_res(path_dir_log_files,grid_plot,int(burnin),root_plot)
@@ -3909,7 +3942,7 @@ if path_dir_log_files != "":
 	else:
 		#path_dir_log_files=sort(path_dir_log_files)
 		# plot each file separately
-		print root_plot
+		print(root_plot)
 		if file_stem == "":
 			path_dir_log_files = os.path.abspath(path_dir_log_files)
 			direct="%s/*marginal_rates.log" % path_dir_log_files
@@ -3935,10 +3968,10 @@ if path_dir_log_files != "":
 	quit()
 elif args.mProb != "": calc_model_probabilities(args.mProb,burnin)
 elif len(list_files_BF):
-	print list_files_BF[0]
+	print(list_files_BF[0])
 	if len(list_files_BF)==1: calc_BFlist(list_files_BF[0])
 	else: calc_BF(list_files_BF[0],list_files_BF[1])
-	 	#
+		#
 	#	sys.exit("\n2 '*marginal_likelihood.txt' files required.\n")
 	quit()
 elif args.combLog != "": # COMBINE LOG FILES
@@ -3960,7 +3993,7 @@ if len(args.SE_stats)>0:
 	#else:
 	try: EXT_RATE  = float(args.SE_stats[0])
 	except: EXT_RATE = 0
-	if EXT_RATE==0: print "\nExtinction rate set to 0: using estimator instead.\n"
+	if EXT_RATE==0: print("\nExtinction rate set to 0: using estimator instead.\n")
 	if len(args.SE_stats)>1: step_size = args.SE_stats[1]
 	else: step_size = 1
 	if len(args.SE_stats)>2: no_sim_ex_time = args.SE_stats[2]
@@ -3980,7 +4013,6 @@ if args.twotrait == 1:
 ############################ LOAD INPUT DATA ############################
 match_taxa_trait = 0
 if use_se_tbl==0:
-	import imp
 	input_file_raw = os.path.basename(args.input_data[0])
 	input_file = os.path.splitext(input_file_raw)[0]  # file name without extension
 
@@ -3989,20 +4021,23 @@ if use_se_tbl==0:
 		if output_wd=="": output_wd= get_self_path()
 	else: output_wd=args.wd
 
-	print "\n",input_file, args.input_data, "\n"
-	try: input_data_module = imp.load_source(input_file, args.input_data[0])
+	print("\n",input_file, args.input_data, "\n")
+	try: 
+		test_spec = importlib.util.spec_from_file_location(input_file,args.input_data[0])
+		input_data_module = importlib.util.module_from_spec(test_spec)
+		test_spec.loader.exec_module(input_data_module)
 	except(IOError): sys.exit("\nInput file required. Use '-h' for command list.\n")
 
 	j=max(args.j-1,0)
 	try: fossil_complete=input_data_module.get_data(j)
 	except(IndexError):
 		fossil_complete=input_data_module.get_data(0)
-		print("Warning: data set number %s not found. Using the first data set instead." % (args.j))
+		print(("Warning: data set number %s not found. Using the first data set instead." % (args.j)))
 		j=0
 
 	if args.filter_taxa != "":
 		list_included_taxa = [line.rstrip() for line in open(args.filter_taxa)]
-		print "Included taxa:"
+		print("Included taxa:")
 
 	fossil=list()
 	have_record=list()
@@ -4012,7 +4047,7 @@ if use_se_tbl==0:
 		if len(fossil_complete[i])==1 and fossil_complete[i][0]==0: pass # exclude taxa with no fossils
 
 		elif max(fossil_complete[i]) > max(args.filter) or min(fossil_complete[i]) < min(args.filter):
-			print "excluded taxon with age range:",round(max(fossil_complete[i]),3), round(min(fossil_complete[i]),3)
+			print("excluded taxon with age range:",round(max(fossil_complete[i]),3), round(min(fossil_complete[i]),3))
 
 		elif args.singleton == -1: # exclude extant taxa (if twotraitBD == 1: extant (re)moved later)
 			if min(fossil_complete[i])==0 and twotraitBD == 0: singletons_excluded.append(i)
@@ -4044,14 +4079,14 @@ if use_se_tbl==0:
 				have_record.append(i) # some (extant) species may have trait value but no fossil record
 				fossil.append(fossil_complete[i]*args.rescale+args.translate)
 				taxa_included.append(i)
-				print taxa_names_temp[i]
+				print(taxa_names_temp[i])
 			else: singletons_excluded.append(i)
 		else:
 			have_record.append(i) # some (extant) species may have trait value but no fossil record
 			fossil.append(fossil_complete[i]*args.rescale+args.translate)
 			taxa_included.append(i)
-	if len(singletons_excluded)>0 and args.data_info == 0: print "The analysis includes %s species (%s were excluded)" % (len(fossil),len(singletons_excluded))
-	else: print "\nThe analysis includes %s species (%s were excluded)" % (len(fossil),len(fossil_complete)-len(fossil))
+	if len(singletons_excluded)>0 and args.data_info == 0: print("The analysis includes %s species (%s were excluded)" % (len(fossil),len(singletons_excluded)))
+	else: print("\nThe analysis includes %s species (%s were excluded)" % (len(fossil),len(fossil_complete)-len(fossil)))
 	out_name=input_data_module.get_out_name(j) +args.out
 
 	try:
@@ -4076,16 +4111,16 @@ if use_se_tbl==0:
 	array_all_fossils = np.array(array_all_fossils)
 
 else:
-	print se_tbl_file
+	print(se_tbl_file)
 	t_file=np.loadtxt(se_tbl_file, skiprows=1)
-	print np.shape(t_file)
+	print(np.shape(t_file))
 	j=max(args.j-1,0)
 	FA=t_file[:,2+2*j]*args.rescale+args.translate
 	LO=t_file[:,3+2*j]*args.rescale+args.translate
 	focus_clade=args.clade
 	clade_ID=t_file[:,0].astype(int)
 	if focus_clade>=0: FA,LO=FA[clade_ID==focus_clade],LO[clade_ID==focus_clade]
-	print j, len(FA), "species"
+	print(j, len(FA), "species")
 	fix_SE= 1
 	fixed_ts, fixed_te=FA, LO
 	output_wd = os.path.dirname(se_tbl_file)
@@ -4122,7 +4157,7 @@ if args.se_gibbs: out_name += "_seGibbs"
 ############################ SET BIRTH-DEATH MODEL ############################
 
 # Number of extant taxa (user specified)
-if args.N>-1: tot_extant=args.N
+if args.N > -1: tot_extant=args.N
 else: tot_extant = -1
 
 
@@ -4196,7 +4231,7 @@ if model_cov>=1 or useDiscreteTraitModel == 1 or useBounded_BD == 1:
 					matched_val = trait_values[trait_taxa==taxa_name]
 					if len(matched_val)>0:
 						matched_trait_values.append(matched_val[0])
-						print "matched taxon: %s\t%s\t%s" % (taxa_name, matched_val[0], max(fossil[i])-min(fossil[i]))
+						print("matched taxon: %s\t%s\t%s" % (taxa_name, matched_val[0], max(fossil[i])-min(fossil[i])))
 					else:
 						if useBounded_BD == 1: # taxa not specified originate/go_extinct in window
 							matched_trait_values.append([1,1])
@@ -4218,7 +4253,7 @@ if model_cov>=1 or useDiscreteTraitModel == 1 or useBounded_BD == 1:
 			#print len(np.isfinite(discrete_trait).nonzero()[0])
 			if args.singleton == -1:
 				ind_extant_sp =(LO==0).nonzero()[0]
-				print "Treating %s extant taxa as missing discrete data" % (len(ind_extant_sp))
+				print("Treating %s extant taxa as missing discrete data" % (len(ind_extant_sp)))
 				#temp_trait = discrete_trait+0 #np.zeros(len(discrete_trait))*discrete_trait
 				discrete_trait[ind_extant_sp]=np.nan
 				#discrete_trait = temp_trait
@@ -4241,7 +4276,7 @@ if model_cov>=1 or useDiscreteTraitModel == 1 or useBounded_BD == 1:
 
 		MidPoints = MidPoints[taxa_included]
 		# fit linear regression (for species with trait value - even if without fossil data)
-		print len(trait_values), len(np.isfinite(trait_values)), len(taxa_names), len(MidPoints), len(have_record)
+		print(len(trait_values), len(np.isfinite(trait_values)), len(taxa_names), len(MidPoints), len(have_record))
 		slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(MidPoints[np.isfinite(trait_values)],trait_values[np.isfinite(trait_values)])
 
 		#
@@ -4274,14 +4309,14 @@ if model_cov>=1 or useDiscreteTraitModel == 1 or useBounded_BD == 1:
 		regression_trait= "\n\nDiscrete trait data for %s of %s taxa" \
 		% (len(trait_values)-len(ind_nan_trait[0]), len(trait_values))
 		print(regression_trait)
-	else: print "\n"
+	else: print("\n")
 
 
 if useDiscreteTraitModel == 1:
 	ind_trait_species = discrete_trait
-	print ind_trait_species
+	print(ind_trait_species)
 	ind_trait_species[np.isnan(ind_trait_species)]=np.nanmax(ind_trait_species)+1
-	print ind_trait_species
+	print(ind_trait_species)
 	ind_trait_species = ind_trait_species.astype(int)
 	len_trait_values = len(np.unique(discrete_trait))
 	lengths_B_events=[]
@@ -4294,9 +4329,9 @@ if useDiscreteTraitModel == 1:
 	#lengths_B_events = np.array(lengths_D_events)
 	lengths_D_events = np.array(lengths_D_events)
 	#ind_trait_species = ind_trait_species-ind_trait_species
-	print lengths_B_events, lengths_D_events
+	print(lengths_B_events, lengths_D_events)
 	obs_S = [sum(FA[ind_trait_species==i]-LO[ind_trait_species==i]) for i in range(len(lengths_B_events))]
-	print obs_S
+	print(obs_S)
 	TDI = 0
 
 use_poiD=args.mPoiD
@@ -4379,34 +4414,6 @@ if args.ADE == 2:
 	BPD_partial_lik = BD_age_partial_lik
 	out_name += "_CorrBD"
 	argsHPP = 1
-	#list_all_occs = []
-	#for i in range(len(fossil)):
-	#	f =fossil[i]
-	#	list_all_occs = list_all_occs + list(f[f>0])
-	#
-	#list_all_occs = np.sort(np.array(list_all_occs))
-	#print (np.diff(list_all_occs))
-	#
-	#quit()
-	  #
-	#n_sampled_species_bins = np.linspace(0,max(FA),100)
-	#dT_sampled_sp_bins = n_sampled_species_bins[1]
-	#n_sampled_species = np.zeros(len(n_sampled_species_bins)-1)
-	#for i in range(len(fossil)):
-	#	occs_temp = fossil[i]
-	#	hist = np.histogram(occs_temp[occs_temp>0],bins=sort( n_sampled_species_bins ))
-	#	h = hist[0][::-1]
-	#	h[h>1] = 1
-	#	print hist
-	#	n_sampled_species += h
-	#print log(n_sampled_species), sum(n_sampled_species)
-	#sampling_prob = 1 - exp(-dT_sampled_sp_bins*0.5)
-	#est_true_sp = log(1 + n_sampled_species + n_sampled_species*sampling_prob)
-	#print est_true_sp[::-1]
-	#print np.diff(n_sampled_species)[::-1], mean(np.diff(n_sampled_species)[::-1])/dT_sampled_sp_bins
-	#print np.mean(np.diff(est_true_sp)[::-1])/dT_sampled_sp_bins
-	#print np.mean(np.diff(log(n_sampled_species+1))[::-1])
-	#quit()
 
 est_hyperP = 0
 use_cauchy = 0
@@ -4449,7 +4456,7 @@ if args.qShift != "":
 			occs_sp_bin.append(h)
 		argsHPP = 1
 		TPP_model = 1
-		print times_q_shift, max(FA), min(LO)
+		print(times_q_shift, max(FA), min(LO))
 	#except:
 	#	msg = "\nError in the input file %s.\n" % (args.qShift)
 	#	sys.exit(msg)
@@ -4464,7 +4471,7 @@ if tot_extant==-1 or TDI ==3 or use_poiD == 1:
 			prior_setting= "Using Cauchy priors on the birth-death rates (C_l[0,%s],C_l[0,%s]).\n" % (hypP_par[0],hypP_par[1])
 		else:
 				prior_setting= "Using Cauchy priors on the birth-death rates (C_l[0,est],C_l[0,est]).\n"
- 		get_hyper_priorBD = HPBD1 # cauchy with hyper-priors
+		get_hyper_priorBD = HPBD1 # cauchy with hyper-priors
 	else:
 		if est_hyperP == 0:
 			prior_setting= "Using Gamma priors on the birth-death rates (G_l[%s,%s], G_m[%s,%s]).\n" % (L_lam_r,hypP_par[0],M_lam_r,hypP_par[1])
@@ -4474,19 +4481,19 @@ if tot_extant==-1 or TDI ==3 or use_poiD == 1:
 else:
 	prior_setting= "Priors on the birth-death rates based on extant diversity (N = %s).\n" % (tot_extant)
 	get_hyper_priorBD = HPBD3 # based on no. extant
-print prior_setting
+print(prior_setting)
 
 if use_poiD == 1:
 	if model_cov>=1:
-		print "PoiD not available with trait correlation. Using BD instead."
+		print("PoiD not available with trait correlation. Using BD instead.")
 		BPD_partial_lik = BD_partial_lik
 		PoiD_const = 0
 	if fix_SE== 0:
-		print "PoiD not available with SE estimation. Using BD instead."
+		print("PoiD not available with SE estimation. Using BD instead.")
 		BPD_partial_lik = BD_partial_lik
 		PoiD_const = 0
 	if hasFoundPyRateC:
-		print "PoiD not available using FastPyRateC library. Using Python version instead."
+		print("PoiD not available using FastPyRateC library. Using Python version instead.")
 		hasFoundPyRateC = 0
 
 
@@ -4520,16 +4527,16 @@ if args.tree != "":
 	if args.eqr: analyze_tree = 3
 
 	if fix_Shift == 1:
-		print "Using Skyline indepdent model"
-		phylo_bds_likelihood = imp.load_source("phylo_bds_likelihood", "%s/pyrate_lib/phylo_bds_likelihood.py" % (self_path))
+		print("Using Skyline independent model")
+		import pyrate_lib.phylo_bds_likelihood as phylo_bds_likelihood
 		analyze_tree = 4
 		treeBDlikelihoodSkyLine = phylo_bds_likelihood.TreePar_LikShifts
 		# args = (x,t,l,mu,sampling,posdiv=0,survival=1,groups=0)
 		tree_node_ages = np.sort(tree_node_ages)
 		phylo_times_of_shift = np.sort(np.array(list(fixed_times_of_shift) + [0]))
 		tree_sampling_frac = np.array([tree_sampling_frac] + list(np.ones(len(fixed_times_of_shift))))
-		print phylo_times_of_shift
-		print tree_node_ages
+		print(phylo_times_of_shift)
+		print(tree_node_ages)
 		if args.bdc: args_bdc = 1
 		else: args_bdc = 0
 		# print tree_sampling_frac
@@ -4543,16 +4550,16 @@ if args.tree != "":
 
 # GET DATA SUMMARY INFO
 if args.data_info == 1:
-	print "\nDATA SUMMARY\n"
-	if len(singletons_excluded)>0: print "%s taxa excluded" % (len(singletons_excluded))
-	print "%s taxa included in the analysis" % (len(fossil))
+	print("\nDATA SUMMARY\n")
+	if len(singletons_excluded)>0: print("%s taxa excluded" % (len(singletons_excluded)))
+	print("%s taxa included in the analysis" % (len(fossil)))
 	one_occ_sp,all_occ,extant_sp,n_occs_list  = 0,0,0,list()
 	for i in fossil:
 		if len(i[i>0])==1: one_occ_sp+=1
 		all_occ += len(i[i>0])
 		n_occs_list.append(len(i[i>0]))
 		if min(i)==0: extant_sp+=1
-	print "%s taxa have a single occurrence, %s taxa are extant" % (one_occ_sp,extant_sp)
+	print("%s taxa have a single occurrence, %s taxa are extant" % (one_occ_sp,extant_sp))
 	j=0
 	m_ages,M_ages=[],[]
 	while True:
@@ -4569,15 +4576,15 @@ if args.data_info == 1:
 		m_ages.append(min_age)
 		M_ages.append(max_age)
 		j+=1
-	print "%s fossil occurrences (%s replicates), ranging from %s (+/- %s) to %s (+/- %s) Ma\n" % \
-	(all_occ, j, round(mean(M_ages),3), round(std(M_ages),3),round(mean(m_ages),3), round(std(m_ages),3))
+	print("%s fossil occurrences (%s replicates), ranging from %s (+/- %s) to %s (+/- %s) Ma\n" % \
+	(all_occ, j, round(mean(M_ages),3), round(std(M_ages),3),round(mean(m_ages),3), round(std(m_ages),3)))
 	# print species FA,LO
-	print "Taxon\tFA\tLA"
+	print("Taxon\tFA\tLA")
 	for i in range(len(fossil)):
 		foss_temp = fossil[i]
 		if min(foss_temp)==0: status_temp="extant"
 		else: status_temp=""
-		print "%s\t%s\t%s\t%s" % (taxa_names[i], round(max(foss_temp),3),round(min(foss_temp[foss_temp>0]),3),status_temp)
+		print("%s\t%s\t%s\t%s" % (taxa_names[i], round(max(foss_temp),3),round(min(foss_temp[foss_temp>0]),3),status_temp))
 
 	# print histogram
 	n_occs_list = np.array(n_occs_list)
@@ -4589,9 +4596,9 @@ if args.data_info == 1:
 
 # RUN PP-MODEL TEST
 if args.PPmodeltest== 1:
- 	self_path = get_self_path()
- 	pyrate_lib_path = "pyrate_lib"
- 	sys.path.append(os.path.join(self_path,pyrate_lib_path))
+	self_path = get_self_path()
+	pyrate_lib_path = "pyrate_lib"
+	sys.path.append(os.path.join(self_path,pyrate_lib_path))
 	import PPmodeltest
 	if TPP_model== 0: times_q_shift = 0
 	PPmodeltest.run_model_testing(fossil,q_shift=times_q_shift,min_n_fossils=2,verbose=1)
@@ -4602,7 +4609,13 @@ if args.PPmodeltest== 1:
 if hasFoundPyRateC:
 	if use_se_tbl==1:
 		pass
-	else: PyRateC_setFossils(fossil) # saving all fossil data as C vector
+	else:
+		fossilForPyRateC = [ f.tolist() for f in fossil ]
+		PyRateC_setFossils(fossilForPyRateC) # saving all fossil data as C vector
+
+		
+		fossilForPyRateC = [ f.tolist() for f in fossil ]
+		PyRateC_setFossils(fossilForPyRateC) # saving all fossil data as C vector
 
 	if args.qShift != "":  # q_shift times
 		tmpEpochs = np.sort(np.array(list(times_q_shift)+[max(FA)+1]+[0]))[::-1]
@@ -4611,7 +4624,10 @@ if hasFoundPyRateC:
 ############################ MCMC OUTPUT ############################
 try: os.mkdir(output_wd)
 except(OSError): pass
-path_dir = "%s/pyrate_mcmc_logs" % (output_wd)
+if output_wd !="":
+	path_dir = os.path.join(output_wd, "pyrate_mcmc_logs") 
+else: path_dir = "pyrate_mcmc_logs"
+
 folder_name="pyrate_mcmc_logs"
 try: os.mkdir(path_dir)
 except(OSError): pass
@@ -4660,13 +4676,13 @@ Random seed: %s %s
 
 o=''.join([o0,o1,o2,version_notes])
 out_sum = "%s/%s_sum.txt" % (path_dir,suff_out)
-sumfile = open(out_sum , "wb",0)
+sumfile = open(out_sum , "w")
 sumfile.writelines(o)
 sumfile.close()
 
 # OUTPUT 1 LOG MCMC
 out_log = "%s/%s_mcmc.log" % (path_dir, suff_out) #(path_dir, output_file, out_run)
-logfile = open(out_log , "wb",0)
+logfile = open(out_log , "w")
 if fix_SE == 0:
 	if TPP_model == 0:
 		head="it\tposterior\tprior\tPP_lik\tBD_lik\tq_rate\talpha\t"
@@ -4749,7 +4765,7 @@ if TDI!=1 and use_ADE_model == 0 and useDiscreteTraitModel == 0 and log_marginal
 	marginal_frames= array([int(fabs(i-int(max_marginal_frame))) for i in range(int(max_marginal_frame)+1)])
 	if log_marginal_rates_to_file==1:
 		out_log_marginal = "%s/%s_marginal_rates.log" % (path_dir, suff_out)
-		marginal_file = open(out_log_marginal , "wb")
+		marginal_file = open(out_log_marginal , "w")
 		head="it\t"
 		for i in range(int(max_marginal_frame)+1): head += "l_%s\t" % i #int(fabs(int(max(FA))))
 		for i in range(int(max_marginal_frame)+1): head += "m_%s\t" % i #int(fabs(int(max(FA))))
@@ -4777,21 +4793,11 @@ elif log_marginal_rates_to_file==0:
 # OUTPUT 3 MARGINAL LIKELIHOOD
 elif TDI==1:
 	out_log_marginal_lik = "%s/%s_marginal_likelihood.txt" % (path_dir, suff_out)
-	marginal_file = open(out_log_marginal_lik , "wb")
+	marginal_file = open(out_log_marginal_lik , "w")
 	marginal_file.writelines(o)
 	marginal_frames=0
 else: marginal_frames=0
-# OUTPUT 4 MARGINAL SHIFT TIMES
-#if TDI==2:
-#	out_log_marginal_time = "%s/%s_marginal_t_shifts.log" % (path_dir, suff_out)
-#	marginal_file_time = open(out_log_marginal_time , "wb")
-#	head="it\t"
-#	for i in range(25): head += "t_l%s\t" % i #int(fabs(int(max(FA))))
-#	for i in range(25): head += "t_m%s\t" % i #int(fabs(int(max(FA))))
-#	head=head.split('\t')
-#	wmarg_t=csv.writer(marginal_file_time, delimiter='	')
-#	wmarg_t.writerow(head)
-#	marginal_file.flush()
+
 if fix_SE == 1 and fix_Shift == 1:
 	time_frames  = sort(np.array(list(fixed_times_of_shift) + [0,max(fixed_ts)]))
 	B = sort(time_frames)+0.000001 # add small number to avoid counting extant species as extinct
@@ -4815,13 +4821,10 @@ if fix_SE == 1 and fix_Shift == 1:
 	S_time_frame = np.array(S_time_frame)
 
 ########################## START MCMC ####################################
-t1 = time.time()
 if burnin<1 and burnin>0:
 	burnin = int(burnin*mcmc_gen)
 
 def start_MCMC(run):
-	t1 = time.clock()
-	print "started at: ",time.ctime()
 	# marginal_file is either for rates or for lik
 	return MCMC([0,run, IT, sample_freq, print_freq, temperatures, burnin, marginal_frames, list()])
 
@@ -4829,7 +4832,7 @@ def start_MCMC(run):
 if use_seq_lik == 0 and runs>1:
 	marginal_frames= array([int(fabs(i-int(max(FA)))) for i in range(int(max(FA))+1)])
 	pool = mcmcMPI(num_proc)
-	res = pool.map(start_MCMC, range(runs))
+	res = pool.map(start_MCMC, list(range(runs)))
 	current_it=0
 	swap_rate, attempts=0, 0
 	while current_it<mcmc_gen:
@@ -4863,7 +4866,7 @@ if use_seq_lik == 0 and runs>1:
 else:
 	if runs>1: print("\nWarning: MC3 algorithm requires multi-threading.\nUsing standard (BD)MCMC algorithm instead.\n")
 	res=start_MCMC(0)
-print "\nfinished at:", time.ctime(), "\nelapsed time:", round(time.time()-t1,2), "\n"
+print("\nfinished at:", time.ctime(), "\nelapsed time:", round(time.time()-t1,2), "\n")
 logfile.close()
 
 quit()

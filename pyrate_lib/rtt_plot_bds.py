@@ -1,7 +1,7 @@
 from numpy import *
 import numpy as np
-import os,platform,glob,sys
-import lib_utilities as util
+import os, platform, glob, sys
+import pyrate_lib.lib_utilities as util
 import csv 
 
 def get_marginal_rates_plot3(times,rates,grid):
@@ -52,7 +52,7 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 			temp_index = np.where(head=="beta")[0][0]
 		temp_values = t[:,temp_index]
 		t = t[temp_values==1,:]
-		print "removed heated chains:",np.shape(t)
+		print("removed heated chains:",np.shape(t))
 	
 	head= list(head)
 	sp_ind = [head.index(s) for s in head if "lambda_" in s]
@@ -69,7 +69,7 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 	n_samples = np.shape(t)[0]
 	m_sp_matrix = np.zeros((n_samples,n_bins))
 	m_ex_matrix = np.zeros((n_samples,n_bins))
-	print "Extracting marginal rates..."
+	print("Extracting marginal rates...")
 	for i in range(n_samples):
 		l_shift_times = np.array([min_root_age]+ list(t[i,sp_shift_ind])+[max_death_age])
 		l_rates = t[i,sp_ind]
@@ -79,7 +79,7 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 		m_ex_matrix[i] = get_marginal_rates_plot3(m_shift_times,m_rates,grid)
 
 	res = np.zeros((n_bins,7)) # times, l, lM, lm, m, mM, mm
-	print "Calculating HPDs..."
+	print("Calculating HPDs...")
 	for i in range(n_bins):
 		l_HPD  = list(util.calcHPD(m_sp_matrix[:,i],0.95))
 		l_mean = mean(m_sp_matrix[:,i])
@@ -92,7 +92,7 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 	newfile = open(out, "w") 
 	newfile.writelines(Rfile)
 	newfile.close()
-	print "\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, wd)
+	print("\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, wd))
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
 		cmd="cd %s & Rscript %s_RTT.r" % (wd,name_file)
 	else: 
@@ -101,7 +101,7 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 	
 	save_HR_log_file=1
 	if save_HR_log_file==1:
-		print "Saving log file..."
+		print("Saving log file...")
 		out="%s/%s_HR_marginal.log" % (wd,name_file)
 		logfile = open(out, "w") 
 		head = ["iteration"]+["l_%s" % (i) for i in range(n_bins)]
@@ -115,7 +115,7 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 			
 	
 	
-	print "done\n"
+	print("done\n")
 
 
 # args
@@ -138,7 +138,7 @@ def RTTplot_Q(f,q_shift_file,burnin=0,max_age=0):
 			temp_index = np.where(head=="beta")[0][0]
 		temp_values = t[:,temp_index]
 		t = t[temp_values==1,:]
-		print "removed heated chains:",np.shape(t)
+		print("removed heated chains:",np.shape(t))
 	
 	head= list(head)
 	q_ind = [head.index(s) for s in head if "q_" in s]
@@ -154,7 +154,7 @@ def RTTplot_Q(f,q_shift_file,burnin=0,max_age=0):
 	times_q_shift = times_q_shift[times_q_shift>max_death_age]
 	times_q_shift = times_q_shift[times_q_shift<min_root_age]
 	times_q_shift = np.sort(np.array(list(times_q_shift) + [max_death_age,min_root_age]))[::-1]
-	print times_q_shift
+	print(times_q_shift)
 	
 	means = []
 	hpdM  = []
@@ -182,7 +182,7 @@ def RTTplot_Q(f,q_shift_file,burnin=0,max_age=0):
 		data += '\nQ_hpd_M = %s' % hpdtemp[1]
 		if i==0:
 			data += "\nplot(age,age,type = 'n', ylim = c(0, %s), xlim = c(%s,%s), ylab = 'Preservation rate', xlab = 'Ma',main='%s' )" \
-				% (max_y_axis,max_x_axis,min_x_axis,"Preservation rates") 			
+				% (max_y_axis,max_x_axis,min_x_axis,"Preservation rates")			
 		else:
 			data += """\nsegments(x0=age[1], y0 = %s, x1 = age[1], y1 = Q_mean, col = "#756bb1", lwd=3)""" % (Q_mean_previous)
 		Q_mean_previous = np.mean(qtemp)
@@ -194,14 +194,14 @@ def RTTplot_Q(f,q_shift_file,burnin=0,max_age=0):
 	newfile = open(out, "w") 
 	newfile.writelines(data)
 	newfile.close()
-	print "\nAn R script with the source for the RTT plot was saved as: %s_RTT_Qrates.r\n(in %s)" % (name_file, wd)
+	print("\nAn R script with the source for the RTT plot was saved as: %s_RTT_Qrates.r\n(in %s)" % (name_file, wd))
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
 		cmd="cd %s & Rscript %s_RTT_Qrates.r" % (wd,name_file)
 	else: 
 		cmd="cd %s; Rscript %s/%s_RTT_Qrates.r" % (wd,wd,name_file)
 	os.system(cmd)
 	
-	print "done\n"
+	print("done\n")
 
 
 
@@ -219,7 +219,7 @@ def get_prior_shift(t_start,t_end,bins_histogram):
 	G_rate = 1.  # mode at 1
 	min_time_frame_size = 1
 	iteration=0.
-	print "Computing empirical priors on rate shifts..."
+	print("Computing empirical priors on rate shifts...")
 	for rep in range(100000):
 		if rep % 10000 ==0:
 			sys.stdout.write(".")
@@ -242,7 +242,7 @@ def get_prior_shift(t_start,t_end,bins_histogram):
 	prior_s = np.mean(np.histogram(times_of_shift,bins=bins_histogram)[0]/iteration)
 	bf2 = calcBF(2,prior_s)
 	bf6 = calcBF(6,prior_s)
-	print np.array([prior_s,bf2,bf6])
+	print(np.array([prior_s,bf2,bf6]))
 	return [prior_s,bf2,bf6]
 
 
@@ -253,7 +253,7 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 	# 1. a vector of times (age of each marginal rate)
 	# 2-4. mean, min and max marginal rates (95% HPD)
 	# 5. a vector of times of rate shift
-	f = file(f_name,'U')
+	f = open(f_name,'U')
 	if nbins==0:
 		nbins = int(max_age-0)
 	post_rate=f.readlines()
@@ -378,7 +378,7 @@ def plot_net_rate(resS,resE,col,min_age,max_age,plot_title,n_bins):
 	times = times[indx]
 
 	out_str = "\n#Net Diversification Rate"
-  	out_str += util.print_R_vec("\ntime",-times)
+	out_str += util.print_R_vec("\ntime",-times)
 	minXaxis,maxXaxis= min_age,max_age
 	
 	mean_rates = np.array(mean_rates)[::-1]
@@ -408,7 +408,7 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=0.,burnin=0.2,min_age=0,ma
 	stem_file=files[0]
 	wd = "%s" % os.path.dirname(stem_file)
 	#print(name_file, wd)
-	print "found", len(files), "log files...\n"
+	print("found", len(files), "log files...\n")
 	if logT==1: outname = "Log_"
 	else: outname = ""
 	if max_age>0: outname+= "t%s" % (int(max_age))
@@ -425,15 +425,15 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=0.,burnin=0.2,min_age=0,ma
 			head = next(open(mcmc_file)).split() 
 			max_age_t = np.min(tbl[:,head.index("root_age")])
 			min_age_t = np.max(tbl[:,head.index("death_age")])
-			print "\nAge range:",max_age_t, min_age_t
+			print("\nAge range:",max_age_t, min_age_t)
 			if max_age==0: max_age=max_age_t
-			print bin_size 
+			print(bin_size) 
 			if bin_size>0:
 				nbins = int((max_age_t-min_age_t)/float(bin_size))
 			else:
 				nbins = 100
 				bin_size = (min(max_age,max_age_t)-max(min_age_t,min_age))/100.
-			print bin_size, nbins
+			print(bin_size, nbins)
 			colors = ["#4c4cec","#e34a33","#504A4B","#756bb1"] # sp and ex rate and net div rate
 			# sp file
 			f_name = mcmc_file.replace("mcmc.log","sp_rates.log")
@@ -454,28 +454,14 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=0.,burnin=0.2,min_age=0,ma
 		#	print "Could not read file:", mcmc_file
 	r_str += "\n\nn <- dev.off()"
 	out="%s/%sRTT_plots.r" % (wd,outname)
-	outfile = open(out, "wb") 
+	outfile = open(out, "w") 
 	outfile.writelines(r_str)
 	outfile.close()
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
 		cmd="cd '%s' & Rscript %sRTT_plots.r" % (wd,outname)
 	else:
 		cmd="cd '%s'; Rscript %sRTT_plots.r" % (wd,outname)
-	print "Plots saved in %s (%sRTT_plots)" % (wd,outname)
+	print("\nAn R script with the source for the RTT plot was saved in %s (%sRTT_plots.r)" % (wd,outname))
+	print("Plots saved in %s (%sRTT_plots)" % (wd,outname))
 	os.system(cmd)
 
-
-
-
-
-
-# x = get_prior_shift(20,0,20)
-# x = get_prior_shift(100,0,0)
-# res = get_prior_shift(1300,0,130) 
-# 
-# 
-# 
-#res = get_prior_shift(1300,0,130) 
-#x = res[0]
-#empirical_prior = mean(x[x>0])
-#

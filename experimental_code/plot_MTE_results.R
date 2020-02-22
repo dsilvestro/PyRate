@@ -92,5 +92,14 @@ plot_predictor_importance <-function(logfile,color_trait=c(),prior_prob = 0.05,t
 
 color_trait = c("#66c2a5","#fc8d62","#8da0cb","#e78ac3","#a6d854","#ffd92f")
 
-#f = "mte_output.log"
-#plot_mte(f,color_trait)
+f = "/Users/dsilvestro/Documents/Projects/Mollusks/data_Jan2020/step_3/logfiles/combined_10Miocene.log"
+plot_mte(f,color_trait)
+plot_predictor_importance(f,prior_prob = 0.5)
+
+f = "/Users/dsilvestro/Documents/Projects/Mollusks/data_Jan2020/step_3/combined_10All_23.03-0.012.log"
+plot_mte(f,color_trait)
+plot_predictor_importance(f,prior_prob = 0.5)
+
+f = "/Users/dsilvestro/Documents/Projects/Mollusks/data_Jan2020/step_3/combined_10All_23.03-0.012.log"
+plot_mte(f,color_trait)
+plot_predictor_importance(f,prior_prob = 0.5)

@@ -24,40 +24,40 @@ def calc_diff_string(a,b):
 	return score, s_diff
 
 def fix_replace_str(a):
-	s = a+"#"
-	s = string.replace(s, "yi", "i")	
-	s = string.replace(s, "ae", "e")
-	s = string.replace(s, "oe", "e")
-	s = string.replace(s, "ou", "u")
+	s = a.decode('utf_8')+"#"
+	s = str.replace(s, "yi", "i")	
+	s = str.replace(s, "ae", "e")
+	s = str.replace(s, "oe", "e")
+	s = str.replace(s, "ou", "u")
 	#s = string.replace(s, "ll", "l")
 	#s = string.replace(s, "mm", "m")
-	s = string.replace(s, "k", "c")
-	s = string.replace(s, "np", "mp")
-	s = string.replace(s, "pseudo", "pseud")
-	s = string.replace(s, "iens", "ens")
-	s = string.replace(s, "schu", "shu")
-	s = string.replace(s, "sche", "she")
+	s = str.replace(s, "k", "c")
+	s = str.replace(s, "np", "mp")
+	s = str.replace(s, "pseudo", "pseud")
+	s = str.replace(s, "iens", "ens")
+	s = str.replace(s, "schu", "shu")
+	s = str.replace(s, "sche", "she")
 	
 	
 	
 	
 	
 	# fix endings
-	s = string.replace(s, "ys#"  , "is#")
-	s = string.replace(s, "ius#" , "is#")
-	s = string.replace(s, "es#"  , "is#")
-	s = string.replace(s, "e#"  ,  "is#")
-	s = string.replace(s, "ii#"  , "is#")
-	s = string.replace(s, "i#"   , "is#")
+	s = str.replace(s, "ys#"  , "is#")
+	s = str.replace(s, "ius#" , "is#")
+	s = str.replace(s, "es#"  , "is#")
+	s = str.replace(s, "e#"  ,  "is#")
+	s = str.replace(s, "ii#"  , "is#")
+	s = str.replace(s, "i#"   , "is#")
 	# s = string.replace(s, "inis#", "inis#")
 	# s = string.replace(s, "inus" , "inis#")
-	s = string.replace(s, "as#"  , "is#")
-	s = string.replace(s, "us#"  , "is#")
-	s = string.replace(s, "a#"   , "is#")
-	s = string.replace(s, "um#"  , "is#")
-	s = string.replace(s, "ei#"  , "is#")
+	s = str.replace(s, "as#"  , "is#")
+	s = str.replace(s, "us#"  , "is#")
+	s = str.replace(s, "a#"   , "is#")
+	s = str.replace(s, "um#"  , "is#")
+	s = str.replace(s, "ei#"  , "is#")
 	# finally
-	s = string.replace(s, "#"  , "")
+	s = str.replace(s, "#"  , "")
 	return s
 
 def remove_accents(input_str):
@@ -75,28 +75,33 @@ def get_score_trained(a,b,max_length_diff=2):
 		a=a.lower() 
 		b=b.lower()
 		# remove accents
-		unicode_string_a = a.decode(encoding)
-		unicode_string_b = b.decode(encoding)
+		try:
+			unicode_string_a = a.decode(encoding)
+			unicode_string_b = b.decode(encoding)
+		except:
+			unicode_string_a = a
+			unicode_string_b = b
+		
 		a=remove_accents(unicode_string_a)
 		b=remove_accents(unicode_string_b)
 		if a==b:
 			score = 0.99
 			s_diff =0			
 		# min/max/maj
-		if "min" in a:
-			if "max" in b or "maj" in b:
+		if b"min" in a:
+			if b"max" in b or b"maj" in b:
 				score =0.1
 				s_diff =2
-		if "min" in b:
-			if "max" in a or "maj" in a:
+		if b"min" in b:
+			if b"max" in a or b"maj" in a:
 				score = 0.1
 				s_diff =2
-		if a.startswith("uni"):
-			if b.startswith("di") or b.startswith("bi"):
+		if a.startswith(b"uni"):
+			if b.startswith(b"di") or b.startswith(b"bi"):
 				score =0.1
 				s_diff =2
-		if b.startswith("di") or b.startswith("bi"):
-			if a.startswith("uni"):
+		if b.startswith(b"di") or b.startswith(b"bi"):
+			if a.startswith(b"uni"):
 				score = 0.1
 				s_diff =2
 		if score < 0:
@@ -166,7 +171,7 @@ def check_taxa_names(w,out_file_name="output.txt"):
 	words = np.unique(w)
 	# print "\nTaxa names with possible misspells (if any) will be listed below..."
 	
-	logfile = open(out_file_name , "wb") 
+	logfile = open(out_file_name , "w") 
 	wlog=csv.writer(logfile, delimiter='\t')
 	head="taxon1\ttaxon2\trank" 
 	wlog.writerow(head.split('\t'))
@@ -174,7 +179,7 @@ def check_taxa_names(w,out_file_name="output.txt"):
 	
 	word_combinations = itertools.combinations(words,2)
 	comb = len(list(itertools.combinations(words,2)))
-	print "Testing", comb, "combinations... (progress printed below)"
+	print("Testing", comb, "combinations... (progress printed below)")
 	start_time = time.time()
 	# sensitivity settings
 	max_length_diff = 2 # maximum allowed difference between string lengths
@@ -183,7 +188,7 @@ def check_taxa_names(w,out_file_name="output.txt"):
 	all_scores = []
 	j=0.
 	for w in word_combinations: 
-		try:
+		if 2>1: #try:
 			taxon1 = w[0]
 			taxon2 = w[1]	
 			#score_all, diff_all = get_score_trained(taxon1,taxon2,max_length_diff)
@@ -210,8 +215,8 @@ def check_taxa_names(w,out_file_name="output.txt"):
 				progress_percentage = round(100*(j/comb),2)
 				total_time = ((time.time()-start_time)*100/progress_percentage)/60.
 				time_left = total_time-(time.time()-start_time)/60
-				print progress_percentage,"%", int(time_left),"min left"
-		except: print taxon1, taxon2
+				print(progress_percentage,"%") #, int(time_left),"min left")
+		#except: print(taxon1, taxon2)
 	all_scores = np.array(all_scores)
 	# top hits:
 	#print all_scores
@@ -234,7 +239,7 @@ def check_taxa_names(w,out_file_name="output.txt"):
 				log_line = list(all_scores[i][0:2])+[rank]
 				wlog.writerow(log_line)
 				logfile.flush()
-		if len(res)==0: print "No typos found!"
+		if len(res)==0: print("No typos found!")
 		passed = np.union1d(res,passed)
 		if len(passed)==len(all_scores): break
 		th1 -= 0.05
@@ -243,17 +248,17 @@ def check_taxa_names(w,out_file_name="output.txt"):
 
 
 def run_name_check(fossil_occs_file):
-	print "\nParsing input data..."
-	occs_names = np.loadtxt(fossil_occs_file,delimiter="\t",usecols=(0),skiprows=1,dtype="string")
+	print("\nParsing input data...")
+	occs_names = np.loadtxt(fossil_occs_file,delimiter="\t",usecols=(0),skiprows=1,dtype=bytes).astype(str)
 	unique_names = np.unique(occs_names)
-	print "Found %s unique taxa names" % (len(unique_names))
+	print("Found %s unique taxa names" % (len(unique_names)))
 	# run typos-check on this list
 	w = [s.replace(" ", "_") for s in occs_names]
 	out_file_name = os.path.splitext(fossil_occs_file)[0]+"_scores.txt"
 	check_taxa_names(w,out_file_name)
-	print "The results (if any potential typos were found) are written here:"
-	print out_file_name
-	print """"Note that names of ranks 0 and 1 are the most likely cases of misspellings, \
+	print("The results (if any potential typos were found) are written here:")
+	print(out_file_name)
+	print(""""Note that names of ranks 0 and 1 are the most likely cases of misspellings, \
 whereas ranks 2 and 3 are most likely truly different names. \
-This algorithm does NOT check for synonyms!\n"""
+This algorithm does NOT check for synonyms!\n""")
 

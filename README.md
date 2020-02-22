@@ -3,7 +3,8 @@
 ### PyRate is a program to estimate speciation, extinction, and preservation rates from fossil occurrence data using a Bayesian framework.
 
 ---
-**PyRate is being upgraded to Python v.3! A pre-release is available [here](https://github.com/dsilvestro/PyRate/tree/master/experimental_code/PyRate_for_python3).**
+**The latest version of PyRate uses Python v.3.** 
+To upgrade Python visit: [https://www.python.org/downloads/](https://www.python.org/downloads/). Older versions of PyRate for Python v.2 are available [here](https://github.com/dsilvestro/PyRate/tree/master/PyRate_for_python2).
 
 ---
 

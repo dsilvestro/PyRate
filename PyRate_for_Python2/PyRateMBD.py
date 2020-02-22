@@ -7,7 +7,7 @@ from scipy.special import beta as f_beta
 import scipy.special
 import random as rand
 import platform, time
-import multiprocessing, _thread
+import multiprocessing, thread
 import multiprocessing.pool
 import os, csv, glob
 from scipy.special import gdtr, gdtrix
@@ -16,8 +16,7 @@ import scipy.stats
 np.set_printoptions(suppress=True)
 np.set_printoptions(precision=3)  
 from multiprocessing import Pool, freeze_support
-import _thread
-#import importlib as imp
+import thread
 import imp
 try: 
 	self_path= os.path.dirname(sys.argv[0])
@@ -135,10 +134,10 @@ for i in range(len(list_files)):
 	if i==0: name_var_file = "Diversity dependence"
 	variable_names.append(name_var_file)
 	if remove_selfDD and i==0: pass
-	else: print(i, name_var_file)
+	else: print i, name_var_file
 
 # first item is empty because it's were the Dtraj goes
-print("Processing files...")
+print "Processing files..."
 for i in range(1,len(list_files)): # add data from curves
 	try: temp_tbl = np.loadtxt(list_files[i],skiprows=1)
 	except: sys.exit("Could not read file: %s" % (list_files[i]))
@@ -165,7 +164,7 @@ if args.plot != "":
 	plot_RTT = True
 	np.summary_file = args.plot
 	name_file = os.path.splitext(os.path.basename(np.summary_file))[0]
-	print("Parsing log file:", np.summary_file)
+	print "Parsing log file:", np.summary_file
 	fixed_focal_clade,baseline_L,baseline_M,Gl_focal_clade,Gm_focal_clade,est_kl,est_km = lib_utilities.parse_hsp_logfile(np.summary_file,burnin)
 	fixed_focal_clade,baseline_L_list,baseline_M_list,Gl_focal_clade_list,Gm_focal_clade_list,est_kl,est_km = lib_utilities.parse_hsp_logfile_HPD(np.summary_file,burnin)
 	#else: sys.exit("Unable to parse file.")
@@ -177,7 +176,7 @@ e_list = []
 s_or_e_list=[]
 clade_inx_list=[]
 unsorted_events = []
-print("Indexing events...")
+print "Indexing events..."
 for i in range(n_clades):
 	"used for Dtraj"
 	s_list.append(ts[clade_ID==i])
@@ -219,7 +218,7 @@ idx_s = []
 idx_e = []
 for i in range(n_clades): # make trajectory curves for each clade
 	if remove_selfDD and i==0: pass
-	else: print("\tparsing variable", i)
+	else: print "\tparsing variable", i
 	if i==0:
 		dd_focus_clade=getDT(all_events_temp2[0],s_list[i],e_list[i]) + np.zeros(len(all_events_temp2[0]))
 		# dd_focus_clade: raw diversity trajectory (not rescaled 0 to 1) is used in the likelihood calculation
@@ -324,8 +323,8 @@ elif scaling ==2:
 	trasfRate_general = trasfMultiRateCladeScaling
 
 Dtraj = Dtraj*scale_factor
-print("scale_factor",scale_factor, np.max(Dtraj), np.max(Dtraj, axis=0))
-print(maxG, scale_factor)
+print "scale_factor",scale_factor, np.max(Dtraj), np.max(Dtraj, axis=0)
+print maxG, scale_factor
 
 
 if remove_selfDD==1:
@@ -334,7 +333,7 @@ if remove_selfDD==1:
     scale_factor = scale_factor[1:] # remove the scale factor for diversity
     variable_names = variable_names[1:]
 
-print(np.shape(Dtraj))
+print np.shape(Dtraj)
 
 GarrayA=init_Garray(n_clades) # 3d array so:
                               # Garray[i,:,:] is the 2d G for one clade
@@ -350,10 +349,10 @@ if plot_RTT is True:
 	GarrayA[fixed_focal_clade,1,:] += Gm_focal_clade/scale_factor 
 else:
 	GarrayA[fixed_focal_clade,:,:] += np.random.normal(0,0.001,np.shape(GarrayA[fixed_focal_clade,:,:]))
-	print(dataset,args.j,model_name,out_tag)
+	print dataset,args.j,model_name,out_tag
 	dataset_name = dataset.replace(".txt", "")
 	out_file_name="%s_%s_%s_%sMBD.log" % (dataset_name,args.j,model_name,out_tag)
-	logfile = open(out_file_name , "w") 
+	logfile = open(out_file_name , "wb") 
 	wlog=csv.writer(logfile, delimiter='\t')
 
 	lik_head=""
@@ -390,7 +389,7 @@ Tau=TauA
 ########################## PLOT RTT ##############################
 if plot_RTT is True: # NEW FUNCTION 2
 	out="%s/%s_RTT.r" % (wd,name_file)
-	newfile = open(out, "w") 
+	newfile = open(out, "wb") 
 	if model_name == "exp": model_type = "Exponential"
 	else: model_type = "Linear"
 		
@@ -406,7 +405,7 @@ if plot_RTT is True: # NEW FUNCTION 2
 	newfile.writelines(r_script)
 	newfile.flush()
 	# get marginal rates
-	print("Getting marginal rates...")
+	print "Getting marginal rates..."
 	
 	
 	for i in range(-1, n_clades):
@@ -440,8 +439,8 @@ if plot_RTT is True: # NEW FUNCTION 2
 				sys.stdout.write(".")
 				sys.stdout.flush()
 
-		if i== -1: print("\nCalculating mean rates and HPDs...")			
-		else: print("\nProcessing variable:", variable_names[i])
+		if i== -1: print "\nCalculating mean rates and HPDs..."			
+		else: print "\nProcessing variable:", variable_names[i]
 		
 		marginal_L = np.array(marginal_L)
 		marginal_M = np.array(marginal_M)
@@ -517,13 +516,13 @@ abline(v=-c(65,200,251,367,445),lty=2,col="gray")
 	r_script = "n<-dev.off()"
 	newfile.writelines(r_script)
 	newfile.close()
-	print("\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, wd))
+	print "\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, wd)
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
 		cmd="cd %s & Rscript %s_RTT.r" % (wd,name_file)
 	else: 
 		cmd="cd %s; Rscript %s/%s_RTT.r" % (wd,wd,name_file)
 	os.system(cmd)
-	print("done\n")	
+	print "done\n"	
 	sys.exit("\n")
 
 ##############################################################
@@ -599,7 +598,7 @@ while True:
 			if rr2<.5 and birth_model-death_model==1: 
 				l0=np.zeros(n_clades)+l0A
 				l0[focal_clade],hasting=update_multiplier_proposal(l0A[focal_clade],1.2)
-			else:	
+			else: 	
 				m0=np.zeros(n_clades)+m0A
 				m0[focal_clade],hasting=update_multiplier_proposal(m0A[focal_clade],1.2)
 
@@ -705,7 +704,7 @@ while True:
 	if iteration % print_freq ==0: 
 		k= 1./(1+TauA**2 * LAM[fixed_focal_clade,:,:]**2) # Carvalho 2010 Biometrika, p. 471
 		loc_shrinkage = (1-k) # so if loc_shrinkage > 0 is signal, otherwise it's noise (cf. Carvalho 2010 Biometrika, p. 474)
-		print(iteration, array([postA]), TauA, mean(LAM[fixed_focal_clade,:,:]), len(loc_shrinkage[loc_shrinkage>0.5])) #, np.sum(likA),np.sum(lik),prior, hasting
+		print iteration, array([postA]), TauA, mean(LAM[fixed_focal_clade,:,:]), len(loc_shrinkage[loc_shrinkage>0.5]) #, np.sum(likA),np.sum(lik),prior, hasting
 		#print likA
 		#print "l:",l0A
 		#print "m:", m0A
@@ -724,7 +723,7 @@ while True:
 	iteration+=1
 	if iteration ==n_iterations: break	
 
-print(time.time()-t1)
+print time.time()-t1
 quit()
 
 

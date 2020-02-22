@@ -244,8 +244,3 @@ plot_fossil_phylo <- function(mcmc_file){
 }
 
 
-
-
-
-
-plot_fossil_phylo("/Users/danielesilvestro/Documents/Projects/SpeciesConcept/final_empirical_data/fern_skyline/fern030316_1_BDC_mcmc.log")

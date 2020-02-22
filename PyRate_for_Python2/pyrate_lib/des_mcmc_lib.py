@@ -33,7 +33,7 @@ def update_multiplier_proposal_(i,d):
 	u = np.random.uniform(0,1)
 	l = 2*log(d)
 	m = exp(l*(u-.5))
-	z[I] = z[I] * m
+ 	z[I] = z[I] * m
 	U=log(m)
 	return z, U
 
@@ -43,7 +43,7 @@ def update_multiplier_proposal(i,d):
 	l = 2*np.log(d)
 	m = np.exp(l*(u-.5))
 	#print "\n",u,m,"\n"
-	ii = i * m
+ 	ii = i * m
 	U=np.sum(log(m))
 	return ii, U
 
@@ -59,7 +59,7 @@ def update_multiplier_proposal_freq(q,d=1.1,f=0.75):
 	l = 2*np.log(d)
 	m = np.exp(l*(u-.5))
 	m[ff==0] = 1.
-	new_q = q * m
+ 	new_q = q * m
 	U=np.sum(np.log(m))
 	return new_q,U
 
@@ -184,7 +184,7 @@ def calc_likelihood_mQ_eigen_aprx(args):
 	recursive = np.arange(sp_OrigTimeIndex,len(delta_t))[::-1]
 	L = np.zeros((len(recursive)+1,4))
 	L[0,:]=PvDes
-	print(recursive, len(recursive))
+	print recursive, len(recursive)
 	
 	def calc_lik_bin(j,L,t=0):
 		i = recursive[j]
@@ -202,7 +202,7 @@ def calc_likelihood_mQ_eigen_aprx(args):
 		PvDes_temp = L[j,:]
 		condLik_temp= np.dot(PvDes_temp,Pt)
 		PvDes= condLik_temp *rho_vec
-		print(j, rho_vec, list(PvDes), r_vec_list, i) # d.astype(float)
+		print j, rho_vec, list(PvDes), r_vec_list, i # d.astype(float)
 		L[j+1,:]= PvDes
 		return PvDes
 		
@@ -213,7 +213,7 @@ def calc_likelihood_mQ_eigen_aprx(args):
 		r_ind= r_vec_indexes[i]
 		sign=  sign_list[i]
 		rho_vec= np.prod(abs(sign-r_vec[r_ind]),axis=1)
-		print(sign, r_vec[r_ind], rho_vec)
+		print sign, r_vec[r_ind], rho_vec
 		d= exp(w_list[ind_Q]*t) 
 		m1 = np.zeros((4,4))
 		np.fill_diagonal(m1,d)
@@ -223,7 +223,7 @@ def calc_likelihood_mQ_eigen_aprx(args):
 		condLik_temp= np.dot(PvDes_temp,Pt)
 		s_prob =log(exp(.25*4))
 		PvDes= condLik_temp * np.array([0,0,0,s_prob**2])
-		print(j, rho_vec, list(PvDes), r_vec_list, i) # d.astype(float)
+		print j, rho_vec, list(PvDes), r_vec_list, i # d.astype(float)
 		L[j+1,:]= PvDes
 		#quit()
 		return PvDes
@@ -231,7 +231,7 @@ def calc_likelihood_mQ_eigen_aprx(args):
 	
 	
 	
-	print(calc_lik_bin_mod(0,L,t=8))
+	print calc_lik_bin_mod(0,L,t=8)
 	
 	
 	[calc_lik_bin(j,L) for j in range(len(recursive))]	
@@ -265,7 +265,7 @@ def calc_likelihood_mQ(args):
 		
 		#print "temp,",t,PvDes,log(condLik_temp),rho_vec
 	if np.sum(PvDes) <= 0: 
-		print(np.sum(PvDes), list(PvDes))
+		print np.sum(PvDes), list(PvDes)
 	
 	return np.log(np.sum(PvDes))
 

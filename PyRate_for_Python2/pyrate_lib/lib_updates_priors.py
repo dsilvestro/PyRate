@@ -62,7 +62,7 @@ def update_multiplier_proposal(i,d,f=.65):
 	l = 2*log(d)
 	m = exp(l*(u-.5))
 	#print "\n",u,m,"\n"
-	ii = i * m
+ 	ii = i * m
 	U=sum(log(m))
 	return ii, U
 
@@ -73,7 +73,7 @@ def update_multiplier_freq(q,d=1.1,f=0.25):
 	l = 2*log(d)
 	m = exp(l*(u-.5))
 	m[ff==0] = 1.
-	new_q = q * m
+ 	new_q = q * m
 	U=sum(log(m))
 	return new_q,U
 
@@ -105,7 +105,7 @@ def multiplier_normal_proposal_pos_neg_vec(oldL,d1 = 0.3,d2 = 1.2,f=.25):
 		l = 2*log(d2)
 		m = exp(l*(u-.5))
 		m[ff==0] = 1.
-		ii = oldL * m
+	 	ii = oldL * m
 		U=sum(log(m))
 		return ii, U
 
@@ -123,7 +123,7 @@ def multiplier_proposal_pos_neg_vec(i,d):
 		l = 2*log(d)
 		m = exp(l*(u-.5))
 		m = m * ff
-		ii = i * m
+	 	ii = i * m
 		ii[m==0] = i[m==0]
 		return ii, sum(log(m[m>0]))
 

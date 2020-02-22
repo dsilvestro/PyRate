@@ -6,7 +6,7 @@ from scipy.special import gamma
 from scipy.special import beta as f_beta
 import random as rand
 import platform, time
-import multiprocessing, thread
+import multiprocessing, _thread
 import multiprocessing.pool
 import csv
 from scipy.special import gdtr, gdtrix
@@ -15,24 +15,14 @@ import scipy.stats
 np.set_printoptions(suppress=True)
 np.set_printoptions(precision=3)  
 from multiprocessing import Pool, freeze_support
-import thread
-import imp
+import _thread
 
-try: 
-	self_path= os.path.dirname(sys.argv[0])
-	lib_updates_priors = imp.load_source("lib_updates_priors", "%s/pyrate_lib/lib_updates_priors.py" % (self_path))
-	lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
-	lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
-except:
-	self_path=os.getcwd()
-	lib_updates_priors = imp.load_source("lib_updates_priors", "%s/pyrate_lib/lib_updates_priors.py" % (self_path))
-	lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
-	lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
 
-from lib_updates_priors import *
-from lib_DD_likelihood  import *
-from lib_utilities import calcHPD as calcHPD
-from lib_utilities import print_R_vec as print_R_vec
+from pyrate_lib.lib_updates_priors import *
+from pyrate_lib.lib_DD_likelihood  import *
+from pyrate_lib.lib_utilities import calcHPD as calcHPD
+from pyrate_lib.lib_utilities import print_R_vec as print_R_vec
+import pyrate_lib.lib_utilities as lib_utilities
 
 self_path=os.getcwd()
 
@@ -122,11 +112,10 @@ if focus_clade>=0:
 	ts,te=ts[clade_ID==focus_clade],te[clade_ID==focus_clade]	
 
 output_wd = os.path.dirname(dataset)
-if output_wd=="": output_wd= self_path
 name_file = os.path.splitext(os.path.basename(dataset))[0]
 
 if max(args.mSpEx) > -np.inf:
- 	args_mSpEx = args.mSpEx
+	args_mSpEx = args.mSpEx
 else:
 	if args.m== -1: args_mSpEx = [-1,-1]
 	if args.m==  0: args_mSpEx = [0,0]
@@ -223,7 +212,7 @@ if est_start_time:
 	### Get indexes of all events based on times of shift
 	shift_ind_temp_CURVE = np.zeros(len(times_of_T_change_tste)).astype(int)	
 	max_est_start_time = min(max(ts),max(times_of_T_change))
-	print "max allowed start time:",max_est_start_time
+	print("max allowed start time:",max_est_start_time)
 	effect_start_timeA = max_est_start_time*np.random.uniform(0.1,0.9)
 	bins_h_temp = sort([max_times_of_T_change_tste+1,-1] + [effect_start_timeA])
 	# hist gives the number of events within each time bin (between shifts)
@@ -256,14 +245,14 @@ if run_single_slice == 1: # values rescaled between 0 and 1 within the slice
 
 
 if args.verbose is True:
-	print "total branch length:" , sum(ts-te)
-	print "raw range: %s (%s-%s)"       % (max(tempfile[:,1])-min(tempfile[:,1]), max(tempfile[:,1]), min(tempfile[:,1]))
-	print "rescaled range: %s (%s-%s)" % (max(Temp_values)-min(Temp_values), max(Temp_values), min(Temp_values))
-	print "max diversity:", max(Dtraj)
-	print "rescaling factor:", rescale_factor
-	print "\ntime\tvar.value\tdiversity"
+	print("total branch length:" , sum(ts-te))
+	print("raw range: %s (%s-%s)"       % (max(tempfile[:,1])-min(tempfile[:,1]), max(tempfile[:,1]), min(tempfile[:,1])))
+	print("rescaled range: %s (%s-%s)" % (max(Temp_values)-min(Temp_values), max(Temp_values), min(Temp_values)))
+	print("max diversity:", max(Dtraj))
+	print("rescaling factor:", rescale_factor)
+	print("\ntime\tvar.value\tdiversity")
 	for i in range(len(all_events)):
-		print "%s\t%s\t%s" %  (all_events[i],Temp_at_events[i], Dtraj[i,0])
+		print("%s\t%s\t%s" %  (all_events[i],Temp_at_events[i], Dtraj[i,0]))
 
 
 ### INIT PARAMS
@@ -309,7 +298,7 @@ def get_marginal_rates(model,l0,m0,Garray,Temp_at_events,shift_ind,root_age):
 summary_file = args.plot
 if summary_file != "":
 	root_age = max(ts)
-	print "\nParsing log file:", summary_file
+	print("\nParsing log file:", summary_file)
 	t=np.loadtxt(summary_file, skiprows=max(1,int(args.b)))
 	head = next(open(summary_file)).split()
 	
@@ -322,7 +311,7 @@ if summary_file != "":
 	t = t[ t[:,TI_beta_index]==1 ]
 	n_rates = len(L0_index)
 
-	print "\nCalculating marginal rates..."
+	print("\nCalculating marginal rates...")
 	marginal_L= list()
 	marginal_M= list()
 	for j in range(shape(t)[0]):
@@ -357,11 +346,11 @@ if summary_file != "":
 		m_vec[i] = np.median(marginal_M[:,i])
 		hpd_array_L[:,i] = calcHPD(marginal_L[:,i])
 		hpd_array_M[:,i] = calcHPD(marginal_M[:,i])
-	print "done"	
+	print("done")	
 	# write R file
-	print "\ngenerating R file...",
+	print("\ngenerating R file...", end=' ')
 	out="%s/%s_%s_%s_%sSp%sEx_RTT.r" % (output_wd,name_file,head_cov_file[1],rep_j,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]])
-	newfile = open(out, "wb") 	
+	newfile = open(out, "w")	
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
 		wd_forward = os.path.abspath(output_wd).replace('\\', '/')
 		r_script= "\n\npdf(file='%s/%s_%s_%s_%sSp%sEx_RTT.pdf',width=0.6*20, height=0.6*20)\nlibrary(scales)\n" % (wd_forward,name_file,head_cov_file[1],rep_j,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]])
@@ -392,13 +381,13 @@ if summary_file != "":
 	r_script+="n<-dev.off()"
 	newfile.writelines(r_script)
 	newfile.close()
-	print "\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, output_wd)
+	print("\nAn R script with the source for the RTT plot was saved as: %sRTT.r\n(in %s)" % (name_file, output_wd))
 	if platform.system() == "Windows" or platform.system() == "Microsoft":
 		cmd="cd %s & Rscript %s_%s_%s_%sSp%sEx_RTT.r" % (output_wd,name_file,head_cov_file[1],rep_j,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]])
 	else: 
 		cmd="cd %s; Rscript %s/%s_%s_%s_%sSp%sEx_RTT.r" % (output_wd,output_wd,name_file,head_cov_file[1],rep_j,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]])
 	os.system(cmd)
-	print "done\n"
+	print("done\n")
 	
 	sys.exit("\n")
 
@@ -418,15 +407,20 @@ if useHP==1: add_use_hp ="_HP"
 else: add_use_hp =""
 	
 
-
-out_file_name="%s/%s_%s_%s_%s%sSp_%sEx%s%s%s.log" % \
-(output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],rep_j,s_times_str,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]],add_equal_g,add_equal_r,add_use_hp)
+if output_wd=="":
+	out_file_name="%s_%s_%s_%s%sSp_%sEx%s%s%s.log" % \
+	(os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],rep_j, 
+	s_times_str,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]],add_equal_g,add_equal_r,add_use_hp)
+else:
+	out_file_name="%s/%s_%s_%s_%s%sSp_%sEx%s%s%s.log" % \
+	(output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],rep_j,  
+	s_times_str,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]],add_equal_g,add_equal_r,add_use_hp)
 
 
 
 	
 	
-logfile = open(out_file_name , "wb") 
+logfile = open(out_file_name , "w") 
 wlog=csv.writer(logfile, delimiter='\t')
 
 head="it\tposterior\tlikelihood\tprior" 
@@ -485,7 +479,7 @@ freq_update_rate = 1./len(l0A)
 for iteration in range(mcmc_gen * len(scal_fac_TI)):	
 	
 	if (iteration+1) % (mcmc_gen+1) ==0: 
-		print iteration, mcmc_gen  
+		print(iteration, mcmc_gen)  
 		scal_fac_ind+=1
 	
 	hasting=0
@@ -510,7 +504,7 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 			if equal_r==0:
 				if rr[1]>.5: 
 					l0,U=update_multiplier_freq(l0A,d=d1,f=freq_update_rate)
-				else: 	
+				else:	
 					m0,U=update_multiplier_freq(m0A,d=d1,f=freq_update_rate)
 			else:
 				if rr[1]>.5:
@@ -617,7 +611,7 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 	
 	# Check likelihoods  
 	#__ if iteration % 100 ==0:
-	#__ 	print round(lik - sum(lik_p), 8)
+	#__	print round(lik - sum(lik_p), 8)
 	lik=sum(lik_p)
 	
 	lik_alter = lik * scal_fac_TI[scal_fac_ind]
@@ -643,9 +637,9 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 		GarrayA=Garray
 		if est_start_time: effect_start_timeA=effect_start_time
 	if iteration % print_freq ==0: 
-		print iteration, array([postA, likA,lik,prior]), hasting, scal_fac_TI[scal_fac_ind]
-		print "l:",l0A, "\nm:", m0A, "\nG:", GarrayA.flatten()
-		if est_start_time: print "start.time:", effect_start_timeA, max_times_of_T_change_tste,"\n"
+		print(iteration, array([postA, likA,lik,prior]), hasting, scal_fac_TI[scal_fac_ind])
+		print("l:",l0A, "\nm:", m0A, "\nG:", GarrayA.flatten())
+		if est_start_time: print("start.time:", effect_start_timeA, max_times_of_T_change_tste,"\n")
 	if iteration % sampling_freq ==0:
 		if equal_g==0:
 			g_vec_write = list(GarrayA.flatten())

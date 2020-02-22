@@ -5,11 +5,9 @@ case "${unameOut}" in
     Linux*)     machine=Linux; folder=Other;;
     Darwin*)    machine=Mac; folder=macOS;;
     CYGWIN*)    machine=Windows; folder=Windows;;
-    MINGW*)     machine=Windows; folder=Windows;;
+    MINGW*)     machine=Windows;  folder=Windows;;
     *)          machine="UNKNOWN"
 esac
-
-echo ${folder}
 
 if [ ${machine} == "UNKNOWN" ]; then
   echo "This type of OS is not supported. Follow the manual installation instructions."
@@ -42,8 +40,8 @@ echo ""
 
 # Prepare swig interface
 echo "############################"
-echo "Preparing the python interface"
-swig -c++ -python -py3 FastPyRateC.i
+echo "Preparing the Python interface"
+swig -c++ -python FastPyRateC.i
 echo "> done"
 echo "############################"
 echo ""
@@ -52,11 +50,8 @@ echo ""
 
 # Compiling the c++ code
 echo "############################"
-echo "Compiling the c++ code and installing the library"
-python3 setup.py install --install-purelib=../${folder} --install-platlib=../${folder}
-myLibPath=`ls build/lib*/*.so`
-myLibName=`basename ${myLibPath}`
-echo $myLibName
+echo "Compiling the c++ code"
+python setup.py build
 echo "> done"
 echo "############################"
 echo ""
@@ -65,7 +60,9 @@ echo ""
 
 # Moving the library
 echo "############################"
-echo "Cleaning up."
+echo "Installing the library and cleaning up."
+mkdir -p "../${folder}/"
+mv build/*/_FastPyRateC.so ../${folder}/.
 
 # Cleanup
 rm FastPyRateC.py
@@ -79,9 +76,10 @@ echo ""
 
 
 # Checking status
-if [ -f "../${folder}/${myLibName}" ]; then
 
-  echo " >> Successful installation of FastPyRateC (lib:${myLibName})."
+if [ -f "../${folder}/_FastPyRateC.so" ]; then
+
+  echo " >> Successful installation of FastPyRateC."
 
 else
 
