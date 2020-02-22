@@ -4,7 +4,7 @@
 
 ---
 **The latest version of PyRate uses Python v.3.** 
-To upgrade Python visit: [https://www.python.org/downloads/](https://www.python.org/downloads/). Older versions of PyRate for Python v.2 are available [here](https://github.com/dsilvestro/PyRate/tree/master/PyRate_for_python2).
+To upgrade Python visit: [https://www.python.org/downloads/](https://www.python.org/downloads/). Older versions of PyRate for Python v.2 are available [here](https://github.com/dsilvestro/PyRate/tree/master/PyRate_for_Python2).
 
 ---
 
