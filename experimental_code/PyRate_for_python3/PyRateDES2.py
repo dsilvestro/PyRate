@@ -152,6 +152,9 @@ equal_e = args.syme
 equal_q = args.symq
 constraints_covar = np.array(args.constr)
 constraints_covar_true = len(constraints_covar) > 0
+if constraints_covar_true:
+	constraints_01 = any(np.isin(constraints_covar, np.array([0, 1])))
+	constraints_23 = any(np.isin(constraints_covar, np.array([2, 3])))
 const_q = args.constq
 if args.cov_and_dispersal:
 	model_DUO= 1
@@ -1023,7 +1026,7 @@ def lik_opt(x, grad):
 	if args.data_in_area == 1:
 		r_vec[:,1] = x[opt_ind_r_vec]
 		r_vec[:,2] = small_number
-	elif  args.data_in_area == 2:
+	elif args.data_in_area == 2:
 		r_vec[:,1] = small_number
 		r_vec[:,2] = x[opt_ind_r_vec]
 	else:
@@ -1034,6 +1037,18 @@ def lik_opt(x, grad):
 		dis_vec[:,1] = x[opt_ind_dis]
 	elif args.data_in_area == 2:
 		dis_vec[:,0] = x[opt_ind_dis]
+	elif constraints_01 and args.TdD:
+		constraints_01_which = constraints_covar[constraints_covar < 2]
+		# Both dispersal rates could be constant!
+		if sum(constraints_01_which) == 0 and len(constraints_01_which) == 1:
+			dis_vec[:,0] = np.array(x[opt_ind_dis[0]])
+			dis_vec[:,1] = np.array(x[opt_ind_dis[1:]])
+		elif sum(constraints_01_which) == 1 and len(constraints_01_which) == 1:
+			dis_vec[:,0] = np.array(x[opt_ind_dis[:-1]])
+			dis_vec[:,1] = np.array(x[opt_ind_dis[-1]])
+		else:
+			dis_vec[:,0] = np.array(x[opt_ind_dis[0]])
+			dis_vec[:,1] = np.array(x[opt_ind_dis[1]])
 	else:
 		dis_vec = np.array(x[opt_ind_dis]).reshape(n_Q_times_dis,nareas)
 		
@@ -1058,6 +1073,17 @@ def lik_opt(x, grad):
 		ext_vec[:,0] = x[opt_ind_ext]
 	elif args.data_in_area == 2:
 		ext_vec[:,1] = x[opt_ind_ext]
+	elif constraints_23 and args.TdE:
+		constraints_23_which = constraints_covar[constraints_covar >= 2]
+		if sum(constraints_23_which) == 2 and len(constraints_23_which) == 1:
+			ext_vec[:,0] = np.array(x[opt_ind_ext[0]])
+			ext_vec[:,1] = np.array(x[opt_ind_ext[1:]])
+		elif sum(constraints_23_which) == 3 and len(constraints_23_which) == 1:
+			ext_vec[:,0] = np.array(x[opt_ind_ext[:-1]])
+			ext_vec[:,1] = np.array(x[opt_ind_ext[-1]])
+		else:
+			ext_vec[:,0] = np.array(x[opt_ind_ext[0]])
+			ext_vec[:,1] = np.array(x[opt_ind_ext[1]])
 	else:
 		ext_vec = np.array(x[opt_ind_ext]).reshape(n_Q_times_ext,nareas)
 	if args.TdE:
@@ -1146,6 +1172,11 @@ if args.A == 3:
 		opt_ind_dis = np.repeat(np.arange(0, n_Q_times_dis), 2)
 	if args.data_in_area != 0:
 		opt_ind_dis = np.arange(0, n_Q_times_dis)
+	if args.TdD is True and constraints_01: 
+		if len(constraints_covar[constraints_covar < 2]) == 1:
+			opt_ind_dis = np.arange(0, n_Q_times_dis + 1)
+		else:
+			opt_ind_dis = np.arange(0, nareas)
 	
 	if args.TdE is True:
 		n_Q_times_ext = n_Q_times
@@ -1156,6 +1187,11 @@ if args.A == 3:
 		opt_ind_ext = np.max(opt_ind_dis) + 1 + np.repeat(np.arange(0, n_Q_times_ext), 2)
 	if args.data_in_area != 0:
 		opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, n_Q_times_ext)
+	if args.TdE is True and constraints_23: 
+		if len(constraints_covar[constraints_covar >= 2]) == 1:
+			opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, n_Q_times_ext + 1)
+		else:
+			opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, nareas)
 			
 	opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, n_Q_times*nareas)
 	if equal_q is True:
@@ -1199,7 +1235,7 @@ if args.A == 3:
 			x0 = np.concatenate((x0, 0., 0.), axis = None)
 			lower_bounds = lower_bounds + [-bound_covar_d] + [-bound_covar_d]
 			upper_bounds = upper_bounds + [bound_covar_d] + [bound_covar_d]
-		if 1 in args.symCov or args.data_in_area != 0 or np.isin(constraints_covar, 0):
+		if 1 in args.symCov or args.data_in_area != 0 or constraints_01:
 			opt_ind_covar_dis = opt_ind_covar_dis[0:-1]
 			ind_counter = ind_counter - 1
 			x0 = x0[0:-1]
@@ -1211,7 +1247,7 @@ if args.A == 3:
 			x0 = np.concatenate((x0, np.mean(time_varD), np.mean(time_varD)), axis = None)
 			lower_bounds = lower_bounds + [np.min(time_varD).tolist()] + [np.min(time_varD).tolist()]
 			upper_bounds = upper_bounds + [np.max(time_varD).tolist()] + [np.max(time_varD).tolist()]
-			if 1 in args.symCov or args.data_in_area != 0 or np.isin(constraints_covar, 1):
+			if 1 in args.symCov or args.data_in_area != 0 or constraints_01:
 				opt_ind_x0_log_dis = opt_ind_x0_log_dis[0:-1]
 				ind_counter = ind_counter - 1
 				x0 = x0[0:-1]
@@ -1233,7 +1269,7 @@ if args.A == 3:
 			x0 = np.concatenate((x0, 0., 0.), axis = None)
 			lower_bounds = lower_bounds + [-bound_covar_e] + [-bound_covar_e]
 			upper_bounds = upper_bounds + [bound_covar_e] + [bound_covar_e]
-		if 3 in args.symCov or args.data_in_area != 0 or np.isin(constraints_covar, 1):
+		if 3 in args.symCov or args.data_in_area != 0 or constraints_23:
 			opt_ind_covar_ext = opt_ind_covar_ext[0:-1]
 			ind_counter = ind_counter - 1
 			x0 = x0[0:-1]
@@ -1245,7 +1281,7 @@ if args.A == 3:
 			x0 = np.concatenate((x0, np.mean(time_varE), np.mean(time_varE)), axis = None)
 			lower_bounds = lower_bounds + [np.min(time_varE).tolist()] + [np.min(time_varE).tolist()]
 			upper_bounds = upper_bounds + [np.max(time_varE).tolist()] + [np.max(time_varE).tolist()]
-			if 3 in args.symCov or args.data_in_area != 0 or np.isin(constraints_covar, 2):
+			if 3 in args.symCov or args.data_in_area != 0 or constraints_23:
 				opt_ind_x0_log_ext = opt_ind_x0_log_ext[0:-1]
 				ind_counter = ind_counter - 1
 				x0 = x0[0:-1]
@@ -1267,8 +1303,20 @@ if args.A == 3:
 	dis_rate_vec = np.zeros((n_Q_times_dis,nareas))
 	if args.data_in_area == 1:
 		dis_rate_vec[:,1] = x[opt_ind_dis]
-	elif  args.data_in_area == 2:
+	elif args.data_in_area == 2:
 		dis_rate_vec[:,0] = x[opt_ind_dis]
+	elif constraints_01 and args.TdD:
+		constraints_01_which = constraints_covar[constraints_covar<2]
+		# Both dispersal rates could be constant!
+		if sum(constraints_01_which) == 0 and len(constraints_01_which) == 1:
+			dis_rate_vec[:,0] = np.array(x[opt_ind_dis[0]])
+			dis_rate_vec[:,1] = np.array(x[opt_ind_dis[1:]]) 
+		elif sum(constraints_01_which) == 1 and len(constraints_01_which) == 1:
+			dis_rate_vec[:,0] = np.array(x[opt_ind_dis[:-1]])
+			dis_rate_vec[:,1] = np.array(x[opt_ind_dis[-1]])
+		else:
+			dis_rate_vec[:,0] = np.array(x[opt_ind_dis[0]])
+			dis_rate_vec[:,1] = np.array(x[opt_ind_dis[1]])
 	else:
 		dis_rate_vec = np.array(x[opt_ind_dis]).reshape(n_Q_times_dis,nareas)
 		
@@ -1277,6 +1325,17 @@ if args.A == 3:
 		ext_rate_vec[:,0] = x[opt_ind_ext]
 	elif  args.data_in_area == 2:
 		ext_rate_vec[:,1] = x[opt_ind_ext]
+	elif constraints_23 and args.TdE:
+		constraints_23_which = constraints_covar[constraints_covar >= 2]
+		if sum(constraints_23_which) == 2 and len(constraints_23_which) == 1:
+			ext_rate_vec[:,0] = np.array(x[opt_ind_ext[0]])
+			ext_rate_vec[:,1] = np.array(x[opt_ind_ext[1:]])
+		elif sum(constraints_23_which) == 3 and len(constraints_23_which) == 1:
+			ext_rate_vec[:,0] = np.array(x[opt_ind_ext[:-1]])
+			ext_rate_vec[:,1] = np.array(x[opt_ind_ext[-1]])
+		else:
+			ext_rate_vec[:,0] = np.array(x[opt_ind_ext[0]])
+			ext_rate_vec[:,1] = np.array(x[opt_ind_ext[1]])
 	else:
 		ext_rate_vec = np.array(x[opt_ind_ext]).reshape(n_Q_times_ext,nareas)
 		
