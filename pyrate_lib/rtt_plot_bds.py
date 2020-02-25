@@ -211,7 +211,7 @@ def calcBF(threshold,empirical_prior):
 	return A/(A+1)
 
 
-def get_prior_shift(t_start,t_end,bins_histogram):
+def get_prior_shift(t_start,t_end,bins_histogram,n_reps):
 	times_of_shift = []
 	sampled_K = []
 	# Gamma hyper-prior
@@ -220,7 +220,7 @@ def get_prior_shift(t_start,t_end,bins_histogram):
 	min_time_frame_size = 1
 	iteration=0.
 	print("Computing empirical priors on rate shifts...")
-	for rep in range(100000):
+	for rep in range(n_reps):
 		if rep % 10000 ==0:
 			sys.stdout.write(".")
 			sys.stdout.flush()	
@@ -300,7 +300,7 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 	n_mcmc_samples = len(post_rate)-burnin # number of samples used to normalize frequencies of rate shifts
 	return [time_frames,mean_rates,np.array(min_rates),np.array(max_rates),np.array(times_of_shift),n_mcmc_samples, marginal_rates_list]
 
-def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulation=1, plot_shifts=1, line_wd=2):
+def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulation=1, plot_shifts=1, line_wd=2, n_reps=100000):
 	
 	times = res[0]
 	rates = res[1][::-1]
@@ -350,7 +350,7 @@ def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulat
 		    % (-max_age,-min_age,max(max(h[0]/float(res[5])),0.2),col)
 		# get BFs
 		if run_simulation==1:
-			BFs = get_prior_shift(min_age,max_age,bins_histogram)
+			BFs = get_prior_shift(min_age,max_age,bins_histogram,n_reps)
 			out_str += "\nbf2 = %s\nbf6 = %s" % (BFs[1],BFs[2])
 		out_str += "\nabline(h=bf2, lty=2)"
 		out_str += "\nabline(h=bf6, lty=2)"
@@ -401,7 +401,7 @@ def plot_net_rate(resS,resE,col,min_age,max_age,plot_title,n_bins):
 	return out_str
 
 
-def plot_marginal_rates(path_dir,name_tag="",bin_size=0.,burnin=0.2,min_age=0,max_age=0,logT=0):
+def plot_marginal_rates(path_dir,name_tag="",bin_size=0.,burnin=0.2,min_age=0,max_age=0,logT=0,n_reps=100000):
 	direct="%s/*%s*mcmc.log" % (path_dir,name_tag)
 	files=glob.glob(direct)
 	files=np.sort(files)
@@ -419,27 +419,25 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=0.,burnin=0.2,min_age=0,ma
 	else:
 		r_str = "\n\npdf(file='%s/%sRTT_plots.pdf',width=10, height=15)\npar(mfrow=c(3,2))\nlibrary(scales)" % (wd,outname)
 	for mcmc_file in files:
-		if 2>1: #try:
-			name_file = os.path.splitext(os.path.basename(mcmc_file))[0]		
-			tbl=np.loadtxt(mcmc_file, skiprows=1)
+		name_file = os.path.splitext(os.path.basename(mcmc_file))[0]		
+		tbl=np.loadtxt(mcmc_file, skiprows=1)
+		if np.size(tbl)>0: # skip empty files
 			head = next(open(mcmc_file)).split() 
 			max_age_t = np.min(tbl[:,head.index("root_age")])
 			min_age_t = np.max(tbl[:,head.index("death_age")])
-			print("\nAge range:",max_age_t, min_age_t)
+			print("\nAge range:",max_age_t, min_age_t, "Bin size:", np.round(bin_size,3))
 			if max_age==0: max_age=max_age_t
-			print(bin_size) 
 			if bin_size>0:
 				nbins = int((max_age_t-min_age_t)/float(bin_size))
 			else:
 				nbins = 100
 				bin_size = (min(max_age,max_age_t)-max(min_age_t,min_age))/100.
-			print(bin_size, nbins)
 			colors = ["#4c4cec","#e34a33","#504A4B","#756bb1"] # sp and ex rate and net div rate
 			# sp file
 			f_name = mcmc_file.replace("mcmc.log","sp_rates.log")
 			resS = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin)
 			fig_title = "Speciation (%s)" % ( name_file)
-			r_str += get_r_plot(resS,col=colors[0],parameter="Speciation rate",min_age=max(min_age_t,min_age),max_age=min(max_age,max_age_t),plot_title=fig_title,plot_log=logT,run_simulation=1)
+			r_str += get_r_plot(resS,col=colors[0],parameter="Speciation rate",min_age=max(min_age_t,min_age),max_age=min(max_age,max_age_t),plot_title=fig_title,plot_log=logT,run_simulation=1,n_reps=n_reps)
 			# ex file
 			f_name = mcmc_file.replace("mcmc.log","ex_rates.log")
 			resE = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin)
@@ -449,9 +447,9 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=0.,burnin=0.2,min_age=0,ma
 			# longevity
 			lon_avg = 1./np.mean(resE[6],axis=0)	
 			r_str += get_r_plot([resE[0],lon_avg,lon_avg,lon_avg,0],col=colors[3],parameter="Mean longevity",min_age=max(min_age_t,min_age),max_age=min(max_age,max_age_t),plot_title="Longevity",plot_log=logT,run_simulation=0,plot_shifts=0,line_wd=4)
+		else: 
+			print("Could not read file:", mcmc_file)
 			
-		#except:
-		#	print "Could not read file:", mcmc_file
 	r_str += "\n\nn <- dev.off()"
 	out="%s/%sRTT_plots.r" % (wd,outname)
 	outfile = open(out, "w") 
