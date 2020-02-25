@@ -5,7 +5,7 @@ import random as rand
 import warnings, importlib
 
 version= "PyRate"
-build  = "v3.0 - 20200222"
+build  = "v3.0 - 20200225"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
@@ -32,7 +32,7 @@ try:
 	from numpy import *
 	import numpy as np
 except(ImportError):
-	sys.exit("\nError: numpy library not found.\nYou can install numpy using: 'pip3 intall numpy'\n")
+	sys.exit("\nError: numpy library not found.\nYou can install numpy using: 'pip install numpy'\n")
 
 try:
 	import scipy
@@ -43,7 +43,7 @@ try:
 	import scipy.stats
 	from scipy.optimize import fmin_powell as Fopt1
 except(ImportError):
-	sys.exit("\nError: scipy library not found.\nYou can install scipy using: 'pip3 intall scipy'\n")
+	sys.exit("\nError: scipy library not found.\nYou can install scipy using: 'pip install scipy'\n")
 
 try:
 	import multiprocessing, _thread
@@ -95,19 +95,30 @@ def get_self_path():
 
 # Search for the module
 hasFoundPyRateC = 0
+
 try:
-	self_path = get_self_path()
-	if platform.system()=="Darwin": os_spec_lib="macOS"
-	elif platform.system() == "Windows" or platform.system() == "Microsoft": os_spec_lib="Windows"
-	else: os_spec_lib = "Other"
+	if platform.system()=="Darwin": 
+		os_spec_lib="macOS"
+		from pyrate_lib.fastPyRateC.macOS._FastPyRateC import PyRateC_BD_partial_lik, PyRateC_HOMPP_lik, PyRateC_setFossils, \
+							   PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
+														 PyRateC_NHPP_lik, PyRateC_FBD_T4
+		
+	elif platform.system() == "Windows" or platform.system() == "Microsoft": 
+		os_spec_lib="Windows"
+		from pyrate_lib.fastPyRateC.Windows._FastPyRateC import PyRateC_BD_partial_lik, PyRateC_HOMPP_lik, PyRateC_setFossils, \
+							   PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
+														 PyRateC_NHPP_lik, PyRateC_FBD_T4
+	else: 
+		os_spec_lib = "Other"
+		from pyrate_lib.fastPyRateC.Other._FastPyRateC import PyRateC_BD_partial_lik, PyRateC_HOMPP_lik, PyRateC_setFossils, \
+							   PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
+														 PyRateC_NHPP_lik, PyRateC_FBD_T4
 
-	c_lib_path = "pyrate_lib/fastPyRateC/%s" % (os_spec_lib)
-	sys.path.append(os.path.join(self_path,c_lib_path))
+	#c_lib_path = "pyrate_lib/fastPyRateC/%s" % (os_spec_lib)
+	#sys.path.append(os.path.join(self_path,c_lib_path))
 	#print self_path, sys.path
+	#import pyrate_lib.fastPyRateC.macOS._FastPyRateC
 
-	from _FastPyRateC import PyRateC_BD_partial_lik, PyRateC_HOMPP_lik, PyRateC_setFossils, \
-						   PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
-													 PyRateC_NHPP_lik, PyRateC_FBD_T4
 	hasFoundPyRateC = 1
 	print("Module FastPyRateC was loaded.")
 	# Set that to true to enable sanity check (comparing python and c++ results)
@@ -3572,6 +3583,7 @@ p.add_argument('-plot',	   metavar='<input file>', type=str,help="RTT plot (type
 p.add_argument('-plot2',	  metavar='<input file>', type=str,help="RTT plot (type 2): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
 p.add_argument('-plot3',	  metavar='<input file>', type=str,help="RTT plot for fixed number of shifts: provide 'mcmc.log' file",default="")
 p.add_argument('-plotRJ',	 metavar='<input file>', type=str,help="RTT plot for runs with '-log_marginal_rates 0': provide path to 'mcmc.log' files",default="")
+p.add_argument('-n_prior',	 type=int,help="n. samples from the prior to compute Bayes factors",default=100000)
 p.add_argument('-plotQ',	  metavar='<input file>', type=str,help="Plot preservation rates through time: provide 'mcmc.log' file and '-qShift' argument ",default="")
 p.add_argument('-grid_plot',  type=float, help='Plot resolution in Myr (only for plot3 and plotRJ commands). If set to 0: 100 equal time bins', default=0, metavar=0)
 p.add_argument('-root_plot',  type=float, help='User-defined root age for RTT plots', default=0, metavar=0)
@@ -3933,7 +3945,8 @@ if path_dir_log_files != "":
 			if grid_plot==0: grid_plot=1
 			rtt_plot_bds.RTTplot_high_res(path_dir_log_files,grid_plot,int(burnin),root_plot)
 		elif plot_type==4:
-			rtt_plot_bds = rtt_plot_bds.plot_marginal_rates(path_dir_log_files,name_tag=file_stem,bin_size=grid_plot,burnin=burnin,min_age=args.min_age_plot,max_age=root_plot,logT=args.logT)
+			rtt_plot_bds = rtt_plot_bds.plot_marginal_rates(path_dir_log_files,name_tag=file_stem,bin_size=grid_plot,
+					burnin=burnin,min_age=args.min_age_plot,max_age=root_plot,logT=args.logT,n_reps=args.n_prior)
 		elif plot_type== 5:
 			rtt_plot_bds = rtt_plot_bds.RTTplot_Q(path_dir_log_files,args.qShift,burnin=burnin,max_age=root_plot)
 		#except: sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
