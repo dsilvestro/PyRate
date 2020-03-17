@@ -2444,10 +2444,23 @@ def remove_shift_RJ_weighted_mean(rates,times):
 	return rates_prime,times_prime,log_q_prob+Jacobian
 
 def RJMCMC(arg):
-	[L,M, timesL, timesM]=arg
+	[L,M, timesL, timesM,maxFA,minLA]=arg
 	r=np.random.random(3)
-	newL,newtimesL,log_q_probL = L,timesL,0
-	newM,newtimesM,log_q_probM = M,timesM,0
+	newL,log_q_probL = L,0
+	newM,log_q_probM = M,0
+	
+	timesL_init = timesL + 0
+	timesM_init = timesM + 0
+	timesL = timesL + 0
+	timesM = timesM + 0
+	timesL[0] = maxFA
+	timesM[0] = maxFA
+	timesL[len(timesL)-1] = minLA
+	timesM[len(timesM)-1] = minLA	
+	newtimesL = timesL
+	newtimesM = timesM
+	
+	
 
 	if r[0]>sample_shift_mu:
 		# ADD/REMOVE SHIFT LAMBDA
@@ -2475,7 +2488,12 @@ def RJMCMC(arg):
 				newM,newtimesM,log_q_probM = remove_shift_RJ(M,timesM)
 			elif len(M)>2:
 				newM,newtimesM,log_q_probM = remove_DoubleShift_RJ_rand_gamma(M,timesM)
-
+	
+	newtimesL[0] = timesL_init[0]
+	newtimesM[0] = timesM_init[0]
+	newtimesL[len(newtimesL)-1] = timesL_init[len(timesL_init)-1]
+	newtimesM[len(newtimesM)-1] = timesM_init[len(timesM_init)-1]
+	#print(newtimesL, timesL_init, maxFA,minLA)
 	return newL,newtimesL,newM,newtimesM,log_q_probL+log_q_probM
 
 def get_post_rj_HP(xl,xm):
@@ -2639,6 +2657,12 @@ def MCMC(all_arg):
 	[it,n_proc, I,sample_freq, print_freq, temperatures, burnin, marginal_frames, arg]=all_arg
 	if it==0: # initialize chain
 		print("initializing chain...")
+		if fix_SE == 1:
+			maxFA,minLA = np.max(fixed_ts), np.min(fixed_te)
+		else: 
+			maxFA,minLA = np.max(FA), np.min(LO)
+		
+		
 		if fix_SE == 1: tsA, teA = fixed_ts, fixed_te
 		elif FBDrange==0: tsA, teA = init_ts_te(FA,LO)
 		else:
@@ -2652,8 +2676,9 @@ def MCMC(all_arg):
 			tsA[tsA<FA]=FA[tsA<FA]+1
 			teA[teA>LO]=LO[teA>LO]-1
 			teA[teA<0]=teA_temp[teA<0]
-		maxTSA = max(tsA)
-		timesLA, timesMA = init_times(maxTSA,time_framesL,time_framesM, min(teA))
+		maxTSA = np.max(tsA)
+		
+		timesLA, timesMA = init_times(maxTSA,time_framesL,time_framesM, np.min(teA))
 		if len(fixed_times_of_shift)>0: timesLA[1:-1],timesMA[1:-1]=fixed_times_of_shift,fixed_times_of_shift
 		if fix_edgeShift > 0:
 			print(edgeShifts,fix_edgeShift)
@@ -2731,7 +2756,7 @@ def MCMC(all_arg):
 
 		if argsG == 0 and TPP_model == 0: q_ratesA[0]=1
 		if argsG == 1 and TPP_model == 1 and restore_chain == 1: alpha_pp_gammaA=restore_init_values[6]
-		SA=sum(tsA-teA)
+		SA=np.sum(tsA-teA)
 		W_shapeA=1.
 
 		if analyze_tree >=1:
@@ -2746,7 +2771,7 @@ def MCMC(all_arg):
 
 	else: # restore values
 		[itt, n_proc_,PostA, likA, priorA,tsA,teA,timesLA,timesMA,LA,MA,q_ratesA, cov_parA, lik_fossilA,likBDtempA]=arg
-		SA=sum(tsA-teA)
+		SA=np.sum(tsA-teA)
 
 	# start threads
 	if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
@@ -2802,11 +2827,11 @@ def MCMC(all_arg):
 
 		if it>0 and (it-burnin) % (I_effective/len(temperatures)) == 0 and it>burnin or it==I-1: rr=1.5 # no updates when changing temp
 
-		q_rates=zeros(len(q_ratesA))
+		q_rates=np.zeros(len(q_ratesA))
 		alpha_pp_gamma=alpha_pp_gammaA
-		cov_par=zeros(3)
-		L,M=zeros(len(LA)),zeros(len(MA))
-		tot_L=sum(tsA-teA)
+		cov_par=np.zeros(3)
+		L,M = np.zeros(len(LA)),np.zeros(len(MA))
+		tot_L = np.sum(tsA-teA)
 		hasting=0
 
 		# autotuning
@@ -2821,7 +2846,7 @@ def MCMC(all_arg):
 			move_type = 1
 			ts,te=update_ts_te(tsA,teA,mod_d1)
 			if use_gibbs_se_sampling or it < fast_burnin:
-				if sum(timesL[1:-1])==sum(times_q_shift):
+				if sum(timesL[1:-1])==np.sum(times_q_shift):
 					ts,te = gibbs_update_ts_te(q_ratesA+LA,q_ratesA+MA,np.sort(np.array([np.inf,0]+times_q_shift))[::-1])
 				else:
 					times_q_temp = np.sort(np.array([np.inf,0]+times_q_shift))[::-1]
@@ -2837,7 +2862,7 @@ def MCMC(all_arg):
 						q_rates_temp_M = q_rates_temp + MA[np.digitize(q_temp_time,timesMA[1:])]
 					ts,te = gibbs_update_ts_te(q_rates_temp_L,q_rates_temp_M,times_q_temp)
 
-			tot_L=sum(ts-te)
+			tot_L=np.sum(ts-te)
 		elif rr<f_update_q: # q/alpha
 			move_type = 2
 			q_rates=np.zeros(len(q_ratesA))+q_ratesA
@@ -2866,10 +2891,8 @@ def MCMC(all_arg):
 						timesM=update_times(timesMA,max(ts),edgeShifts[0],mod_d4,1,len(timesM)-2)
 
 				else:
-					maxTS = max(ts)
-					minTE = min(te)
-					timesL=update_times(timesLA, maxTS,minTE,mod_d4,1,len(timesL))
-					timesM=update_times(timesMA, maxTS,minTE,mod_d4,1,len(timesM))
+					timesL=update_times(timesLA, maxFA,minLA,mod_d4,1,len(timesL))
+					timesM=update_times(timesMA, maxFA,minLA,mod_d4,1,len(timesM))
 			else:
 				move_type = 4
 				if TDI<2: #
@@ -2901,7 +2924,7 @@ def MCMC(all_arg):
 		L[(L==0).nonzero()]=LA[(L==0).nonzero()]
 		M[(M==0).nonzero()]=MA[(M==0).nonzero()]
 		cov_par[(cov_par==0).nonzero()]=cov_parA[(cov_par==0).nonzero()]
-		max_ts = max(ts)
+		max_ts = np.max(ts)
 		timesL[0]=max_ts
 		timesM[0]=max_ts
 		if fix_SE == 0:
@@ -2951,7 +2974,7 @@ def MCMC(all_arg):
 								i=ind1[j] # which species' lik
 								lik_fossil2[i] = HPP_vec_lik([te[i],ts[i],q_time_frames,q_rates,i,alpha_pp_gamma])
 
-							absDivergence = abs(sum(lik_fossil2) - sum(lik_fossil))
+							absDivergence = abs(np.sum(lik_fossil2) - np.sum(lik_fossil))
 							if absDivergence > sanityCheckThreshold:
 								print("[WARNING] HPP_vec_lik diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")")
 
@@ -2969,7 +2992,7 @@ def MCMC(all_arg):
 								i=ind1[j] # which species' lik
 								lik_fossil2[i] = HOMPP_lik(args[j])
 
-							absDivergence = abs(sum(lik_fossil2) - sum(lik_fossil))
+							absDivergence = abs(np.sum(lik_fossil2) - np.sum(lik_fossil))
 							if absDivergence > sanityCheckThreshold:
 								print("[WARNING] PyRateC_HOMPP_lik diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")")
 
@@ -2987,7 +3010,7 @@ def MCMC(all_arg):
 								if argsG == 1: lik_fossil2[i] = NHPPgamma(args[j])
 								else: lik_fossil2[i] = NHPP_lik(args[j])
 
-							absDivergence = abs(sum(lik_fossil2) - sum(lik_fossil))
+							absDivergence = abs(np.sum(lik_fossil2) - np.sum(lik_fossil))
 							if absDivergence > sanityCheckThreshold:
 								print("[WARNING] PyRateC_NHPP_lik diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")")
 
@@ -3018,7 +3041,7 @@ def MCMC(all_arg):
 				stop_update=inf
 			elif np.random.random()< 0.3 and TDI==4:
 				stop_update=0
-				L,timesL,M,timesM,hasting2 = RJMCMC([LA,MA, timesLA, timesMA])
+				L,timesL,M,timesM,hasting2 = RJMCMC([LA,MA, timesLA, timesMA, maxFA,minLA])
 				hasting += hasting2
 				move_type=0
 
@@ -3066,12 +3089,12 @@ def MCMC(all_arg):
 		# pert_prior defines gamma prior on q_rates[1] - fossilization rate
 		if TPP_model == 1:
 			if pert_prior[1]>0:
-				prior = sum(prior_gamma(q_rates,pert_prior[0],pert_prior[1]))+ prior_uniform(alpha_pp_gamma,0,20)
+				prior = np.sum(prior_gamma(q_rates,pert_prior[0],pert_prior[1]))+ prior_uniform(alpha_pp_gamma,0,20)
 			else: # use hyperprior on Gamma rate on q
 				hpGammaQ_shape = 1.01 # hyperprior is essentially flat
 				hpGammaQ_rate =  0.1
-				post_rate_prm_Gq = np.random.gamma( shape=hpGammaQ_shape+pert_prior[0]*len(q_rates), scale=1./(hpGammaQ_rate+sum(q_rates)) )
-				prior = sum(prior_gamma(q_rates,pert_prior[0],post_rate_prm_Gq)) + prior_uniform(alpha_pp_gamma,0,20)
+				post_rate_prm_Gq = np.random.gamma( shape=hpGammaQ_shape+pert_prior[0]*len(q_rates), scale=1./(hpGammaQ_rate+np.sum(q_rates)) )
+				prior = np.sum(prior_gamma(q_rates,pert_prior[0],post_rate_prm_Gq)) + prior_uniform(alpha_pp_gamma,0,20)
 		else: prior = prior_gamma(q_rates[1],pert_prior[0],pert_prior[1]) + prior_uniform(q_rates[0],0,20)
 		if est_hyperP == 1: prior += ( prior_uniform(hyperP[0],0,20)+prior_uniform(hyperP[1],0,20) ) # hyperprior on BD rates
 
@@ -3139,7 +3162,7 @@ def MCMC(all_arg):
 								likBDtemp2[i]=BPD_partial_lik(args[i])
 								i+=1
 
-							absDivergence = abs(sum(likBDtemp) - sum(likBDtemp2))
+							absDivergence = abs(np.sum(likBDtemp) - np.sum(likBDtemp2))
 							if absDivergence > sanityCheckThreshold:
 								print("[WARNING] BPD_partial_lik diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")")
 
@@ -3164,7 +3187,7 @@ def MCMC(all_arg):
 
 				elif TDI==4 and FBDrange==0: # run RJMCMC
 					stop_update = 0
-					L,timesL,M,timesM,hasting = RJMCMC([LA,MA, timesLA, timesMA])
+					L,timesL,M,timesM,hasting = RJMCMC([LA,MA, timesLA, timesMA,maxFA,minLA])
 					#print  L,timesL,M,timesM #,hasting
 					args=list()
 					for temp_l in range(len(timesL)-1):
@@ -3187,7 +3210,7 @@ def MCMC(all_arg):
 								likBDtemp2[i]=BPD_partial_lik(args[i])
 								i+=1
 
-							absDivergence = abs(sum(likBDtemp) - sum(likBDtemp2))
+							absDivergence = abs(np.sum(likBDtemp) - np.sum(likBDtemp2))
 							if absDivergence > sanityCheckThreshold:
 								print("[WARNING] BPD_partial_lik diverged for more than ", sanityCheckThreshold, " (", absDivergence, ")")
 
@@ -3238,8 +3261,8 @@ def MCMC(all_arg):
 		maxTs= max(ts)
 		minTe= min(te)
 		if TDI < 3:
-			prior += sum(prior_times_frames(timesL, maxTs, minTe, lam_s))
-			prior += sum(prior_times_frames(timesM, maxTs, minTe, lam_s))
+			prior += np.sum(prior_times_frames(timesL, maxTs, minTe, lam_s))
+			prior += np.sum(prior_times_frames(timesM, maxTs, minTe, lam_s))
 		if TDI ==4:
 			#prior_old = -log(max(ts)-max(te))*len(L-1)  #sum(prior_times_frames(timesL, max(ts),min(te), 1))
 			#prior_old += -log(max(ts)-max(te))*len(M-1)  #sum(prior_times_frames(timesM, max(ts),min(te), 1))
@@ -3297,7 +3320,7 @@ def MCMC(all_arg):
 			else:
 				tree_lik = treeBDlikelihoodSkyLine(tree_node_ages,phylo_times_of_shift,l_tree,m_tree,tree_sampling_frac)
 				hasting = hasting+h1+h2
-				prior += sum(prior_gamma(l_tree,1.1,1)) + sum(prior_gamma(m_tree,1.1,1))
+				prior += np.sum(prior_gamma(l_tree,1.1,1)) + np.sum(prior_gamma(m_tree,1.1,1))
 		else:
 			tree_lik = 0
 
@@ -3306,7 +3329,7 @@ def MCMC(all_arg):
 			lik_alter=lik
 		else:
 			tempMC3=1
-			lik_alter=(sum(lik_fossil)+ PoiD_const) + (sum(likBDtemp)+ PoiD_const)*temperature
+			lik_alter=(np.sum(lik_fossil)+ PoiD_const) + (np.sum(likBDtemp)+ PoiD_const)*temperature
 		Post=lik_alter+prior+tree_lik
 		accept_it = 0
 		if it==0:
@@ -3336,7 +3359,7 @@ def MCMC(all_arg):
 				LA,MA=L,M
 				hyperPA=hyperP
 				tsA,teA=ts,te
-				SA=sum(tsA-teA)
+				SA=np.sum(tsA-teA)
 				q_ratesA=q_rates
 				alpha_pp_gammaA=alpha_pp_gamma
 				lik_fossilA=lik_fossil
