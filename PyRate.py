@@ -4475,28 +4475,24 @@ if use_ADE_model >= 1:
 
 qFilter=args.qFilter # if set to zero all times of shifts (and preservation rates) are kept, even if they don't have occurrences
 if args.qShift != "":
-	if 2>1: #try:
-		try: times_q_shift=np.sort(np.loadtxt(args.qShift))[::-1]*args.rescale + args.translate
-		except: times_q_shift=np.array([np.loadtxt(args.qShift)])*args.rescale + args.translate
-		# filter qShift times based on observed time frame
-		if qFilter == 1:
-			times_q_shift=times_q_shift[times_q_shift<max(FA)]
-			times_q_shift=list(times_q_shift[times_q_shift>min(LO)])
-		else: # q outside observed range (sampled from the prior)
-			times_q_shift = list(times_q_shift)
-		time_framesQ=len(times_q_shift)+1
-		occs_sp_bin =list()
-		temp_times_q_shift = np.array(list(times_q_shift)+[max(FA)+1]+[0])
-		for i in range(len(fossil)):
-			occs_temp = fossil[i]
-			h = np.histogram(occs_temp[occs_temp>0],bins=sort( temp_times_q_shift ))[0][::-1]
-			occs_sp_bin.append(h)
-		argsHPP = 1
-		TPP_model = 1
-		print(times_q_shift, max(FA), min(LO))
-	#except:
-	#	msg = "\nError in the input file %s.\n" % (args.qShift)
-	#	sys.exit(msg)
+	try: times_q_shift=np.sort(np.loadtxt(args.qShift))[::-1]*args.rescale + args.translate
+	except: times_q_shift=np.array([np.loadtxt(args.qShift)])*args.rescale + args.translate
+	# filter qShift times based on observed time frame
+	if qFilter == 1:
+		times_q_shift=times_q_shift[times_q_shift<max(FA)]
+		times_q_shift=list(times_q_shift[times_q_shift>min(LO)])
+	else: # q outside observed range (sampled from the prior)
+		times_q_shift = list(times_q_shift)
+	time_framesQ=len(times_q_shift)+1
+	occs_sp_bin =list()
+	temp_times_q_shift = np.array(list(times_q_shift)+[max(FA)+1]+[0])
+	for i in range(len(fossil)):
+		occs_temp = fossil[i]
+		h = np.histogram(occs_temp[occs_temp>0],bins=sort( temp_times_q_shift ))[0][::-1]
+		occs_sp_bin.append(h)
+	argsHPP = 1
+	TPP_model = 1
+	print(times_q_shift, max(FA), min(LO))
 else: TPP_model = 0
 
 
