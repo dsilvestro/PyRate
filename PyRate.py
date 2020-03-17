@@ -3,9 +3,10 @@
 import argparse, os,sys, platform, time, csv, glob
 import random as rand
 import warnings, importlib
+import importlib.util
 
 version= "PyRate"
-build  = "v3.0 - 20200225"
+build  = "v3.0 - 20200317"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
