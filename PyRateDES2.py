@@ -152,9 +152,8 @@ equal_e = args.syme
 equal_q = args.symq
 constraints_covar = np.array(args.constr)
 constraints_covar_true = len(constraints_covar) > 0
-if constraints_covar_true:
-	constraints_01 = any(np.isin(constraints_covar, np.array([0, 1])))
-	constraints_23 = any(np.isin(constraints_covar, np.array([2, 3])))
+constraints_01 = any(np.isin(constraints_covar, np.array([0, 1])))
+constraints_23 = any(np.isin(constraints_covar, np.array([2, 3])))
 const_q = args.constq
 if args.cov_and_dispersal:
 	model_DUO= 1
@@ -549,23 +548,23 @@ x0_logistic_A =np.zeros(4)
 #	time_var = np.ones(len(time_series)-1)
 #	print "Covariate-file not found"
 if args.varD != "" and args.varE != "":
-	time_var_temp = get_binned_continuous_variable(time_series, args.varD)	
+	time_var_temp = get_binned_continuous_variable(time_series, args.varD)
 	#time_varD = time_var_temp-time_var_temp[len(delta_t)-1]
 	time_varD = time_var_temp - np.mean(time_var_temp)
 	print("Rescaled variable dispersal",time_varD, time_series)
-	time_var_temp = get_binned_continuous_variable(time_series, args.varE)	
+	time_var_temp = get_binned_continuous_variable(time_series, args.varE)
 	#time_varE = time_var_temp-time_var_temp[len(delta_t)-1]
 	time_varE = time_var_temp - np.mean(time_var_temp)
 	print("Rescaled variable extinction",time_varE, time_series)
 elif args.varD != "":
-	time_var_temp = get_binned_continuous_variable(time_series, args.varD)	
+	time_var_temp = get_binned_continuous_variable(time_series, args.varD)
 	#time_varD = time_var_temp-time_var_temp[len(delta_t)-1]
 	time_varD = time_var_temp - np.mean(time_var_temp)
 	print("Rescaled variable dispersal",time_varD, time_series)
 	time_varE = np.ones(len(time_series)-1)
 elif args.varE != "":
 	time_varD = np.ones(len(time_series)-1)
-	time_var_temp = get_binned_continuous_variable(time_series, args.varE)	
+	time_var_temp = get_binned_continuous_variable(time_series, args.varE)
 	#time_varE = time_var_temp-time_var_temp[len(delta_t)-1]
 	time_varE = time_var_temp - np.mean(time_var_temp)
 	print("Rescaled variable extinction",time_varE, time_series)
@@ -599,7 +598,7 @@ tbl = np.genfromtxt(input_data, dtype=str, delimiter='\t')
 tbl_temp=tbl[1:,1:]
 data_temp=tbl_temp.astype(float)
 # remove empty taxa (absent throughout)
-ind_keep = (np.sum(data_temp,axis=1) != 0).nonzero()[0]
+ind_keep = (np.nansum(data_temp,axis=1) != 0).nonzero()[0]
 data_temp = data_temp[ind_keep]
 
 #print data_temp
@@ -653,17 +652,23 @@ if args.DivdD:
 	max_div_traj_3 = np.max(div_traj_3)
 	offset_dis_div1 = max_div_traj_3
 	offset_dis_div2 = max_div_traj_3
-	
+	if equal_d:
+		offset_dis_div1 = 0.
+		offset_dis_div2 = 0.
+
 # Median of diversity
 offset_ext_div1 = 0.
 offset_ext_div2 = 0.
 if args.DivdE:
 	offset_ext_div1 = np.median(div_traj_1)
 	offset_ext_div2 = np.median(div_traj_2)
-	if 1 in args.symCov or 3 in args.symCov:
+	if 3 in args.symCov: 
 		offset_ext_div = np.median( np.concatenate((div_traj_1, div_traj_2)) )
 		offset_ext_div1 = offset_ext_div
 		offset_ext_div2 = offset_ext_div
+	if equal_e:
+		offset_ext_div1 = 0.
+		offset_ext_div2 = 0.
 
 argsDivdD = args.DivdD
 argsDivdE = args.DivdE
@@ -697,8 +702,8 @@ def div_dep_ext_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, covar_mu1, covar_mu2)
 	dS = np.zeros(5)
 	dS[3] = d21 * div2 * lim_d1 # Gain area 1
 	dS[4] = d12 * div1 * lim_d2 # Gain area 2
-	mu1 = mu1 * np.exp(covar_mu1 * dS[3]/(div13 + 0.00001))
-	mu2 = mu2 * np.exp(covar_mu2 * dS[4]/(div23 + 0.00001))
+	mu1 = mu1 * np.exp(covar_mu1 * dS[3] / (div13 + 1.))
+	mu2 = mu2 * np.exp(covar_mu2 * dS[4] / (div23 + 1.))
 	dS[0] = -mu1 * div1 + mu2 * div3 - dS[4]
 	dS[1] = -mu2 * div2 + mu1 * div3 - dS[3]
 	dS[2] = -(mu1 + mu2) * div3 + dS[3] + dS[4]
@@ -808,8 +813,15 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 		
 	div_13 = div_1 + div_3
 	div_23 = div_2 + div_3
+	gain_1_rescaled = gain_1[1:] / (div_1[1:] + 1.)
+	gain_2_rescaled = gain_2[1:] / (div_2[1:] + 1.)
+	#print(covar_mu1)
+	#print(gain_1_rescaled)
+	#print( mu1 * exp(covar_mu1 * gain_1_rescaled) )
+	gain_1_rescaled[np.isnan(gain_1_rescaled)] = np.nanmax(gain_1_rescaled)
+	gain_2_rescaled[np.isnan(gain_2_rescaled)] = np.nanmax(gain_1_rescaled)
 
-	return div_13[1:], div_23[1:], gain_2[1:], gain_1[1:]
+	return div_13[1:], div_23[1:], gain_1_rescaled, gain_2_rescaled
 
 
 # Calculate difference from a given diversity to the equilibrium diversity for two areas
@@ -821,7 +833,7 @@ def calc_diff_equil_two_areas(div):
 	div3 = div[2]
 	div13 = div1 + div3
 	div23 = div2 + div3
-	if div13 > k_d[0] or div23 > k_d[1] or div13 >= k_e[0] or div23 >= k_e[1] or (div1 + div2 + div3 < 1):
+	if div13 > k_d[0] or div23 > k_d[1] or div13 >= k_e[0] or div23 >= k_e[1] or (div1 + div3 < 1) or (div2 + div3 < 1):
 		diff_equil = 1e10
 	else:
 		lim_d2 = max(0, 1 - div13/k_d[0]) # Limit dispersal into area 2
@@ -829,8 +841,8 @@ def calc_diff_equil_two_areas(div):
 		gain1 = dis[0] * div2 * lim_d2
 		gain2 = dis[1] * div1 * lim_d1
 		if argsDdE: # Dispersal dependent extinction
-			mu1 = ext[0] * np.exp(covar_par[2] * gain1/(div13 + 0.00001))
-			mu2 = ext[0] * np.exp(covar_par[3] * gain2/(div23 + 0.00001))
+			mu1 = ext[0] * np.exp(covar_par[2] * gain1/(div13 + 1.))
+			mu2 = ext[0] * np.exp(covar_par[3] * gain2/(div23 + 1.))
 		else: # Diversity dependent extinction
 			lim_e1 = max(1e-10, 1 - div13/k_e[0]) # Increases extinction in area 2
 			lim_e2 = max(1e-10, 1 - div23/k_e[1]) # Increases extinction in area 1
@@ -844,7 +856,7 @@ def calc_diff_equil_two_areas(div):
 # Calculate difference from a given diversity to the equilibrium diversity for one area	
 def calc_diff_equil_one_area(div):
 	div_both = div[0] + div[1]
-	if div_both > k_d or div_both >= k_e:
+	if div_both > k_d or div_both >= k_e or div_both < 1:
 		diff_equil = 1e10
 	else:
 		lim_d = max(0, 1 - div_both/k_d)  # Limit dispersal into focal area
@@ -1241,6 +1253,8 @@ if args.A == 3:
 			x0 = x0[0:-1]
 			lower_bounds = lower_bounds[0:-1]
 			upper_bounds = upper_bounds[0:-1]
+			if args.DivdD:
+				lower_bounds[-1] = np.max((np.max(div_traj_2), np.max(div_traj_1)))
 		if args.lgD:
 			opt_ind_x0_log_dis = np.array([ind_counter, ind_counter + 1])
 			ind_counter += 2
@@ -1275,6 +1289,8 @@ if args.A == 3:
 			x0 = x0[0:-1]
 			lower_bounds = lower_bounds[0:-1]
 			upper_bounds = upper_bounds[0:-1]
+			if args.DivdE:
+				lower_bounds[-1] = np.max((np.max(div_traj_2), np.max(div_traj_1)))
 		if args.lgE:
 			opt_ind_x0_log_ext = np.array([ind_counter, ind_counter + 1])
 			ind_counter += 2
@@ -1289,15 +1305,59 @@ if args.A == 3:
 				upper_bounds = upper_bounds[0:-1]
 	
 	# Maximize likelihood
-	opt = nlopt.opt(nlopt.LN_SBPLX, len(x0))
-	opt.set_lower_bounds(lower_bounds) 
-	opt.set_upper_bounds(upper_bounds) 
-	opt.set_max_objective(lik_opt)
-	opt.set_xtol_rel(1e-3)
-	#opt.set_ftol_abs(1e-2)
-	#opt.set_maxeval(10) # Only for checking quickly the result
-	x = opt.optimize(x0) 
-	minf = opt.last_optimum_value()
+	if (args.TdD is False and args.TdE is False) or (args.TdD and args.DdE):
+		print("Fit dispersal covariate first")
+		opt = nlopt.opt(nlopt.LN_SBPLX, len(x0))
+		former_lower_bound1 = lower_bounds[-1]
+		former_lower_bound2 = lower_bounds[-2]
+		former_upper_bound1 = upper_bounds[-1]
+		former_upper_bound2 = upper_bounds[-2]
+		if args.DivdE:
+			lower_bounds[-1] = nTaxa * 10
+			upper_bounds[-1] = nTaxa * 10
+			if (3 in args.symCov) is False: 
+				lower_bounds[-2] = nTaxa * 10
+				upper_bounds[-2] = nTaxa * 10
+		else:
+			lower_bounds[-1] = 0.
+			upper_bounds[-1] = 0.
+			if (3 in args.symCov) is False: 
+				lower_bounds[-2] = 0.
+				upper_bounds[-2] = 0.
+		opt.set_lower_bounds(lower_bounds) 
+		opt.set_upper_bounds(upper_bounds) 
+		opt.set_max_objective(lik_opt)
+		opt.set_xtol_rel(1e-3)
+		#opt.set_maxeval(100) # Only for checking quickly the result
+		x = opt.optimize(x0)
+		print("Fit covariates for dispersal and extinction")
+		if 3 in args.symCov:
+			x0[:-1] = x[:-1]
+			lower_bounds[-1] = former_lower_bound2
+			upper_bounds[-1] = former_lower_bound1
+		else:
+			x0[:-2] = x[:-2]
+			lower_bounds[-2] = former_lower_bound2
+			lower_bounds[-1] = former_lower_bound1
+			upper_bounds[-2] = former_upper_bound2
+			upper_bounds[-1] = former_upper_bound1
+		opt = nlopt.opt(nlopt.LN_SBPLX, len(x0))
+		opt.set_lower_bounds(lower_bounds) 
+		opt.set_upper_bounds(upper_bounds) 
+		opt.set_max_objective(lik_opt)
+		opt.set_xtol_rel(1e-3)
+		#opt.set_maxeval(100) # Only for checking quickly the result
+		x = opt.optimize(x0) 
+		minf = opt.last_optimum_value()
+	else:
+		opt = nlopt.opt(nlopt.LN_SBPLX, len(x0))
+		opt.set_lower_bounds(lower_bounds) 
+		opt.set_upper_bounds(upper_bounds) 
+		opt.set_max_objective(lik_opt)
+		opt.set_xtol_rel(1e-3)
+		#opt.set_maxeval(10) # Only for checking quickly the result
+		x = opt.optimize(x0) 
+		minf = opt.last_optimum_value()
 	
 	# Format output
 	dis_rate_vec = np.zeros((n_Q_times_dis,nareas))
