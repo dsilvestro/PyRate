@@ -4231,7 +4231,7 @@ boundMin = min(args.bound) # if not specified it is set to 0
 if model_cov>=1 or useDiscreteTraitModel == 1 or useBounded_BD == 1:
 	if 2>1: #try:
 		if args.trait_file != "": # Use trait file
-			traitfile=file(args.trait_file, 'U')
+			traitfile=open(args.trait_file, 'r')
 
 			L=traitfile.readlines()
 			head= L[0].split()
