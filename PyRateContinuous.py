@@ -123,10 +123,11 @@ else:
 out_model = ["const","exp","lin"]
 
 #print len(ts),len(te[te>0]),sum(ts-te)
-
 if args.DD is True:
 	head_cov_file = ["","DD"]
-	ts_te_vec = np.sort( np.concatenate((ts,te)) )[::-1]
+	pad_s_times = np.concatenate( (s_times + np.repeat(0.01, len(s_times)), s_times + np.repeat(-0.01, len(s_times))) )
+	pad_s_times = pad_s_times[pad_s_times >= 0]
+	ts_te_vec = np.sort( np.concatenate((ts,te,pad_s_times)) )[::-1]
 	Dtraj = getDT(ts_te_vec,ts,te) + np.zeros(len(ts_te_vec))
 	times_of_T_change =  ts_te_vec
 	Temp_values = Dtraj
@@ -239,7 +240,13 @@ Temp_at_events=scaled_temp
 if run_single_slice == 1: # values rescaled between 0 and 1 within the slice
 	#print max(Temp_values)-min(Temp_values)
 	temp_values_slice= Temp_at_events[shift_ind==index_slice_of_interest] 
-	temp_values_slice= (temp_values_slice-temp_values_slice[0]) / (max(temp_values_slice)-min(temp_values_slice)) 
+	if rescale_factor > 0:
+		temp_values_slice = temp_values_slice * rescale_factor
+	else:
+		#temp_values_slice= (temp_values_slice-temp_values_slice[0]) / (max(temp_values_slice)-min(temp_values_slice))
+		temp_values_slice = temp_values_slice / (max(temp_values_slice) - min(temp_values_slice))
+		temp_values_slice = temp_values_slice - min(temp_values_slice)
+	Temp_at_events[shift_ind==index_slice_of_interest] = temp_values_slice
 	#print temp_values_slice, max(temp_values_slice)-min(temp_values_slice)
 
 
@@ -470,7 +477,6 @@ for i in range(n_time_bins):
 	V2.append(v_2)
 	V3.append(np.intersect1d(ind_s,v_1))
 	V4.append(np.intersect1d(ind_e,v_1))
-	
 
 
 scal_fac_ind=0
@@ -558,7 +564,8 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 		# shift_ind = [0,0,0,1,1,2,2,2,2,...N], where 0 is index of oldest bin, N of the most recent
 		shift_ind_temp_CURVE =Itemp.astype(int)
 		modified_Temp_at_events[shift_ind_temp_CURVE==0] = modified_Temp_at_events[ (shift_ind_temp_CURVE==1).nonzero()[0][0]  ]
-		
+
+	
 	if args_mSpEx[0]==0: 
 		l_at_events=trasfMultipleRateTemp(l0, Garray[0],modified_Temp_at_events,shift_ind)
 	if args_mSpEx[0]==1: 
