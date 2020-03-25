@@ -1217,15 +1217,18 @@ def update_rates_multiplier(L,M,tot_L,mod_d3):
 	else: U,newL = 0,L
 
 	# UPDATE MU
-	S=np.shape(M)
-	ff=np.random.binomial(1,f_rate,S)
-	d=1.2
-	u = np.random.uniform(0,1,S) #*np.rint(np.random.uniform(0,f,S))
-	l = 2*log(mod_d3)
-	m = exp(l*(u-.5))
-	m[ff==0] = 1.
-	newM = M * m
-	U+=sum(log(m))
+	if use_Birth_model == 0:
+		S=np.shape(M)
+		ff=np.random.binomial(1,f_rate,S)
+		d=1.2
+		u = np.random.uniform(0,1,S) #*np.rint(np.random.uniform(0,f,S))
+		l = 2*log(mod_d3)
+		m = exp(l*(u-.5))
+		m[ff==0] = 1.
+		newM = M * m
+		U+=sum(log(m))
+	else: 
+		newM = M
 	return newL,newM,U
 
 def update_q_multiplier(q,d=1.1,f=0.75):
@@ -1251,7 +1254,7 @@ def update_times(times, max_time,min_time, mod_d4,a,b):
 	y=-1*y
 	return y
 
-def update_ts_te(ts, te, d1):
+def update_ts_te(ts, te, d1, sample_extinction=1):
 	tsn, ten= zeros(len(ts))+ts, zeros(len(te))+te
 	f1=np.random.randint(1,frac1) #int(frac1*len(FA)) #-np.random.random_integers(0,frac1*len(FA)-1))
 	ind=np.random.choice(SP_in_window,f1) # update only values in SP/EX_in_window
@@ -1261,15 +1264,15 @@ def update_ts_te(ts, te, d1):
 	m = FA
 	tsn[tsn<m]=(m[tsn<m]-tsn[tsn<m])+m[tsn<m]
 	tsn[tsn>M] = ts[tsn>M]
-
-	ind=np.random.choice(EX_in_window,f1)
-	ten[ind] = te[ind] + (np.random.uniform(0,1,len(ind))-.5)*d1
-	M = LO
-	ten[ten>M]=M[ten>M]-(ten[ten>M]-M[ten>M])
-	m = 0 #boundMin
-	ten[ten<m]=(m-ten[ten<m])+m
-	ten[ten>M] = te[ten>M]
-	ten[LO==0]=0									 # indices of LO==0 (extant species)
+	if sample_extinction:
+		ind=np.random.choice(EX_in_window,f1)
+		ten[ind] = te[ind] + (np.random.uniform(0,1,len(ind))-.5)*d1
+		M = LO
+		ten[ten>M]=M[ten>M]-(ten[ten>M]-M[ten>M])
+		m = 0 #boundMin
+		ten[ten<m]=(m-ten[ten<m])+m
+		ten[ten>M] = te[ten>M]
+		ten[LO==0]=0									 # indices of LO==0 (extant species)
 	S= tsn-ten
 	if min(S)<=0: print(S)
 	tsn[SP_not_in_window] = max([boundMax, max(tsn[SP_in_window])])
@@ -1946,7 +1949,10 @@ def NHPPgamma(arg):
 ###### BEGIN FUNCTIONS for FBD Range ########
 def init_ts_te_FBDrange(FA,LO):
 	ts,te = init_ts_te(FA,LO)
-	min_dt = min(get_DT_FBDrange(ts,ts,te)[1:])
+	if FBDrange == 3:
+		ts = FA+ np.random.gamma(1,10,len(FA)) #(FA-LO)*0.2
+		te = LO
+	min_dt = np.min(get_DT_FBDrange(ts,ts,te)[1:])
 	print("""\n Using the FBD-range likelihood function \n(Warnock, Heath, and Stadler; Paleobiology, in press)\n""")
 	while min_dt <= 1:
 		ts = ts+0.01*ts
@@ -2134,7 +2140,7 @@ def likelihood_rangeFBD(times, psi, lam, mu, ts, te, k=[], intervalAs=[], int_in
 	if hasFoundPyRateC:
 		term4 = term4_c
 	
-	if FALAmodel==2:
+	if FALAmodel == 2:
 		term5 = np.sum(psi * get_L_FBDrange(times,FA,LO))
 	else: 
 		term5 = 0
@@ -2667,6 +2673,8 @@ def MCMC(all_arg):
 		elif FBDrange==0: tsA, teA = init_ts_te(FA,LO)
 		else:
 			tsA, teA = init_ts_te_FBDrange(FA,LO)
+			if FBDrange == 3:
+				teA = LO
 			res_FBD_A = []
 		if restore_chain == 1:
 			tsA_temp, teA_temp = init_ts_te(FA,LO)
@@ -2718,6 +2726,7 @@ def MCMC(all_arg):
 				if len(MAt) == len(MA): MA = MAt
 			if use_ADE_model >= 1: MA = np.random.uniform(3,5,len(timesMA)-1)
 			if use_Death_model == 1: LA = np.ones(1)
+			if use_Birth_model == 1: MA = np.zeros(1)+init_M_rate
 			if useDiscreteTraitModel == 1:
 				LA = init_BD(len(lengths_B_events)+1)
 				MA = init_BD(len(lengths_D_events)+1)
@@ -2732,6 +2741,8 @@ def MCMC(all_arg):
 		else:
 			LA = init_BD(len(timesLA))
 			MA = init_BD(len(timesMA))
+			if use_Death_model == 1: LA = np.ones(1)
+			if use_Birth_model == 1: MA = np.zeros(1)+init_M_rate
 			rj_cat_HP= 1
 
 		q_ratesA,cov_parA = init_q_rates() # use 1 for symmetric PERT
@@ -2844,7 +2855,10 @@ def MCMC(all_arg):
 
 		if rr<f_update_se: # ts/te
 			move_type = 1
-			ts,te=update_ts_te(tsA,teA,mod_d1)
+			if FBDrange == 3:
+				ts,te=update_ts_te(tsA,teA,mod_d1,sample_extinction=0)
+			else:
+				ts,te=update_ts_te(tsA,teA,mod_d1)
 			if use_gibbs_se_sampling or it < fast_burnin:
 				if sum(timesL[1:-1])==np.sum(times_q_shift):
 					ts,te = gibbs_update_ts_te(q_ratesA+LA,q_ratesA+MA,np.sort(np.array([np.inf,0]+times_q_shift))[::-1])
@@ -2863,6 +2877,7 @@ def MCMC(all_arg):
 					ts,te = gibbs_update_ts_te(q_rates_temp_L,q_rates_temp_M,times_q_temp)
 
 			tot_L=np.sum(ts-te)
+		
 		elif rr<f_update_q: # q/alpha
 			move_type = 2
 			q_rates=np.zeros(len(q_ratesA))+q_ratesA
@@ -3677,6 +3692,7 @@ p.add_argument('-mC',	  help='Model - constrain time frames (l,m)', action='stor
 p.add_argument('-mCov',	type=int, help='COVAR model: 1) speciation, 2) extinction, 3) speciation & extinction, 4) preservation, 5) speciation & extinction & preservation', default=0, metavar=0)
 p.add_argument("-mG",	  help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
 p.add_argument('-mPoiD',   help='Poisson-death diversification model', action='store_true', default=False)
+p.add_argument('-mBirth',  type=float, help='Birth model with fix extinction rate', default= -1, metavar= -1)
 p.add_argument('-mDeath',  help='Pure-death model', action='store_true', default=False)
 p.add_argument("-mBDI",	type=int, help='BDI sub-model - 0) birth-death, 1) immigration-death', default=-1, metavar=-1)
 p.add_argument("-ncat",	type=int, help='Model - Number of categories for Gamma heterogeneity', default=4, metavar=4)
@@ -4397,6 +4413,12 @@ else:
 
 if args.mDeath == 1: use_Death_model = 1
 else: use_Death_model= 0
+
+if args.mBirth >= 0:
+	use_Birth_model = 1
+	init_M_rate = args.mBirth
+else:
+	use_Birth_model = 0
 
 
 # USE BDI subMODELS
