@@ -703,7 +703,7 @@ def div_dep_ext_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, covar_mu1, covar_mu2)
 	dS[3] = d21 * div2 * lim_d1 # Gain area 1
 	dS[4] = d12 * div1 * lim_d2 # Gain area 2
 	mu1 = mu1 + covar_mu1 * dS[3] / (div13 + 1.) #mu1 * np.exp(covar_mu1 * dS[3] / (div13 + 1.))
-	mu2 = mu2 * covar_mu2 * dS[4] / (div23 + 1.) #mu2 * np.exp(covar_mu2 * dS[4] / (div23 + 1.))
+	mu2 = mu2 + covar_mu2 * dS[4] / (div23 + 1.) #mu2 * np.exp(covar_mu2 * dS[4] / (div23 + 1.))
 	dS[0] = -mu1 * div1 + mu2 * div3 - dS[4]
 	dS[1] = -mu2 * div2 + mu1 * div3 - dS[3]
 	dS[2] = -(mu1 + mu2) * div3 + dS[3] + dS[4]
@@ -841,8 +841,8 @@ def calc_diff_equil_two_areas(div):
 		gain1 = dis[0] * div2 * lim_d2
 		gain2 = dis[1] * div1 * lim_d1
 		if argsDdE: # Dispersal dependent extinction
-			mu1 = ext[0] * np.exp(covar_par[2] * gain1/(div13 + 1.))
-			mu2 = ext[0] * np.exp(covar_par[3] * gain2/(div23 + 1.))
+			mu1 = ext[0] + covar_par[2] * gain1 / (div13 + 1.)
+			mu2 = ext[1] + covar_par[3] * gain2 / (div23 + 1.)
 		else: # Diversity dependent extinction
 			lim_e1 = max(1e-10, 1 - div13/k_e[0]) # Increases extinction in area 2
 			lim_e2 = max(1e-10, 1 - div23/k_e[1]) # Increases extinction in area 1
@@ -862,7 +862,7 @@ def calc_diff_equil_one_area(div):
 		lim_d = max(0, 1 - div_both/k_d)  # Limit dispersal into focal area
 		gain = dis * div[0] * lim_d
 		if argsDdE: # Dispersal dependent extinction
-			mu = ext * np.exp(covar_par_equil * gain/(div_both + 0.00001))
+			mu = ext + covar_par_equil * gain / (div_both + 1.)
 		else: # Diversity dependent extinction
 			lim_e = max(1e-10, 1 - div_both/k_e)
 			mu = ext/lim_e
