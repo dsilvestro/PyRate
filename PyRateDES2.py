@@ -702,8 +702,8 @@ def div_dep_ext_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, covar_mu1, covar_mu2)
 	dS = np.zeros(5)
 	dS[3] = d21 * div2 * lim_d1 # Gain area 1
 	dS[4] = d12 * div1 * lim_d2 # Gain area 2
-	mu1 = mu1 * np.exp(covar_mu1 * dS[3] / (div13 + 1.))
-	mu2 = mu2 * np.exp(covar_mu2 * dS[4] / (div23 + 1.))
+	mu1 = mu1 + covar_mu1 * dS[3] / (div13 + 1.) #mu1 * np.exp(covar_mu1 * dS[3] / (div13 + 1.))
+	mu2 = mu2 * covar_mu2 * dS[4] / (div23 + 1.) #mu2 * np.exp(covar_mu2 * dS[4] / (div23 + 1.))
 	dS[0] = -mu1 * div1 + mu2 * div3 - dS[4]
 	dS[1] = -mu2 * div2 + mu1 * div3 - dS[3]
 	dS[2] = -(mu1 + mu2) * div3 + dS[3] + dS[4]
@@ -1109,7 +1109,7 @@ def lik_opt(x, grad):
 		#time_var_e1,time_var_e2 = get_est_div_traj(r_vec)
 		do_approx_div_traj = 1
 	elif args.DdE: # Dispersal dep Extinction
-		transf_e = 1
+		transf_e = 3
 		do_approx_div_traj = 1
 	else: # Temp dependent Extinction
 		transf_e = 1
@@ -1571,7 +1571,7 @@ for it in range(n_generations * len(scal_fac_TI)):
  		
 		
 		# NOTE THAT no. dispersals from 1=>2 affects extinction in 2 and vice versa
-		transf_e=1
+		transf_e=3
 		time_var_e2,time_var_e1 = numD12res, numD21res
 		ext_vec = ext_rate_vec
 	elif args.DisdE: # Dispersal RATE dep Extinction
