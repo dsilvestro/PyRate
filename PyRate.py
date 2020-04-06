@@ -6,7 +6,7 @@ import warnings, importlib
 import importlib.util
 
 version= "PyRate"
-build  = "v3.0 - 20200317"
+build  = "v3.0 - 20200406"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
@@ -577,7 +577,7 @@ def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1.): # change rescale to
 	# read data
 	print("Processing data...")
 	tbl = np.loadtxt(tste_file,skiprows=1)
-	j_max=(np.shape(tbl)[1]-1)/2
+	j_max=int((np.shape(tbl)[1]-1)/2)
 	j_range=np.arange(j_max)
 	ts = tbl[:,2+2*j_range]*rescale
 	te = tbl[:,3+2*j_range]*rescale
@@ -587,7 +587,7 @@ def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1.): # change rescale to
 	wd = "%s" % os.path.dirname(tste_file)
 	out_file_name = os.path.splitext(os.path.basename(tste_file))[0]
 	out_file="%s/%s" % (wd,out_file_name+"_ltt.txt")
-	ltt_file = open(out_file , "w",0)
+	ltt_file = open(out_file , "w")
 	ltt_log=csv.writer(ltt_file, delimiter='\t')
 
 
