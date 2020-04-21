@@ -1,5 +1,4 @@
-Fossil occurrence data from [Pimiento et al. 2017](https://doi.org/10.1038/s41559-017-0223-6)
-
+Fossil occurrence data from [Pimiento et al. 2017](https://doi.org/10.1038/s41559-017-0223-6).
 The data are also used by [Silvestro et al. 2019](https://doi.org/10.1017/pab.2019.23) and analyzed using the following command:
 
 ```python PyRate.py occs.py -qShift -filter_taxa mammals.txt -qShift epochs_q.txt -mG -pP 1.5 0```
