@@ -277,8 +277,9 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 			ind_shifts = np.arange(int(np.ceil(len(row)/2.)),len(row))
 			rates = row[ind_rates]
 			shifts = row[ind_shifts]
+			shifts[(shifts - max_age) > 0] = max_age
 			#shifts = shifts[shifts>min_age]
-			h = np.histogram(row[ind_shifts],bins =bins_histogram)[0][::-1]
+			h = np.histogram(shifts,bins =bins_histogram)[0][::-1]
 			marginal_rates = rates[np.cumsum(h)]
 			times_of_shift += list(shifts)
 		
