@@ -148,11 +148,11 @@ n_clades,n_events=max(clade_ID)+1,len(all_events)
 Dtraj=init_Dtraj(n_clades,n_events)
 
 ##### RTT PLOTS
-plot_RTT = False,False
+plot_RTT = 0
 
 # NEW FUNCTION 
 if args.plot != "":
-	plot_RTT = True
+	plot_RTT = 1
 	np.summary_file = args.plot
 	name_file = os.path.splitext(os.path.basename(np.summary_file))[0]
 	print("Parsing log file:", np.summary_file)
@@ -331,7 +331,7 @@ GarrayA=init_Garray(n_clades) # 3d array so:
 if birth_model: GarrayA[fixed_focal_clade,1,:] = 0
 elif death_model: GarrayA[fixed_focal_clade,0,:] = 0
 					
-if plot_RTT is True: 
+if plot_RTT: 
 	# G estimates are given per species but Dtraj are rescaled when:  scaling > 0 (default: scaling = 1)
 	GarrayA[fixed_focal_clade,0,:] += Gl_focal_clade/scale_factor 
 	GarrayA[fixed_focal_clade,1,:] += Gm_focal_clade/scale_factor 
@@ -375,7 +375,7 @@ Tau=TauA
 
 
 ########################## PLOT RTT ##############################
-if plot_RTT is True: # NEW FUNCTION 2
+if plot_RTT: # NEW FUNCTION 2
 	out="%s/%s_RTT.r" % (wd,name_file)
 	newfile = open(out, "w") 
 	if model_name == "exp": model_type = "Exponential"
