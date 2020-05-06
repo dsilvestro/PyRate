@@ -530,7 +530,7 @@ else:
 	index_included_ex_times = index_temp[ex_times<max_T]
 
 min_T = args.minT
-if max_T == -1: pass
+if min_T == -1: pass
 else: 
 	index_temp = np.arange(0,len(all_Times))
 	index_events_included = index_temp[all_Times>min_T]
