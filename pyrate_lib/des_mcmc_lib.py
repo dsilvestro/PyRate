@@ -144,9 +144,10 @@ def get_eigen_list(Q_list):
 
 
 def calc_likelihood_mQ_eigen(args):
-	[delta_t,r_vec_list,w_list,vl_list,vl_inv_list,rho_at_present,r_vec_indexes,sign_list,sp_OrigTimeIndex,index_r,index_q]=args
+	[delta_t,r_vec_list,w_list,vl_list,vl_inv_list,rho_at_present,r_vec_indexes,sign_list,sp_OrigTimeIndex,index_r,index_q,last_occ]=args
 	PvDes= rho_at_present
-	recursive = np.arange(sp_OrigTimeIndex,len(delta_t))[::-1]
+	#recursive = np.arange(sp_OrigTimeIndex,len(delta_t))[::-1]
+	recursive = np.arange(sp_OrigTimeIndex, last_occ)[::-1]
 	L = np.zeros((len(recursive)+1,4))
 	L[0,:]=PvDes
 	
@@ -244,10 +245,11 @@ def calc_likelihood_mQ_eigen_aprx(args):
 
 
 def calc_likelihood_mQ(args):
-	[delta_t,r_vec_list,Q_list,rho_at_present,r_vec_indexes,sign_list,sp_OrigTimeIndex,index_r,index_q]=args
+	[delta_t,r_vec_list,Q_list,rho_at_present,r_vec_indexes,sign_list,sp_OrigTimeIndex,index_r,index_q,last_occ]=args
 	PvDes= rho_at_present
 	#print rho_at_present
-	recursive = np.arange(sp_OrigTimeIndex,len(delta_t))[::-1]
+	#recursive = np.arange(sp_OrigTimeIndex,len(delta_t))[::-1]
+	recursive = np.arange(sp_OrigTimeIndex, last_occ)[::-1]
 	for i in recursive:
 		#print "here",i, Q_index[i]
 		Q = Q_list[index_q[i]]

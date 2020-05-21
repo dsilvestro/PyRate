@@ -186,9 +186,10 @@ def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_v
 		rep_e1 = base_e1 / (1. - ((covar_par[2] - 1e-5)/covar_par[2]))
 		rep_e2 = base_e2 / (1. - ((covar_par[3] - 1e-5)/covar_par[3]))
 		transf_e[0, transf_e[0, ] < 0] = rep_e1 
-		transf_e[0, np.isfinite(transf_e[0, ]) == False] = rep_e1 
+		transf_e[0, np.isfinite(transf_e[0, ]) == False] = rep_e1
 		transf_e[1, transf_e[1, ] < 0] = rep_e2
 		transf_e[1, np.isfinite(transf_e[1, ]) == False] = rep_e2
+
 	else:
 		transf_e = ev_list
 
