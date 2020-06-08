@@ -469,3 +469,82 @@ def reduce_log_file(log_file,burnin=1): # written by Tobias Hofmann (tobias.hofm
 	for i in tbl: outlog.writerow(list(i))
 	print("The reduced log file was saved as: %s\n" % (outfile))
 	
+
+def write_des_in(out_list, reps, all_taxa, taxon, cutter, input_wd, filename):
+	tdiff = np.diff(cutter)[0]
+	time = np.arange(0., np.max(cutter) + tdiff + tdiff/1000., tdiff)
+	time[1:] = time[1:] - 10/2
+	time = time[::-1]
+	for i in range(reps):
+		in_file = "%s/%s_%s.txt" % (input_wd, filename, i + 1)
+		w_in_file = open(in_file, "w")
+		writer = csv.writer(w_in_file, delimiter='\t')
+		head = [taxon] + list(time)
+		_ = writer.writerow(head)
+		for a in range(out_list[i].shape[0]):
+			row = [all_taxa[a]] + list(out_list[i][a,:])
+			_ = writer.writerow(row)
+		w_in_file.flush()
+		os.fsync(w_in_file)
+
+def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "higherGeography", age1 = "earliestAge", age2 = "latestAge", binsize = 5., reps = 3):
+	rece = np.genfromtxt(recent, dtype = str, delimiter='\t')
+	rece_names = rece[0,:]
+	rece = rece[1:,:]
+	rece_names_area = rece_names == area
+	rece_taxa = rece[:,rece_names == taxon].flatten()
+	areas = np.unique(rece[:,rece_names_area])
+	area_recent = np.zeros(rece.shape[0], dtype=int)
+	area_recent[np.array(rece[:,rece_names_area] == areas[0]).flatten()] = 1
+	area_recent[np.array(rece[:,rece_names_area] == areas[1]).flatten()] = 2
+	out_list = []
+	dat = np.genfromtxt(x, dtype=str, delimiter='\t')
+	dat_names = dat[0,:]
+	dat = dat[1:,:]
+	dat_names_taxon = np.where(dat_names == taxon)
+	dat_taxa = dat[:,dat_names_taxon].flatten()
+	dat_names_area = np.where(dat_names == area)
+	dat_names_age1 = np.where(dat_names == age1)
+	dat_names_age2 = np.where(dat_names == age2)
+	dat_ages = dat[:,np.sort(np.concatenate((dat_names_age1, dat_names_age2), axis = None))]
+	dat_ages = dat_ages.astype(float)
+	for i in range(reps):
+		age_ran = np.zeros(dat.shape[0])
+		for y in range(dat.shape[0]):
+			age_ran[y] = np.random.uniform(dat_ages[y, 0], dat_ages[y, 1], 1)
+		cutter = np.arange(0., max(age_ran) + binsize, binsize)
+		cutter_len = len(cutter)
+		binnedage = np.digitize(age_ran, cutter) # Starts with 1!
+		area_fossil = np.zeros(dat.shape[0], dtype=int)
+		area_fossil[np.array(dat[:,dat_names_area] == areas[0]).flatten()] = 1
+		area_fossil[np.array(dat[:,dat_names_area] == areas[1]).flatten()] = 2
+		all_taxa = np.concatenate((np.unique(dat_taxa), np.unique(rece_taxa)), axis = None)
+		all_taxa = np.unique(all_taxa)
+		# First column is the most recent time bin and we reverse this latter
+		out = np.zeros((len(all_taxa), cutter_len + 1))
+		for a in range(len(all_taxa)):
+			idx = np.where(dat_taxa == all_taxa[a])
+			idx = np.array(idx).flatten()
+			if idx.size > 0:
+				binnedage_taxon = binnedage[idx]
+				area_taxon = area_fossil[idx]
+				for b in binnedage_taxon:
+					area_taxon_b = np.unique(area_taxon[binnedage_taxon == b])
+					if len(area_taxon_b) == 1:
+						area_code = area_taxon_b
+					else:
+						area_code = 3
+					out[a,b] = area_code
+					if b == np.max(binnedage_taxon) and b != cutter_len:
+						out[a,(b + 1):(cutter_len + 1)] = np.nan
+			if np.isin(all_taxa[a], rece_taxa):
+				idx = np.where(rece_taxa == all_taxa[a])
+				area_taxon = area_recent[idx]
+				if len(area_taxon) == 1:
+					area_code = area_taxon
+				else:
+					area_code = 3
+				out[a,0] = area_code
+		out = out[:,::-1]
+		out_list.append(out)
+	write_des_in(out_list, reps, all_taxa, taxon, cutter, input_wd, filename)
