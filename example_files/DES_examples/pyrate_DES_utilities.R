@@ -384,7 +384,7 @@ DESin <- function(x,
             min = dat[[age2]][x]))
         
         # define age class cutter and cut ages into timebins
-        cutter <- seq(0, max(dat$age), by = bin.size)
+        cutter <- seq(0, max(dat$age) + bin.size, by = bin.size)
         dat$timeint <- as.numeric(as.character(cut(dat$age, breaks = cutter, 
             digits = 5, labels = cutter[-length(cutter)])))
         
