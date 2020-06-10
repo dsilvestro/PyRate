@@ -508,12 +508,12 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
 	dat_names_age2 = np.where(dat_names == age2)
 	dat_ages = dat[:,np.sort(np.concatenate((dat_names_age1, dat_names_age2), axis = None))]
 	dat_ages = dat_ages.astype(float)
+	cutter = np.arange(0., max(dat_ages[:, 0]) + binsize, binsize)
+	cutter_len = len(cutter)
 	for i in range(reps):
 		age_ran = np.zeros(dat.shape[0])
 		for y in range(dat.shape[0]):
 			age_ran[y] = np.random.uniform(dat_ages[y, 0], dat_ages[y, 1], 1)
-		cutter = np.arange(0., max(age_ran) + binsize, binsize)
-		cutter_len = len(cutter)
 		binnedage = np.digitize(age_ran, cutter) # Starts with 1!
 		area_fossil = np.zeros(dat.shape[0], dtype=int)
 		area_fossil[np.array(dat[:,dat_names_area] == areas[0]).flatten()] = 1
@@ -547,4 +547,13 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
 				out[a,0] = area_code
 		out = out[:,::-1]
 		out_list.append(out)
+	# Truncate columns of out_list without records
+	colsum_out = np.zeros((reps, cutter_len + 1))
+	for i in range(reps):
+		colsum_out[i,:] = np.nansum(out_list[i], axis = 0)
+	no_records_yet = np.cumsum(np.sum(colsum_out, axis = 0)) == 0
+	keep_rows = len(no_records_yet[no_records_yet]) - 1
+	for i in range(reps):
+		out_list[i] = out_list[i][:,keep_rows:]
+	cutter = cutter[:-keep_rows] # Truncate cutter to dim2 of out_list
 	write_des_in(out_list, reps, all_taxa, taxon, cutter, input_wd, filename)
