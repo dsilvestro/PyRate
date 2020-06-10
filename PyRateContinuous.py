@@ -70,7 +70,7 @@ cov_file=args.c
 rescale_factor=args.r
 focus_clade=args.clade
 win_size=args.w
-rep_j=max(args.j-1,0)
+rep_j=np.max(args.j-1,0)
 est_start_time = args.est_start_time
 w_size_start_time = args.ws_start_time
 
@@ -114,7 +114,7 @@ if focus_clade>=0:
 output_wd = os.path.dirname(dataset)
 name_file = os.path.splitext(os.path.basename(dataset))[0]
 
-if max(args.mSpEx) > -np.inf:
+if np.max(args.mSpEx) > -np.inf:
 	args_mSpEx = args.mSpEx
 else:
 	if args.m== -1: args_mSpEx = [-1,-1]
@@ -139,7 +139,7 @@ else:
 	head_cov_file = next(open(cov_file)).split()
 	times_of_T_change= tempfile[:,0]*args.rescale # array of times of Temp change
 	Temp_values=       tempfile[:,1] # array of Temp values at times_of_T_change
-	trim_temp = times_of_T_change <= max(ts)
+	trim_temp = times_of_T_change <= np.max(ts)
 	times_of_T_change = times_of_T_change[trim_temp]
 	Temp_values = Temp_values[trim_temp]
 	times_of_T_change_indexes = np.concatenate((np.zeros(len(times_of_T_change)),np.zeros(len(pad_s_times))+1))
@@ -148,22 +148,22 @@ else:
 	times_incl_s_times_ord = times_incl_s_times[idx]
 	times_of_T_change_indexes_ord = times_of_T_change_indexes[idx]
 	times_incl_s_times_ord = times_incl_s_times[idx]
-	Temp_values = get_VarValue_at_time(times_incl_s_times_ord,Temp_values,times_of_T_change_indexes_ord,times_of_T_change,max(times_incl_s_times))
+	Temp_values = get_VarValue_at_time(times_incl_s_times_ord,Temp_values,times_of_T_change_indexes_ord,times_of_T_change,np.max(times_incl_s_times))
 	times_of_T_change = times_incl_s_times_ord
 
 # Temp_values= (Temp_values-Temp_values[0]) # so l0 and m0 are rates at the present
 if rescale_factor > 0: Temp_values = Temp_values*rescale_factor
 else: 
-	denom = (max(Temp_values)-min(Temp_values))
+	denom = (np.max(Temp_values)-np.min(Temp_values))
 	if denom==0: denom=1.
 	Temp_values = Temp_values/denom
-	Temp_values = Temp_values-min(Temp_values) # curve rescaled between 0 and 1
+	Temp_values = Temp_values-np.min(Temp_values) # curve rescaled between 0 and 1
 
 #for i in range(len(Temp_values)):
 #	print "%s\t%s" % (times_of_T_change[i],Temp_values[i])
 
-#print "BRL" , sum(ts-te)
-#print "range:", max(Temp_values)-min(Temp_values)
+#print "BRL" , np.sum(ts-te)
+#print "range:", np.max(Temp_values)-np.min(Temp_values)
 
 # create matrix of all events sorted (1st row) with indexes 0: times_of_T_change, 1: ts, 2: te, 3: te=0
 z=np.zeros(len(te))+2
@@ -189,15 +189,15 @@ Dtraj=init_Dtraj(1,n_events)
 # make trajectory curves for each clade
 Dtraj[:,0]=getDT(all_events,ts,te)
 
-#print "TIME", max(times_of_T_change), max(ts),Temp_values[-1]
+#print "TIME", np.max(times_of_T_change), np.max(ts),Temp_values[-1]
 
-Temp_at_events= get_VarValue_at_time(times_of_T_change_tste,Temp_values,times_of_T_change_indexes,times_of_T_change,max(ts))
+Temp_at_events= get_VarValue_at_time(times_of_T_change_tste,Temp_values,times_of_T_change_indexes,times_of_T_change,np.max(ts))
 
 if args.DD is True:
 	Temp_at_events = Dtraj[:,0] + 0.
 	if rescale_factor > 0: Temp_at_events = Temp_at_events*rescale_factor
 	else: 
-		denom = (max(Temp_at_events)-min(Temp_at_events))
+		denom = (np.max(Temp_at_events)-np.min(Temp_at_events))
 		if denom==0: denom=1.
 		Temp_at_events = Temp_at_events/denom
 
@@ -207,11 +207,11 @@ if args.DD is True:
 #_print "HERE",len(ind_s),len(ind_e)
 
 ### Get indexes of all events based on times of shift
-max_times_of_T_change_tste = max(times_of_T_change_tste)
+np.max_times_of_T_change_tste = np.max(times_of_T_change_tste)
 
 shift_ind = np.zeros(len(times_of_T_change_tste)).astype(int)
 if len(s_times)>0:
-	bins_h = sort([max_times_of_T_change_tste+1,-1] + list(s_times))
+	bins_h = sort([np.max_times_of_T_change_tste+1,-1] + list(s_times))
 	# hist gives the number of events within each time bin (between shifts)
 	hist=np.histogram(times_of_T_change_tste,bins=bins_h)[0][::-1]
 	I=np.empty(0)
@@ -223,10 +223,10 @@ if len(s_times)>0:
 if est_start_time:
 	### Get indexes of all events based on times of shift
 	shift_ind_temp_CURVE = np.zeros(len(times_of_T_change_tste)).astype(int)	
-	max_est_start_time = min(max(ts),max(times_of_T_change))
-	print("max allowed start time:",max_est_start_time)
-	effect_start_timeA = max_est_start_time*np.random.uniform(0.1,0.9)
-	bins_h_temp = sort([max_times_of_T_change_tste+1,-1] + [effect_start_timeA])
+	np.max_est_start_time = np.min(np.max(ts),np.max(times_of_T_change))
+	print("np.max allowed start time:",np.max_est_start_time)
+	effect_start_timeA = np.max_est_start_time*np.random.uniform(0.1,0.9)
+	bins_h_temp = sort([np.max_times_of_T_change_tste+1,-1] + [effect_start_timeA])
 	# hist gives the number of events within each time bin (between shifts)
 	hist_temp=np.histogram(times_of_T_change_tste,bins=bins_h_temp)[0][::-1]
 	Itemp=np.empty(0)
@@ -239,7 +239,7 @@ if est_start_time:
 scaled_temp=np.zeros(len(Temp_at_events))
 for i in range(len(np.unique(shift_ind))):
 	Temp_values= Temp_at_events[shift_ind==i]
-	Temp_values= (Temp_values-np.median([min(Temp_values),max(Temp_values)])) # so l0 and m0 are rates at the mean temp value
+	Temp_values= (Temp_values-np.median([np.min(Temp_values),np.max(Temp_values)])) # so l0 and m0 are rates at the mean temp value
 	scaled_temp[shift_ind==i]= Temp_values
 
 Temp_at_events=scaled_temp
@@ -249,24 +249,24 @@ Temp_at_events=scaled_temp
 
 
 if run_single_slice == 1: # values rescaled between 0 and 1 within the slice
-	#print max(Temp_values)-min(Temp_values)
+	#print np.max(Temp_values)-np.min(Temp_values)
 	temp_values_slice= Temp_at_events[shift_ind==index_slice_of_interest] 
 	if rescale_factor > 0:
 		temp_values_slice = temp_values_slice * rescale_factor
 	else:
-		#temp_values_slice= (temp_values_slice-temp_values_slice[0]) / (max(temp_values_slice)-min(temp_values_slice))
-		temp_values_slice = temp_values_slice / (max(temp_values_slice) - min(temp_values_slice))
-		temp_values_slice = temp_values_slice - min(temp_values_slice)
+		#temp_values_slice= (temp_values_slice-temp_values_slice[0]) / (np.max(temp_values_slice)-np.min(temp_values_slice))
+		temp_values_slice = temp_values_slice / (np.max(temp_values_slice) - np.min(temp_values_slice))
+		temp_values_slice = temp_values_slice - np.min(temp_values_slice)
 	Temp_at_events[shift_ind==index_slice_of_interest] = temp_values_slice
-	#print temp_values_slice, max(temp_values_slice)-min(temp_values_slice)
+	#print temp_values_slice, np.max(temp_values_slice)-np.min(temp_values_slice)
 
 
 
 if args.verbose is True:
-	print("total branch length:" , sum(ts-te))
-	print("raw range: %s (%s-%s)"       % (max(tempfile[:,1])-min(tempfile[:,1]), max(tempfile[:,1]), min(tempfile[:,1])))
-	print("rescaled range: %s (%s-%s)" % (max(Temp_values)-min(Temp_values), max(Temp_values), min(Temp_values)))
-	print("max diversity:", max(Dtraj))
+	print("total branch length:" , np.sum(ts-te))
+	print("raw range: %s (%s-%s)"       % (np.max(tempfile[:,1])-np.min(tempfile[:,1]), np.max(tempfile[:,1]), np.min(tempfile[:,1])))
+	print("rescaled range: %s (%s-%s)" % (np.max(Temp_values)-np.min(Temp_values), np.max(Temp_values), np.min(Temp_values)))
+	print("np.max diversity:", np.max(Dtraj))
 	print("rescaling factor:", rescale_factor)
 	print("\ntime\tvar.value\tdiversity")
 	for i in range(len(all_events)):
@@ -296,8 +296,8 @@ def get_marginal_rates(model,l0,m0,Garray,Temp_at_events,shift_ind,root_age):
 	for i in range(len(Temp_at_events)):
 		age = all_events_temp2[0,i]
 		if run_single_slice==1:
-			if age < max(s_times):
-				if len(s_times)==2 and age >= min(s_times):
+			if age < np.max(s_times):
+				if len(s_times)==2 and age >= np.min(s_times):
 					age_vec.append(np.round(age,8))
 					l_vec.append(np.round(l_at_events[i],8))
 					m_vec.append(np.round(m_at_events[i],8))
@@ -315,9 +315,9 @@ def get_marginal_rates(model,l0,m0,Garray,Temp_at_events,shift_ind,root_age):
 
 summary_file = args.plot
 if summary_file != "":
-	root_age = max(ts)
+	root_age = np.max(ts)
 	print("\nParsing log file:", summary_file)
-	t=np.loadtxt(summary_file, skiprows=max(1,int(args.b)))
+	t=np.loadtxt(summary_file, skiprows=np.max(1,int(args.b)))
 	head = next(open(summary_file)).split()
 	
 	L0_index = [head.index(i) for i in head if "l0" in i]
@@ -387,11 +387,11 @@ if summary_file != "":
 	
 	r_script += """
 	par(mfrow=c(2,1))
-	plot(speciation ~ time,type="l",col="#4c4cec", lwd=3,main="Speciation rates", ylim = c(0,max(c(L_hpd_M,M_hpd_M))),xlab="Time",ylab="speciation rate",xlim=c(min(time),0))
+	plot(speciation ~ time,type="l",col="#4c4cec", lwd=3,main="Speciation rates", ylim = c(0,np.max(c(L_hpd_M,M_hpd_M))),xlab="Time",ylab="speciation rate",xlim=c(np.min(time),0))
 	polygon(c(time, rev(time)), c(L_hpd_M, rev(L_hpd_m)), col = alpha("#4c4cec",0.3), border = NA)	
 	abline(v %s,lty=2,col="gray")
 
-	plot(extinction ~ time,type="l",col="#e34a33",  lwd=3,main="Extinction rates", ylim = c(0,max(c(L_hpd_M,M_hpd_M))),xlab="Time",ylab="extinction",xlim=c(min(time),0))
+	plot(extinction ~ time,type="l",col="#e34a33",  lwd=3,main="Extinction rates", ylim = c(0,np.max(c(L_hpd_M,M_hpd_M))),xlab="Time",ylab="extinction",xlim=c(np.min(time),0))
 	polygon(c(time, rev(time)), c(M_hpd_M, rev(M_hpd_m)), col = alpha("#e34a33",0.3), border = NA)
 	abline(v %s,lty=2,col="gray")
 	""" % (lib_utilities.print_R_vec("",-s_times),lib_utilities.print_R_vec("",-s_times))
@@ -442,7 +442,7 @@ logfile = open(out_file_name , "w")
 wlog=csv.writer(logfile, delimiter='\t')
 
 head="it\tposterior\tlikelihood\tprior" 
-time_slices = sort([max_times_of_T_change_tste+1,0] + list(s_times))[::-1]
+time_slices = sort([np.max_times_of_T_change_tste+1,0] + list(s_times))[::-1]
 time_bin_label=[]
 for i in range(1,len(time_slices)): time_bin_label.append("%s-%s" % (int(time_slices[i-1]),int(time_slices[i])))
 	
@@ -516,7 +516,7 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 	if iteration>10:
 		if rr[0]<sampling_freqs[0] or iteration<1000:
 			
-			if est_start_time: effect_start_time = update_parameter(effect_start_timeA,m=0.5,M=max_est_start_time-0.5,d=w_size_start_time)
+			if est_start_time: effect_start_time = update_parameter(effect_start_timeA,m=0.5,M=np.max_est_start_time-0.5,d=w_size_start_time)
 			
 			if equal_r==0:
 				if rr[1]>.5: 
@@ -538,17 +538,17 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 			# Gibbs sampler - Exponential + Gamma
 			G_hp_alpha,G_hp_beta=2.,2.
 			g_shape=G_hp_alpha+len(l0A)+len(m0A)
-			g_rate=G_hp_beta+sum(l0A)+sum(m0A)
+			g_rate=G_hp_beta+np.sum(l0A)+np.sum(m0A)
 			hypRA = np.random.gamma(shape= g_shape, scale= 1./g_rate)
 			#__ # Gibbs sampler - Normal(loc=0, tau) + Gamma
 			#__ G_hp_alpha,G_hp_beta=1.,1.
 			#__ g_shape=G_hp_alpha + len(GarrayA.flatten())/2.
-			#__ g_rate=G_hp_beta + sum((GarrayA.flatten()-0)**2)/2.
+			#__ g_rate=G_hp_beta + np.sum((GarrayA.flatten()-0)**2)/2.
 			#__ hypGA = np.random.gamma(shape= g_shape, scale= 1./g_rate)
 			# Gibbs sampler - Normal(loc=0, sig2) + InvGamma
 			G_hp_alpha,G_hp_beta=1.,.1
 			g_shape=G_hp_alpha + len(GarrayA.flatten())/2.
-			g_rate=G_hp_beta + sum((GarrayA.flatten()-0)**2)/2.
+			g_rate=G_hp_beta + np.sum((GarrayA.flatten()-0)**2)/2.
 			hypGA = 1./np.random.gamma(shape= g_shape, scale= 1./g_rate)
 		else:
 			if rr[2]>.5 and args_mSpEx[0]> -1:
@@ -567,7 +567,7 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 		#print effect_start_time
 		### Get indexes of all events based on times of shift
 		shift_ind_temp_CURVE = np.zeros(len(times_of_T_change_tste)).astype(int)
-		bins_h_temp = sort([max_times_of_T_change_tste+1,-1] + [effect_start_time])
+		bins_h_temp = sort([np.max_times_of_T_change_tste+1,-1] + [effect_start_time])
 		# hist gives the number of events within each time bin (between shifts)
 		hist_temp=np.histogram(times_of_T_change_tste,bins=bins_h_temp)[0][::-1]
 		Itemp=np.empty(0)
@@ -604,8 +604,8 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 	#__ l_s1a=l_at_events[ind_s]
 	#__ m_e1a=m_at_events[ind_e]
         #__ 
-	#__ lik =  sum(log(l_s1a))-sum( abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(Dtraj[:,0][1:len(l_at_events)])) \
-	#__       +sum(log(m_e1a))-sum( abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(Dtraj[:,0][1:len(l_at_events)])) 
+	#__ lik =  np.sum(log(l_s1a))-np.sum( abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(Dtraj[:,0][1:len(l_at_events)])) \
+	#__       +sum(log(m_e1a))-np.sum( abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(Dtraj[:,0][1:len(l_at_events)])) 
 
 	# partial likelihoods
 	if run_single_slice == 0:
@@ -614,35 +614,35 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 			v_1 = V1[i]
 			v_2 = V2[i]
 			l_s1a=l_at_events[V3[i]]
-			lik_p[i] = sum(log(l_s1a)) -sum( abs_diff[v_1] * l_at_events[v_1] * (Dtraj[v_2,0])) 
+			lik_p[i] = np.sum(log(l_s1a)) -np.sum( abs_diff[v_1] * l_at_events[v_1] * (Dtraj[v_2,0])) 
 
 		for i in range(n_time_bins):
 			v_1 = V1[i]
 			v_2 = V2[i]
 			m_e1a=m_at_events[V4[i]]
-			lik_p[i+n_time_bins] = sum(log(m_e1a)) -sum( abs_diff[v_1] * m_at_events[v_1] * (Dtraj[v_2,0])) 
+			lik_p[i+n_time_bins] = np.sum(log(m_e1a)) -np.sum( abs_diff[v_1] * m_at_events[v_1] * (Dtraj[v_2,0])) 
 	else:
 		lik_p=np.zeros(n_time_bins*2)           
 		v_1 = V1[index_slice_of_interest]
 		v_2 = V2[index_slice_of_interest]
 		l_s1a=l_at_events[V3[index_slice_of_interest]]
-		lik_p[index_slice_of_interest] = sum(log(l_s1a)) -sum( abs_diff[v_1] * l_at_events[v_1] * (Dtraj[v_2,0])) 
+		lik_p[index_slice_of_interest] = np.sum(log(l_s1a)) -np.sum( abs_diff[v_1] * l_at_events[v_1] * (Dtraj[v_2,0])) 
 		m_e1a=m_at_events[V4[index_slice_of_interest]]
-		lik_p[index_slice_of_interest+n_time_bins] = sum(log(m_e1a)) -sum( abs_diff[v_1] * m_at_events[v_1] * (Dtraj[v_2,0])) 
+		lik_p[index_slice_of_interest+n_time_bins] = np.sum(log(m_e1a)) -np.sum( abs_diff[v_1] * m_at_events[v_1] * (Dtraj[v_2,0])) 
 	
 	# Check likelihoods  
 	#__ if iteration % 100 ==0:
-	#__	print round(lik - sum(lik_p), 8)
-	lik=sum(lik_p)
+	#__	print round(lik - np.sum(lik_p), 8)
+	lik=np.sum(lik_p)
 	
 	lik_alter = lik * scal_fac_TI[scal_fac_ind]
 	
 	# Add hyper-prior + Gibbs sampling 
-	#print np.amax(abs(Garray)), -hypGA
+	#print np.anp.max(abs(Garray)), -hypGA
 	if hypGA>0: # use normal prior on G par
 		prior = prior_normal(Garray,scale=sqrt(hypGA)) 
 	else: # use uniform prior on G par
-		if np.amax(abs(Garray)) > -hypGA:
+		if np.anp.max(abs(Garray)) > -hypGA:
 			prior = -np.inf
 		else: 
 			prior = 0
@@ -660,7 +660,7 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 	if iteration % print_freq ==0: 
 		print(iteration, array([postA, likA,lik,prior]), hasting, scal_fac_TI[scal_fac_ind])
 		print("l:",l0A, "\nm:", m0A, "\nG:", GarrayA.flatten())
-		if est_start_time: print("start.time:", effect_start_timeA, max_times_of_T_change_tste,"\n")
+		if est_start_time: print("start.time:", effect_start_timeA, np.max_times_of_T_change_tste,"\n")
 	if iteration % sampling_freq ==0:
 		if equal_g==0:
 			g_vec_write = list(GarrayA.flatten())
