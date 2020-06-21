@@ -159,7 +159,32 @@ def trasfMultipleRateTempLinear(L0, Alpha,mTemp_at_events,Index_at_events):
 	r_rate= np.amax(np.array((r_rate,zeros(len(r_rate))+small_number)),axis=0)
 	return r_rate
 
-
+def trasfMultipleRateK(L0, Alpha, mTemp_at_events, Index_at_events, Type):
+	K = Alpha[Index_at_events]
+	if Type == "l":
+		r_rate = L0[Index_at_events] * (1. - mTemp_at_events / K)
+		r_rate[np.isfinite(r_rate) == False] = small_number
+	else:
+		r_rate = L0[Index_at_events] / (1. - mTemp_at_events / K)
+		trunc_rate = np.zeros(len(Index_at_events))
+		trunc_rate = L0[Index_at_events] / (1. - (K - 1e-5) / K)
+		r_rate[np.isfinite(r_rate) == False] = trunc_rate[np.isfinite(r_rate) == False]
+	r_rate = np.amax(np.array((r_rate,zeros(len(r_rate))+small_number)),axis=0)
+	return r_rate
+	
+def trasfMultipleRateKsar(L0, a, mTemp_at_events, Index_at_events, Type, b, Div):
+	Div_rescaled = (Div - np.min(Div)) / (np.max(Div) - np.min(Div))
+	Ksar = a[Index_at_events] * mTemp_at_events**b[Index_at_events]
+	if Type == "l":
+		r_rate = L0[Index_at_events] * (1. - Div_rescaled / Ksar)
+		r_rate[np.isfinite(r_rate) == False] = small_number
+	else:
+		r_rate = L0[Index_at_events] / (1. - Div_rescaled / Ksar)
+		trunc_rate = np.zeros(len(Index_at_events))
+		trunc_rate = L0[Index_at_events] / (1. - (Ksar - 1e-5) / Ksar)
+		r_rate[np.isfinite(r_rate) == False] = trunc_rate[np.isfinite(r_rate) == False]
+	r_rate = np.amax(np.array((r_rate,zeros(len(r_rate))+small_number)),axis=0)
+	return r_rate
 
 def intRate_(t1,t2,events,R):            # R = rates_at_events 
 	#                               #

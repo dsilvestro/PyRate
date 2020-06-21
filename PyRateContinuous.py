@@ -32,10 +32,11 @@ p.add_argument('-A', type=int, help='algorithm: "0" parameter estimation, "1" TI
 p.add_argument('-d', type=str, help='data set', default="", metavar="<file>")
 p.add_argument('-c', type=str, help='covariate data set', default="", metavar="<file>")
 p.add_argument('-j', type=int, help='replicate', default=0, metavar=0)
-p.add_argument('-m', type=int, help='model: "-1" constant rate, "0" exponential, "1" linear', default=0, metavar=0)
-p.add_argument('-mSpEx', type=int, help='Speciation/Extinction models: "-1" constant rate, "0" exponential, "1" linear', default=[-np.inf,-np.inf], metavar=-np.inf,nargs=2)
+p.add_argument('-m', type=int, help='model: "-1" constant rate, "0" exponential, "1" linear, "2" ecological limit, "3" dynamic upper limit', default=0, metavar=0)
+p.add_argument('-mSpEx', type=int, help='Speciation/Extinction models: "-1" constant rate, "0" exponential, "1" linear, "2" ecological limit, "3" dynamic upper limit', default=[-np.inf,-np.inf], metavar=-np.inf,nargs=2)
 p.add_argument('-equal_G', type=int, help='model: "0" unconstrained G, "1" constrained G', default=0, metavar=0)
-p.add_argument('-equal_R', type=int, help='model: "0" unconstrained G, "1" constrained G', default=0, metavar=0)
+p.add_argument('-equal_R', type=int, help='model: "0" unconstrained R, "1" constrained R', default=0, metavar=0)
+p.add_argument('-equal_Z', type=int, help='model: "0" unconstrained Z, "1" constrained Z', default=0, metavar=0)
 p.add_argument('-n', type=int, help='mcmc generations',default=1050000, metavar=1050000)
 p.add_argument('-s', type=int, help='sample freq.', default=1000, metavar=1000)
 p.add_argument('-p', type=int, help='print freq.', default=1000, metavar=1000)
@@ -70,7 +71,7 @@ cov_file=args.c
 rescale_factor=args.r
 focus_clade=args.clade
 win_size=args.w
-rep_j=np.max(args.j-1,0)
+rep_j=max(args.j-1,0) # No np.max here because it ignores the 0 after the comma
 est_start_time = args.est_start_time
 w_size_start_time = args.ws_start_time
 
@@ -85,6 +86,7 @@ else:
 
 equal_g = args.equal_G
 equal_r = args.equal_R
+equal_z = args.equal_Z
 
 if args.ginput != "":
 	lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=focus_clade,burnin=args.b)
@@ -100,6 +102,7 @@ t_file=np.loadtxt(dataset, skiprows=1)
 
 ts=t_file[:,2+2*rep_j]*args.rescale
 te=t_file[:,3+2*rep_j]*args.rescale
+print(rep_j)
 
 # assign short branch length to singletons (ts=te)
 ind_singletons=(ts==te).nonzero()[0]
@@ -120,7 +123,13 @@ else:
 	if args.m== -1: args_mSpEx = [-1,-1]
 	if args.m==  0: args_mSpEx = [0,0]
 	if args.m==  1: args_mSpEx = [1,1]
-out_model = ["const","exp","lin"]
+	if args.m==  2: args_mSpEx = [2,2]
+	if args.m==  3: args_mSpEx = [3,3]
+m2 = args_mSpEx[0] == 2 or args_mSpEx[1] == 2
+m3 = args_mSpEx[0] == 3 or args_mSpEx[1] == 3
+out_model = ["const","exp","lin","K", "DynLimit"]
+if m2: args.DD = True
+if m3: rescale_factor = 0
 
 #print len(ts),len(te[te>0]),sum(ts-te)
 pad_s_times = np.concatenate( (s_times + np.repeat(0.01, len(s_times)), s_times + np.repeat(-0.01, len(s_times))) )
@@ -158,6 +167,7 @@ else:
 	if denom==0: denom=1.
 	Temp_values = Temp_values/denom
 	Temp_values = Temp_values-np.min(Temp_values) # curve rescaled between 0 and 1
+
 
 #for i in range(len(Temp_values)):
 #	print "%s\t%s" % (times_of_T_change[i],Temp_values[i])
@@ -239,7 +249,8 @@ if est_start_time:
 scaled_temp=np.zeros(len(Temp_at_events))
 for i in range(len(np.unique(shift_ind))):
 	Temp_values= Temp_at_events[shift_ind==i]
-	Temp_values= (Temp_values-np.median([np.min(Temp_values),np.max(Temp_values)])) # so l0 and m0 are rates at the mean temp value
+	if args_mSpEx[0] < 2 and args_mSpEx[1] < 2:
+		Temp_values= (Temp_values-np.median([np.min(Temp_values),np.max(Temp_values)])) # so l0 and m0 are rates at the mean temp value
 	scaled_temp[shift_ind==i]= Temp_values
 
 Temp_at_events=scaled_temp
@@ -276,6 +287,9 @@ if args.verbose is True:
 ### INIT PARAMS
 n_time_bins=len(np.unique(shift_ind))
 GarrayA=np.zeros((2,n_time_bins)) # correlation parameters with Temp of lambda (GarrayA[0]) and mu (GarrayA[1])
+if m2 or m3:
+	GarrayA = GarrayA + 5. * np.max(Temp_at_events) # Carrying capacity parameters for diversity dependence
+ZarrayA = np.zeros((2, n_time_bins)) + 1e-5 # z for species-environment-relationship
 l0A,m0A= init_BD(n_time_bins),init_BD(n_time_bins)
 hypRA = 1.
 
@@ -419,6 +433,8 @@ if equal_g==1: add_equal_g="EG"
 else: add_equal_g=""
 if equal_r==1: add_equal_r="ER"
 else: add_equal_r=""
+add_equal_z=""
+if equal_z==1 and m3: add_equal_z="EZ"
 if est_start_time:
 	add_equal_r+="_ST" # estimateeffect starting time
 if useHP==1: add_use_hp ="_HP"
@@ -426,13 +442,13 @@ else: add_use_hp =""
 	
 
 if output_wd=="":
-	out_file_name="%s_%s_%s_%s%sSp_%sEx%s%s%s.log" % \
+	out_file_name="%s_%s_%s_%s%sSp_%sEx%s%s%s%s.log" % \
 	(os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],rep_j, 
-	s_times_str,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]],add_equal_g,add_equal_r,add_use_hp)
+	s_times_str,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]],add_equal_g,add_equal_r,add_equal_z,add_use_hp)
 else:
-	out_file_name="%s/%s_%s_%s_%s%sSp_%sEx%s%s%s.log" % \
+	out_file_name="%s/%s_%s_%s_%s%sSp_%sEx%s%s%s%s.log" % \
 	(output_wd,os.path.splitext(os.path.basename(dataset))[0],head_cov_file[1],rep_j,  
-	s_times_str,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]],add_equal_g,add_equal_r,add_use_hp)
+	s_times_str,out_model[1+args_mSpEx[0]],out_model[1+args_mSpEx[1]],add_equal_g,add_equal_r,add_equal_z,add_use_hp)
 
 
 
@@ -456,7 +472,15 @@ if equal_g==0:
 	for j in range(n_time_bins): 
 		head+="\tGm_t%s" % (time_bin_label[j])
 else:
-	head+="\tGl\tGm" 
+	head+="\tGl\tGm"
+if m3:
+	if equal_g==0:
+		for j in range(n_time_bins): 
+			head+="\tZl_t%s" % (time_bin_label[j])
+		for j in range(n_time_bins): 
+			head+="\tZm_t%s" % (time_bin_label[j])
+	else:
+		head+="\tZl\tZm"
 if est_start_time:
 	head+="\tstart_time"
 head+="\thp_rate"
@@ -493,6 +517,12 @@ for i in range(n_time_bins):
 scal_fac_ind=0
 lik_pA=np.zeros(n_time_bins)
 freq_update_rate = 1./len(l0A)
+M = 1000.
+m = -1000.
+if m2 or m3:
+	M = 10.*np.max(Dtraj[:,0]*rescale_factor)
+	if rescale_factor == 0: M = 10.*np.max(Temp_at_events)
+	m = 1e-5
 for iteration in range(mcmc_gen * len(scal_fac_TI)):	
 	
 	if (iteration+1) % (mcmc_gen+1) ==0: 
@@ -502,6 +532,7 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 	hasting=0
 	l0,m0=0+l0A,0+m0A
 	Garray=0+GarrayA
+	Zarray=0+ZarrayA
 	if iteration==0:
 		likA,priorA,postA=0,0,0
 	lik,priorBD=0,0
@@ -553,14 +584,27 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 		else:
 			if rr[2]>.5 and args_mSpEx[0]> -1:
 				if equal_g==0:
-					Garray[0]=update_parameter_normal_2d_freq(Garray[0],list_d2[scal_fac_ind],f=.25,m=-1000,M=1000) 
+					Garray[0]=update_parameter_normal_2d_freq(Garray[0],list_d2[scal_fac_ind],f=.25,m=m,M=M) 
 				else:
 					Garray[0,:]=update_parameter_normal(Garray[0,0],list_d2[scal_fac_ind])[0]
+				if m3:
+					if equal_z==0:
+						Zarray[0] = update_parameter_normal_2d_freq(Zarray[0],list_d2[scal_fac_ind], f=.25, m = 0.00001, M = 100.)
+					else:
+						Zarray[0,:] = update_parameter_normal(Zarray[0,0],list_d2[scal_fac_ind])[0]
+						Zarray = abs(Zarray)
 			elif args_mSpEx[1]> -1:
 				if equal_g==0:
-					Garray[1]=update_parameter_normal_2d_freq(Garray[1],list_d2[scal_fac_ind],f=.25,m=-1000,M=1000) 
+					Garray[1]=update_parameter_normal_2d_freq(Garray[1],list_d2[scal_fac_ind],f=.25,m=m,M=M) 
 				else:
 					Garray[1,:]=update_parameter_normal(Garray[1,0],list_d2[scal_fac_ind])[0]
+					Zarray[1,:]=update_parameter_normal(Zarray[1,0],list_d2[scal_fac_ind])[0]
+				if m3:
+					if equal_z==0:
+						Zarray[1]=update_parameter_normal_2d_freq(Zarray[1],list_d2[scal_fac_ind], f=.25, m = 0.00001, M = 100.)
+					else:
+						Zarray[1,:]=update_parameter_normal(Zarray[1,0],list_d2[scal_fac_ind])[0]
+						Zarray = abs(Zarray)
 	#####
 	modified_Temp_at_events = 0+Temp_at_events
 	if est_start_time:
@@ -586,13 +630,21 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 		l_at_events=trasfMultipleRateTempLinear(l0, Garray[0],modified_Temp_at_events,shift_ind)
 	if args_mSpEx[0]== -1: 
 		l_at_events=trasfMultipleRateTempLinear(l0, Garray[0],modified_Temp_at_events,shift_ind) #np.repeat(l0,len(modified_Temp_at_events))
-	
+	if args_mSpEx[0]== 2:
+		l_at_events = trasfMultipleRateK(l0, Garray[0],modified_Temp_at_events,shift_ind, "l")
+	if args_mSpEx[0]== 3:
+		l_at_events = trasfMultipleRateKsar(l0, Garray[0], modified_Temp_at_events,shift_ind, "l", Zarray[0], Dtraj[:,0])
+
 	if args_mSpEx[1]==0: 
 		m_at_events=trasfMultipleRateTemp(m0, Garray[1],modified_Temp_at_events,shift_ind)
 	if args_mSpEx[1]==1: 
 		m_at_events=trasfMultipleRateTempLinear(m0, Garray[1],modified_Temp_at_events,shift_ind)
 	if args_mSpEx[1]== -1: 
 		m_at_events=trasfMultipleRateTempLinear(m0, Garray[1],modified_Temp_at_events,shift_ind) #np.repeat(m0,len(modified_Temp_at_events))
+	if args_mSpEx[1]== 2:
+		m_at_events = trasfMultipleRateK(m0, Garray[1],modified_Temp_at_events,shift_ind, "m")
+	if args_mSpEx[1]== 3:
+		m_at_events = trasfMultipleRateKsar(m0, Garray[1], modified_Temp_at_events,shift_ind, "m", Zarray[1], Dtraj[:,0])
 
 	#if iteration % 10000==0:
 	#	print modified_Temp_at_events
@@ -656,17 +708,24 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 		l0A=l0
 		m0A=m0
 		GarrayA=Garray
+		ZarrayA=Zarray
 		if est_start_time: effect_start_timeA=effect_start_time
 	if iteration % print_freq ==0: 
 		print(iteration, array([postA, likA,lik,prior]), hasting, scal_fac_TI[scal_fac_ind])
 		print("l:",l0A, "\nm:", m0A, "\nG:", GarrayA.flatten())
+		if m3: print("Z:", ZarrayA.flatten())
 		if est_start_time: print("start.time:", effect_start_timeA, np.max_times_of_T_change_tste,"\n")
 	if iteration % sampling_freq ==0:
 		if equal_g==0:
 			g_vec_write = list(GarrayA.flatten())
 		else: g_vec_write = [GarrayA[0,0],GarrayA[1,0]]
-		if est_start_time: log_state=[iteration,postA,likA,priorA] + list(lik_pA) + list(l0A) + list(m0A) +g_vec_write +[effect_start_timeA] + [hypRA,hypGA] + [scal_fac_TI[scal_fac_ind]]
-		else: log_state=[iteration,postA,likA,priorA] + list(lik_pA) + list(l0A) + list(m0A) +g_vec_write + [hypRA,hypGA] + [scal_fac_TI[scal_fac_ind]]
+		z_vec_write = []
+		if m3:
+			if equal_z==0:
+				z_vec_write = list(ZarrayA.flatten())
+			else: z_vec_write = [ZarrayA[0,0],ZarrayA[1,0]]
+		if est_start_time: log_state=[iteration,postA,likA,priorA] + list(lik_pA) + list(l0A) + list(m0A) +g_vec_write + z_vec_write +[effect_start_timeA] + [hypRA,hypGA] + [scal_fac_TI[scal_fac_ind]]
+		else: log_state=[iteration,postA,likA,priorA] + list(lik_pA) + list(l0A) + list(m0A) +g_vec_write + z_vec_write + [hypRA,hypGA] + [scal_fac_TI[scal_fac_ind]]
 		wlog.writerow(log_state)
 		logfile.flush()
 
