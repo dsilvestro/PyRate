@@ -474,7 +474,7 @@ if equal_g==0:
 else:
 	head+="\tGl\tGm"
 if m3:
-	if equal_g==0:
+	if equal_z==0:
 		for j in range(n_time_bins): 
 			head+="\tZl_t%s" % (time_bin_label[j])
 		for j in range(n_time_bins): 
