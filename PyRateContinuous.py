@@ -159,6 +159,7 @@ else:
 	times_incl_s_times_ord = times_incl_s_times[idx]
 	Temp_values = get_VarValue_at_time(times_incl_s_times_ord,Temp_values,times_of_T_change_indexes_ord,times_of_T_change,np.max(times_incl_s_times))
 	times_of_T_change = times_incl_s_times_ord
+	Temp_values = Temp_values[::-1]
 
 # Temp_values= (Temp_values-Temp_values[0]) # so l0 and m0 are rates at the present
 if rescale_factor > 0: Temp_values = Temp_values*rescale_factor
