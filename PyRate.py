@@ -6,7 +6,7 @@ import warnings, importlib
 import importlib.util
 
 version= "PyRate"
-build  = "v3.0 - 20200406"
+build  = "v3.0 - 20200623"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
@@ -168,7 +168,7 @@ def calc_model_probabilities(f,burnin):
 	if num_it<10: sys.exit("\nNot enough samples in the log file!\n")
 	burnin=check_burnin(burnin, num_it)
 	print(("First %s samples excluded as burnin.\n" % (burnin)))
-	file1=file(f, 'U')
+	file1=open(f, 'r')
 	L=file1.readlines()
 	head= L[0].split()
 	PAR1=["k_birth","k_death"]
@@ -240,7 +240,7 @@ def calc_ts_te(f, burnin):
 def calc_BF(f1, f2):
 	input_file_raw = [os.path.basename(f1),os.path.basename(f2)]
 	def get_ML(FILE):
-		file1=file(FILE, 'U')
+		file1=open(FILE, 'r')
 		L=file1.readlines()
 		for i in range(len(L)):
 			if "Marginal likelihood" in L[i]:
