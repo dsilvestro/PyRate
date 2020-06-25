@@ -102,7 +102,6 @@ t_file=np.loadtxt(dataset, skiprows=1)
 
 ts=t_file[:,2+2*rep_j]*args.rescale
 te=t_file[:,3+2*rep_j]*args.rescale
-print(rep_j)
 
 # assign short branch length to singletons (ts=te)
 ind_singletons=(ts==te).nonzero()[0]
@@ -159,6 +158,7 @@ else:
 	times_incl_s_times_ord = times_incl_s_times[idx]
 	Temp_values = get_VarValue_at_time(times_incl_s_times_ord,Temp_values,times_of_T_change_indexes_ord,times_of_T_change,np.max(times_incl_s_times))
 	times_of_T_change = times_incl_s_times_ord
+	Temp_values = Temp_values[::-1]
 
 # Temp_values= (Temp_values-Temp_values[0]) # so l0 and m0 are rates at the present
 if rescale_factor > 0: Temp_values = Temp_values*rescale_factor
@@ -474,7 +474,7 @@ if equal_g==0:
 else:
 	head+="\tGl\tGm"
 if m3:
-	if equal_g==0:
+	if equal_z==0:
 		for j in range(n_time_bins): 
 			head+="\tZl_t%s" % (time_bin_label[j])
 		for j in range(n_time_bins): 
@@ -598,7 +598,6 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 					Garray[1]=update_parameter_normal_2d_freq(Garray[1],list_d2[scal_fac_ind],f=.25,m=m,M=M) 
 				else:
 					Garray[1,:]=update_parameter_normal(Garray[1,0],list_d2[scal_fac_ind])[0]
-					Zarray[1,:]=update_parameter_normal(Zarray[1,0],list_d2[scal_fac_ind])[0]
 				if m3:
 					if equal_z==0:
 						Zarray[1]=update_parameter_normal_2d_freq(Zarray[1],list_d2[scal_fac_ind], f=.25, m = 0.00001, M = 100.)
