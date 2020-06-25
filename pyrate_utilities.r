@@ -40,7 +40,7 @@ extract.ages <- function(file = NULL, replicates = 1, cutoff = NULL, random = TR
 	if (length(dat) == 5 & !("SITE" %in% toupper(colnames(dat)))){
 		colnames(dat) <- c("Species", "Status", "min_age", "max_age", "trait")	
 	} 
-	if (length(dat) == 5 & "Site" %in% colnames(dat)){
+	if (length(dat) == 5 & ("SITE" %in% toupper(colnames(dat)))){
 		colnames(dat) <- c("Species", "Status", "min_age", "max_age", "site")	
 	} 
 	if (length(dat) == 4) {
@@ -57,12 +57,12 @@ extract.ages <- function(file = NULL, replicates = 1, cutoff = NULL, random = TR
 
 	cat("#!/usr/bin/env python", "from numpy import * ", "",  file=outfile, sep="\n")
 	
-	if("site" %in% colnames(dat)){}
+        # if("site" %in% colnames(dat)){}
 	for (j in 1:replicates){
 		times <- list()
 		cat ("\nreplicate", j)
 	
-		dat[dat$min_age == 0,3] <- 0.001
+                # dat[dat$min_age == 0,3] <- 0.001
 	
 		#if (any(dat[,4] < dat[,3])){
 		#	cat("\nWarning: the min age is older than the max age for at least one record\n")
@@ -73,7 +73,11 @@ extract.ages <- function(file = NULL, replicates = 1, cutoff = NULL, random = TR
 			# Juan Cantalapiedra's function
 			maxima <- aggregate(as.numeric(dat[,3]), by=list(dat$site),mean)[,2]
 			minima <- aggregate(as.numeric(dat[,4]), by=list(dat$site),mean)[,2]
-			rnd_ages <- apply(cbind(maxima, minima),1, function(x){round(runif(1,x[1],x[2]), digits = 6)})
+                        
+                        minima_1 <- apply(cbind(maxima, minima),FUN=min,1)
+                        maxima_1 <- apply(cbind(maxima, minima),FUN=max,1)
+                        
+			rnd_ages <- apply(cbind(minima_1, maxima_1),1, function(x){round(runif(1,x[1],x[2]), digits = 6)})
 			names(rnd_ages) <- aggregate(dat[,3], by=list(dat$site),mean)[,1]
 			dat$new_age <- rnd_ages[match(dat$site,names(rnd_ages))]
 		}else{
