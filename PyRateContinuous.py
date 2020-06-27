@@ -57,6 +57,7 @@ p.add_argument('-plot', type=str, help='Log file', default="", metavar="")
 p.add_argument("-rescale",   type=float, help='Rescale time axis (e.g. -rescale 1000: 1 -> 1000, time unit = 1Ky)', default=1, metavar=1)
 p.add_argument('-use_hp', type=int, help='Use hyperpriors on rates and correlation parameters (0/1)', default=1, metavar=1)
 p.add_argument("-pG",   type=float, help='St. dev. of normal prior on correlation parameters (only if -use_hp 0) | use negative values to set symmetric uniform prior', default=1, metavar=1)
+p.add_argument("-pZ",   type=float, help='St. dev. of normal prior on power parameters (only if -use_hp 0) | use negative values to set symmetric uniform prior', default=1, metavar=1)
 p.add_argument("-verbose",  help='Print curve trajectory', action='store_true', default=False)
 
 
@@ -297,6 +298,10 @@ if args.pG>0:
 	hypGA= args.pG**2 # variance of normal prior
 else:
 	hypGA= args.pG # if negative use uniform prior
+if args.pZ>0:
+	hypZA= args.pZ**2 # variance of normal prior
+else:
+	hypZA= args.pZ # if negative use uniform prior
 
 ### PLOT RTT
 def get_marginal_rates(model,l0,m0,Garray,Temp_at_events,shift_ind,root_age):
@@ -485,6 +490,7 @@ if est_start_time:
 	head+="\tstart_time"
 head+="\thp_rate"
 head+="\thp_sig2"
+if m3: head+="\thpz_sig2"
 head+="\tbeta"
 wlog.writerow(head.split('\t'))
 logfile.flush()
@@ -581,6 +587,11 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 			g_shape=G_hp_alpha + len(GarrayA.flatten())/2.
 			g_rate=G_hp_beta + np.sum((GarrayA.flatten()-0)**2)/2.
 			hypGA = 1./np.random.gamma(shape= g_shape, scale= 1./g_rate)
+			if m3:
+				Z_hp_alpha,Z_hp_beta=1.,.1
+				z_shape=Z_hp_alpha + len(ZarrayA.flatten())/2.
+				z_rate=Z_hp_beta + np.sum((ZarrayA.flatten()-0)**2)/2.
+				hypZA = 1./np.random.gamma(shape= z_shape, scale= 1./z_rate)
 		else:
 			if rr[2]>.5 and args_mSpEx[0]> -1:
 				if equal_g==0:
@@ -592,7 +603,7 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 						Zarray[0] = update_parameter_normal_2d_freq(Zarray[0],list_d2[scal_fac_ind], f=.25, m = 0.00001, M = 100.)
 					else:
 						Zarray[0,:] = update_parameter_normal(Zarray[0,0],list_d2[scal_fac_ind])[0]
-						Zarray = abs(Zarray)
+					Zarray = abs(Zarray)
 			elif args_mSpEx[1]> -1:
 				if equal_g==0:
 					Garray[1]=update_parameter_normal_2d_freq(Garray[1],list_d2[scal_fac_ind],f=.25,m=m,M=M) 
@@ -603,7 +614,7 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 						Zarray[1]=update_parameter_normal_2d_freq(Zarray[1],list_d2[scal_fac_ind], f=.25, m = 0.00001, M = 100.)
 					else:
 						Zarray[1,:]=update_parameter_normal(Zarray[1,0],list_d2[scal_fac_ind])[0]
-						Zarray = abs(Zarray)
+					Zarray = abs(Zarray)
 	#####
 	modified_Temp_at_events = 0+Temp_at_events
 	if est_start_time:
@@ -697,6 +708,14 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 			prior = -np.inf
 		else: 
 			prior = 0
+	if m3:
+		if hypZA>0: # use normal prior on Z par
+			prior += prior_normal(Zarray,scale=sqrt(hypZA)) 
+		else: # use uniform prior on Z par
+			if np.anp.max(abs(Zarray)) > -hypZA:
+				prior += -np.inf
+			else: 
+				prior += 0
 	prior += prior_exponential(l0,rate=hypRA) + prior_exponential(m0,rate=hypRA)  # prior_normal_tau(Garray,precision=hypGA)
 	
 	if (lik_alter + prior + hasting) - postA >= log(rand.random()) or iteration==0 or GIBBS == 1:
@@ -719,12 +738,14 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
 			g_vec_write = list(GarrayA.flatten())
 		else: g_vec_write = [GarrayA[0,0],GarrayA[1,0]]
 		z_vec_write = []
+		hypZA_write = []
 		if m3:
 			if equal_z==0:
 				z_vec_write = list(ZarrayA.flatten())
 			else: z_vec_write = [ZarrayA[0,0],ZarrayA[1,0]]
-		if est_start_time: log_state=[iteration,postA,likA,priorA] + list(lik_pA) + list(l0A) + list(m0A) +g_vec_write + z_vec_write +[effect_start_timeA] + [hypRA,hypGA] + [scal_fac_TI[scal_fac_ind]]
-		else: log_state=[iteration,postA,likA,priorA] + list(lik_pA) + list(l0A) + list(m0A) +g_vec_write + z_vec_write + [hypRA,hypGA] + [scal_fac_TI[scal_fac_ind]]
+			hypZA_write = list(np.array([hypZA]))
+		if est_start_time: log_state=[iteration,postA,likA,priorA] + list(lik_pA) + list(l0A) + list(m0A) +g_vec_write + z_vec_write +[effect_start_timeA] + [hypRA,hypGA] + hypZA_write + [scal_fac_TI[scal_fac_ind]]
+		else: log_state=[iteration,postA,likA,priorA] + list(lik_pA) + list(l0A) + list(m0A) +g_vec_write + z_vec_write + [hypRA,hypGA] + hypZA_write + [scal_fac_TI[scal_fac_ind]]
 		wlog.writerow(log_state)
 		logfile.flush()
 
