@@ -73,7 +73,7 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 		name_file = os.path.splitext(os.path.basename(files[0]))[0]
 		name_file = name_file.split("_mcmc")[0]	
 		outfile="%s/%s_se_est.txt" % (path_dir, name_file)
-		newfile = open(outfile, "wb") 
+		newfile = open(outfile, "w") 
 		wlog=csv.writer(newfile, delimiter='\t')
 		head="clade\tspecies"+ ("\tts\tte"*len(files))
 		wlog.writerow(head.split('\t'))
@@ -94,7 +94,7 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 			if len(files)>1 and tag=="":
 				name_file1 = name_file.split("_mcmc")[0]	
 				outfile="%s/%s_se_est.txt" % (path_dir, name_file1)
-				newfile = open(outfile, "wb") 
+				newfile = open(outfile, "w") 
 				wlog=csv.writer(newfile, delimiter='\t')
 				head="clade\tspecies\tts\tte"
 				wlog.writerow(head.split('\t'))
@@ -138,7 +138,7 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True):
 
 				# R - plot lineages
 				out="%s/%s_LTT.r" % (wd,name_file)
-				r_file = open(out, "wb") 
+				r_file = open(out, "w") 
 	
 				if platform.system() == "Windows" or platform.system() == "Microsoft":
 					wd_forward = os.path.abspath(wd).replace('\\', '/')
@@ -220,7 +220,7 @@ def calc_marginal_likelihood(infile,burnin,extract_mcmc=1):
 		quit()
 	else: print("found", len(files), "log files...\n")	
 	out_file="%s/marginal_likelihoods.txt" % (infile)
-	newfile =open(out_file,'wb')
+	newfile =open(out_file,'w') # python2 'wb'
 	tbl_header = "file_name\tmodel\tTI_categories\treplicate"
 	for f in files:
 		try: 
@@ -285,7 +285,7 @@ def calc_marginal_likelihood(infile,burnin,extract_mcmc=1):
 			newfile.flush()
 			if extract_mcmc==1:
 				out_name="%s/%s_cold.log" % (infile,name_file)
-				newfile2 =open(out_name,'wb')
+				newfile2 =open(out_name,'w') # python2 'wb'
 				
 				t_red = t[(t[:,temp_index]==1).nonzero()[0]]
 				newfile2.writelines( "\t".join(head_l)  )
@@ -447,7 +447,7 @@ def reduce_log_file(log_file,burnin=1): # written by Tobias Hofmann (tobias.hofm
 	input_file = os.path.basename(log_file)
 	name_file = os.path.splitext(input_file)[0]
 	outfile = "%s/%s_reducedLog.log" %(workdir,name_file)
-	output = open(outfile, "wb")
+	output = open(outfile, "w")
 	outlog=csv.writer(output, delimiter='\t')
 	print("Parsing header...")
 	head = next(open(log_file)).split()
