@@ -425,7 +425,7 @@ def parse_input_data(input_file_name,RHO_sampling=np.ones(2),verbose=0,n_sampled
 		tbl_temp=tbl[:,1:]
 		DATA=tbl_temp.astype(float)
 		# remove empty taxa (absent throughout)
-		ind_keep = (np.sum(DATA,axis=1) != 0).nonzero()[0]
+		ind_keep = (np.nansum(DATA,axis=1) != 0).nonzero()[0]
 		DATA = DATA[ind_keep]
 		if reduce_data==1: # KEEPS ONLY TAXA WITH OCCURRENCES IN BOTH AREAS
 			DATA_temp = []
