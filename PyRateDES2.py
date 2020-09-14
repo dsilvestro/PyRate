@@ -118,6 +118,18 @@ p.add_argument('-n_bins',  type=int, help='no bins',  default=20, metavar=20)
 p.add_argument('-n_sim_bins',  type=int, help='no bins for simulation',  default=1000,metavar=1000)
 p.add_argument("-wd",        type=str, help='path to working directory', default="")
 
+### generate DES input
+p.add_argument('-fossil',   type=str, help='fossil occurrences', default="", metavar="")
+p.add_argument('-recent',   type=str, help='recent distribution', default="", metavar="")
+p.add_argument('-filename', type=str, help='input filename', default="", metavar="")
+p.add_argument('-bin_size', type=float, help='size of the time bins', default=2.5, metavar=2.5)
+p.add_argument('-rep',      type=int, help='replicates', default=1, metavar=1)
+p.add_argument('-taxon',    type=str, help='taxon column within fossil', default="scientificName", metavar="")
+p.add_argument('-area',     type=str, help='area column within fossil', default="higherGeography", metavar="")
+p.add_argument('-age1',     type=str, help='earliest age', default="earliestAge", metavar="")
+p.add_argument('-age2',     type=str, help='latest age', default="latestAge", metavar="")
+
+
 args = p.parse_args()
 if args.cite is True:
 	sys.exit(citation)
@@ -130,6 +142,12 @@ random.seed(rseed)
 np.random.seed(rseed)
 
 print("Random seed: ", rseed)
+
+# generate DES input
+if args.fossil != "":
+	des_in(args.fossil, args.recent, args.wd, args.filename, taxon = args.taxon, area = args.area, age1 = args.age1, age2 = args.age2, binsize = args.bin_size, reps = args.rep)
+	quit()
+
 
 burnin= args.b
 n_taxa= args.t

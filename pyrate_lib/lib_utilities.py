@@ -546,14 +546,19 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
 					area_code = 3
 				out[a,0] = area_code
 		out = out[:,::-1]
+		# Remove taxa without fossils
+		any_record = np.nansum(out[:,:-1], axis = 1) != 0
+		out = out[any_record,:]
+		all_taxa = all_taxa[any_record]
 		out_list.append(out)
 	# Truncate columns of out_list without records
 	colsum_out = np.zeros((reps, cutter_len + 1))
 	for i in range(reps):
 		colsum_out[i,:] = np.nansum(out_list[i], axis = 0)
 	no_records_yet = np.cumsum(np.sum(colsum_out, axis = 0)) == 0
-	keep_rows = len(no_records_yet[no_records_yet]) - 1
-	for i in range(reps):
-		out_list[i] = out_list[i][:,keep_rows:]
-	cutter = cutter[:-keep_rows] # Truncate cutter to dim2 of out_list
+	keep_rows = np.sum(no_records_yet) - 1
+	if keep_rows > 1:
+		for i in range(reps):
+			out_list[i] = out_list[i][:,keep_rows:]
+		cutter = cutter[:-keep_rows] # Truncate cutter to dim2 of out_list
 	write_des_in(out_list, reps, all_taxa, taxon, cutter, input_wd, filename)
