@@ -1374,7 +1374,6 @@ if args.A == 3:
 				fix_covar = int(opt_ind_covar_ext[i])
 				x0[fix_covar] = nTaxa
 	if args.TdD is False and args.TdE is False:
-		print("Optimize dispersal covariate first")
 		opt_dis_cov = nlopt.opt(nlopt.LN_SBPLX, len(x0))
 		new_lower_bounds2 = lower_bounds[:]
 		new_upper_bounds2 = upper_bounds[:]
@@ -1396,7 +1395,7 @@ if args.A == 3:
 		opt_dis_cov.set_xtol_rel(1e-3)
 		x_dis_cov = opt_dis_cov.optimize(x0)
 		x0 = x_dis_cov
-		print("Final optimization")
+	print("Final optimization")
 	opt = nlopt.opt(nlopt.LN_SBPLX, len(x0))
 	opt.set_lower_bounds(lower_bounds) 
 	opt.set_upper_bounds(upper_bounds) 

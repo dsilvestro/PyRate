@@ -473,7 +473,7 @@ def reduce_log_file(log_file,burnin=1): # written by Tobias Hofmann (tobias.hofm
 def write_des_in(out_list, reps, all_taxa, taxon, cutter, input_wd, filename):
 	tdiff = np.diff(cutter)[0]
 	time = np.arange(0., np.max(cutter) + tdiff + tdiff/1000., tdiff)
-	time[1:] = time[1:] - 10/2
+	time[1:] = time[1:] - tdiff/2
 	time = time[::-1]
 	for i in range(reps):
 		in_file = "%s/%s_%s.txt" % (input_wd, filename, i + 1)
