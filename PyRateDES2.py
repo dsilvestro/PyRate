@@ -1362,6 +1362,7 @@ if args.A == 3:
 		opt_base.set_upper_bounds(new_upper_bounds)
 		opt_base.set_max_objective(lik_opt)
 		opt_base.set_xtol_rel(1e-3)
+		opt_base.set_maxeval(1000 * round(1.25**len(x0)))
 		x_base = opt_base.optimize(x0)
 		x0 = x_base
 		print("Baseline dispersal, extinction and sampling optimized")
@@ -1393,6 +1394,7 @@ if args.A == 3:
 		opt_dis_cov.set_upper_bounds(new_upper_bounds2)
 		opt_dis_cov.set_max_objective(lik_opt)
 		opt_dis_cov.set_xtol_rel(1e-3)
+		opt_dis_cov.set_maxeval(1000 * round(1.25**len(x0)))
 		x_dis_cov = opt_dis_cov.optimize(x0)
 		x0 = x_dis_cov
 	print("Final optimization")
@@ -1401,7 +1403,7 @@ if args.A == 3:
 	opt.set_upper_bounds(upper_bounds) 
 	opt.set_max_objective(lik_opt)
 	opt.set_xtol_rel(1e-3)
-	#opt.set_maxeval(100) # Only for checking quickly the result
+	opt.set_maxeval(1000 * round(1.25**len(x0)))
 	x = opt.optimize(x0) 
 	minf = opt.last_optimum_value()
 	
