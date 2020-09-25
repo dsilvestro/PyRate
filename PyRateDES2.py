@@ -103,8 +103,6 @@ p.add_argument('-fU',     type=float, help='Tuning - update freq. (d, e, s)', de
 p.add_argument("-mG", help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
 p.add_argument("-ncat", type=int, help='Model - Number of categories for Gamma heterogeneity', default=4, metavar=4)
 
-
-
 ### simulation settings ###
 p.add_argument('-sim_d',  type=float, help='dispersal rates',  default=[.4, .1], metavar=1.1, nargs=2)
 p.add_argument('-sim_e',  type=float, help='extinction rates', default=[.1, .05], metavar=.1, nargs=2)
@@ -209,7 +207,7 @@ map_power       = args.pw
 hp_alpha        = 2.
 hp_beta         = 2.
 use_Pade_approx = args.pade
-scale_proposal  = 1
+scale_proposal  = 10
 
 #### SUMMARIZE RESULTS
 if args.sum !="":
@@ -506,7 +504,9 @@ if use_seq_lik is True: num_processes=0
 if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
 start_time=time.time()
 
-update_rate_freq = max(0.1, 1.5/sum(np.size(dis_rate_vec)))
+update_rate_freq_d = max(0.1, 1.5/sum(np.size(dis_rate_vec)))
+update_rate_freq_e = max(0.1, 1.5/sum(np.size(ext_rate_vec)))
+update_rate_freq_r = max(0.1, 1.5/sum(np.size(r_vec)))
 print("Origination time (binned):", OrigTimeIndex, delta_t) # update_rate_freq, update_freq
 l=1
 recursive = np.arange(OrigTimeIndex[l],len(delta_t))[::-1]
@@ -516,6 +516,8 @@ print(shape(r_vec_indexes_LIST[l]),shape(sign_list_LIST[l]))
 covar_par_A =np.zeros(4)
 if args.DivdD:
 	covar_par_A[0:2] = np.array([nTaxa * 1., nTaxa * 1.])
+if args.DivdE:
+	covar_par_A[2:4] = np.array([nTaxa * 1., nTaxa * 1.])
 x0_logistic_A =np.zeros(4)
 
 
@@ -1476,6 +1478,36 @@ if args.A == 3:
 do_approx_div_traj = 0
 ml_it=0
 scal_fac_ind=0
+
+m_d = -3
+M_d = 3
+m_e = -3
+M_e = 3
+scale_proposal_d = 1
+scale_proposal_e = 1
+if args.TdD is False:
+	scale_proposal_d = bound_covar_d/3.
+	m_d = -bound_covar_d
+	M_d = bound_covar_d
+if args.DivdD:
+	b = np.maximum(np.max(div_traj_2), np.max(div_traj_1))
+	scale_proposal_d = b
+	m_d = b
+	M_d = np.inf
+if args.TdE is False:
+	scale_proposal_e = bound_covar_e/3.
+	m_e = -bound_covar_e
+	M_e = bound_covar_e
+if args.DivdE:
+	b = np.maximum(np.max(div_traj_2), np.max(div_traj_1))
+	scale_proposal_e = b
+	m_e = b
+	M_e = np.inf
+if args.DdE:
+	scale_proposal_e = 5
+	m_e = -50
+	M_e = 50
+
 for it in range(n_generations * len(scal_fac_TI)):
 	if (it+1) % (n_generations+1) ==0: 
 		print(it, n_generations)
@@ -1514,30 +1546,31 @@ for it in range(n_generations * len(scal_fac_TI)):
 			if args.lgD and r[2] < .5: # update logistic mid point
 				x0_logistic=update_parameter_uni_2d_freq(x0_logistic_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)
 			else:	
-				covar_par=update_parameter_uni_2d_freq(covar_par_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)
+				covar_par[0:2]=update_parameter_uni_2d_freq(covar_par_A[0:2], d=0.1*scale_proposal_d, f=0.5, m = m_d, M = M_d)
+				covar_par[2:4]=update_parameter_uni_2d_freq(covar_par_A[2:4], d=0.1*scale_proposal_e, f=0.5, m = m_e, M = M_e)
 		else: # update dispersal rates
 			if equal_d is True:
-				d_temp,hasting = update_multiplier_proposal_freq(dis_rate_vec_A[:,0],d=1+.1*scale_proposal,f=update_rate_freq)
+				d_temp,hasting = update_multiplier_proposal_freq(dis_rate_vec_A[:,0],d=1+.1*scale_proposal,f=update_rate_freq_d)
 				dis_rate_vec = array([d_temp,d_temp]).T
 			else:
-				dis_rate_vec,hasting=update_multiplier_proposal_freq(dis_rate_vec_A,d=1+.1*scale_proposal,f=update_rate_freq)
+				dis_rate_vec,hasting=update_multiplier_proposal_freq(dis_rate_vec_A,d=1+.1*scale_proposal,f=update_rate_freq_d)
 			
 	elif r[0] < update_freq[1]: # EXTINCTION RATES
 		if args.TdE is False and r[1] < .5: 
 			if args.lgE and r[2] < .5: # update logistic mid point
 				x0_logistic=update_parameter_uni_2d_freq(x0_logistic_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)
 			else:	
-				covar_par=update_parameter_uni_2d_freq(covar_par_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)				
-			
+				covar_par[0:2]=update_parameter_uni_2d_freq(covar_par_A[0:2], d=0.1*scale_proposal_d, f=0.5, m = m_d, M = M_d)
+				covar_par[2:4]=update_parameter_uni_2d_freq(covar_par_A[2:4], d=0.1*scale_proposal_e, f=0.5, m = m_e, M = M_e)
 		else:
 			if equal_e is True:
-				e_temp,hasting = update_multiplier_proposal_freq(ext_rate_vec_A[:,0],d=1+.1*scale_proposal,f=update_rate_freq)
+				e_temp,hasting = update_multiplier_proposal_freq(ext_rate_vec_A[:,0],d=1+.1*scale_proposal,f=update_rate_freq_e)
 				ext_rate_vec = array([e_temp,e_temp]).T
 			else:
-				ext_rate_vec,hasting=update_multiplier_proposal_freq(ext_rate_vec_A,d=1+.1*scale_proposal,f=update_rate_freq)
+				ext_rate_vec,hasting=update_multiplier_proposal_freq(ext_rate_vec_A,d=1+.1*scale_proposal,f=update_rate_freq_e)
 	
 	elif r[0] <=update_freq[2]: # SAMPLING RATES
-		r_vec=update_parameter_uni_2d_freq(r_vec_A,d=0.1*scale_proposal,f=update_rate_freq)
+		r_vec=update_parameter_uni_2d_freq(r_vec_A,d=0.1*scale_proposal,f=update_rate_freq_r)
 		if argsG is True:
 			alpha,hasting=update_multiplier_proposal(alphaA,d=1.1)
 		r_vec[:,0]=0
@@ -1726,12 +1759,27 @@ for it in range(n_generations * len(scal_fac_TI)):
 				w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
 	lik, weight_per_taxon = lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST,OrigTimeIndex,Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, bin_last_occ)
 	
-	prior= sum(prior_exp(dis_rate_vec,prior_exp_rate))+sum(prior_exp(ext_rate_vec,prior_exp_rate))+prior_normal(covar_par,0,1)
+	prior= sum(prior_exp(dis_rate_vec,prior_exp_rate))+sum(prior_exp(ext_rate_vec,prior_exp_rate))#+prior_normal(covar_par,0,1)
+	
+	if args.hp:
+		G_hp_alpha,G_hp_beta=1.,.1
+		g_shape=G_hp_alpha + 2.#len(covar_par)/2.
+		g_rate=G_hp_beta + np.sum((covar_par-0)**2)/2.
+		hypGA = 1./np.random.gamma(shape= g_shape, scale= 1./g_rate)
+		if hypGA>0: # use normal prior on covar par
+			prior += prior_normal(covar_par,scale=sqrt(hypGA))
+		else: # use uniform prior on covar par
+			if np.anp.max(abs(covar_par)) > -hypGA:
+				prior += -np.inf
+			else:
+				prior += 0
+	else:
+		prior += prior_normal(covar_par,0,1)
 	
 	lik_alter = lik * scal_fac_TI[scal_fac_ind]
 
 	accepted_state = 0
-	if args.A == 3: 
+	if args.A == 3:
 		accepted_state = 1
 		lik = minf
 	if np.isfinite((lik_alter+prior+hasting)) == True:
