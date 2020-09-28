@@ -76,7 +76,6 @@ p.add_argument('-thread',   type=int, help='no threads',  default=0)
 p.add_argument('-ver',      type=int, help='verbose',   default=0, metavar=0)
 p.add_argument('-pade',     type=int, help='0) Matrix decomposition 1) Use Pade approx (slow)', default=0, metavar=0)
 p.add_argument('-qtimes',   type=float, help='shift time (Q)',  default=[], metavar=0, nargs='+') # '*'
-p.add_argument('-sum',      type=str, help='Summarize results (provide log file)',  default="", metavar="log file")
 p.add_argument('-symd',     help='symmetric dispersal rates', action='store_true', default=False)
 p.add_argument('-syme',     help='symmetric extinction rates', action='store_true', default=False)
 p.add_argument('-symq',     help='symmetric preservation rates', action='store_true', default=False)
@@ -87,6 +86,7 @@ p.add_argument('-constr',   type=int, help='Contraints on covar parameters',  de
 p.add_argument('-data_in_area', type=int,  help='if data only in area 1 set to 1 (set to 2 if data only in area 2)', default=0)
 p.add_argument('-varD',      type=str, help='Time variable file DISPERSAL (e.g. PhanerozoicTempSmooth.txt)',  default="", metavar="")
 p.add_argument('-varE',      type=str, help='Time variable file EXTINCTION (e.g. PhanerozoicTempSmooth.txt)',  default="", metavar="")
+p.add_argument('-r', type=float, help='rescale values (0 to scale in [0,1], 0.1 to reduce range 10x, 1 to leave unchanged)', default=0, metavar=0)
 p.add_argument('-red',      type=int, help='if -red 1: reduce dataset to taxa with occs in both areas', default=0)
 p.add_argument('-DivdD',    help='Use Diversity dependent Dispersal',  action='store_true', default=False)
 p.add_argument('-DivdE',    help='Use Diversity dependent Extinction', action='store_true', default=False)
@@ -102,6 +102,10 @@ p.add_argument('-cov_and_dispersal', help='Model with symmetric extinction covar
 p.add_argument('-fU',     type=float, help='Tuning - update freq. (d, e, s)', default=[0, 0, 0], nargs=3)
 p.add_argument("-mG", help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
 p.add_argument("-ncat", type=int, help='Model - Number of categories for Gamma heterogeneity', default=4, metavar=4)
+
+### summary
+p.add_argument('-sum',      type=str, help='Summarize results (provide log file)',  default="", metavar="log file")
+p.add_argument('-plot', type=str, help='Marginal rates file or Log file for plotting covariate effect (the latter requires input data set, time variable files and model specification)', default="", metavar="")
 
 ### simulation settings ###
 p.add_argument('-sim_d',  type=float, help='dispersal rates',  default=[.4, .1], metavar=1.1, nargs=2)
@@ -176,6 +180,7 @@ if args.cov_and_dispersal:
 else: model_DUO= 0
 argsG = args.mG
 pp_gamma_ncat = args.ncat
+rescale_factor=args.r
 
 # if args.const==1:
 # 	equal_d = True # this makes them symmatric not equal!
@@ -237,6 +242,104 @@ if args.sum !="":
 
 	s= "\nA summary file was saved as: %s\n\n" % (outfile)
 	sys.exit(s)
+
+#### PLOT RATES THROUGH TIME
+plot_file = args.plot
+if plot_file != "":
+	if "marginal_rates" in plot_file:
+		burnin = args.b
+
+		if burnin == 0:
+			print("""Burnin was set to 0. Use command -b to specify a higher burnin
+(e.g. -b 100 will exclude the first 100 samples).""")
+		rtt = loadtxt(plot_file, skiprows=max(1,burnin))
+		mcmc_rtt = rtt.ndim == 2
+		# No way to remove the TI steps
+		if mcmc_rtt:
+			ncols = shape(rtt)[1]
+			hpd = np.zeros((2, ncols))
+			for i in range(ncols):
+				par = rtt[:,i]
+				hpd[:,i] = calcHPD(par, .95)
+			rate_mean = np.mean(rtt, axis = 0)
+		else:
+			ncols = shape(rtt)[0]
+			hpd = np.zeros((2, ncols))
+			hpd[:] = np.NaN
+			rate_mean = rtt
+		
+		head = next(open(plot_file)).split()
+		d12_index = [head.index(i) for i in head if "d12" in i]
+		d21_index = [head.index(i) for i in head if "d21" in i]
+		e1_index = [head.index(i) for i in head if "e1" in i]
+		e2_index = [head.index(i) for i in head if "e2" in i]
+		d12_mean = rate_mean[d12_index]
+		d21_mean = rate_mean[d21_index]
+		e1_mean = rate_mean[e1_index]
+		e2_mean = rate_mean[e2_index]
+		d12_hpd = hpd[:,d12_index]
+		d21_hpd = hpd[:,d21_index]
+		e1_hpd = hpd[:,e1_index]
+		e2_hpd = hpd[:,e2_index]
+		time_plot = []
+		for i in d12_index:
+			time_string = head[i].split("_")[1]
+			time_plot.append(float(time_string))
+		
+		# write R file
+		print("\ngenerating R file...", end=' ')
+		output_wd = os.path.dirname(plot_file)
+		name_file = os.path.splitext(os.path.basename(plot_file))[0]
+		out = "%s/%s_Dis_Ex_RTT.r" % (output_wd, name_file)
+		
+		newfile = open(out, "w")
+		if platform.system() == "Windows" or platform.system() == "Microsoft":
+			wd_forward = os.path.abspath(output_wd).replace('\\', '/')
+			r_script = "pdf(file='%s/%s_Dis_Ex_RTT.pdf', width = 0.6*20, height = 0.6*20, useDingbats = FALSE)\n" % (wd_forward, name_file)
+		else:
+			r_script = "pdf(file='%s/%s_Dis_Ex_RTT.pdf', width = 0.6*20, height = 0.6*20, useDingbats = FALSE)\n" % (output_wd, name_file)
+		r_script += print_R_vec('\ntime', time_plot)
+		r_script += print_R_vec('\nd12_mean', d12_mean)
+		r_script += print_R_vec('\nd21_mean', d21_mean)
+		r_script += print_R_vec('\ne1_mean', e1_mean)
+		r_script += print_R_vec('\ne2_mean', e2_mean)
+		r_script += print_R_vec('\nd12_lwr', d12_hpd[0,:])
+		r_script += print_R_vec('\nd21_lwr', d21_hpd[0,:])
+		r_script += print_R_vec('\ne1_lwr', e1_hpd[0,:])
+		r_script += print_R_vec('\ne2_lwr', e2_hpd[0,:])
+		r_script += print_R_vec('\nd12_upr', d12_hpd[1,:])
+		r_script += print_R_vec('\nd21_upr', d21_hpd[1,:])
+		r_script += print_R_vec('\ne1_upr', e1_hpd[1,:])
+		r_script += print_R_vec('\ne2_upr', e2_hpd[1,:])
+		r_script += "\nYlim_d = max(c(d12_mean, d21_mean, d12_upr, d21_upr), na.rm = TRUE)"
+		r_script += "\nYlim_e = max(c(e1_mean, e2_mean, e1_upr, e2_upr), na.rm = TRUE)"
+		r_script += "\nlayout(matrix(1:4, ncol = 2, nrow = 2, byrow = TRUE))"
+		r_script += "\npar(las = 1, mar = c(4, 4, 0.5, 0.5))"
+		r_script += "\nplot(time, d12_mean, type = 'n', ylim = c(0, Ylim_d), xlim = c(max(time), 0), xlab = 'Time', ylab = 'd12')"
+		r_script += "\npolygon(c(time, rev(time)), c(d12_lwr, rev(d12_upr)), col = adjustcolor('#4c4cec', alpha = 0.3), border = NA)"
+		r_script += "\nlines(time, d12_mean, col = '#4c4cec', lwd = 2)"
+		r_script += "\nplot(time, d21_mean, type = 'n', ylim = c(0, Ylim_d), xlim = c(max(time), 0), xlab = 'Time', ylab = 'd21')"
+		r_script += "\npolygon(c(time, rev(time)), c(d21_lwr, rev(d21_upr)), col = adjustcolor('#4c4cec', alpha = 0.3), border = NA)"
+		r_script += "\nlines(time, d21_mean, col = '#4c4cec', lwd = 2)"
+		r_script += "\nplot(time, e1_mean, type = 'n', ylim = c(0, Ylim_e), xlim = c(max(time), 0), xlab = 'Time', ylab = 'e1')"
+		r_script += "\npolygon(c(time, rev(time)), c(e1_lwr, rev(e1_upr)), col = adjustcolor('#e34a33', alpha = 0.3), border = NA)"
+		r_script += "\nlines(time, e1_mean, col = '#e34a33', lwd = 2)"
+		r_script += "\nplot(time, e2_mean, type = 'n', ylim = c(0, Ylim_e), xlim = c(max(time), 0), xlab = 'Time', ylab = 'e2')"
+		r_script += "\npolygon(c(time, rev(time)), c(e2_lwr, rev(e2_upr)), col = adjustcolor('#e34a33', alpha = 0.3), border = NA)"
+		r_script += "\nlines(time, e2_mean, col = '#e34a33', lwd = 2)"
+		r_script+="\ndev.off()"
+		newfile.writelines(r_script)
+		newfile.close()
+		
+		print("\nAn R script with the source for the RTT plot was saved as: %s_Dis_Ex_RTT.r\n(in %s)" % (name_file, output_wd))
+		if platform.system() == "Windows" or platform.system() == "Microsoft":
+			cmd="cd %s & Rscript %s_%s_Dis_Ex_RTT.r" % (output_wd, name_file, name_file)
+		else:
+			cmd="cd %s; Rscript %s/%s_Dis_Ex_RTT.r" % (output_wd, output_wd, name_file)
+		os.system(cmd)
+		print("done\n")
+		sys.exit("\n")
+
 
 ### INIT SIMULATION SETTINGS
 # random settings
@@ -472,31 +575,6 @@ alpha = array([10.]) # little sampling heterogeneity
 ######               MCMC              ######
 #############################################
 
-logfile = open(out_log , "w")
-head="it\tposterior\tprior\tlikelihood"
-for i in range(len(dis_rate_vec)): head+= "\td12_t%s\td21_t%s" % (i,i)
-for i in range(len(ext_rate_vec)): head+= "\te1_t%s\te2_t%s" % (i,i)
-for i in range(n_Q_times): head+= "\tq1_t%s\tq2_t%s" % (i,i)
-if args.lgD: head += "\tk_d12\tk_d21\tx0_d12\tx0_d21"
-else: head += "\tcov_d12\tcov_d21"
-if args.lgE: head += "\tk_e1\tk_e2\tx0_e1\tx0_e2"
-else: head += "\tcov_e1\tcov_e2"
-if argsG is True:
-	head+= "\talpha"
-if args.DivdD or args.DivdE:
-	slices_dis = dis_rate_vec.shape[0]
-	slices_ext = ext_rate_vec.shape[0]
-	max_slices = max(slices_dis, slices_ext)
-	if args.data_in_area == 0:
-		for i in range(max_slices): head+= "\tcarrying_capacity_1_t%s\tcarrying_capacity_2_t%s" % (i,i)
-	else:
-		for i in range(max_slices): head+= "\tcarrying_capacity_t%s" % (i)
-head+="\thp_rate\tbeta"
-
-head=head.split("\t")
-wlog=csv.writer(logfile, delimiter='\t')
-wlog.writerow(head)
-
 print("data size:", len(list_taxa_index), nTaxa, len(time_series))
 
 print("starting MCMC...")
@@ -584,28 +662,42 @@ x0_logistic_A =np.zeros(4)
 #except:
 #	time_var = np.ones(len(time_series)-1)
 #	print "Covariate-file not found"
+def rescale_and_center_time_var(time_var, rescale_factor):
+	unscaled_min = np.min(time_var)
+	unscaled_max = np.max(time_var)
+	unscaled_mean = np.mean(time_var)
+	if rescale_factor > 0:
+		time_var = time_var * rescale_factor
+	else:
+		denom = (np.max(time_var) - np.min(time_var))
+		if denom==0: denom=1.
+		time_var = time_var/denom
+		time_var = time_var - np.min(time_var) # curve rescaled between 0 and 1
+	mean_before_centering = np.mean(time_var)
+	time_var = time_var - mean_before_centering
+	return time_var, mean_before_centering, unscaled_min, unscaled_max, unscaled_mean
+
 mean_varD_before_centering = 0.
 mean_varE_before_centering = 0.
 if args.varD != "" and args.varE != "":
 	time_var_temp = get_binned_continuous_variable(time_series, args.varD)
-	time_varD = time_var_temp - np.mean(time_var_temp)
+	time_varD, mean_varD_before_centering, time_varD_unscmin, time_varD_unscmax, time_varD_unscmean = rescale_and_center_time_var(time_var_temp, rescale_factor)
 	print("Rescaled variable dispersal",time_varD, time_series)
 	covar_mean_dis = np.mean(time_varD)
 	time_var_temp = get_binned_continuous_variable(time_series, args.varE)
-	time_varE = time_var_temp - np.mean(time_var_temp)
+	time_varE, mean_varE_before_centering, time_varE_unscmin, time_varE_unscmax, time_varE_unscmean = rescale_and_center_time_var(time_var_temp, rescale_factor)
 	print("Rescaled variable extinction",time_varE, time_series)
 	covar_mean_ext = np.mean(time_varE)
 elif args.varD != "":
 	time_var_temp = get_binned_continuous_variable(time_series, args.varD)
-	mean_varD_before_centering = np.mean(time_var_temp)
-	time_varD = time_var_temp - mean_varD_before_centering
+	time_varD, mean_varD_before_centering, time_varD_unscmin, time_varD_unscmax, time_varD_unscmean = rescale_and_center_time_var(time_var_temp, rescale_factor)
 	print("Rescaled variable dispersal",time_varD, time_series)
 	covar_mean_dis = np.mean(time_varD)
 	time_varE = np.ones(len(time_series)-1)
 elif args.varE != "":
 	time_varD = np.ones(len(time_series)-1)
 	time_var_temp = get_binned_continuous_variable(time_series, args.varE)
-	time_varE = time_var_temp - np.mean(time_var_temp)
+	time_varE, mean_varE_before_centering, time_varE_unscmin, time_varE_unscmax, time_varE_unscmean = rescale_and_center_time_var(time_var_temp, rescale_factor)
 	print("Rescaled variable extinction",time_varE, time_series)
 	covar_mean_ext = np.mean(time_varE)
 else:
@@ -621,18 +713,6 @@ range_time_varE = np.max(time_varE) - np.min(time_varE)
 bound_covar_d = (1. + small_number) / (range_time_varD + small_number) * bound_covar
 bound_covar_e = (1. + small_number) / (range_time_varE + small_number) * bound_covar
 #x0_logistic_A = np.array([np.mean(time_varD), np.mean(time_varD), np.mean(time_varE), np.mean(time_varE)])
-
-
-
-ratesfile = open(out_rates , "w") 
-head="it"
-for i in range(len(time_varD)): head+= "\td12_%s" % (i)
-for i in range(len(time_varD)): head+= "\td21_%s" % (i)
-for i in range(len(time_varE)): head+= "\te1_%s" % (i)
-for i in range(len(time_varE)): head+= "\te2_%s" % (i)
-head=head.split("\t")
-rlog=csv.writer(ratesfile, delimiter='\t')
-rlog.writerow(head)
 
 
 # DIVERSITY TRAJECTORIES
@@ -708,6 +788,211 @@ argsDivdE = args.DivdE
 argsvarD = args.varD
 argsvarE = args.varE
 argsDdE = args.DdE
+
+
+if plot_file != "":
+	if ("marginal_rates" in plot_file) == False:
+		if burnin==0: 
+			print("""Burnin was set to 0. Use command -b to specify a higher burnin (e.g. -b 100 will exclude the first 100 samples).""")
+		
+		def covar_effect(covar, par, de, transf):
+			len_par = len(par)
+			len_covar = len(covar)
+			rate = np.zeros((len_par, len_covar))
+			for i in range(len_par):
+				if transf == 1:
+					rate[i,:] = de[i] * exp(par[i] * covar)
+				if transf == 2:
+					tmp = de[i] * (1. - (covar/par[i]))
+					tmp[tmp <= 0] = np.NaN
+					rate[i:,] = tmp
+				if transf == 3:
+					tmp = de[i] / (1. - (covar/par[i]))
+					tmp[tmp <= 0] = np.NaN
+					tmp[np.isfinite(tmp) == False] = np.NaN
+					tmp[tmp <= 0] = np.NaN
+					rate[i:,] = tmp
+				if transf == 4:
+					rate[i:,] = de[i] + par[i] * covar
+			hpd = np.zeros((2, len_covar))
+			if len_par > 1:
+				rate_mean = np.mean(rate, axis = 0)
+				for i in range(len_covar):
+					hpd[:,i] = calcHPD(rate[:,i], .95)
+			else:
+				rate_mean = rate[0,:]
+				hpd[:] = np.NaN
+			return rate_mean, hpd
+		
+		head = next(open(plot_file)).split()
+		logfile = loadtxt(plot_file, skiprows=max(1,burnin))
+		mcmc_logfile = logfile.ndim == 2
+		e1_index = [head.index(i) for i in head if "e1" in i]
+		e1_index = min(e1_index)
+		e2_index = [head.index(i) for i in head if "e2" in i]
+		e2_index = min(e2_index)
+		cov_d12_index = head.index("cov_d12")
+		cov_d21_index = head.index("cov_d21")
+		cov_e1_index = head.index("cov_e1")
+		cov_e2_index = head.index("cov_e2")
+		panel_count = 0
+		if mcmc_logfile:
+			d12 = logfile[:,4]
+			d21 = logfile[:,5]
+			e1 = logfile[:,e1_index]
+			e2 = logfile[:,e2_index]
+			cov_d12 = logfile[:,cov_d12_index]
+			cov_d21 = logfile[:,cov_d21_index]
+			cov_e1 = logfile[:,cov_e1_index]
+			cov_e2 = logfile[:,cov_e2_index]
+		else:
+			d12 = np.array([logfile[4]])
+			d21 = np.array([logfile[5]])
+			e1 = np.array([logfile[e1_index]])
+			e2 = np.array([logfile[e2_index]])
+			cov_d12 = np.array([logfile[cov_d12_index]])
+			cov_d21 = np.array([logfile[cov_d21_index]])
+			cov_e1 = np.array([logfile[cov_e1_index]])
+			cov_e2 = np.array([logfile[cov_e2_index]])
+		
+		plot_dis = 0
+		plot_ext = 0
+		if args.varD != "":
+			panel_count += 2
+			plot_dis = 1
+			covarD = np.linspace(np.min(time_varD), np.max(time_varD), 100)
+			d12_mean, d12_hpd = covar_effect(covarD, cov_d12, d12, 1)
+			d21_mean, d21_hpd = covar_effect(covarD, cov_d21, d21, 1)
+			if rescale_factor > 0:
+				covarD = covarD + mean_varD_before_centering[0]
+				covarD = covarD / rescale_factor
+			else:
+				covarD = covarD * (time_varD_unscmax - time_varD_unscmin) + time_varD_unscmean
+		if args.DivdD:
+			panel_count += 2
+			plot_dis = 1
+			covarD = np.linspace(1., np.max((div_traj_1, div_traj_2)), 100)
+			d12_mean, d12_hpd = covar_effect(covarD, cov_d12, d12, 2)
+			d21_mean, d21_hpd = covar_effect(covarD, cov_d21, d21, 2)
+		if args.varE != "":
+			panel_count += 2
+			plot_ext = 1
+			covarE = np.linspace(np.min(time_varE), np.max(time_varE), 100)
+			e1_mean, e1_hpd = covar_effect(covarE, cov_e1, e1, 1)
+			e2_mean, e2_hpd = covar_effect(covarE, cov_e2, e2, 1)
+			if rescale_factor > 0:
+				covarE = covarE + mean_varE_before_centering[0]
+				covarE = covarE / rescale_factor
+			else:
+				covarE = covarE * (time_varE_unscmax - time_varE_unscmin) + time_varE_unscmean
+		if args.DivdE:
+			panel_count += 2
+			plot_ext = 1
+			covarE = np.linspace(1., np.max((div_traj_1, div_traj_2)), 100)
+			e1_mean, e1_hpd = covar_effect(covarE, cov_e1, e1, 3)
+			e2_mean, e2_hpd = covar_effect(covarE, cov_e2, e2, 3)
+		if args.DdE:
+			panel_count += 2
+			plot_ext = 1
+			covarE = np.linspace(0., 0.5, 100)
+			e1_mean, e1_hpd = covar_effect(covarE, cov_e1, e1, 4)
+			e2_mean, e2_hpd = covar_effect(covarE, cov_e2, e2, 4)
+		
+		# write R file
+		print("\ngenerating R file...", end=' ')
+		output_wd = os.path.dirname(plot_file)
+		name_file = os.path.splitext(os.path.basename(plot_file))[0]
+		out = "%s/%s_Covar_effect.r" % (output_wd, name_file)
+		newfile = open(out, "w")
+		r_script = print_R_vec('\npanel_count', np.array([panel_count]))
+		if platform.system() == "Windows" or platform.system() == "Microsoft":
+			wd_forward = os.path.abspath(output_wd).replace('\\', '/')
+			r_script += "\npdf(file='%s/%s_Covar_effect.pdf', width = 0.6*20, height = 0.6*20, useDingbats = FALSE)\n" % (wd_forward, name_file)
+		else:
+			r_script += "\npdf(file='%s/%s_Covar_effect.pdf', width = 0.6*20, height = 0.6*5*panel_count, useDingbats = FALSE)\n" % (output_wd, name_file)
+		r_script += "\nlayout(matrix(1:panel_count, ncol = 2, nrow = panel_count/2, byrow = TRUE))"
+		r_script += "\npar(las = 1, mar = c(4, 4, 0.5, 0.5))"
+		if plot_dis == 1:
+			r_script += print_R_vec('\ntime_varD', covarD)
+			r_script += print_R_vec('\nd12_mean', d12_mean)
+			r_script += print_R_vec('\nd21_mean', d21_mean)
+			r_script += print_R_vec('\nd12_lwr', d12_hpd[0,:])
+			r_script += print_R_vec('\nd21_lwr', d21_hpd[0,:])
+			r_script += print_R_vec('\nd12_upr', d12_hpd[1,:])
+			r_script += print_R_vec('\nd21_upr', d21_hpd[1,:])
+			r_script += "\nYlim_d = max(c(d12_mean, d21_mean, d12_upr, d21_upr), na.rm = TRUE)"
+			r_script += "\nplot(time_varD, d12_mean, type = 'n', ylim = c(0, Ylim_d), xlab = 'Covariate dispersal', ylab = 'd12')"
+			r_script += "\npolygon(c(time_varD, rev(time_varD)), c(d12_lwr, rev(d12_upr)), col = adjustcolor('#4c4cec', alpha = 0.3), border = NA)"
+			r_script += "\nlines(time_varD, d12_mean, col = '#4c4cec', lwd = 2)"
+			r_script += "\nplot(time_varD, d21_mean, type = 'n', ylim = c(0, Ylim_d), xlab = 'Covariate dispersal', ylab = 'd21')"
+			r_script += "\npolygon(c(time_varD, rev(time_varD)), c(d21_lwr, rev(d21_upr)), col = adjustcolor('#4c4cec', alpha = 0.3), border = NA)"
+			r_script += "\nlines(time_varD, d21_mean, col = '#4c4cec', lwd = 2)"
+		if plot_ext == 1:
+			r_script += print_R_vec('\ntime_varE', covarE)
+			r_script += print_R_vec('\ne1_mean', e1_mean)
+			r_script += print_R_vec('\ne2_mean', e2_mean)
+			r_script += print_R_vec('\ne1_lwr', e1_hpd[0,:])
+			r_script += print_R_vec('\ne2_lwr', e2_hpd[0,:])
+			r_script += print_R_vec('\ne1_upr', e1_hpd[1,:])
+			r_script += print_R_vec('\ne2_upr', e2_hpd[1,:])
+			r_script += "\nYlim_e = max(c(e1_mean, e2_mean, e1_upr, e2_upr), na.rm = TRUE)"
+			r_script += "\nplot(time_varE, e1_mean, type = 'n', ylim = c(0, Ylim_e), xlab = 'Covariate extinction', ylab = 'e1')"
+			r_script += "\npolygon(c(time_varE, rev(time_varE)), c(e1_lwr, rev(e1_upr)), col = adjustcolor('#e34a33', alpha = 0.3), border = NA)"
+			r_script += "\nlines(time_varE, e1_mean, col = '#e34a33', lwd = 2)"
+			r_script += "\nplot(time_varE, e2_mean, type = 'n', ylim = c(0, Ylim_e), xlab = 'Covariate extinction', ylab = 'e2')"
+			r_script += "\npolygon(c(time_varE, rev(time_varE)), c(e2_lwr, rev(e2_upr)), col = adjustcolor('#e34a33', alpha = 0.3), border = NA)"
+			r_script += "\nlines(time_varE, e2_mean, col = '#e34a33', lwd = 2)"
+		r_script+="\ndev.off()"
+		newfile.writelines(r_script)
+		newfile.close()
+
+		print("\nAn R script with the source for the RTT plot was saved as: %s_Covar_effect.r\n(in %s)" % (name_file, output_wd))
+		if platform.system() == "Windows" or platform.system() == "Microsoft":
+			cmd="cd %s & Rscript %s_%s_Covar_effect.r" % (output_wd, name_file, name_file)
+		else:
+			cmd="cd %s; Rscript %s/%s_Covar_effect.r" % (output_wd, output_wd, name_file)
+		os.system(cmd)
+		print("done\n")
+	sys.exit("\n")
+
+#### INIT LOG FILES
+logfile = open(out_log , "w")
+head="it\tposterior\tprior\tlikelihood"
+Q_times_header = np.concatenate((0., Q_times), axis = None)[::-1]
+for i in range(len(dis_rate_vec)): head+= "\td12_t%s\td21_t%s" % (Q_times_header[i],Q_times_header[i])
+for i in range(len(ext_rate_vec)): head+= "\te1_t%s\te2_t%s" % (Q_times_header[i],Q_times_header[i])
+for i in range(n_Q_times): head+= "\tq1_t%s\tq2_t%s" % (Q_times_header[i],Q_times_header[i])
+if args.lgD: head += "\tk_d12\tk_d21\tx0_d12\tx0_d21"
+else: head += "\tcov_d12\tcov_d21"
+if args.lgE: head += "\tk_e1\tk_e2\tx0_e1\tx0_e2"
+else: head += "\tcov_e1\tcov_e2"
+if argsG is True:
+	head+= "\talpha"
+if args.DivdD or args.DivdE:
+	slices_dis = dis_rate_vec.shape[0]
+	slices_ext = ext_rate_vec.shape[0]
+	max_slices = max(slices_dis, slices_ext)
+	if args.data_in_area == 0:
+		for i in range(max_slices): head+= "\tcarrying_capacity_1_t%s\tcarrying_capacity_2_t%s" % (i,i)
+	else:
+		for i in range(max_slices): head+= "\tcarrying_capacity_t%s" % (i)
+head+="\thp_rate\tbeta"
+
+head=head.split("\t")
+wlog=csv.writer(logfile, delimiter='\t')
+wlog.writerow(head)
+
+ratesfile = open(out_rates , "w") 
+head="it"
+ts_rev = time_series[1:][::-1]
+for i in range(len(time_varD)): head+= "\td12_%s" % (ts_rev[i])
+for i in range(len(time_varD)): head+= "\td21_%s" % (ts_rev[i])
+for i in range(len(time_varE)): head+= "\te1_%s" % (ts_rev[i])
+for i in range(len(time_varE)): head+= "\te2_%s" % (ts_rev[i])
+head=head.split("\t")
+rlog=csv.writer(ratesfile, delimiter='\t')
+rlog.writerow(head)
+
 
 # Use an ode solver to approximate the diversity trajectories
 def div_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2):
