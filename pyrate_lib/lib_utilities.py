@@ -490,7 +490,7 @@ def write_des_in(out_list, reps, all_taxa, taxon, cutter, input_wd, filename):
 def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "higherGeography", age1 = "earliestAge", age2 = "latestAge", binsize = 5., reps = 3):
 	rece = np.genfromtxt(recent, dtype = str, delimiter='\t')
 	rece_names = rece[0,:]
-	rece = rece[1:,:]
+	rece = np.unique(rece[1:,:], axis = 0)
 	rece_names_area = rece_names == area
 	rece_taxa = rece[:,rece_names == taxon].flatten()
 	areas = np.unique(rece[:,rece_names_area])
@@ -506,9 +506,9 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
 	dat_names_area = np.where(dat_names == area)
 	dat_names_age1 = np.where(dat_names == age1)
 	dat_names_age2 = np.where(dat_names == age2)
-	dat_ages = dat[:,np.sort(np.concatenate((dat_names_age1, dat_names_age2), axis = None))]
+	dat_ages = dat[:,np.concatenate((dat_names_age1, dat_names_age2), axis = None)]
 	dat_ages = dat_ages.astype(float)
-	cutter = np.arange(0., max(dat_ages[:, 0]) + binsize, binsize)
+	cutter = np.arange(0., np.max(dat_ages) + binsize, binsize)
 	cutter_len = len(cutter)
 	for i in range(reps):
 		age_ran = np.zeros(dat.shape[0])
