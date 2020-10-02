@@ -130,7 +130,8 @@ p.add_argument('-taxon',    type=str, help='taxon column within fossil', default
 p.add_argument('-area',     type=str, help='area column within fossil', default="higherGeography", metavar="")
 p.add_argument('-age1',     type=str, help='earliest age', default="earliestAge", metavar="")
 p.add_argument('-age2',     type=str, help='latest age', default="latestAge", metavar="")
-
+p.add_argument('-trim_age', type=float, help='trim DES input to maximum age',  default=[])
+p.add_argument('-plot_raw', help='plot raw diversity curves', action='store_true', default=False)
 
 args = p.parse_args()
 if args.cite is True:
@@ -147,7 +148,114 @@ print("Random seed: ", rseed)
 
 # generate DES input
 if args.fossil != "":
-	des_in(args.fossil, args.recent, args.wd, args.filename, taxon = args.taxon, area = args.area, age1 = args.age1, age2 = args.age2, binsize = args.bin_size, reps = args.rep)
+	reps = args.rep
+	desin_list, time = des_in(args.fossil, args.recent, args.wd, args.filename, taxon = args.taxon, area = args.area, age1 = args.age1, age2 = args.age2, binsize = args.bin_size, reps = reps, trim_age = args.trim_age)
+	if args.plot_raw:
+		len_time = len(time)
+		desin_div1 = np.zeros((reps, len_time))
+		desin_div2 = np.zeros((reps, len_time))
+		desin_div2 = np.zeros((reps, len_time))
+		desin_div3 = np.zeros((reps, len_time))
+		for i in range(reps):
+			data_temp = desin_list[i]
+			# area 1
+			data_temp1 = 0.+data_temp
+			data_temp1[data_temp1==2]=0
+			data_temp1[data_temp1==3]=1
+			desin_div1[i,:] = np.nansum(data_temp1,axis=0)
+			# area 2
+			data_temp2 = 0.+data_temp
+			data_temp2[data_temp2==1]=0
+			data_temp2[data_temp2==2]=1
+			data_temp2[data_temp2==3]=1
+			desin_div2[i,:] = np.nansum(data_temp2,axis=0)
+			# both
+			data_temp3 = 0.+data_temp
+			data_temp3[data_temp3==1]=0
+			data_temp3[data_temp3==2]=0
+			data_temp3[data_temp3==3]=1
+			desin_div3[i,:] = np.nansum(data_temp3,axis=0)
+		desin_div1_mean = np.mean(desin_div1, axis = 0)
+		desin_div2_mean = np.mean(desin_div2, axis = 0)
+		desin_div3_mean = np.mean(desin_div3, axis = 0)
+		desin_div1_hpd = np.zeros((2, len_time))
+		desin_div2_hpd = np.zeros((2, len_time))
+		desin_div3_hpd = np.zeros((2, len_time))
+		desin_div1_hpd[:] = np.NaN
+		desin_div2_hpd[:] = np.NaN
+		desin_div3_hpd[:] = np.NaN
+		if reps > 1:
+			for i in range(len_time):
+				par = desin_div1[:,i]
+				desin_div1_hpd[:,i] = calcHPD(par, .95)
+				par = desin_div2[:,i]
+				desin_div2_hpd[:,i] = calcHPD(par, .95)
+				par = desin_div3[:,i]
+				desin_div3_hpd[:,i] = calcHPD(par, .95)
+		# write R file
+		print("\ngenerating R file...", end=' ')
+		output_wd = args.wd
+		name_file = os.path.splitext(os.path.basename(args.fossil))[0]
+		out = "%s/%s_raw_div.r" % (output_wd, name_file)
+		
+		newfile = open(out, "w")
+		if platform.system() == "Windows" or platform.system() == "Microsoft":
+			wd_forward = os.path.abspath(output_wd).replace('\\', '/')
+			r_script = "pdf(file='%s/%s_raw_div.pdf', width = 0.6*20, height = 0.6*10, useDingbats = FALSE)\n" % (wd_forward, name_file)
+		else:
+			r_script = "pdf(file='%s/%s_raw_div.pdf', width = 0.6*20, height = 0.6*10, useDingbats = FALSE)\n" % (output_wd, name_file)
+		r_script += print_R_vec('\ntime', time)
+		r_script += print_R_vec('\ndesin_div1_mean', desin_div1_mean)
+		r_script += print_R_vec('\ndesin_div2_mean', desin_div2_mean)
+		r_script += print_R_vec('\ndesin_div3_mean', desin_div3_mean)
+		r_script += print_R_vec('\ndesin_div1_lwr', desin_div1_hpd[0,:])
+		r_script += print_R_vec('\ndesin_div2_lwr', desin_div2_hpd[0,:])
+		r_script += print_R_vec('\ndesin_div3_lwr', desin_div3_hpd[0,:])
+		r_script += print_R_vec('\ndesin_div1_upr', desin_div1_hpd[1,:])
+		r_script += print_R_vec('\ndesin_div2_upr', desin_div2_hpd[1,:])
+		r_script += print_R_vec('\ndesin_div3_upr', desin_div3_hpd[1,:])
+		r_script += "\nYlim = max(c(desin_div1_mean, desin_div2_mean, desin_div1_upr, desin_div2_upr), na.rm = TRUE)"
+		r_script += "\nlayout(matrix(1:2, ncol = 2, nrow = 1, byrow = TRUE))"
+		r_script += "\npar(las = 1, mar = c(4, 4, 0.5, 0.5))"
+		r_script += "\nlen_time = length(time)"
+		r_script += "\nslicer_1 = 1 + max(which(cumsum(desin_div1_mean) == 0))"
+		r_script += "\ntime_1 = time[slicer_1:len_time]"
+		r_script += "\ndesin_div1_mean = desin_div1_mean[slicer_1:len_time]"
+		r_script += "\ndesin_div1_lwr = desin_div1_lwr[slicer_1:len_time]"
+		r_script += "\ndesin_div1_upr = desin_div1_upr[slicer_1:len_time]"
+		r_script += "\nslicer_2 = 1 + max(which(cumsum(desin_div2_mean) == 0))"
+		r_script += "\ntime_2 = time[slicer_2:len_time]"
+		r_script += "\ndesin_div2_mean = desin_div2_mean[slicer_2:len_time]"
+		r_script += "\ndesin_div2_lwr = desin_div2_lwr[slicer_2:len_time]"
+		r_script += "\ndesin_div2_upr = desin_div2_upr[slicer_2:len_time]"
+		r_script += "\nslicer_3 = 1 + max(which(cumsum(desin_div3_mean) == 0))"
+		r_script += "\ntime_3 = time[slicer_3:len_time]"
+		r_script += "\ndesin_div3_mean = desin_div3_mean[slicer_3:len_time]"
+		r_script += "\ndesin_div3_lwr = desin_div3_lwr[slicer_3:len_time]"
+		r_script += "\ndesin_div3_upr = desin_div3_upr[slicer_3:len_time]"
+		r_script += "\nplot(0, 0, type = 'n', ylim = c(0, Ylim), xlim = c(max(time), 0), xlab = 'Time', ylab = 'Diversity')"
+		r_script += "\npolygon(c(time_1, rev(time_1)), c(desin_div1_lwr, rev(desin_div1_upr)), col = adjustcolor('dodgerblue', alpha = 0.3), border = NA)"
+		r_script += "\npolygon(c(time_3, rev(time_3)), c(desin_div3_lwr, rev(desin_div3_upr)), col = adjustcolor('purple2', alpha = 0.3), border = NA)"
+		r_script += "\nlines(time_1, desin_div1_mean, col = 'dodgerblue', lwd = 2)"
+		r_script += "\nlines(time_3, desin_div3_mean, col = 'purple2', lwd = 2)"
+		r_script += "\nlegend('topleft', legend = c('Diversity A', 'Diversity AB'), pch = c(15, 15), pt.cex = 1.5, col = adjustcolor(c('dodgerblue','purple2'), alpha = 0.3), bty = 'n')"
+		r_script += "\nplot(0, 0, type = 'n', ylim = c(0, Ylim), xlim = c(max(time), 0), xlab = 'Time', ylab = 'Diversity')"
+		r_script += "\npolygon(c(time_2, rev(time_2)), c(desin_div2_lwr, rev(desin_div2_upr)), col = adjustcolor('deeppink', alpha = 0.3), border = NA)"
+		r_script += "\npolygon(c(time_3, rev(time_3)), c(desin_div3_lwr, rev(desin_div3_upr)), col = adjustcolor('purple2', alpha = 0.3), border = NA)"
+		r_script += "\nlines(time_2, desin_div2_mean, col = 'deeppink', lwd = 2)"
+		r_script += "\nlines(time_3, desin_div3_mean, col = 'purple', lwd = 2)"
+		r_script += "\nlegend('topleft', legend = c('Diversity B', 'Diversity AB'), pch = c(15, 15), pt.cex = 1.5, col = adjustcolor(c('deeppink','purple2'), alpha = 0.3), bty = 'n')"
+		r_script+="\ndev.off()"
+		newfile.writelines(r_script)
+		newfile.close()
+		
+		print("\nAn R script with the source for the RTT plot was saved as: %s_raw_div.r\n(in %s)" % (name_file, output_wd))
+		if platform.system() == "Windows" or platform.system() == "Microsoft":
+			cmd="cd %s & Rscript %s_%s_raw_div.r" % (output_wd, name_file, name_file)
+		else:
+			cmd="cd %s; Rscript %s/%s_raw_div.r" % (output_wd, output_wd, name_file)
+		os.system(cmd)
+		print("done\n")
 	quit()
 
 
