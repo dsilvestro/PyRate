@@ -4837,7 +4837,7 @@ if TDI!=1 and use_ADE_model == 0 and useDiscreteTraitModel == 0 and log_marginal
         for i in range(int(max_marginal_frame)+1): head += "m_%s\t" % i #int(fabs(int(max(FA))))
         for i in range(int(max_marginal_frame)+1): head += "r_%s\t" % i #int(fabs(int(max(FA))))
         head=head.split('\t')
-        wmarg=csv.writer(marginal_file, delimiter='    ')
+        wmarg=csv.writer(marginal_file, delimiter='\t')
         wmarg.writerow(head)
         marginal_file.flush()
         os.fsync(marginal_file)
