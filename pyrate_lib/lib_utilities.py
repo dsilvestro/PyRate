@@ -470,11 +470,7 @@ def reduce_log_file(log_file,burnin=1): # written by Tobias Hofmann (tobias.hofm
 	print("The reduced log file was saved as: %s\n" % (outfile))
 	
 
-def write_des_in(out_list, reps, all_taxa, taxon, cutter, input_wd, filename):
-	tdiff = np.diff(cutter)[0]
-	time = np.arange(0., np.max(cutter) + tdiff + tdiff/1000., tdiff)
-	time[1:] = time[1:] - tdiff/2
-	time = time[::-1]
+def write_des_in(out_list, reps, all_taxa_list, taxon, time, input_wd, filename):
 	for i in range(reps):
 		in_file = "%s/%s_%s.txt" % (input_wd, filename, i + 1)
 		w_in_file = open(in_file, "w")
@@ -482,12 +478,12 @@ def write_des_in(out_list, reps, all_taxa, taxon, cutter, input_wd, filename):
 		head = [taxon] + list(time)
 		_ = writer.writerow(head)
 		for a in range(out_list[i].shape[0]):
-			row = [all_taxa[a]] + list(out_list[i][a,:])
+			row = [all_taxa_list[i][a]] + list(out_list[i][a,:])
 			_ = writer.writerow(row)
 		w_in_file.flush()
 		os.fsync(w_in_file)
 
-def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "higherGeography", age1 = "earliestAge", age2 = "latestAge", binsize = 5., reps = 3):
+def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "higherGeography", age1 = "earliestAge", age2 = "latestAge", binsize = 5., reps = 3, trim_age = []):
 	rece = np.genfromtxt(recent, dtype = str, delimiter='\t')
 	rece_names = rece[0,:]
 	rece = np.unique(rece[1:,:], axis = 0)
@@ -498,6 +494,7 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
 	area_recent[np.array(rece[:,rece_names_area] == areas[0]).flatten()] = 1
 	area_recent[np.array(rece[:,rece_names_area] == areas[1]).flatten()] = 2
 	out_list = []
+	all_taxa_list = []
 	dat = np.genfromtxt(x, dtype=str, delimiter='\t')
 	dat_names = dat[0,:]
 	dat = dat[1:,:]
@@ -508,7 +505,9 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
 	dat_names_age2 = np.where(dat_names == age2)
 	dat_ages = dat[:,np.concatenate((dat_names_age1, dat_names_age2), axis = None)]
 	dat_ages = dat_ages.astype(float)
-	cutter = np.arange(0., np.max(dat_ages) + binsize, binsize)
+	max_age = np.max(dat_ages)
+	if np.array(trim_age) > 0: max_age = trim_age
+	cutter = np.arange(0., max_age + binsize, binsize)
 	cutter_len = len(cutter)
 	for i in range(reps):
 		age_ran = np.zeros(dat.shape[0])
@@ -528,6 +527,9 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
 			if idx.size > 0:
 				binnedage_taxon = binnedage[idx]
 				area_taxon = area_fossil[idx]
+				younger_max_age = binnedage_taxon < cutter_len
+				binnedage_taxon = binnedage_taxon[younger_max_age]
+				area_taxon = area_taxon[younger_max_age]
 				for b in binnedage_taxon:
 					area_taxon_b = np.unique(area_taxon[binnedage_taxon == b])
 					if len(area_taxon_b) == 1:
@@ -551,6 +553,7 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
 		out = out[any_record,:]
 		all_taxa = all_taxa[any_record]
 		out_list.append(out)
+		all_taxa_list.append(all_taxa)
 	# Truncate columns of out_list without records
 	colsum_out = np.zeros((reps, cutter_len + 1))
 	for i in range(reps):
@@ -561,4 +564,9 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
 		for i in range(reps):
 			out_list[i] = out_list[i][:,keep_rows:]
 		cutter = cutter[:-keep_rows] # Truncate cutter to dim2 of out_list
-	write_des_in(out_list, reps, all_taxa, taxon, cutter, input_wd, filename)
+	tdiff = np.diff(cutter)[0]
+	time = np.arange(0., np.max(cutter) + tdiff + tdiff/1000., tdiff)
+	time[1:] = time[1:] - tdiff/2
+	time = time[::-1]
+	write_des_in(out_list, reps, all_taxa_list, taxon, time, input_wd, filename)
+	return out_list, time
