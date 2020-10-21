@@ -4,9 +4,10 @@ import argparse, os,sys, platform, time, csv, glob
 import random as rand
 import warnings, importlib
 import importlib.util
+import copy as copy_lib
 
 version= "PyRate"
-build  = "v3.0 - 20200930"
+build  = "v3.0 - 20201021"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
@@ -954,10 +955,6 @@ def comb_log_files_smart(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
         print("processing %s *_marginal_rates.log files" % (len(files_temp)))
         comb_mcmc_files(infile, files_temp,burnin,tag,resample,col_tag,file_type="marginal_rates")
 
-
-
-
-
 def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
     infile=path_to_files
     sys.path.append(infile)
@@ -1616,6 +1613,57 @@ def BD_partial_lik_bounded(arg):
         #print par, len(i_events), len(te)
         lik= log(rate)*len(i_events) -rate*sum(n_S) #log(rate)*len(i_events) +sum(-rate*n_S)
     return lik
+
+
+# BD-NN model
+def get_rate_BDNN(rate, x, w): 
+    # n: n species, j: traits, i: nodes
+    z = np.einsum('nj,ij->ni', x, w[0], optimize=True)
+    z[z < 0] = 0 # ReLU
+    z = np.einsum('ni,i->n', z, w[1], optimize=True)
+    rates = np.exp(z) * rate
+    return rates # exponentiate to avoid negative rates
+
+def BDNN_likelihood(arg):
+    [ts,te,trait_tbl,rate_l,rate_m,cov_par] = arg
+    nn_prm_lam, nn_prm_mu = cov_par[0], cov_par[1]
+    s = ts - te
+    lam = get_rate_BDNN(rate_l, trait_tbl, nn_prm_lam)
+    mu = get_rate_BDNN(rate_m, trait_tbl, nn_prm_mu)
+    likL = np.sum(np.log(lam) - lam*s)
+    likM = np.sum(np.log(mu[te>0])) - np.sum(mu*s)
+    return likL + likM
+ 
+ 
+def init_trait_and_weights(trait_tbl,nodes,bias_node=False):
+    if bias_node:
+        trait_tbl = 0+np.hstack((trait_tbl,np.ones((trait_tbl.shape[0],1)))) 
+    w_lam = [np.random.normal(0, 0.1, (nodes,trait_tbl.shape[1])), np.random.normal(0, 0.1, nodes)]
+    w_mu  = [np.random.normal(0, 0.1, (nodes,trait_tbl.shape[1])), np.random.normal(0, 0.1, nodes)]
+    for i in w_lam:
+        print(i.shape)
+    return trait_tbl, [w_lam,w_mu]
+
+### test
+test=True
+if test:
+    n_species = 7
+    traits = 4
+    nodes = 3
+    rate = 0.1
+    trait_tbl_init = np.random.normal(0,1,(n_species,traits))
+    trait_tbl, w = init_trait_and_weights(trait_tbl_init, nodes)
+    print(get_rate_BDNN(rate,trait_tbl,w[0]))
+    
+   
+
+def init_cov_par(trait_tbl, n_nodes_lam, n_nodes_mu):
+    # lam
+    trait_tbl.shape[0]
+
+def rescale_trait_tbl(trait_tbl):
+    # fixd rescaling for lat/lon, time 
+    pass
 
 
 # ADE model
@@ -2754,8 +2802,17 @@ def MCMC(all_arg):
             if use_Death_model == 1: LA = np.ones(1)
             if use_Birth_model == 1: MA = np.zeros(1)+init_M_rate
             rj_cat_HP= 1
-
+        
         q_ratesA,cov_parA = init_q_rates() # use 1 for symmetric PERT
+        
+        if use_BDNNmodel:
+            timesLA, timesMA = init_times(maxTSA,1,1, np.min(teA))
+            LA = init_BD(len(timesLA))
+            MA = init_BD(len(timesMA))
+            cov_parA = cov_par_init_NN
+            
+        
+        
         alpha_pp_gammaA = 1.
         if TPP_model == 1: # init multiple q rates
             q_ratesA = np.zeros(time_framesQ)+q_ratesA[1]
@@ -2822,7 +2879,7 @@ def MCMC(all_arg):
 
 
         # GLOBALLY CHANGE TRAIT VALUE
-        if model_cov >0:
+        if model_cov >0 and not use_BDNNmodel:
             global con_trait
             con_trait=seed_missing(trait_values,meanGAUS,sdGAUS)
 
@@ -2850,7 +2907,10 @@ def MCMC(all_arg):
 
         q_rates=np.zeros(len(q_ratesA))
         alpha_pp_gamma=alpha_pp_gammaA
-        cov_par=np.zeros(3)
+        if use_BDNNmodel:
+            cov_par = copy_lib.deepcopy(cov_parA)
+        else:
+            cov_par=np.zeros(3)
         L,M = np.zeros(len(LA)),np.zeros(len(MA))
         tot_L = np.sum(tsA-teA)
         hasting=0
@@ -2933,22 +2993,32 @@ def MCMC(all_arg):
                         L,M,hasting=update_rates(LA,MA,3,mod_d3)
 
         elif rr<f_update_cov: # cov
-            rcov=np.random.random()
-            if est_COVAR_prior == 1 and rcov<0.05:
-                covar_prior = get_post_sd(cov_parA[cov_parA>0]) # est hyperprior only based on non-zero rates
-                stop_update=inf
-            elif rcov < f_cov_par[0]: # cov lambda
-                cov_par[0]=update_parameter_normal(cov_parA[0],-1000,1000,d5[0])
-            elif rcov < f_cov_par[1]: # cov mu
-                cov_par[1]=update_parameter_normal(cov_parA[1],-1000,1000,d5[1])
+            if use_BDNNmodel:
+                if np.random.random() < 0.5:
+                    cov_par[0][0]=update_parameter_normal_vec(cov_par[0][0],d=0.05,f=.1) 
+                    cov_par[0][1]=update_parameter_normal_vec(cov_par[0][1],d=0.05,f=.33)
+                else:
+                    cov_par[1][0]=update_parameter_normal_vec(cov_par[1][0],d=0.05,f=.1) 
+                    cov_par[1][1]=update_parameter_normal_vec(cov_par[1][1],d=0.05,f=.33)
+                
             else:
-                cov_par[2]=update_parameter_normal(cov_parA[2],-1000,1000,d5[2])
+                rcov=np.random.random()
+                if est_COVAR_prior == 1 and rcov<0.05:
+                    covar_prior = get_post_sd(cov_parA[cov_parA>0]) # est hyperprior only based on non-zero rates
+                    stop_update=inf
+                elif rcov < f_cov_par[0]: # cov lambda
+                    cov_par[0]=update_parameter_normal(cov_parA[0],-1000,1000,d5[0])
+                elif rcov < f_cov_par[1]: # cov mu
+                    cov_par[1]=update_parameter_normal(cov_parA[1],-1000,1000,d5[1])
+                else:
+                    cov_par[2]=update_parameter_normal(cov_parA[2],-1000,1000,d5[2])
 
         if constrain_time_frames == 1: timesM=timesL
         q_rates[(q_rates==0).nonzero()]=q_ratesA[(q_rates==0).nonzero()]
         L[(L==0).nonzero()]=LA[(L==0).nonzero()]
         M[(M==0).nonzero()]=MA[(M==0).nonzero()]
-        cov_par[(cov_par==0).nonzero()]=cov_parA[(cov_par==0).nonzero()]
+        if not use_BDNNmodel:
+            cov_par[(cov_par==0).nonzero()]=cov_parA[(cov_par==0).nonzero()]
         max_ts = np.max(ts)
         timesL[0]=max_ts
         timesM[0]=max_ts
@@ -3140,6 +3210,10 @@ def MCMC(all_arg):
                 lik2, M, indDPP_M, alpha_par_Dir_M = DDP_gibbs_sampler([ts,te,M,indDPP_M,timesL,alpha_par_Dir_M,"m"])
                 likBDtemp = lik1+lik2
         ### DPP end
+        
+        elif use_BDNNmodel:
+            arg = [ts,te,trait_tbl_NN,L,M,cov_par]
+            likBDtemp = BDNN_likelihood(arg)            
 
         elif FBDrange == 0:
             if TDI==4 and np.random.random()<0.01:
@@ -3281,10 +3355,10 @@ def MCMC(all_arg):
             likBDtemp = 0 # alrady included in lik_fossil
 
 
-        lik= sum(lik_fossil) + sum(likBDtemp) + PoiD_const
+        lik= np.sum(lik_fossil) + np.sum(likBDtemp) + PoiD_const
 
-        maxTs= max(ts)
-        minTe= min(te)
+        maxTs= np.max(ts)
+        minTe= np.min(te)
         if TDI < 3:
             prior += np.sum(prior_times_frames(timesL, maxTs, minTe, lam_s))
             prior += np.sum(prior_times_frames(timesM, maxTs, minTe, lam_s))
@@ -3300,11 +3374,16 @@ def MCMC(all_arg):
         priorBD= get_hyper_priorBD(timesL,timesM,L,M,maxTs,hyperP)
         if use_ADE_model >= 1:
             # M in this case is the vector of Weibull scales
-            priorBD = sum(prior_normal(log(W_shape),2)) # Normal prior on log(W_shape): highest prior pr at W_shape=1
+            priorBD = np.sum(prior_normal(log(W_shape),2)) # Normal prior on log(W_shape): highest prior pr at W_shape=1
 
         prior += priorBD
         ###
-        if model_cov >0: prior+=sum(prior_normal(cov_par,covar_prior))
+        if model_cov >0: prior+=np.sum(prior_normal(cov_par,covar_prior))
+        
+        if use_BDNNmodel:
+            prior +=  np.sum(prior_normal(cov_par[0][0],1)) + np.sum(prior_normal(cov_par[0][1],1)) 
+            prior +=  np.sum(prior_normal(cov_par[1][0],1)) + np.sum(prior_normal(cov_par[1][1],1))
+            
 
         # exponential prior on root age
         maxFA = max(FA)
@@ -3446,6 +3525,8 @@ def MCMC(all_arg):
                     else: print("\tq.rate:", round(q_ratesA[1], 3), "\tGamma.prm:", round(q_ratesA[0], 3))
                     print("\tts:", tsA[0:5], "...")
                     print("\tte:", teA[0:5], "...")
+                if use_BDNNmodel:
+                    print(cov_parA[0][0])
             if it<=burnin and n_proc==0: print(("\n%s*\tpost: %s lik: %s prior: %s tot length %s" \
             % (it, l[0], l[1], l[2], l[3])))
 
@@ -3522,6 +3603,17 @@ def MCMC(all_arg):
             if useDiscreteTraitModel == 1:
                 for i in range(len(lengths_B_events)): log_state += [sum(tsA[ind_trait_species==i]-teA[ind_trait_species==i])]
             log_state += [SA]
+            
+            if use_BDNNmodel:
+                # avg rates across all species
+                log_state += [trait_tbl_NN.shape[0] / np.sum(1 / get_rate_BDNN(LA, trait_tbl_NN, cov_parA[0])),
+                              trait_tbl_NN.shape[0] / np.sum(1 / get_rate_BDNN(MA, trait_tbl_NN, cov_parA[1]))]
+                
+                # weights lam
+                log_state += list(cov_parA[0][0].flatten()) + list(cov_parA[0][1])
+                # weights mu
+                log_state += list(cov_parA[1][0].flatten()) + list(cov_parA[1][1])
+            
             if fix_SE == 0:
                 log_state += list(tsA)
                 log_state += list(teA)
@@ -3556,7 +3648,7 @@ def MCMC(all_arg):
                         margL[j]=LA[indDPP_L[i]]
                         margM[j]=MA[indDPP_M[i]]
                     marginal_rates(it, margL, margM, marginal_file, n_proc)
-            elif TDI in [0,2,4]:
+            elif TDI in [0,2,4] and log_marginal_rates_to_file==0:
                 w_marg_sp.writerow(list(LA) + list(timesLA[1:len(timesLA)-1]))
                 marginal_sp_rate_file.flush()
                 os.fsync(marginal_sp_rate_file)
@@ -3716,6 +3808,7 @@ p.add_argument('-bound',   type=float, help='Bounded BD model', default=[np.inf,
 p.add_argument('-edgeShift',type=float, help='Fixed times of shifts at the edges (when -mL/-mM > 3)', default=[np.inf, 0], metavar=0, nargs=2)
 p.add_argument('-qFilter', type=int, help='if set to zero all shifts in preservation rates are kept, even if outside observed timerange', default=1, metavar=1)
 p.add_argument('-FBDrange', type=int, help='use FBDrange likelihood (experimental)', default=0, metavar=0)
+p.add_argument('-BDNNmodel', type=int, help='use FBDrange likelihood (experimental)', default=0, metavar=0)
 
 
 # TUNING
@@ -3874,6 +3967,7 @@ if model_cov==2: f_cov_par= [0  ,1  ,0 ]
 if model_cov==3: f_cov_par= [.5 ,1  ,0 ]
 if model_cov==4: f_cov_par= [0  ,0  ,1 ]
 if model_cov==5: f_cov_par= [.33,.66,1 ]
+use_BDNNmodel = args.BDNNmodel
 
 if covar_prior_fixed==0: est_COVAR_prior = 1
 else: est_COVAR_prior = 0
@@ -4563,6 +4657,46 @@ if use_poiD == 1:
         hasFoundPyRateC = 0
 
 
+
+if use_BDNNmodel:
+    # model_cov = 6
+    f_cov_par = [0.4, 0.5,0.9,1]
+    f_update_se = 0.6
+    # print([f_update_q,f_update_lm,f_update_cov])
+    [f_update_q,f_update_lm,f_update_cov]=f_update_se+ np.array([0.1, 0.15,1-f_update_se])
+    # print([f_update_q,f_update_lm,f_update_cov])
+    n_BDNN_nodes = 3
+    TDI = 0
+    
+    # load trait data
+    traitfile=open(args.trait_file, 'r')
+
+    L=traitfile.readlines()
+    head= L[0].split()
+
+    trait_val=[l.split() for l in L][1:]
+
+    trait_values = np.array(trait_val)
+
+    trait_taxa=np.array([l.split()[0] for l in L][1:])
+    matched_trait_values = []
+    for i in range(len(taxa_names)):
+        taxa_name=taxa_names[i]
+        matched_val = trait_values[trait_taxa==taxa_name]
+        if len(matched_val)>0:
+            matched_trait_values.append(matched_val[0, 1:].astype(float))
+            print("matched taxon: %s\t%s\t%s" % (taxa_name, matched_val[0], np.max(fossil[i])-np.min(fossil[i])))
+        else:
+            matched_trait_values.append(np.nan)
+            print( taxa_name, "did not have data")
+    trait_values= np.array(matched_trait_values)
+    trait_tbl_NN, cov_par_init_NN = init_trait_and_weights(trait_values,n_BDNN_nodes,bias_node=False)
+    cov_par_init_NN.append(0) # cov_par_init_NN[2] = covar prm for preseravtion rate (currently not used)
+    
+    
+
+
+
 ##### SETFREQ OF PROPOSING B/D shifts (RJMCMC)
 sample_shift_mu = args.rj_bd_shift # 0: updates only lambda; 1: only mu; default: 0.5
 
@@ -4702,7 +4836,13 @@ suff_out=out_name
 if args.eqr: suff_out+= "_EQR"
 elif args.bdc: suff_out+= "_BDC"
 else:
-    if TDI<=1: suff_out+= "BD%s-%s" % (args.mL,args.mM)
+    if TDI<=1: 
+        if use_ADE_model >= 1:
+            suff_out+= "_ADE"
+        elif use_BDNNmodel:
+            suff_out+= "_BDNN"
+        else:
+            suff_out+= "BD%s-%s" % (args.mL,args.mM)
     if TDI==1: suff_out+= "_TI"
     if TDI==3: suff_out+= "dpp"
     if TDI==4: suff_out+= "rj"
@@ -4807,6 +4947,17 @@ head += "tot_length"
 head=head.split('\t')
 if use_se_tbl == 0: tot_number_of_species = len(taxa_names)
 
+if use_BDNNmodel:
+    head += ["lambda_avg","mu_avg"]
+    # weights lam
+    head += ["w_lam_0_%s" % (j) for j in range(cov_par_init_NN[0][0].size)]
+    head += ["w_lam_1_%s" % (j) for j in range(len(cov_par_init_NN[0][1]))]
+    # weights mu
+    head += ["w_mu_0_%s" % (j) for j in range(cov_par_init_NN[1][0].size)]
+    head += ["w_mu_1_%s" % (j) for j in range(len(cov_par_init_NN[1][1]))]
+
+
+
 if fix_SE == 0:
     for i in taxa_names: head.append("%s_TS" % (i))
     for i in taxa_names: head.append("%s_TE" % (i))
@@ -4820,6 +4971,7 @@ os.fsync(logfile)
 # OUTPUT 2 MARGINAL RATES
 if args.log_marginal_rates == -1: # default values
     if TDI==4 or use_ADE_model != 0: log_marginal_rates_to_file = 0
+    if use_BDNNmodel: log_marginal_rates_to_file = -1
     else: log_marginal_rates_to_file = 1
 else:
     log_marginal_rates_to_file = args.log_marginal_rates
