@@ -1628,24 +1628,35 @@ def BDNN_likelihood(arg):
     [ts,te,trait_tbl,rate_l,rate_m,cov_par] = arg
     nn_prm_lam, nn_prm_mu = cov_par[0], cov_par[1]
     s = ts - te
-    lam = get_rate_BDNN(rate_l, trait_tbl, nn_prm_lam)
-    mu = get_rate_BDNN(rate_m, trait_tbl, nn_prm_mu)
+    lam = get_rate_BDNN(rate_l, trait_tbl[0], nn_prm_lam)
+    mu = get_rate_BDNN(rate_m, trait_tbl[1], nn_prm_mu)
     likL = np.sum(np.log(lam) - lam*s)
     likM = np.sum(np.log(mu[te>0])) - np.sum(mu*s)
     return likL + likM
  
  
-def init_trait_and_weights(trait_tbl,nodes,bias_node=False):
+def init_trait_and_weights(trait_tbl,nodes,bias_node=False,fadlad=0.1,verbose=False):
     if bias_node:
         trait_tbl = 0+np.hstack((trait_tbl,np.ones((trait_tbl.shape[0],1)))) 
-    w_lam = [np.random.normal(0, 0.1, (nodes,trait_tbl.shape[1])), np.random.normal(0, 0.1, nodes)]
-    w_mu  = [np.random.normal(0, 0.1, (nodes,trait_tbl.shape[1])), np.random.normal(0, 0.1, nodes)]
+    if fadlad:
+        trait_tbl_lam = 0+np.hstack((trait_tbl, (fadlad*FA).reshape((trait_tbl.shape[0],1)))) 
+        trait_tbl_mu =  0+np.hstack((trait_tbl, (fadlad*LO).reshape((trait_tbl.shape[0],1)))) 
+        if verbose:
+            print(FA[0:10])
+            print(trait_tbl_lam[0:10])
+            print(trait_tbl_mu[0:10])
+    else:
+        trait_tbl_lam = trait_tbl
+        trait_tbl_mu = trait_tbl + 0 
+        
+    w_lam = [np.random.normal(0, 0.1, (nodes,trait_tbl_lam.shape[1])), np.random.normal(0, 0.1, nodes)]
+    w_mu  = [np.random.normal(0, 0.1, (nodes,trait_tbl_mu.shape[1])), np.random.normal(0, 0.1, nodes)]
     for i in w_lam:
         print(i.shape)
-    return trait_tbl, [w_lam,w_mu]
+    return [trait_tbl_lam,trait_tbl_mu], [w_lam,w_mu]
 
 ### test
-test=True
+test=False
 if test:
     n_species = 7
     traits = 4
@@ -3606,8 +3617,8 @@ def MCMC(all_arg):
             
             if use_BDNNmodel:
                 # avg rates across all species
-                log_state += [trait_tbl_NN.shape[0] / np.sum(1 / get_rate_BDNN(LA, trait_tbl_NN, cov_parA[0])),
-                              trait_tbl_NN.shape[0] / np.sum(1 / get_rate_BDNN(MA, trait_tbl_NN, cov_parA[1]))]
+                log_state += [trait_tbl_NN[0].shape[0] / np.sum(1 / get_rate_BDNN(LA, trait_tbl_NN[0], cov_parA[0])),
+                              trait_tbl_NN[1].shape[0] / np.sum(1 / get_rate_BDNN(MA, trait_tbl_NN[1], cov_parA[1]))]
                 
                 # weights lam
                 log_state += list(cov_parA[0][0].flatten()) + list(cov_parA[0][1])
@@ -3808,7 +3819,9 @@ p.add_argument('-bound',   type=float, help='Bounded BD model', default=[np.inf,
 p.add_argument('-edgeShift',type=float, help='Fixed times of shifts at the edges (when -mL/-mM > 3)', default=[np.inf, 0], metavar=0, nargs=2)
 p.add_argument('-qFilter', type=int, help='if set to zero all shifts in preservation rates are kept, even if outside observed timerange', default=1, metavar=1)
 p.add_argument('-FBDrange', type=int, help='use FBDrange likelihood (experimental)', default=0, metavar=0)
-p.add_argument('-BDNNmodel', type=int, help='use FBDrange likelihood (experimental)', default=0, metavar=0)
+p.add_argument('-BDNNmodel', type=int, help='use BD-NN model (requires trait_file)', default=0, metavar=0)
+p.add_argument('-BDNNnodes', type=int, help='number of BD-NN nodes', default=3, metavar=3)
+p.add_argument('-BDNNfadlad', type=float, help='if > 0 include (rescaled) FAD LAD as traits', default=0.1, metavar=0.1)
 
 
 # TUNING
@@ -4665,7 +4678,7 @@ if use_BDNNmodel:
     # print([f_update_q,f_update_lm,f_update_cov])
     [f_update_q,f_update_lm,f_update_cov]=f_update_se+ np.array([0.1, 0.15,1-f_update_se])
     # print([f_update_q,f_update_lm,f_update_cov])
-    n_BDNN_nodes = 3
+    n_BDNN_nodes = args.BDNNnodes
     TDI = 0
     
     # load trait data
@@ -4685,12 +4698,12 @@ if use_BDNNmodel:
         matched_val = trait_values[trait_taxa==taxa_name]
         if len(matched_val)>0:
             matched_trait_values.append(matched_val[0, 1:].astype(float))
-            print("matched taxon: %s\t%s\t%s" % (taxa_name, matched_val[0], np.max(fossil[i])-np.min(fossil[i])))
+            # print("matched taxon: %s\t%s\t%s" % (taxa_name, matched_val[0], np.max(fossil[i])-np.min(fossil[i])))
         else:
             matched_trait_values.append(np.nan)
             print( taxa_name, "did not have data")
     trait_values= np.array(matched_trait_values)
-    trait_tbl_NN, cov_par_init_NN = init_trait_and_weights(trait_values,n_BDNN_nodes,bias_node=False)
+    trait_tbl_NN, cov_par_init_NN = init_trait_and_weights(trait_values,n_BDNN_nodes,bias_node=False, fadlad=args.BDNNfadlad)
     cov_par_init_NN.append(0) # cov_par_init_NN[2] = covar prm for preseravtion rate (currently not used)
     
     
@@ -4840,7 +4853,7 @@ else:
         if use_ADE_model >= 1:
             suff_out+= "_ADE"
         elif use_BDNNmodel:
-            suff_out+= "_BDNN"
+            suff_out+= "_BDNN%s" % n_BDNN_nodes
         else:
             suff_out+= "BD%s-%s" % (args.mL,args.mM)
     if TDI==1: suff_out+= "_TI"
