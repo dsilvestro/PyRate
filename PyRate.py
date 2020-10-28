@@ -4983,8 +4983,7 @@ os.fsync(logfile)
 
 # OUTPUT 2 MARGINAL RATES
 if args.log_marginal_rates == -1: # default values
-    if TDI==4 or use_ADE_model != 0: log_marginal_rates_to_file = 0
-    if use_BDNNmodel: log_marginal_rates_to_file = -1
+    if TDI==4 or use_ADE_model != 0 or use_BDNNmodel==1: log_marginal_rates_to_file = 0
     else: log_marginal_rates_to_file = 1
 else:
     log_marginal_rates_to_file = args.log_marginal_rates
