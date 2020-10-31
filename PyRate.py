@@ -72,8 +72,7 @@ version_details="PyRate %s; OS: %s %s; Python version: %s; Numpy version: %s; Sc
 % (build, platform.system(), platform.release(), sys.version, np.version.version, scipy.version.version)
 
 ### numpy print options ###
-np.set_printoptions(suppress= 1) # prints floats, no scientific notation
-np.set_printoptions(precision=3) # rounds all array elements to 3rd digit
+np.set_printoptions(suppress= 1, precision=3) # prints floats, no scientific notation
 
 original_stderr = sys.stderr
 NO_WARN = original_stderr #open('pyrate_warnings.log', 'w')
@@ -1634,7 +1633,27 @@ def BDNN_likelihood(arg):
     likM = np.sum(np.log(mu[te>0])) - np.sum(mu*s)
     return likL + likM
  
- 
+def BDNN_partial_lik(arg):
+    [ts,te,up,lo,rate,par, cov_par,_]=arg
+    # indexes of the species within time frame
+    if par=="l": i_events=np.intersect1d((ts <= up).nonzero()[0], (ts > lo).nonzero()[0])
+    else: i_events=np.intersect1d((te <= up).nonzero()[0], (te > lo).nonzero()[0])
+    # index of extant/extinct species
+    # extinct_sp=(te > 0).nonzero()[0]
+    # present_sp=(te == 0).nonzero()[0]
+    n_all_inframe, n_S = get_sp_in_frame_br_length(ts,te,up,lo)
+    
+    nn_prm = cov_par
+    if par=="l":
+        r = get_rate_BDNN(rate, trait_tbl_NN[0], nn_prm)
+    else:
+        r = get_rate_BDNN(rate, trait_tbl_NN[1], nn_prm)
+    
+    lik= np.sum(log(r[i_events])) + np.sum(-r[n_all_inframe]*n_S) 
+    return lik
+
+
+
 def init_trait_and_weights(trait_tbl,nodes,bias_node=False,fadlad=0.1,verbose=False):
     if bias_node:
         trait_tbl = 0+np.hstack((trait_tbl,np.ones((trait_tbl.shape[0],1)))) 
@@ -3222,7 +3241,7 @@ def MCMC(all_arg):
                 likBDtemp = lik1+lik2
         ### DPP end
         
-        elif use_BDNNmodel:
+        elif use_BDNNmodel and TDI == 0:
             arg = [ts,te,trait_tbl_NN,L,M,cov_par]
             likBDtemp = BDNN_likelihood(arg)            
 
@@ -3261,7 +3280,7 @@ def MCMC(all_arg):
                         elif use_ADE_model >= 1:
                             args.append([ts, te, up, lo, m, 'm', cov_par[1],W_shape,q_rates[1]])
 
-                    if hasFoundPyRateC and model_cov==0 and use_ADE_model == 0:
+                    if hasFoundPyRateC and model_cov==0 and use_ADE_model == 0 and use_BDNNmodel == 0:
                         likBDtemp = PyRateC_BD_partial_lik(ts, te, timesL, timesM, L, M)
 
                         # Check correctness of results by comparing with python version
@@ -3281,7 +3300,10 @@ def MCMC(all_arg):
                             likBDtemp=np.zeros(len(args))
                             i=0
                             for i in range(len(args)):
-                                likBDtemp[i]=BPD_partial_lik(args[i])
+                                if use_BDNNmodel:
+                                    likBDtemp[i] = BDNN_partial_lik(args[i])
+                                else:
+                                    likBDtemp[i] = BPD_partial_lik(args[i])
                                 i+=1
                         # multi-thread computation of lik and prior (rates)
                         else: likBDtemp = array(pool_lik.map(BPD_partial_lik, args))
@@ -3617,8 +3639,8 @@ def MCMC(all_arg):
             
             if use_BDNNmodel:
                 # avg rates across all species
-                log_state += [trait_tbl_NN[0].shape[0] / np.sum(1 / get_rate_BDNN(LA, trait_tbl_NN[0], cov_parA[0])),
-                              trait_tbl_NN[1].shape[0] / np.sum(1 / get_rate_BDNN(MA, trait_tbl_NN[1], cov_parA[1]))]
+                log_state += [trait_tbl_NN[0].shape[0] / np.sum(1 / get_rate_BDNN(LA[0], trait_tbl_NN[0], cov_parA[0])),
+                              trait_tbl_NN[1].shape[0] / np.sum(1 / get_rate_BDNN(MA[0], trait_tbl_NN[1], cov_parA[1]))]
                 
                 # weights lam
                 log_state += list(cov_parA[0][0].flatten()) + list(cov_parA[0][1])
@@ -3821,7 +3843,7 @@ p.add_argument('-qFilter', type=int, help='if set to zero all shifts in preserva
 p.add_argument('-FBDrange', type=int, help='use FBDrange likelihood (experimental)', default=0, metavar=0)
 p.add_argument('-BDNNmodel', type=int, help='use BD-NN model (requires trait_file)', default=0, metavar=0)
 p.add_argument('-BDNNnodes', type=int, help='number of BD-NN nodes', default=3, metavar=3)
-p.add_argument('-BDNNfadlad', type=float, help='if > 0 include (rescaled) FAD LAD as traits', default=0.1, metavar=0.1)
+p.add_argument('-BDNNfadlad', type=float, help='if > 0 include FAD LAD as traits (rescaled i.e. FAD * BDNNfadlad)', default=0, metavar=0)
 
 
 # TUNING
@@ -4679,7 +4701,6 @@ if use_BDNNmodel:
     [f_update_q,f_update_lm,f_update_cov]=f_update_se+ np.array([0.1, 0.15,1-f_update_se])
     # print([f_update_q,f_update_lm,f_update_cov])
     n_BDNN_nodes = args.BDNNnodes
-    TDI = 0
     
     # load trait data
     traitfile=open(args.trait_file, 'r')
