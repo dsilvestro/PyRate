@@ -4873,13 +4873,14 @@ else:
     if TDI<=1: 
         if use_ADE_model >= 1:
             suff_out+= "_ADE"
-        elif use_BDNNmodel:
-            suff_out+= "_BDNN%s" % n_BDNN_nodes
         else:
             suff_out+= "BD%s-%s" % (args.mL,args.mM)
     if TDI==1: suff_out+= "_TI"
     if TDI==3: suff_out+= "dpp"
     if TDI==4: suff_out+= "rj"
+
+if use_BDNNmodel:
+    suff_out+= "_BDNN%s" % n_BDNN_nodes
 
 # OUTPUT 0 SUMMARY AND SETTINGS
 o0 = "\n%s build %s\n" % (version, build)
