@@ -3638,14 +3638,20 @@ def MCMC(all_arg):
             log_state += [SA]
             
             if use_BDNNmodel:
+                sp_lam = get_rate_BDNN(LA[0], trait_tbl_NN[0], cov_parA[0])
+                sp_mu = get_rate_BDNN(MA[0], trait_tbl_NN[1], cov_parA[1])
+                
                 # avg rates across all species
-                log_state += [trait_tbl_NN[0].shape[0] / np.sum(1 / get_rate_BDNN(LA[0], trait_tbl_NN[0], cov_parA[0])),
-                              trait_tbl_NN[1].shape[0] / np.sum(1 / get_rate_BDNN(MA[0], trait_tbl_NN[1], cov_parA[1]))]
+                log_state += [trait_tbl_NN[0].shape[0] / np.sum(1 / sp_lam),
+                              trait_tbl_NN[1].shape[0] / np.sum(1 / sp_mu)]
                 
                 # weights lam
                 log_state += list(cov_parA[0][0].flatten()) + list(cov_parA[0][1])
                 # weights mu
                 log_state += list(cov_parA[1][0].flatten()) + list(cov_parA[1][1])
+                if TDI == 0 and log_per_species_rates:
+                    species_rate_writer.writerow([it]+list(sp_lam)+list(sp_mu))
+                    species_rate_file.flush()
             
             if fix_SE == 0:
                 log_state += list(tsA)
@@ -4722,10 +4728,11 @@ if use_BDNNmodel:
             # print("matched taxon: %s\t%s\t%s" % (taxa_name, matched_val[0], np.max(fossil[i])-np.min(fossil[i])))
         else:
             matched_trait_values.append(np.nan)
-            print( taxa_name, "did not have data")
+            sys.exit( "Species %s did not have data" % taxa_name)
     trait_values= np.array(matched_trait_values)
     trait_tbl_NN, cov_par_init_NN = init_trait_and_weights(trait_values,n_BDNN_nodes,bias_node=False, fadlad=args.BDNNfadlad)
     cov_par_init_NN.append(0) # cov_par_init_NN[2] = covar prm for preseravtion rate (currently not used)
+    log_per_species_rates = True
     
     
 
@@ -5071,6 +5078,18 @@ if fix_SE == 1 and fix_Shift == 1:
     len_SS1 = np.array(len_SS1)
     len_EE1 = np.array(len_EE1)
     S_time_frame = np.array(S_time_frame)
+
+# OUTPUT 4 PER-SPECIES RATES
+if use_BDNNmodel and TDI == 0 and log_per_species_rates:
+    species_rate_file_name = "%s/%s_per_species_rates.log" % (path_dir, suff_out)
+    head = ["iteration"]
+    for i in taxa_names: head.append("%s_lam" % (i))
+    for i in taxa_names: head.append("%s_mu" % (i))
+    species_rate_file = open(species_rate_file_name , "w")
+    species_rate_writer=csv.writer(species_rate_file, delimiter='\t')
+    species_rate_writer.writerow(head)
+    species_rate_file.flush()
+
 
 ########################## START MCMC ####################################
 if burnin<1 and burnin>0:
