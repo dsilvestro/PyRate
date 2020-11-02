@@ -2836,9 +2836,6 @@ def MCMC(all_arg):
         q_ratesA,cov_parA = init_q_rates() # use 1 for symmetric PERT
         
         if use_BDNNmodel:
-            timesLA, timesMA = init_times(maxTSA,1,1, np.min(teA))
-            LA = init_BD(len(timesLA))
-            MA = init_BD(len(timesMA))
             cov_parA = cov_par_init_NN
             
         
@@ -3241,7 +3238,7 @@ def MCMC(all_arg):
                 likBDtemp = lik1+lik2
         ### DPP end
         
-        elif use_BDNNmodel and TDI == 0:
+        elif use_BDNNmodel and TDI == 0 and fix_Shift == 0:
             arg = [ts,te,trait_tbl_NN,L,M,cov_par]
             likBDtemp = BDNN_likelihood(arg)            
 
@@ -3261,9 +3258,11 @@ def MCMC(all_arg):
 
                 elif use_ADE_model >= 1 and TPP_model == 1:
                     likBDtemp = BD_age_lik_vec_times([ts,te,timesL,W_shape,M,q_rates,q_time_frames])
-                elif fix_Shift == 1:
-                    if use_ADE_model == 0: likBDtemp = BPD_lik_vec_times([ts,te,timesL,L,M])
-                    else: likBDtemp = BD_age_lik_vec_times([ts,te,timesL,W_shape,M,q_rates])
+                elif fix_Shift == 1 and use_BDNNmodel == 0:
+                    if use_ADE_model == 0: 
+                        likBDtemp = BPD_lik_vec_times([ts,te,timesL,L,M])
+                    else: 
+                        likBDtemp = BD_age_lik_vec_times([ts,te,timesL,W_shape,M,q_rates])
                 else:
                     args=list()
                     if use_ADE_model == 0: # speciation rate is not used under ADE model
@@ -3317,7 +3316,7 @@ def MCMC(all_arg):
                     likBDtemp, L,M, timesL, timesM, cov_par = Alg_3_1(args)
                     sys.stderr = original_stderr
 
-                elif TDI==4 and FBDrange==0: # run RJMCMC
+                elif TDI==4 and FBDrange==0 and use_BDNNmodel == 0: # run RJMCMC
                     stop_update = 0
                     L,timesL,M,timesM,hasting = RJMCMC([LA,MA, timesLA, timesMA,maxFA,minLA])
                     #print  L,timesL,M,timesM #,hasting
@@ -3351,7 +3350,10 @@ def MCMC(all_arg):
                             likBDtemp=np.zeros(len(args))
                             i=0
                             for i in range(len(args)):
-                                likBDtemp[i]=BPD_partial_lik(args[i])
+                                if use_BDNNmodel:
+                                    likBDtemp[i] = BDNN_partial_lik(args[i])
+                                else:
+                                    likBDtemp[i]=BPD_partial_lik(args[i])
                                 i+=1
                         # multi-thread computation of lik and prior (rates)
                         else: likBDtemp = array(pool_lik.map(BPD_partial_lik, args))
@@ -4732,8 +4734,10 @@ if use_BDNNmodel:
     trait_values= np.array(matched_trait_values)
     trait_tbl_NN, cov_par_init_NN = init_trait_and_weights(trait_values,n_BDNN_nodes,bias_node=False, fadlad=args.BDNNfadlad)
     cov_par_init_NN.append(0) # cov_par_init_NN[2] = covar prm for preseravtion rate (currently not used)
-    log_per_species_rates = True
-    
+    if TDI == 0 and len(fixed_times_of_shift) == 0:
+        log_per_species_rates = True
+    else: 
+        log_per_species_rates = False
     
 
 
@@ -4880,6 +4884,8 @@ else:
     if TDI<=1: 
         if use_ADE_model >= 1:
             suff_out+= "_ADE"
+        elif len(fixed_times_of_shift) > 0:
+            suff_out+= "_BDS"
         else:
             suff_out+= "BD%s-%s" % (args.mL,args.mM)
     if TDI==1: suff_out+= "_TI"
@@ -5080,7 +5086,7 @@ if fix_SE == 1 and fix_Shift == 1:
     S_time_frame = np.array(S_time_frame)
 
 # OUTPUT 4 PER-SPECIES RATES
-if use_BDNNmodel and TDI == 0 and log_per_species_rates:
+if use_BDNNmodel and log_per_species_rates:
     species_rate_file_name = "%s/%s_per_species_rates.log" % (path_dir, suff_out)
     head = ["iteration"]
     for i in taxa_names: head.append("%s_lam" % (i))
