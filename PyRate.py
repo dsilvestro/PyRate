@@ -4735,7 +4735,7 @@ if use_poiD == 1:
         hasFoundPyRateC = 0
 
 
-
+use_time_as_trait = args.BDNNtimetrait
 if use_BDNNmodel:
     # model_cov = 6
     f_cov_par = [0.4, 0.5,0.9,1]
@@ -4766,9 +4766,7 @@ if use_BDNNmodel:
         else:
             matched_trait_values.append(np.nan)
             sys.exit( "Species %s did not have data" % taxa_name)
-    trait_values= np.array(matched_trait_values)
-    use_time_as_trait = args.BDNNtimetrait
-    
+    trait_values= np.array(matched_trait_values)    
     
     time_vec = np.sort(np.array([np.max(FA), np.min(LO)] + list(fixed_times_of_shift)))[::-1]
     rescaled_time = time_vec*args.BDNNtimetrait
@@ -4944,6 +4942,9 @@ else:
 
 if use_BDNNmodel:
     suff_out+= "_BDNN%s" % n_BDNN_nodes
+    if use_time_as_trait:
+        suff_out+= "T"
+
 
 # OUTPUT 0 SUMMARY AND SETTINGS
 o0 = "\n%s build %s\n" % (version, build)
