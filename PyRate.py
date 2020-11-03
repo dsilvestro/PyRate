@@ -1578,7 +1578,7 @@ def get_sp_in_frame_br_length(ts,te,up,lo):
 
 
 def BD_partial_lik(arg):
-    [ts,te,up,lo,rate,par, cov_par,n_frames_L]=arg
+    [ts,te,up,lo,rate,par, cov_par,_]=arg
     # indexes of the species within time frame
     if par=="l": i_events=np.intersect1d((ts <= up).nonzero()[0], (ts > lo).nonzero()[0])
     else: i_events=np.intersect1d((te <= up).nonzero()[0], (te > lo).nonzero()[0])
@@ -1598,7 +1598,7 @@ def BD_partial_lik(arg):
     return lik
 
 def BD_partial_lik_bounded(arg):
-    [ts,te,up,lo,rate,par, cov_par,n_frames_L]=arg
+    [ts,te,up,lo,rate,par, cov_par,_]=arg
     # indexes of the species within time frame
     if par=="l":
         i_events=np.intersect1d((ts[SP_in_window] <= up).nonzero()[0], (ts[SP_in_window] > lo).nonzero()[0])
@@ -1634,7 +1634,7 @@ def BDNN_likelihood(arg):
     return likL + likM
  
 def BDNN_partial_lik(arg):
-    [ts,te,up,lo,rate,par, cov_par,_]=arg
+    [ts,te,up,lo,rate,par, nn_prm,indx]=arg
     # indexes of the species within time frame
     if par=="l": i_events=np.intersect1d((ts <= up).nonzero()[0], (ts > lo).nonzero()[0])
     else: i_events=np.intersect1d((te <= up).nonzero()[0], (te > lo).nonzero()[0])
@@ -1643,35 +1643,58 @@ def BDNN_partial_lik(arg):
     # present_sp=(te == 0).nonzero()[0]
     n_all_inframe, n_S = get_sp_in_frame_br_length(ts,te,up,lo)
     
-    nn_prm = cov_par
-    if par=="l":
-        r = get_rate_BDNN(rate, trait_tbl_NN[0], nn_prm)
-    else:
-        r = get_rate_BDNN(rate, trait_tbl_NN[1], nn_prm)
+    if np.isfinite(indx):
+        if par=="l":
+            r = get_rate_BDNN(rate, trait_tbl_NN[0][indx], nn_prm)
+        else:
+            r = get_rate_BDNN(rate, trait_tbl_NN[1][indx], nn_prm)    
+    else:   
+        if par=="l":
+            r = get_rate_BDNN(rate, trait_tbl_NN[0], nn_prm)
+        else:
+            r = get_rate_BDNN(rate, trait_tbl_NN[1], nn_prm)
     
     lik= np.sum(log(r[i_events])) + np.sum(-r[n_all_inframe]*n_S) 
     return lik
 
 
 
-def init_trait_and_weights(trait_tbl,nodes,bias_node=False,fadlad=0.1,verbose=False):
+def init_trait_and_weights(trait_tbl,nodes,bias_node=False,fadlad=0.1,verbose=False,fixed_times_of_shift=[],use_time_as_trait=False):
     if bias_node:
         trait_tbl = 0+np.hstack((trait_tbl,np.ones((trait_tbl.shape[0],1)))) 
-    if fadlad:
-        trait_tbl_lam = 0+np.hstack((trait_tbl, (fadlad*FA).reshape((trait_tbl.shape[0],1)))) 
-        trait_tbl_mu =  0+np.hstack((trait_tbl, (fadlad*LO).reshape((trait_tbl.shape[0],1)))) 
-        if verbose:
-            print(FA[0:10])
-            print(trait_tbl_lam[0:10])
-            print(trait_tbl_mu[0:10])
-    else:
-        trait_tbl_lam = trait_tbl
-        trait_tbl_mu = trait_tbl + 0 
+    if not use_time_as_trait:
+        if fadlad:
+            trait_tbl_lam = 0+np.hstack((trait_tbl, (fadlad*FA).reshape((trait_tbl.shape[0],1)))) 
+            trait_tbl_mu =  0+np.hstack((trait_tbl, (fadlad*LO).reshape((trait_tbl.shape[0],1)))) 
+            if verbose:
+                print(FA[0:10])
+                print(trait_tbl_lam[0:10])
+                print(trait_tbl_mu[0:10])
+        else:
+            trait_tbl_lam = trait_tbl
+            trait_tbl_mu = trait_tbl + 0 
         
-    w_lam = [np.random.normal(0, 0.1, (nodes,trait_tbl_lam.shape[1])), np.random.normal(0, 0.1, nodes)]
-    w_mu  = [np.random.normal(0, 0.1, (nodes,trait_tbl_mu.shape[1])), np.random.normal(0, 0.1, nodes)]
-    for i in w_lam:
-        print(i.shape)
+        w_lam = [np.random.normal(0, 0.1, (nodes,trait_tbl_lam.shape[1])), np.random.normal(0, 0.1, nodes)]
+        w_mu  = [np.random.normal(0, 0.1, (nodes,trait_tbl_mu.shape[1])), np.random.normal(0, 0.1, nodes)]
+        for i in w_lam:
+            print(i.shape)
+    
+    else: # only availble with -fixShift option
+        # creat a list of trait tables, one for each time frame
+        trait_tbl_list = []
+        for i in range(1,len(fixed_times_of_shift)):
+            rescaled_time = np.mean([fixed_times_of_shift[i-1],fixed_times_of_shift[i]])
+            trait_tbl_list.append(np.hstack((trait_tbl,rescaled_time*np.ones((trait_tbl.shape[0],1)))) )
+        trait_tbl_lam = np.array(trait_tbl_list)+0
+        trait_tbl_mu = np.array(trait_tbl_list)+0
+
+        w_lam = [np.random.normal(0, 0.1, (nodes,trait_tbl_lam[0].shape[1])), np.random.normal(0, 0.1, nodes)]
+        w_mu  = [np.random.normal(0, 0.1, (nodes,trait_tbl_mu[0].shape[1])), np.random.normal(0, 0.1, nodes)]
+        for i in w_lam:
+            print(i.shape)
+        print(trait_tbl_lam.shape)
+        
+            
     return [trait_tbl_lam,trait_tbl_mu], [w_lam,w_mu]
 
 ### test
@@ -1839,7 +1862,7 @@ def pure_death_shift(arg):
         BD_lik += lik0+lik1+lik2+lik3
 
 def BDI_partial_lik(arg):
-    [ts,te,up,lo,rate,par, cov_par,n_frames_L]=arg
+    [ts,te,up,lo,rate,par, cov_par,_]=arg
     ind_in_time = np.intersect1d((all_events_array[0] <= up).nonzero()[0], (all_events_array[0] > lo).nonzero()[0])
     traj_T=div_trajectory[ind_in_time]
     all_events_temp2_T=all_events_array[:,ind_in_time]
@@ -1862,7 +1885,7 @@ def BDI_partial_lik(arg):
     return lik
 
 def PoiD_partial_lik(arg):
-    [ts,te,up,lo,rate,par, cov_par,n_frames_L]=arg
+    [ts,te,up,lo,rate,par, cov_par,_]=arg
     if par=="l":
         i_events=np.intersect1d((ts <= up).nonzero()[0], (ts > lo).nonzero()[0])
         n_i_events = len(i_events)
@@ -3266,16 +3289,24 @@ def MCMC(all_arg):
                 else:
                     args=list()
                     if use_ADE_model == 0: # speciation rate is not used under ADE model
-                        for temp_l in range(len(timesL)-1):
-                            up, lo = timesL[temp_l], timesL[temp_l+1]
-                            l = L[temp_l]
-                            args.append([ts, te, up, lo, l, 'l', cov_par[0],1])
+                        if use_BDNNmodel and use_time_as_trait > 0:
+                            for temp_l in range(len(timesL)-1):
+                                up, lo = timesL[temp_l], timesL[temp_l+1]
+                                l = L[temp_l]
+                                args.append([ts, te, up, lo, l, 'l', cov_par[0],temp_l])
+                        else:
+                            for temp_l in range(len(timesL)-1):
+                                up, lo = timesL[temp_l], timesL[temp_l+1]
+                                l = L[temp_l]
+                                args.append([ts, te, up, lo, l, 'l', cov_par[0],np.nan])
                     # parameters of each partial likelihood and prior (m)
                     for temp_m in range(len(timesM)-1):
                         up, lo = timesM[temp_m], timesM[temp_m+1]
                         m = M[temp_m]
-                        if use_ADE_model == 0:
-                            args.append([ts, te, up, lo, m, 'm', cov_par[1],1])
+                        if use_BDNNmodel and use_time_as_trait > 0:
+                            args.append([ts, te, up, lo, m, 'm', cov_par[1],temp_m]) 
+                        elif use_ADE_model == 0:
+                            args.append([ts, te, up, lo, m, 'm', cov_par[1],np.nan])
                         elif use_ADE_model >= 1:
                             args.append([ts, te, up, lo, m, 'm', cov_par[1],W_shape,q_rates[1]])
 
@@ -3640,8 +3671,12 @@ def MCMC(all_arg):
             log_state += [SA]
             
             if use_BDNNmodel:
-                sp_lam = get_rate_BDNN(LA[0], trait_tbl_NN[0], cov_parA[0])
-                sp_mu = get_rate_BDNN(MA[0], trait_tbl_NN[1], cov_parA[1])
+                if use_time_as_trait > 0:
+                    sp_lam = get_rate_BDNN(LA[0], trait_tbl_NN[0][0], cov_parA[0])
+                    sp_mu = get_rate_BDNN(MA[0], trait_tbl_NN[0][1], cov_parA[1])
+                else:
+                    sp_lam = get_rate_BDNN(LA[0], trait_tbl_NN[0], cov_parA[0])
+                    sp_mu = get_rate_BDNN(MA[0], trait_tbl_NN[1], cov_parA[1])
                 
                 # avg rates across all species
                 log_state += [trait_tbl_NN[0].shape[0] / np.sum(1 / sp_lam),
@@ -3852,7 +3887,7 @@ p.add_argument('-FBDrange', type=int, help='use FBDrange likelihood (experimenta
 p.add_argument('-BDNNmodel', type=int, help='use BD-NN model (requires trait_file)', default=0, metavar=0)
 p.add_argument('-BDNNnodes', type=int, help='number of BD-NN nodes', default=3, metavar=3)
 p.add_argument('-BDNNfadlad', type=float, help='if > 0 include FAD LAD as traits (rescaled i.e. FAD * BDNNfadlad)', default=0, metavar=0)
-
+p.add_argument('-BDNNtimetrait', type=float, help='if > 0 use (rescaled) time as a trait (only with -fixedShift option)', default=0, metavar=0)
 
 # TUNING
 p.add_argument('-tT',     type=float, help='Tuning - window size (ts, te)', default=1., metavar=1.)
@@ -4732,8 +4767,23 @@ if use_BDNNmodel:
             matched_trait_values.append(np.nan)
             sys.exit( "Species %s did not have data" % taxa_name)
     trait_values= np.array(matched_trait_values)
-    trait_tbl_NN, cov_par_init_NN = init_trait_and_weights(trait_values,n_BDNN_nodes,bias_node=False, fadlad=args.BDNNfadlad)
+    use_time_as_trait = args.BDNNtimetrait
+    
+    
+    time_vec = np.sort(np.array([np.max(FA), np.min(LO)] + list(fixed_times_of_shift)))[::-1]
+    rescaled_time = time_vec*args.BDNNtimetrait
+    trait_tbl_NN, cov_par_init_NN = init_trait_and_weights(trait_values,
+                                                           n_BDNN_nodes,
+                                                           bias_node=False, 
+                                                           fadlad=args.BDNNfadlad,
+                                                           use_time_as_trait=use_time_as_trait,
+                                                           fixed_times_of_shift=rescaled_time)
     cov_par_init_NN.append(0) # cov_par_init_NN[2] = covar prm for preseravtion rate (currently not used)
+    if False:
+        print(rescaled_time)    
+        for i in trait_tbl_NN[0]:
+            print(i[0,:] )
+    
     if TDI == 0 and len(fixed_times_of_shift) == 0:
         log_per_species_rates = True
     else: 
