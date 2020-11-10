@@ -4704,7 +4704,7 @@ else: TPP_model = 0
 if fix_Shift == 1 and use_ADE_model == 0: est_hyperP = 1
 # define hyper-prior function for BD rates
 if tot_extant==-1 or TDI ==3 or use_poiD == 1:
-    if use_ADE_model == 0 and fix_Shift == 1 and TDI < 3 or use_cauchy == 1:
+    if use_ADE_model == 0 and fix_Shift == 1 and TDI < 3 and use_cauchy == 1:
         if est_hyperP == 0 or fix_hyperP == 1:
             prior_setting= "Using Cauchy priors on the birth-death rates (C_l[0,%s],C_l[0,%s]).\n" % (hypP_par[0],hypP_par[1])
         else:
