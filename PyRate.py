@@ -7,7 +7,7 @@ import importlib.util
 import copy as copy_lib
 
 version= "PyRate"
-build  = "v3.0 - 20201021"
+build  = "v3.0 - 20201110"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
