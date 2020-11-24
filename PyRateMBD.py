@@ -297,7 +297,7 @@ def sample_tau_mod(lam,beta,tau):
 scaling =args.r
 maxG = args.bound
 if scaling==0: # All trajectories are scaled to range between 0 and 1
-    Dtraj= np.sum((Dtraj, -np.min(Dtraj, axis=0)), axis=0)
+    Dtraj= np.add(Dtraj, -np.min(Dtraj, axis=0))
     scale_factor = 1.
     scale_factor = 1./(np.max(Dtraj, axis=0)-np.min(Dtraj, axis=0))
     if corr_model==1: trasfRate_general = trasfMultiRateND 
@@ -313,7 +313,6 @@ elif scaling ==2:
 Dtraj = Dtraj*scale_factor
 print("scale_factor",scale_factor, np.max(Dtraj), np.max(Dtraj, axis=0))
 print(maxG, scale_factor)
-
 
 if remove_selfDD==1:
     Dtraj = Dtraj[:,1:] # remove the diversity column
@@ -502,7 +501,7 @@ if plot_RTT: # NEW FUNCTION 2
             if max_T == -1:
                 r_script += "\nXLIM = c(min(time[clade_1>0]),0)"
             else:
-                r_script += "\nXLIM = c(%s, %s)" % (max_T, min_T)
+                r_script += "\nXLIM = c(%s, %s)\nclade_1[t>%s] = 0\nclade_1[t<%s] = 0 " % (-max_T, -min_T, max_T, min_T)
             
             
             r_script += """
@@ -624,7 +623,7 @@ while True:
             
         else: # update Garray (effect size) 
             Garray_temp= update_parameter_normal_2d_freq((GarrayA[focal_clade,:,:]),d=.5,f=.1,m=-maxG,M=maxG)
-            Garray=np.zeros(n_clades*n_clades*2).reshape(n_clades,2,n_clades)+GarrayA
+            Garray=np.zeros((n_clades,2,n_clades))+GarrayA
             Garray[focal_clade,:,:]=Garray_temp
             if birth_model: Garray[fixed_focal_clade,1,:] *= 0
             elif death_model: Garray[fixed_focal_clade,0,:] *= 0
