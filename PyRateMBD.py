@@ -372,6 +372,35 @@ TauA=np.array([.5]) # np.ones(1) # P(G==0)
 hypRA=np.ones(1)
 Tau=TauA
 
+max_T = args.maxT
+if max_T == -1: pass
+else: 
+    index_temp = np.arange(0,len(all_Times))
+    index_events_included = index_temp[all_Times<max_T]
+    
+    sp_times = all_Times[idx_s[fixed_focal_clade]]
+    ex_times = all_Times[idx_e[fixed_focal_clade]]
+    
+    index_temp = np.arange(0,len(sp_times))
+    index_included_sp_times = index_temp[sp_times<max_T]
+
+    index_temp = np.arange(0,len(ex_times))
+    index_included_ex_times = index_temp[ex_times<max_T]
+
+min_T = args.minT
+if min_T == -1: pass
+else: 
+    index_temp = np.arange(0,len(all_Times))
+    index_events_included = index_temp[all_Times>min_T]
+    
+    sp_times = all_Times[idx_s[fixed_focal_clade]]
+    ex_times = all_Times[idx_e[fixed_focal_clade]]
+    
+    index_temp = np.arange(0,len(sp_times))
+    index_included_sp_times = index_temp[sp_times>min_T]
+
+    index_temp = np.arange(0,len(ex_times))
+    index_included_ex_times = index_temp[ex_times>min_T]
 
 
 ########################## PLOT RTT ##############################
@@ -470,10 +499,15 @@ if plot_RTT: # NEW FUNCTION 2
         
 
         if i==-1:
+            if max_T == -1:
+                r_script += "\nXLIM = c(min(time[clade_1>0]),0)"
+            else:
+                r_script += "\nXLIM = c(%s, %s)" % (max_T, min_T)
+            
+            
             r_script += """
 par(mfrow=c(1,2))
 YLIM = c(0,max(c(sp_hdp_M[clade_1>0],ex_hdp_M[clade_1>0])))
-XLIM = c(min(time[clade_1>0]),0)
 YLIMsmall = c(0,max(c(sp_hdp_M50[clade_1>0],ex_hdp_M50[clade_1>0])))
 plot(speciation[clade_1>0] ~ time[clade_1>0],type="l",col="#4c4cec", lwd=3,main="Speciation rates - Combined effects", ylim = YLIM,xlab="Time (Ma)",ylab="Speciation rates",xlim=XLIM)
 mtext("%s correlations")
@@ -514,35 +548,6 @@ abline(v=-c(65,200,251,367,445),lty=2,col="gray")
     sys.exit("\n")
 
 ##############################################################
-max_T = args.maxT
-if max_T == -1: pass
-else: 
-    index_temp = np.arange(0,len(all_Times))
-    index_events_included = index_temp[all_Times<max_T]
-    
-    sp_times = all_Times[idx_s[fixed_focal_clade]]
-    ex_times = all_Times[idx_e[fixed_focal_clade]]
-    
-    index_temp = np.arange(0,len(sp_times))
-    index_included_sp_times = index_temp[sp_times<max_T]
-
-    index_temp = np.arange(0,len(ex_times))
-    index_included_ex_times = index_temp[ex_times<max_T]
-
-min_T = args.minT
-if min_T == -1: pass
-else: 
-    index_temp = np.arange(0,len(all_Times))
-    index_events_included = index_temp[all_Times>min_T]
-    
-    sp_times = all_Times[idx_s[fixed_focal_clade]]
-    ex_times = all_Times[idx_e[fixed_focal_clade]]
-    
-    index_temp = np.arange(0,len(sp_times))
-    index_included_sp_times = index_temp[sp_times>min_T]
-
-    index_temp = np.arange(0,len(ex_times))
-    index_included_ex_times = index_temp[ex_times>min_T]
 
 
 t1=time.time()
@@ -583,7 +588,7 @@ while True:
         
         if rr<sampling_freqs[0]:
             rr2 = np.random.random()
-            if rr2<.5 and birth_model-death_model==1: 
+            if rr2<.5 or death_model==1: 
                 l0=np.zeros(n_clades)+l0A
                 l0[focal_clade],hasting=update_multiplier_proposal(l0A[focal_clade],1.2)
             else:    
@@ -605,7 +610,7 @@ while True:
                 
                 if birth_model:      new_precision = np.random.gamma( T_hp_alpha+(n_clades)/2, scale =1./(T_hp_beta + np.sum(GarrayA[focal_clade,0,:]**2))/2   , size=1)
                 elif death_model:    new_precision = np.random.gamma( T_hp_alpha+(n_clades)/2, scale =1./(T_hp_beta + np.sum(GarrayA[focal_clade,1,:]**2))/2   , size=1)
-                else:                   new_precision = np.random.gamma( T_hp_alpha+(n_clades*2)/2, scale =1./(T_hp_beta + np.sum(GarrayA[focal_clade,:,:]**2))/2   , size=1)
+                else:                new_precision = np.random.gamma( T_hp_alpha+(n_clades*2)/2, scale =1./(T_hp_beta + np.sum(GarrayA[focal_clade,:,:]**2))/2   , size=1)
                 Tau = np.sqrt(1./new_precision)
                     
             # Gibbs sampler (Exponential + Gamma[2,2])
