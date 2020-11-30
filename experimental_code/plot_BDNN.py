@@ -191,7 +191,28 @@ def predicted_rates(logfile,
         # out_file_m = get_file_name(trait_file) + "_mu_NN%s.txt" % w_lam[0][0].shape[0]
         # np.savetxt(os.path.join(os.path.dirname(trait_file), out_file_m),lam_matrix_hm, delimiter="\t")
 
-
+def get_tste_from_logfile(f, burnin=0):
+    head = next(open(f)).split()
+    t_file=np.loadtxt(f, skiprows=1)
+    w=[x for x in head if 'TS' in x]
+    #w=[x for x in head if 'ts_' in x]
+    ind_ts0 = head.index(w[0])
+    y=[x for x in head if 'TE' in x]
+    #y=[x for x in head if 'te_' in x]
+    ind_te0 = head.index(y[0])
+    print(len(w), "species", t_file.shape)
+    j=0
+    out_list=list()
+    if burnin<1: burnin = int(burnin*t_file.shape[0])
+    
+    out_list = []
+    for i in np.arange(ind_ts0,ind_te0):
+        meanTS= np.mean(t_file[burnin:t_file.shape[0],i])
+        meanTE= np.mean(t_file[burnin:t_file.shape[0],ind_te0+j])
+        out_list.append([meanTS, meanTE])
+        j += 1
+    return out_list
+    
 
 def predicted_rates_per_species(logfile, 
                                 species_trait_file,
@@ -253,36 +274,33 @@ def predicted_rates_per_species(logfile,
     species_rate_mu = np.array(species_rate_mu).T
     species_rate_div = np.array(species_rate_div).T
     
-    
-    for i in range(len(species_rate_lam)):
-        print("Add NAs and estimation of TS/TE")
-    
+    list_tste = get_tste_from_logfile(logfile, burnin)    
     
     with open(os.path.join(wd, "taxon_speciation_rates.txt"), 'w') as f:
                     writer = csv.writer(f, delimiter='\t')
-                    l = ["Species"]
+                    l = ["Species","ts","te"]
                     h = ["%s_Ma" % time_range[i] for i in  range(len(rescaled_time))]
                     writer.writerow(l+h) 
                     for i in range(len(species_rate_lam)):
-                        l = [species_traits["Taxon_name"][i]] + list(species_rate_lam[i])
+                        l = [species_traits["Taxon_name"][i]] + list_tste[i] + list(species_rate_lam[i])
                         writer.writerow(l) 
 
     with open(os.path.join(wd, "taxon_extinction_rates.txt"), 'w') as f:
                     writer = csv.writer(f, delimiter='\t')
-                    l = ["Species"]
+                    l = ["Species","ts","te"]
                     h = ["%s_Ma" % time_range[i] for i in  range(len(rescaled_time))]
                     writer.writerow(l+h) 
                     for i in range(len(species_rate_mu)):
-                        l = [species_traits["Taxon_name"][i]] + list(species_rate_mu[i])
+                        l = [species_traits["Taxon_name"][i]] + list_tste[i] + list(species_rate_mu[i])
                         writer.writerow(l) 
     
     with open(os.path.join(wd, "taxon_diversification_rates.txt"), 'w') as f:
                     writer = csv.writer(f, delimiter='\t')
-                    l = ["Species"]
+                    l = ["Species","ts","te"]
                     h = ["%s_Ma" % time_range[i] for i in  range(len(rescaled_time))]
                     writer.writerow(l+h) 
                     for i in range(len(species_rate_div)):
-                        l = [species_traits["Taxon_name"][i]] + list(species_rate_div[i])
+                        l = [species_traits["Taxon_name"][i]] + list_tste[i] + list(species_rate_div[i])
                         writer.writerow(l) 
 
 
