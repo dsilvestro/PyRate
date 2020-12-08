@@ -180,8 +180,11 @@ def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_v
 	elif transf_e==4: # linear diversity dependence
 		base_e1 = ev_list[0][0] * (1. - (offset_ext_div1/covar_par[2]))
 		base_e2 = ev_list[0][1] * (1. - (offset_ext_div2/covar_par[3]))
-		transf_e = np.array([base_e1 / (1. - (time_var_e1/covar_par[2])), 
-		                     base_e2 / (1. - (time_var_e2/covar_par[3]))]).T
+		denom_e1 = 1. - time_var_e1/covar_par[2]
+		denom_e2 = 1. - time_var_e2/covar_par[3]
+		denom_e1[denom_e1 == 0.0] = 1e-5 # Diversity equals K
+		denom_e2[denom_e2 == 0.0] = 1e-5
+		transf_e = np.array([base_e1 / denom_e1, base_e2 / denom_e2]).T
 		# Replace negative and infinite extinction rate when observed diversity is >= K by max extinction
 		rep_e1 = base_e1 / (1. - ((covar_par[2] - 1e-5)/covar_par[2]))
 		rep_e2 = base_e2 / (1. - ((covar_par[3] - 1e-5)/covar_par[3]))
@@ -189,6 +192,7 @@ def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_v
 		transf_e[0, np.isfinite(transf_e[0, ]) == False] = rep_e1
 		transf_e[1, transf_e[1, ] < 0] = rep_e2
 		transf_e[1, np.isfinite(transf_e[1, ]) == False] = rep_e2
+
 
 	else:
 		transf_e = ev_list

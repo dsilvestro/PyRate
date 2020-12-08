@@ -12,6 +12,7 @@ import pyrate_lib.lib_DD_likelihood as lib_DD_likelihood
 self_path=os.getcwd()
 
 def rescale_vec_to_range(x, r=1., m=0):
+        print("we rescale")
         temp = (x-min(x))/(max(x)-min(x))
         temp = temp*r # rescale
         temp = temp+m # shift
