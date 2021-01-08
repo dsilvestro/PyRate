@@ -66,3 +66,12 @@ PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-af
 
 * See tutorial [4](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#the-birth-death-chronospecies-bdc-model)
 
+
+
+#### The fossilized birth-death-range model (FBDrange) is described here:
+
+* Warnock R., Heath T. A. & Stadler T. (2020) Assessing the impact of incomplete species sampling on estimates of speciation and extinction rates. Paleobiology, [doi: 10.1017/pab.2020.12](https://www.cambridge.org/core/journals/paleobiology/article/assessing-the-impact-of-incomplete-species-sampling-on-estimates-of-speciation-and-extinction-rates/8D82C01066E7E2A24F2A4A8ACAC2B69F).
+
+* Stadler, T., A. Gavryushkina, R. C. Warnock, A. J. Drummond, and T. A. Heath. 2018. The fossilized birth-death model for the analysis of stratigraphic range data under different speciation modes. Journal of Theoretical Biology [doi: 10.1016/j.jtbi.2018.03.0](https://www.sciencedirect.com/science/article/pii/S002251931830119X).
+
+* Tutorial in prep. 
