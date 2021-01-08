@@ -133,6 +133,9 @@ p.add_argument('-age2',     type=str, help='latest age', default="latestAge", me
 p.add_argument('-trim_age', type=float, help='trim DES input to maximum age',  default=[])
 p.add_argument('-plot_raw', help='plot raw diversity curves', action='store_true', default=False)
 
+p.add_argument('-log_div', help='log modeled diversity (DivdD or DivdE models)', action='store_true', default=False)
+p.add_argument('-log_dis', help='log modeled dispersal (DdE)', action='store_true', default=False)
+
 args = p.parse_args()
 if args.cite is True:
 	sys.exit(citation)
@@ -1101,20 +1104,38 @@ head=head.split("\t")
 rlog=csv.writer(ratesfile, delimiter='\t')
 rlog.writerow(head)
 
+if args.log_div:
+	out_div ="%s/%s_%s%s%s%s%s_diversity.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag,model_tag,args.out)
+	divfile = open(out_div, "w")
+	head="it"
+	for i in range(len(ts_rev)): head+= "\tdiv1_%s" % (ts_rev[i])
+	for i in range(len(ts_rev)): head+= "\tdiv2_%s" % (ts_rev[i])
+	head=head.split("\t")
+	divlog=csv.writer(divfile, delimiter='\t')
+	divlog.writerow(head)
+if args.log_dis:
+	out_dis ="%s/%s_%s%s%s%s%s_dispersal.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag,model_tag,args.out)
+	disfile = open(out_dis, "w")
+	head="it"
+	for i in range(len(ts_rev)): head+= "\tdis12_%s" % (ts_rev[i])
+	for i in range(len(ts_rev)): head+= "\tdis21_%s" % (ts_rev[i])
+	head=head.split("\t")
+	dislog=csv.writer(disfile, delimiter='\t')
+	dislog.writerow(head)
 
 # Use an ode solver to approximate the diversity trajectories
 def div_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2):
 	div1 = div[0]
 	div2 = div[1]
 	div3 = div[2]
-	lim_d2 = max(0, 1 - (div1 + div3)/k_d1) # Limit dispersal into area 2
-	lim_d1 = max(0, 1 - (div2 + div3)/k_d2) # Limit dispersal into area 1
+	lim_d1 = max(0, 1 - (div1 + div3)/k_d1) # Limit dispersal into area 1
+	lim_d2 = max(0, 1 - (div2 + div3)/k_d2) # Limit dispersal into area 2
 	lim_e1 = max(1e-05, 1 - (div1 + div3)/k_e1) # Increases extinction in area 1
 	lim_e2 = max(1e-05, 1 - (div2 + div3)/k_e2) # Increases extinction in area 2
 	dS = np.zeros(5)
-	dS[0] = -mu1/lim_e1 * div1 + mu2/lim_e2 * div3 - d12 * div1 * lim_d1
-	dS[1] = -mu2/lim_e2 * div2 + mu1/lim_e1 * div3 - d21 * div2 * lim_d2
-	dS[2] = -(mu1/lim_e1 + mu2/lim_e2) * div3 + d21 * div2 * lim_d2 + d12 * div1 * lim_d1
+	dS[0] = -mu1/lim_e1 * div1 + mu2/lim_e2 * div3 - d12 * div1 * lim_d2
+	dS[1] = -mu2/lim_e2 * div2 + mu1/lim_e1 * div3 - d21 * div2 * lim_d1
+	dS[2] = -(mu1/lim_e1 + mu2/lim_e2) * div3 + d21 * div2 * lim_d1 + d12 * div1 * lim_d2
 	return dS
 
 def div_dep_ext_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, covar_mu1, covar_mu2):
@@ -1123,8 +1144,8 @@ def div_dep_ext_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, covar_mu1, covar_mu2)
 	div3 = div[2]
 	div13 = div[0] + div[2]
 	div23 = div[1] + div[2]
-	lim_d2 = max(0, 1 - (div1 + div3)/k_d1) # Limit dispersal into area 2
-	lim_d1 = max(0, 1 - (div2 + div3)/k_d2) # Limit dispersal into area 1
+	lim_d1 = max(0, 1 - (div13)/k_d1) # Limit dispersal into area 1
+	lim_d2 = max(0, 1 - (div23)/k_d2) # Limit dispersal into area 2
 	dS = np.zeros(5)
 	dS[3] = d21 * div2 * lim_d1 # Gain area 1
 	dS[4] = d12 * div1 * lim_d2 # Gain area 2
@@ -1142,36 +1163,36 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 			argsDivdD, argsDivdE, argsvarD, argsvarE, argsDdE, argsG,
 			r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ, 
 			covar_par, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-			time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE):
+			time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp):
 	if argsG:
 		YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
 		sa = np.zeros((pp_gamma_ncat, nTaxa))
 		sb = np.zeros((pp_gamma_ncat, nTaxa))
 		for i in range(pp_gamma_ncat):
-			sa[i,:] = 1. - exp(-bin_size * YangGamma[i] * -log(r_vec[Q_index_first_occ, 1])/bin_size)
-			sb[i,:] = 1. - exp(-bin_size * YangGamma[i] * -log(r_vec[Q_index_first_occ, 2])/bin_size)
+			sa[i,:] = exp(-bin_size * YangGamma[i] * -log(r_vec[Q_index_first_occ, 1])/bin_size)
+			sb[i,:] = exp(-bin_size * YangGamma[i] * -log(r_vec[Q_index_first_occ, 2])/bin_size)
 		sa = sa * weight_per_taxon.T
 		sb = sb * weight_per_taxon.T
 		sa = np.nansum(sa, axis = 0)
 		sb = np.nansum(sb, axis = 0)
 	else:	
-		sa = 1. - r_vec[Q_index_first_occ, 1]
-		sb = 1. - r_vec[Q_index_first_occ, 2]
-	sa[first_area == 2.] = 0. # Gives false absence in area 1 (observed 2 cannot be in area 1) 
-	sb[first_area == 1.] = 0. # Gives false absence in area 2 (observed 1 cannot be in area 2)
+		sa = r_vec[Q_index_first_occ, 1]
+		sb = r_vec[Q_index_first_occ, 2]
+	sa[first_area == 1.] = 0. # No false absence if taxon is observed in 1
+	sb[first_area == 2.] = 0. # No false absence if taxon is observed in 2
+	sa[first_area == 3.] = 0. # No false absence if taxon is observed in 3
+	sb[first_area == 3.] = 0. # No false absence if taxon is observed in 3
 	# Add artificial bin before start of the time series
-	padded_time = time_series[0] + time_series[0] - time_series[1]
-	time_series_pad = np.concatenate((padded_time, time_series[0:-1]), axis = None)
-	time_varD_pad = np.concatenate((time_varD[0], time_varD[0:-1]), axis = None)
-	time_varE_pad = np.concatenate((time_varE[0], time_varD[0:-1]), axis = None)
+	# padded_time = time_series[0] + time_series[0] - time_series[1]
+	time_series_pad = time_series#np.concatenate((padded_time, time_series[0:-1]), axis = None)
+	time_varD_pad = time_varD#np.concatenate((time_varD[0], time_varD[0:-1]), axis = None)
+	time_varE_pad = time_varE#np.concatenate((time_varE[0], time_varD[0:-1]), axis = None)
 	div_1 = np.zeros(len_time_series)
 	div_2 = np.zeros(len_time_series)
 	div_3 = np.zeros(len_time_series)
 	gain_1 = np.zeros(len_time_series)
 	gain_2 = np.zeros(len_time_series)
-	for i in range(len_time_series - 1):
-		Q_index_i = Q_index[i]
-
+	for i in range(len_time_series-1):
 		k_d1 = np.inf
 		k_d2 = np.inf
 		if argsDivdD:
@@ -1183,15 +1204,18 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 			dis_rate_vec_i = dis_rate_vec[0, ]
 			dis_rate_vec_i = dis_rate_vec_i * exp(covar_par[0:2]*time_varD_pad[i])
 		else:
-			dis_rate_vec_i = dis_rate_vec[Q_index_i, ]
+			dis_rate_vec_i = dis_rate_vec[i, ]
 
 		k_e1 = np.inf
 		k_e2 = np.inf
 		if argsDivdE:
 			ext_rate_vec_i = ext_rate_vec[0, ]
+			if args.data_in_area != 0:
+				covar_par[[4 - args.data_in_area]] = 1e5
 			k_e1 = covar_par[2]
 			k_e2 = covar_par[3]
 			ext_rate_vec_i = ext_rate_vec_i * (1 - ([offset_ext_div1, offset_ext_div2]/covar_par[2:4]))
+			ext_rate_vec_i[np.isfinite(ext_rate_vec_i) == False] = 1e-5 # nan for data_in_area
 		elif argsvarE:
 			ext_rate_vec_i = ext_rate_vec[0, ]
 			ext_rate_vec_i = ext_rate_vec_i * exp(covar_par[2:3]*time_varE_pad[i])
@@ -1200,7 +1224,7 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 			covar_mu1 = covar_par[2]
 			covar_mu2 = covar_par[3]
 		else:
-			ext_rate_vec_i = ext_rate_vec[Q_index_i, ]
+			ext_rate_vec_i = ext_rate_vec[i, ]
 
 		d12 = dis_rate_vec_i[0]
 		d21 = dis_rate_vec_i[1]
@@ -1209,31 +1233,28 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 
 		occ_i = bin_first_occ == i # Only taxa occuring at that time for the first time
 		sa_i = sa[occ_i]
-		sa_i = sa_i[sa_i != 0.] # Only taxa in area 1
 		sb_i = sb[occ_i]
-		sb_i = sb_i[sb_i != 0.]
-		len_sa_i = len(sa_i) # Number of new taxa observed in area 1
-		len_sb_i = len(sb_i) 
 		sum_sa_i = sum(sa_i) # Summed probability of false absences in area 1
-		sum_sb_i = sum(sb_i) 
-		new_1 = len_sa_i - sum_sa_i
-		new_2 = len_sb_i - sum_sb_i
-		new_3 = sum_sa_i + sum_sb_i
+		sum_sb_i = sum(sb_i)
+		first_area_i = first_area[occ_i]
+		new_1 = sum(first_area_i == 1.) - sum_sb_i # Observed area 1 - false absences in area 1 (which are then in 3)
+		new_2 = sum(first_area_i == 2.) - sum_sa_i
+		new_3 = sum(first_area_i == 3.) + sum_sa_i + sum_sb_i
 
 		dt = [0., time_series_pad[i] - time_series_pad[i + 1] ]
 		div_t = np.zeros(5)
-		div_t[0] = div_1[i] + new_1
-		div_t[1] = div_2[i] + new_2
-		div_t[2] = div_3[i] + new_3
+		div_t[0] = div_1[i]
+		div_t[1] = div_2[i]
+		div_t[2] = div_3[i]
 
 		if argsDdE:
 			div_int = odeint(div_dep_ext_dt, div_t, dt, args = (d12, d21, mu1, mu2, k_d1, k_d2, covar_mu1, covar_mu2), mxstep = 100)
 		else:
 			div_int = odeint(div_dt, div_t, dt, args = (d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2))
 
-		div_1[i + 1] = div_int[1,0]
-		div_2[i + 1] = div_int[1,1]
-		div_3[i + 1] = div_int[1,2]
+		div_1[i + 1] = div_int[1,0] + new_1
+		div_2[i + 1] = div_int[1,1] + new_2
+		div_3[i + 1] = div_int[1,2] + new_3
 		gain_2[i + 1] = div_int[1,3]
 		gain_1[i + 1] = div_int[1,4]
 		
@@ -1246,8 +1267,10 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 	#print( mu1 * exp(covar_mu1 * gain_1_rescaled) )
 	gain_1_rescaled[np.isnan(gain_1_rescaled)] = np.nanmax(gain_1_rescaled)
 	gain_2_rescaled[np.isnan(gain_2_rescaled)] = np.nanmax(gain_2_rescaled)
+	div_13[-1] = sum(np.in1d(data_temp[:,-1], [1., 3.]))
+	div_23[-1] = sum(np.in1d(data_temp[:,-1], [2., 3.]))
 
-	return div_13[1:], div_23[1:], gain_1_rescaled, gain_2_rescaled
+	return div_13, div_23, gain_1_rescaled, gain_2_rescaled
 
 
 # Calculate difference from a given diversity to the equilibrium diversity for two areas
@@ -1573,7 +1596,7 @@ def lik_opt(x, grad):
 								argsDivdD, argsDivdE, argsvarD, argsvarE, argsDdE, argsG,
 								r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ,
 								covar_par, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-								time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE)
+								time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp)
 		if args.DivdD:
 			time_var_d2 = approx_d1 # Limits dispersal into 1
 			time_var_d1 = approx_d2 # Limits dispersal into 2
@@ -2011,7 +2034,6 @@ for it in range(n_generations * len(scal_fac_TI)):
 	elif args.DivdD: # Diversity dependent D
 		transf_d=4
 		dis_vec = dis_rate_vec
-		time_var_d1,time_var_d2 = get_est_div_traj(r_vec)
 		do_approx_div_traj = 1
 	else: # temp dependent D
 		transf_d=1
@@ -2020,33 +2042,34 @@ for it in range(n_generations * len(scal_fac_TI)):
 
 	if args.lgD: transf_d = 2
 	
-	if args.data_in_area == 1: 
+	if args.data_in_area == 1:
 		covar_par[[0,3]] = 0
 		x0_logistic[[0,3]] = 0
-	elif  args.data_in_area == 2: 
+	elif args.data_in_area == 2:
 		covar_par[[1,2]] = 0
 		x0_logistic[[1,2]] = 0
 	
 
-	marginal_dispersal_rate_temp = get_dispersal_rate_through_time(dis_vec,time_var_d1,time_var_d2,covar_par,x0_logistic,transf_d)
-	numD12,numD21 =  get_num_dispersals(marginal_dispersal_rate_temp,r_vec)
-	rateD12,rateD21 = marginal_dispersal_rate_temp[:,0], marginal_dispersal_rate_temp[:,1]
+	if args.DisdE or model_DUO:
+		marginal_dispersal_rate_temp = get_dispersal_rate_through_time(dis_vec,time_var_d1,time_var_d2,covar_par,x0_logistic,transf_d)
+		numD12,numD21 =  get_num_dispersals(marginal_dispersal_rate_temp,r_vec)
+		rateD12,rateD21 = marginal_dispersal_rate_temp[:,0], marginal_dispersal_rate_temp[:,1]
 
 	if args.DdE: # Dispersal dep Extinction
 		do_approx_div_traj = 1
 		# What to do with the rest in here?
 		#numD12res = rescale_vec_to_range(log(1+numD12), r=10., m=0)
 		#numD21res = rescale_vec_to_range(log(1+numD21), r=10., m=0)
-		div_traj1,div_traj2 = get_est_div_traj(r_vec)
+		#div_traj1,div_traj2 = get_est_div_traj(r_vec)
 		
-		numD12res = rescale_vec_to_range((1+numD12)/(1+div_traj2), r=10., m=0)
-		numD21res = rescale_vec_to_range((1+numD21)/(1+div_traj1), r=10., m=0)
+		#numD12res = rescale_vec_to_range((1+numD12)/(1+div_traj2), r=10., m=0)
+		#numD21res = rescale_vec_to_range((1+numD21)/(1+div_traj1), r=10., m=0)
 
  		
 		
 		# NOTE THAT no. dispersals from 1=>2 affects extinction in 2 and vice versa
 		transf_e=3
-		time_var_e2,time_var_e1 = numD12res, numD21res
+		#time_var_e2,time_var_e1 = numD12res, numD21res
 		ext_vec = ext_rate_vec
 	elif args.DisdE: # Dispersal RATE dep Extinction
 		rateD12res = log(rateD12)
@@ -2057,7 +2080,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	elif args.DivdE: # Diversity dep Extinction
 		# NOTE THAT extinction in 1 depends diversity in 1
 		transf_e=4
-		time_var_e1,time_var_e2 = get_est_div_traj(r_vec)
+		#time_var_e1,time_var_e2 = get_est_div_traj(r_vec)
 		do_approx_div_traj = 1
 		ext_vec = ext_rate_vec
 	elif args.TdE: # Time dep Extinction
@@ -2072,12 +2095,15 @@ for it in range(n_generations * len(scal_fac_TI)):
 		transf_e=1
 		time_var_e1,time_var_e2=time_varE,time_varE
 	
+
+	if (it % sampling_freq == 0 or args.A == 3):
+		do_approx_div_traj = 1
 	if do_approx_div_traj == 1:
 		approx_d1,approx_d2,numD12,numD21 = approx_div_traj(nTaxa, dis_vec, ext_vec,
 								argsDivdD, argsDivdE, argsvarD, argsvarE, argsDdE, argsG,
 								r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ,
 								covar_par, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-								time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE)
+								time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp)
 		if args.DivdD:
 			time_var_d2 = approx_d1 # Limits dispersal into 1
 			time_var_d1 = approx_d2 # Limits dispersal into 2
@@ -2362,6 +2388,17 @@ for it in range(n_generations * len(scal_fac_TI)):
 		rlog.writerow(log_state)
 		ratesfile.flush()
 		os.fsync(ratesfile)
+	
+	if args.log_div and log_to_file == 1:
+		log_state = [it] + list(approx_d1[::-1][:-1]) + list(approx_d2[::-1][:-1])
+		divlog.writerow(log_state)
+		divfile.flush()
+		os.fsync(divfile)
+	if args.log_dis and log_to_file == 1:
+		log_state = [it] + list(numD12[::-2]) + list(numD21[::-2])
+		dislog.writerow(log_state)
+		disfile.flush()
+		os.fsync(disfile)
 
 
 print("elapsed time:", time.time()-start_time)

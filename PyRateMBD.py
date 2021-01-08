@@ -372,34 +372,46 @@ hypRA=np.ones(1)
 Tau=TauA
 
 max_T = args.maxT
-if max_T == -1: pass
-else: 
-    index_temp = np.arange(0,len(all_Times))
-    index_events_included = index_temp[all_Times<max_T]
-    
-    sp_times = all_Times[idx_s[fixed_focal_clade]]
-    ex_times = all_Times[idx_e[fixed_focal_clade]]
-    
-    index_temp = np.arange(0,len(sp_times))
-    index_included_sp_times = index_temp[sp_times<max_T]
-
-    index_temp = np.arange(0,len(ex_times))
-    index_included_ex_times = index_temp[ex_times<max_T]
-
 min_T = args.minT
-if min_T == -1: pass
-else: 
+
+if max_T != -1 or min_T != -1: 
+    if max_T == -1:
+        max_T = np.max(all_Times)
+    if min_T == -1:
+        min_T = np.min(all_Times)
+        
+        
     index_temp = np.arange(0,len(all_Times))
-    index_events_included = index_temp[all_Times>min_T]
+    M_index_events_included = index_temp[all_Times <= max_T]
     
     sp_times = all_Times[idx_s[fixed_focal_clade]]
     ex_times = all_Times[idx_e[fixed_focal_clade]]
     
-    index_temp = np.arange(0,len(sp_times))
-    index_included_sp_times = index_temp[sp_times>min_T]
+    M_index_temp = np.arange(0,len(sp_times))
+    M_index_included_sp_times = M_index_temp[sp_times <= max_T]
 
-    index_temp = np.arange(0,len(ex_times))
-    index_included_ex_times = index_temp[ex_times>min_T]
+    M_index_temp = np.arange(0,len(ex_times))
+    M_index_included_ex_times = M_index_temp[ex_times <= max_T]
+
+    index_temp = np.arange(0,len(all_Times))
+    m_index_events_included = index_temp[all_Times >=min_T]
+       
+    m_index_temp = np.arange(0,len(sp_times))
+    m_index_included_sp_times = m_index_temp[sp_times >= min_T]
+
+    m_index_temp = np.arange(0,len(ex_times))
+    m_index_included_ex_times = m_index_temp[ex_times >= min_T]
+    
+    # combined
+    index_temp = np.intersect1d(M_index_temp, m_index_temp)
+    index_events_included = np.intersect1d(M_index_events_included, m_index_events_included)
+    
+    index_included_sp_times = np.intersect1d(m_index_included_sp_times, M_index_included_sp_times)
+    index_included_ex_times = np.intersect1d(m_index_included_ex_times, M_index_included_ex_times)
+    
+    
+
+
 
 
 ########################## PLOT RTT ##############################
@@ -639,7 +651,7 @@ while True:
         l_s1a=l_at_events[idx_s[i]]
         m_e1a=m_at_events[idx_e[i]]
         
-        if max_T==-1:
+        if max_T == -1 and min_T == -1:
             lik_clade = [np.sum(log(l_s1a))-np.sum(abs(np.diff(all_events))*l_at_events[0:len(l_at_events)-1]*(dd_focus_clade[1:len(l_at_events)])), \
                          np.sum(log(m_e1a))-np.sum(abs(np.diff(all_events))*m_at_events[0:len(m_at_events)-1]*(dd_focus_clade[1:len(l_at_events)])) ]
         else:
