@@ -1,5 +1,5 @@
-#!/usr/bin/env python 
-# Created by Daniele Silvestro on 04/04/2018 => pyrate.help@gmail.com 
+#!/usr/bin/env python
+# Created by Daniele Silvestro on 04/04/2018 => pyrate.help@gmail.com
 import os,csv,platform
 import argparse, os,sys, time
 import math
@@ -13,12 +13,12 @@ import random as rand
 import nlopt
 from scipy.integrate import odeint
 from scipy.optimize import minimize
-try: 
+try:
 	import multiprocessing, thread
 	import multiprocessing.pool
 	use_seq_lik=False
 	if platform.system() == "Windows" or platform.system() == "Microsoft": use_seq_lik=True
-except(ImportError): 
+except(ImportError):
 	print("\nWarning: library multiprocessing not found.\nPyRateDES will use (slower) sequential likelihood calculation. \n")
 	use_seq_lik=True
 
@@ -26,20 +26,20 @@ self_path=os.getcwd()
 
 # DES libraries
 self_path= os.path.dirname(sys.argv[0])
-import imp
+from importlib.machinery import SourceFileLoader
 
-try: 
+try:
 	self_path= os.path.dirname(sys.argv[0])
-	des_model_lib = imp.load_source("des_model_lib", "%s/pyrate_lib/des_model_lib.py" % (self_path))
-	mcmc_lib = imp.load_source("mcmc_lib", "%s/pyrate_lib/des_mcmc_lib.py" % (self_path))
-	lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
-	lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
+	des_model_lib = SourceFileLoader("des_model_lib", "%s/pyrate_lib/des_model_lib.py" % (self_path)).load_module()
+	mcmc_lib = SourceFileLoader("mcmc_lib", "%s/pyrate_lib/des_mcmc_lib.py" % (self_path))
+	lib_DD_likelihood = SourceFileLoader("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path)).load_module()
+	lib_utilities = SourceFileLoader("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
 except:
 	self_path=os.getcwd()
-	des_model_lib = imp.load_source("des_model_lib", "%s/pyrate_lib/des_model_lib.py" % (self_path))
-	mcmc_lib = imp.load_source("mcmc_lib", "%s/pyrate_lib/des_mcmc_lib.py" % (self_path))
-	lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
-	lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
+	des_model_lib = SourceFileLoader("des_model_lib", "%s/pyrate_lib/des_model_lib.py" % (self_path)).load_module()
+	mcmc_lib = SourceFileLoader("mcmc_lib", "%s/pyrate_lib/des_mcmc_lib.py" % (self_path)).load_module()
+	lib_DD_likelihood = SourceFileLoader("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path)).load_module()
+	lib_utilities = SourceFileLoader("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path)).load_module()
 
 from des_model_lib import *
 from mcmc_lib import *
@@ -55,7 +55,7 @@ Phil. Trans. R. Soc. B 371: 20150225.\n
 """
 
 
-p = argparse.ArgumentParser() #description='<input file>') 
+p = argparse.ArgumentParser() #description='<input file>')
 
 p.add_argument('-v',        action='version', version='%(prog)s')
 p.add_argument('-cite',     help='print DES citation', action='store_true', default=False)
@@ -143,7 +143,7 @@ simulation_no = args.i
 
 if args.seed==-1:
 	rseed=np.random.randint(0,9999)
-else: rseed=args.seed	
+else: rseed=args.seed
 random.seed(rseed)
 np.random.seed(rseed)
 
@@ -200,7 +200,7 @@ if args.fossil != "":
 		output_wd = args.wd
 		name_file = os.path.splitext(os.path.basename(args.fossil))[0]
 		out = "%s/%s_raw_div.r" % (output_wd, name_file)
-		
+
 		newfile = open(out, "w")
 		if platform.system() == "Windows" or platform.system() == "Microsoft":
 			wd_forward = os.path.abspath(output_wd).replace('\\', '/')
@@ -251,7 +251,7 @@ if args.fossil != "":
 		r_script+="\ndev.off()"
 		newfile.writelines(r_script)
 		newfile.close()
-		
+
 		print("\nAn R script with the source for the RTT plot was saved as: %s_raw_div.r\n(in %s)" % (name_file, output_wd))
 		if platform.system() == "Windows" or platform.system() == "Microsoft":
 			cmd="cd %s & Rscript %s_%s_raw_div.r" % (output_wd, name_file, name_file)
@@ -300,7 +300,7 @@ rescale_factor=args.r
 # 	args.TdE = True
 
 ### MCMC SETTINGS
-if args.A ==2: 
+if args.A ==2:
 	runMCMC = 0 # approximate ML estimation
 	n_generations   = 100000
 	if sum(args.fU)==0:
@@ -308,12 +308,12 @@ if args.A ==2:
 	else: update_freq = args.fU
 	sampling_freq   = 10
 	max_ML_iterations = 5000
-else: 
+else:
 	runMCMC = 1
 	n_generations   = args.n
 	if sum(args.fU)==0:
 		update_freq     = [.4,.8,1]
-		if args.hp == True: 
+		if args.hp == True:
 			update_freq = [.3,.6,.9]
 	else: update_freq = args.fU
 	sampling_freq   = args.s
@@ -328,7 +328,7 @@ scale_proposal  = 10
 #### SUMMARIZE RESULTS
 if args.sum !="":
 	f=args.sum
-	if burnin==0: 
+	if burnin==0:
 		print("""Burnin was set to 0. Use command -b to specify a higher burnin
 	(e.g. -b 100 will exclude the first 100 samples).""")
 	t=loadtxt(f, skiprows=max(1,burnin))
@@ -378,7 +378,7 @@ if plot_file != "":
 			hpd = np.zeros((2, ncols))
 			hpd[:] = np.NaN
 			rate_mean = rtt
-		
+
 		head = next(open(plot_file)).split()
 		d12_index = [head.index(i) for i in head if "d12" in i]
 		d21_index = [head.index(i) for i in head if "d21" in i]
@@ -396,13 +396,13 @@ if plot_file != "":
 		for i in d12_index:
 			time_string = head[i].split("_")[1]
 			time_plot.append(float(time_string))
-		
+
 		# write R file
 		print("\ngenerating R file...", end=' ')
 		output_wd = os.path.dirname(plot_file)
 		name_file = os.path.splitext(os.path.basename(plot_file))[0]
 		out = "%s/%s_Dis_Ex_RTT.r" % (output_wd, name_file)
-		
+
 		newfile = open(out, "w")
 		if platform.system() == "Windows" or platform.system() == "Microsoft":
 			wd_forward = os.path.abspath(output_wd).replace('\\', '/')
@@ -441,7 +441,7 @@ if plot_file != "":
 		r_script+="\ndev.off()"
 		newfile.writelines(r_script)
 		newfile.close()
-		
+
 		print("\nAn R script with the source for the RTT plot was saved as: %s_Dis_Ex_RTT.r\n(in %s)" % (name_file, output_wd))
 		if platform.system() == "Windows" or platform.system() == "Microsoft":
 			cmd="cd %s & Rscript %s_%s_Dis_Ex_RTT.r" % (output_wd, name_file, name_file)
@@ -481,7 +481,7 @@ if input_data=="":
 	simulate_dataset(simulation_no,sim_d_rate,sim_e_rate,n_taxa,n_sim_bins,output_wd)
 	RHO_sampling = np.array(sampling_prob_per_sim_bin)
 	time.sleep(1)
-	input_data = "%s/sim_%s_%s_%s_%s_%s_%s.txt" % (output_wd,simulation_no,n_taxa,sim_d_rate[0],sim_d_rate[1],sim_e_rate[0],sim_e_rate[1]) 
+	input_data = "%s/sim_%s_%s_%s_%s_%s_%s.txt" % (output_wd,simulation_no,n_taxa,sim_d_rate[0],sim_d_rate[1],sim_e_rate[0],sim_e_rate[1])
 	nTaxa, time_series, obs_area_series, OrigTimeIndex = parse_input_data(input_data,RHO_sampling,verbose,n_sampled_bins=n_bins)
 	print(obs_area_series)
 	if args.A==1: ti_tag ="_TI"
@@ -489,7 +489,7 @@ if input_data=="":
 	out_log = "%s/simContinuous_%s_b_%s_q_%s_mcmc_%s_%s_%s_%s_%s_%s_%s%s.log" \
 	% (output_wd,simulation_no,n_bins,q_rate[0],n_taxa,sim_d_rate[0],sim_d_rate[1],sim_e_rate[0],sim_e_rate[1],q_rate[0],q_rate[1],ti_tag)
 	time_series = np.sort(time_series)[::-1]
-	
+
 else:
 	print("parsing input data...")
 	RHO_sampling= np.ones(2)
@@ -524,18 +524,18 @@ else:
 	for i in constraints_covar: model_tag+= "_%s" % (i)
 	if len(args.symCov)>0: model_tag+= "_symCov"
 	for i in args.symCov: model_tag+= "_%s" % (i)
-	if argsG is True: model_tag+= "_G" 
+	if argsG is True: model_tag+= "_G"
 	if args.A == 3: model_tag+= "_Mlsbplx"
-		
+
 	out_log ="%s/%s_%s%s%s%s%s.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag,model_tag,args.out)
 	out_rates ="%s/%s_%s%s%s%s%s_marginal_rates.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag,model_tag,args.out)
 	time_series = np.sort(time_series)[::-1] # the order of the time vector is only used to assign the different Q matrices
 	                                         # to the correct time bin. Q_list[0] = root age, Q_list[n] = most recent
 
-if verbose ==1: 
+if verbose ==1:
 	print(time_series)
 	print(obs_area_series)
-	
+
 #############################################
 ######            INIT MODEL           ######
 #############################################
@@ -571,7 +571,7 @@ sign_list_LIST=[]
 list_taxa_index =[]
 for l in range(nTaxa):
 	rho_at_present=np.zeros(len(possible_areas))
-	try: 
+	try:
 		rho_at_present[possible_areas.index(present_data[l])]=1 # assign prob 1 for observed range at present, 0 for all others
 		list_taxa_index.append(l)
 	except: rho_at_present=np.zeros(len(possible_areas)) # NaN at present (entire species not preserved)
@@ -580,7 +580,7 @@ for l in range(nTaxa):
 	r_vec_indexes,sign_list=build_list_rho_index_vec(obs_area_series[l],nareas,possible_areas)
 	r_vec_indexes_LIST.append(r_vec_indexes)
 	sign_list_LIST.append(sign_list)
-#####	
+#####
 
 dis_rate_vec= np.array([.1,.1]  ) #__ np.zeros(nareas)+.5 # np.random.uniform(0,1,nareas)
 ext_rate_vec= np.array([.005,.005]) #__ np.zeros(nareas)+.05 # np.random.uniform(0,1,nareas)
@@ -616,11 +616,11 @@ NOTE that Q_list[0] = root age, Q_list[n] = most recent
 # INIT PARAMETERS
 n_Q_times=len(Q_times)+1
 dis_rate_vec=np.random.uniform(0.1,0.2,nareas*1).reshape(1,nareas)
-if args.TdD: 
+if args.TdD:
 	dis_rate_vec=np.random.uniform(0.05,0.15,nareas*n_Q_times).reshape(n_Q_times,nareas)
 	#dis_rate_vec = np.array([0.194,0.032,0.007,0.066,0.156,0.073]).reshape(n_Q_times,nareas)
 ext_rate_vec=np.random.uniform(0.01,0.05,nareas*1).reshape(1,nareas)
-if args.TdE: 
+if args.TdE:
 	ext_rate_vec=np.random.uniform(0.01,0.05,nareas*n_Q_times).reshape(n_Q_times,nareas)
 	#ext_rate_vec = np.array([0.222,0.200,0.080,0.225,0.216,0.435]).reshape(n_Q_times,nareas)
 if equal_d is True:
@@ -630,7 +630,7 @@ if equal_e is True:
 	e_temp=ext_rate_vec[:,0]
 	ext_rate_vec = array([e_temp,e_temp]).T
 
-r_vec= np.zeros((n_Q_times,nareas+2)) 
+r_vec= np.zeros((n_Q_times,nareas+2))
 r_vec[:,1:3]=0.25
 r_vec[:,3]=1
 #q_rate_vec = np.array([0.317,1.826,1.987,1.886,2.902,2.648])
@@ -661,7 +661,7 @@ for j in ind_shift[::-1]:
 	i=j
 	count+=1
 
-Q_index =Q_index.astype(int) 
+Q_index =Q_index.astype(int)
 if verbose ==1: print(Q_index, shape(dis_rate_vec))
 
 prior_exp_rate = 1.
@@ -680,7 +680,7 @@ print(np.shape(ext_rate_vec))
 YangGammaQuant = array([1.])
 if argsG is True:
 	YangGammaQuant = (np.linspace(0,1,pp_gamma_ncat+1)-np.linspace(0,1,pp_gamma_ncat+1)[1]/2)[1:]
-alpha = array([10.]) # little sampling heterogeneity 
+alpha = array([10.]) # little sampling heterogeneity
 
 #############################################
 ######               MCMC              ######
@@ -716,12 +716,12 @@ x0_logistic_A =np.zeros(4)
 #    q_rate_vec = np.array([1.581652245,1.517955917 ,1.601288529 ,1.846235859 ,2.664323002 ,3.438584756])
 #    r_vec_temp  = exp(-q_rate_vec*bin_size).reshape(n_Q_times,nareas)
 #    r_vec[:,1:3]=r_vec_temp
-#    
+#
 #    # start for TempD TempE
 #    ext_rate_vec = np.array([0.121 , 0.121]).reshape(1,nareas)
 #    dis_rate_vec = np.array([.053 , .053]).reshape(1,nareas)
 #    covar_par_A = np.array([-0.0118503199,-0.0118503199,-0.104669685,-0.104669685])
-#    
+#
 #    ## start for TempD DdE
 #    # ./PyRateDES2.py -d /Users/danielesilvestro/Documents/Projects/DES_II/Carnivora/Carnivora_raw_data/neogene/EANAng3/EANAng3_rep1.txt -var /Users/danielesilvestro/Documents/Projects/DES_II/Carnivora/Carnivora_raw_data/neogene/NeogeneTempSmooth.txt -qtimes 5.3 2.6 -DdE -symCov 1 -A 2 -symd
 #    #ext_rate_vec = np.array([0.043327715,0.127886299]).reshape(1,nareas)
@@ -763,13 +763,13 @@ x0_logistic_A =np.zeros(4)
 #	time_var = time_var_temp-time_var_temp[len(delta_t)-1]
 #	print "Rescaled variable",time_var, time_series
 #	if args.varE=="":
-#		time_varE=time_var		
+#		time_varE=time_var
 #	else:
 #		## TEMP FOR EXTINCTION
 #		time_var_temp = get_binned_continuous_variable(time_series, args.varE)
 #		# SHIFT TIME VARIABLE ()
 #		time_varE = time_var_temp-time_var_temp[len(delta_t)-1]
-#		
+#
 #except:
 #	time_var = np.ones(len(time_series)-1)
 #	print "Covariate-file not found"
@@ -855,7 +855,7 @@ for i in range(nTaxa):
 	bin_first_occ[i] = np.min( np.where( np.in1d(data_temp[i,:], [1., 2., 3.]) ) )
 	first_area[i] = data_temp[i, bin_first_occ[i]]
 	first_time[i] = time_series[bin_first_occ[i]]
-	
+
 #print "First bin", bin_first_occ
 #print "First area", first_area
 #print "First time", first_time
@@ -903,9 +903,9 @@ argsDdE = args.DdE
 
 if plot_file != "":
 	if ("marginal_rates" in plot_file) == False:
-		if burnin==0: 
+		if burnin==0:
 			print("""Burnin was set to 0. Use command -b to specify a higher burnin (e.g. -b 100 will exclude the first 100 samples).""")
-		
+
 		def covar_effect(covar, par, de, transf):
 			len_par = len(par)
 			len_covar = len(covar)
@@ -934,7 +934,7 @@ if plot_file != "":
 				rate_mean = rate[0,:]
 				hpd[:] = np.NaN
 			return rate_mean, hpd
-		
+
 		head = next(open(plot_file)).split()
 		logfile = loadtxt(plot_file, skiprows=max(1,burnin))
 		mcmc_logfile = logfile.ndim == 2
@@ -965,7 +965,7 @@ if plot_file != "":
 			cov_d21 = np.array([logfile[cov_d21_index]])
 			cov_e1 = np.array([logfile[cov_e1_index]])
 			cov_e2 = np.array([logfile[cov_e2_index]])
-		
+
 		plot_dis = 0
 		plot_ext = 0
 		if args.varD != "":
@@ -1008,7 +1008,7 @@ if plot_file != "":
 			covarE = np.linspace(0., 0.5, 100)
 			e1_mean, e1_hpd = covar_effect(covarE, cov_e1, e1, 4)
 			e2_mean, e2_hpd = covar_effect(covarE, cov_e2, e2, 4)
-		
+
 		# write R file
 		print("\ngenerating R file...", end=' ')
 		output_wd = os.path.dirname(plot_file)
@@ -1093,7 +1093,7 @@ head=head.split("\t")
 wlog=csv.writer(logfile, delimiter='\t')
 wlog.writerow(head)
 
-ratesfile = open(out_rates , "w") 
+ratesfile = open(out_rates , "w")
 head="it"
 ts_rev = time_series[1:][::-1]
 for i in range(len(time_varD)): head+= "\td12_%s" % (ts_rev[i])
@@ -1159,9 +1159,9 @@ def div_dep_ext_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, covar_mu1, covar_mu2)
 #div_int = odeint(div_dep_ext_dt, np.array([1., 1., 0., 0., 0.]), [0, 1], args = (0.2, 0.2, 0.1, 0.1, np.inf, np.inf, 0.2, 0.2))
 #div_int
 
-def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec, 
+def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 			argsDivdD, argsDivdE, argsvarD, argsvarE, argsDdE, argsG,
-			r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ, 
+			r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ,
 			covar_par, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 			time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp):
 	if argsG:
@@ -1175,7 +1175,7 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 		sb = sb * weight_per_taxon.T
 		sa = np.nansum(sa, axis = 0)
 		sb = np.nansum(sb, axis = 0)
-	else:	
+	else:
 		sa = r_vec[Q_index_first_occ, 1]
 		sb = r_vec[Q_index_first_occ, 2]
 	sa[first_area == 1.] = 0. # No false absence if taxon is observed in 1
@@ -1257,7 +1257,7 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 		div_3[i + 1] = div_int[1,2] + new_3
 		gain_2[i + 1] = div_int[1,3]
 		gain_1[i + 1] = div_int[1,4]
-		
+
 	div_13 = div_1 + div_3
 	div_23 = div_2 + div_3
 	gain_1_rescaled = gain_1[1:] / (div_1[1:] + 1.)
@@ -1274,9 +1274,9 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 
 
 # Calculate difference from a given diversity to the equilibrium diversity for two areas
-# (in case of covariate dependent dispersal or extinction, 
+# (in case of covariate dependent dispersal or extinction,
 # the equilibrium is calculated for the covariate mean)
-def calc_diff_equil_two_areas(div): 
+def calc_diff_equil_two_areas(div):
 	div1 = div[0]
 	div2 = div[1]
 	div3 = div[2]
@@ -1302,7 +1302,7 @@ def calc_diff_equil_two_areas(div):
 		diff_equil = abs(gain1 - loss1) + abs(gain2 - loss2)
 	return diff_equil
 
-# Calculate difference from a given diversity to the equilibrium diversity for one area	
+# Calculate difference from a given diversity to the equilibrium diversity for one area
 def calc_diff_equil_one_area(div):
 	div_both = div[0] + div[1]
 	if div_both > k_d or div_both >= k_e or div_both < 1:
@@ -1322,30 +1322,30 @@ def calc_diff_equil_one_area(div):
 
 def get_num_dispersals(dis_rate_vec,r_vec):
 	Pr1 = 1- r_vec[Q_index[0:-1],1] # remove last value (time zero)
-	Pr2 = 1- r_vec[Q_index[0:-1],2] 
+	Pr2 = 1- r_vec[Q_index[0:-1],2]
 	# get dispersal rates through time
 	#d12 = dis_rate_vec[0][0] *exp(covar_par[0]*time_var)
 	#d21 = dis_rate_vec[0][1] *exp(covar_par[1]*time_var)
 	dr = dis_rate_vec
 	d12 = dr[:,0]
 	d21 = dr[:,1]
-	
+
 	numD12 = (div_traj_1/Pr1)*d12
 	numD21 = (div_traj_2/Pr2)*d21
-	
+
 	return numD12,numD21
 
 def get_est_div_traj(r_vec):
 	Pr1 = 1- r_vec[Q_index[0:-1],1] # remove last value (time zero)
-	Pr2 = 1- r_vec[Q_index[0:-1],2] 
-	
+	Pr2 = 1- r_vec[Q_index[0:-1],2]
+
 	numD1 = (div_traj_1/Pr1)
 	numD2 = (div_traj_2/Pr2)
 	numD1res = rescale_vec_to_range(numD1, r=10., m=0)
 	numD2res = rescale_vec_to_range(numD2, r=10., m=0)
-	
+
 	return numD1res,numD2res
-	
+
 
 # initialize weight per gamma cat per species to estimate diversity trajectory with heterogeneous preservation
 weight_per_taxon = np.ones((nTaxa, pp_gamma_ncat)) / pp_gamma_ncat
@@ -1360,8 +1360,8 @@ weight_per_taxon = np.ones((nTaxa, pp_gamma_ncat)) / pp_gamma_ncat
 ###################################################################################
 # Avoid code redundancy in mcmc and maximum likelihood
 def lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex,Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx,bin_last_occ):
-	# weight per gamma cat per species: multiply 
-	weight_per_taxon = np.zeros((nTaxa, pp_gamma_ncat)) 
+	# weight per gamma cat per species: multiply
+	weight_per_taxon = np.zeros((nTaxa, pp_gamma_ncat))
 	if num_processes==0:
 		if use_Pade_approx==0:
 			#t1= time.time()
@@ -1372,13 +1372,13 @@ def lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present
 					Q_index_temp = np.array(range(0,len(w_list)))
 					l_temp = calc_likelihood_mQ_eigen([delta_t,r_vec,w_list,vl_list,vl_inv_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp,bin_last_occ[l]])
 					#print l,  l_temp
-					lik +=l_temp 
-			else:				
+					lik +=l_temp
+			else:
 				for l in list_taxa_index:
 					Q_index_temp = np.array(range(0,len(w_list)))
 					YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
 					lik_vec = np.zeros(pp_gamma_ncat)
-					for i in range(pp_gamma_ncat): 
+					for i in range(pp_gamma_ncat):
 						r_vec_Gamma = exp(-bin_size * YangGamma[i] * -log(r_vec)/bin_size) # convert to probability scale
 						r_vec_Gamma[:,0] = 0
 						r_vec_Gamma[:,3] = 1
@@ -1390,7 +1390,7 @@ def lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present
 					lik_vec_max = np.max(lik_vec)
 					lik2 = lik_vec - lik_vec_max
 					lik += log(sum(exp(lik2))/pp_gamma_ncat) + lik_vec_max
-					weight_per_taxon[l,:] = lik_vec / sum(lik_vec) 
+					weight_per_taxon[l,:] = lik_vec / sum(lik_vec)
 			#print "elapsed time:", time.time()-t1
 		else:
 			#t1= time.time()
@@ -1408,7 +1408,7 @@ def lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present
 					Q_index_temp = np.array(range(0,len(Q_list)))
 					YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
 					lik_vec = np.zeros(pp_gamma_ncat)
-					for i in range(pp_gamma_ncat): 
+					for i in range(pp_gamma_ncat):
 						r_vec_Gamma = exp(-bin_size * YangGamma[i] * -log(r_vec)/bin_size) # convert to probability scale
 						r_vec_Gamma[:,0] = 0
 						r_vec_Gamma[:,3] = 1
@@ -1421,8 +1421,8 @@ def lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present
 					lik2 = lik_vec - lik_vec_max
 					lik += log(sum(exp(lik2))/pp_gamma_ncat) + lik_vec_max
 			#print "lik2", lik
-		
-			
+
+
 	else: # multi=processing
 		sys.exit("Multi-threading not available")
 		if use_Pade_approx==0:
@@ -1435,7 +1435,7 @@ def lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present
 			else:
 				YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
 				liktmp = np.zeros((pp_gamma_ncat, nTaxa)) # row: ncat column: species
-				for i in range(pp_gamma_ncat): 
+				for i in range(pp_gamma_ncat):
 					r_vec_Gamma = exp(-bin_size * YangGamma[i] * -log(r_vec)/bin_size) # convert to probability scale
 					r_vec_Gamma[:,0] = 0
 					r_vec_Gamma[:,3] = 1
@@ -1458,7 +1458,7 @@ def lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present
 			else:
 				YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
 				liktmp = np.zeros((pp_gamma_ncat, nTaxa)) # row: ncat column: species
-				for i in range(pp_gamma_ncat): 
+				for i in range(pp_gamma_ncat):
 					r_vec_Gamma = exp(-bin_size * YangGamma[i] * -log(r_vec)/bin_size) # convert to probability scale
 					r_vec_Gamma[:,0] = 0
 					r_vec_Gamma[:,3] = 1
@@ -1476,13 +1476,13 @@ def lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present
 	return lik, weight_per_taxon
 
 
-# Likelihood for a set of parameters 
+# Likelihood for a set of parameters
 # Uses elements of the global environment but there is no other way?!
 def lik_opt(x, grad):
 	covar_par = np.zeros(4) + 0.
 	x0_logistic = np.zeros(4) + 0.
-	# Sampling	
-	r_vec = np.zeros((n_Q_times,nareas+2)) 
+	# Sampling
+	r_vec = np.zeros((n_Q_times,nareas+2))
 	r_vec[:,3]=1
 	if args.data_in_area == 1:
 		r_vec[:,1] = x[opt_ind_r_vec]
@@ -1512,11 +1512,11 @@ def lik_opt(x, grad):
 			dis_vec[:,1] = np.array(x[opt_ind_dis[1]])
 	else:
 		dis_vec = np.array(x[opt_ind_dis]).reshape(n_Q_times_dis,nareas)
-		
+
 	do_approx_div_traj = 0
 	if args.TdD: # time dependent D
-		dis_vec = dis_vec[Q_index,:] 
-		dis_vec = dis_vec[0:-1] 
+		dis_vec = dis_vec[Q_index,:]
+		dis_vec = dis_vec[0:-1]
 		transf_d = 0
 		time_var_d1,time_var_d2=time_varD,time_varD
 	elif args.DivdD: # Diversity dependent D
@@ -1527,7 +1527,7 @@ def lik_opt(x, grad):
 		transf_d=1
 		time_var_d1,time_var_d2=time_varD,time_varD
 	if args.lgD: transf_d = 2
-	
+
 	# Extinction
 	ext_vec = np.zeros((n_Q_times,nareas))
 	if args.data_in_area == 1:
@@ -1548,8 +1548,8 @@ def lik_opt(x, grad):
 	else:
 		ext_vec = np.array(x[opt_ind_ext]).reshape(n_Q_times_ext,nareas)
 	if args.TdE:
-		ext_vec = ext_vec[Q_index,:] 
-		ext_vec = ext_vec[0:-1] 
+		ext_vec = ext_vec[Q_index,:]
+		ext_vec = ext_vec[0:-1]
 		transf_e = 0
 		time_var_e1,time_var_e2=time_varD,time_varD
 	elif args.DivdE: # Diversity dep Extinction
@@ -1564,11 +1564,11 @@ def lik_opt(x, grad):
 		transf_e = 1
 		time_var_e1,time_var_e2=time_varE,time_varE
 	if args.lgE: transf_e = 2
-		
+
 	alpha = 10.
 	if argsG:
 		alpha = x[alpha_ind]
-	
+
 	if transf_d > 0:
 		covar_par[[0,1]] = x[opt_ind_covar_dis]
 		#if args.data_in_area != 0: # Works also without and should be faster
@@ -1586,7 +1586,7 @@ def lik_opt(x, grad):
 			x0_logistic[[2,3]] = x[opt_ind_x0_log_ext]
 			#if args.data_in_area != 0:
 			#	x0_logistic[[args.data_in_area + 2]] = x[opt_ind_x0_log_ext]
-				
+
 	# enforce constraints if any
 	if constraints_covar_true:
 		covar_par[constraints_covar] = 0
@@ -1606,7 +1606,7 @@ def lik_opt(x, grad):
 		if args.DdE:
 			time_var_e2 = numD12
 			time_var_e1 = numD21
-			
+
 	Q_list, marginal_rates_temp= make_Q_Covar4VDdE(dis_vec,ext_vec,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par,x0_logistic,transf_d,transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2)
 	w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
 	lik, weight_per_taxon = lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST,OrigTimeIndex,Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, bin_last_occ)
@@ -1622,67 +1622,67 @@ if args.A == 3:
 	# opt_ind_xxx: indices for parameters to optimize
 	# x0: initial values
 	# xxx_bounds: bounds for optimization
-	
+
 	if args.TdD is True:
 		n_Q_times_dis = n_Q_times
 	else:
 		n_Q_times_dis = 1
-	opt_ind_dis = np.arange(0, n_Q_times_dis*nareas) 
+	opt_ind_dis = np.arange(0, n_Q_times_dis*nareas)
 	if equal_d is True:
 		opt_ind_dis = np.repeat(np.arange(0, n_Q_times_dis), 2)
 	if args.data_in_area != 0:
 		opt_ind_dis = np.arange(0, n_Q_times_dis)
-	if args.TdD is True and constraints_01: 
+	if args.TdD is True and constraints_01:
 		if len(constraints_covar[constraints_covar < 2]) == 1:
 			opt_ind_dis = np.arange(0, n_Q_times_dis + 1)
 		else:
 			opt_ind_dis = np.arange(0, nareas)
-	
+
 	if args.TdE is True:
 		n_Q_times_ext = n_Q_times
 	else:
 		n_Q_times_ext = 1
-	opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, n_Q_times_ext*nareas) 
+	opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, n_Q_times_ext*nareas)
 	if equal_e is True:
 		opt_ind_ext = np.max(opt_ind_dis) + 1 + np.repeat(np.arange(0, n_Q_times_ext), 2)
 	if args.data_in_area != 0:
 		opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, n_Q_times_ext)
-	if args.TdE is True and constraints_23: 
+	if args.TdE is True and constraints_23:
 		if len(constraints_covar[constraints_covar >= 2]) == 1:
 			opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, n_Q_times_ext + 1)
 		else:
 			opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, nareas)
-			
+
 	opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, n_Q_times*nareas)
 	if equal_q is True:
-		opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.repeat(np.arange(0, n_Q_times), 2) 
+		opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.repeat(np.arange(0, n_Q_times), 2)
 	if const_q ==1: # Needs bin1 = 01 bin2 = 02 bin3 = 03 bin4 = 04 bin5 = 05
-		opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.array([np.zeros(nareas, dtype = int), np.arange(1,nareas+1)]).T.flatten() 
+		opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.array([np.zeros(nareas, dtype = int), np.arange(1,nareas+1)]).T.flatten()
 	if const_q ==2: # Needs bin1 = 01 bin2 = 21 bin3 = 31 bin4 = 41 bin5 = 51
 		opt_ind_r_vec = np.array([np.arange(1,nareas+1), np.ones(nareas, dtype = int)]).T.flatten()
 		opt_ind_r_vec[0] = 0
-		opt_ind_r_vec = np.max(opt_ind_ext) + 1 + opt_ind_r_vec 
+		opt_ind_r_vec = np.max(opt_ind_ext) + 1 + opt_ind_r_vec
 	if args.data_in_area != 0:
 		if const_q ==1 or const_q ==2:
 			opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.zeros(n_Q_times, dtype = int)
-		else: 
+		else:
 			opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, n_Q_times)
-	
-	
+
+
 	x0 = np.random.uniform(0.01,0.1, 1 + np.max(opt_ind_r_vec)) # Initial values
 	lower_bounds = [small_number]*len(x0)
 	upper_bounds = [100]*len(x0)
 	upper_bounds[-len(opt_ind_r_vec):] = [1 - small_number] * len(opt_ind_r_vec)
-	
+
 	# Preservation heterogeneity
-	ind_counter = np.max(opt_ind_r_vec) + 1 
+	ind_counter = np.max(opt_ind_r_vec) + 1
 	if argsG:
 		alpha_ind = ind_counter
 		ind_counter += 1
-		x0 = np.concatenate((x0, 10.), axis = None) 
+		x0 = np.concatenate((x0, 10.), axis = None)
 		lower_bounds = lower_bounds + [small_number]
 		upper_bounds = upper_bounds + [100]
-		
+
 	# Covariates
 	if args.TdD is False or args.DivdD:
 		opt_ind_covar_dis = np.array([ind_counter, ind_counter + 1])
@@ -1715,7 +1715,7 @@ if args.A == 3:
 				x0 = x0[0:-1]
 				lower_bounds = lower_bounds[0:-1]
 				upper_bounds = upper_bounds[0:-1]
-	
+
 	if args.TdE is False or args.DivdE or args.DdE:
 		opt_ind_covar_ext = np.array([ind_counter, ind_counter + 1])
 		ind_counter += 2
@@ -1751,7 +1751,7 @@ if args.A == 3:
 				x0 = x0[0:-1]
 				lower_bounds = lower_bounds[0:-1]
 				upper_bounds = upper_bounds[0:-1]
-	
+
 	# Maximize likelihood
 	if any(args.TdD is False or args.DivdD or args.TdE is False or args.DivdE or args.DdE or (args.data_in_area != 0 and argsG)):
 		print("Optimize only baseline dispersal, extinction and sampling")
@@ -1817,14 +1817,14 @@ if args.A == 3:
 		x0 = x_dis_cov
 	print("Final optimization")
 	opt = nlopt.opt(nlopt.LN_SBPLX, len(x0))
-	opt.set_lower_bounds(lower_bounds) 
-	opt.set_upper_bounds(upper_bounds) 
+	opt.set_lower_bounds(lower_bounds)
+	opt.set_upper_bounds(upper_bounds)
 	opt.set_max_objective(lik_opt)
 	opt.set_xtol_rel(1e-3)
 	opt.set_maxeval(1000 * round(1.25**len(x0)))
-	x = opt.optimize(x0) 
+	x = opt.optimize(x0)
 	minf = opt.last_optimum_value()
-	
+
 	# Format output
 	dis_rate_vec = np.zeros((n_Q_times_dis,nareas))
 	if args.data_in_area == 1:
@@ -1836,7 +1836,7 @@ if args.A == 3:
 		# Both dispersal rates could be constant!
 		if sum(constraints_01_which) == 0 and len(constraints_01_which) == 1:
 			dis_rate_vec[:,0] = np.array(x[opt_ind_dis[0]])
-			dis_rate_vec[:,1] = np.array(x[opt_ind_dis[1:]]) 
+			dis_rate_vec[:,1] = np.array(x[opt_ind_dis[1:]])
 		elif sum(constraints_01_which) == 1 and len(constraints_01_which) == 1:
 			dis_rate_vec[:,0] = np.array(x[opt_ind_dis[:-1]])
 			dis_rate_vec[:,1] = np.array(x[opt_ind_dis[-1]])
@@ -1845,7 +1845,7 @@ if args.A == 3:
 			dis_rate_vec[:,1] = np.array(x[opt_ind_dis[1]])
 	else:
 		dis_rate_vec = np.array(x[opt_ind_dis]).reshape(n_Q_times_dis,nareas)
-		
+
 	ext_rate_vec = np.zeros((n_Q_times_ext,nareas))
 	if args.data_in_area == 1:
 		ext_rate_vec[:,0] = x[opt_ind_ext]
@@ -1864,18 +1864,18 @@ if args.A == 3:
 			ext_rate_vec[:,1] = np.array(x[opt_ind_ext[1]])
 	else:
 		ext_rate_vec = np.array(x[opt_ind_ext]).reshape(n_Q_times_ext,nareas)
-		
-	r_vec = np.zeros((n_Q_times,nareas+2)) 
+
+	r_vec = np.zeros((n_Q_times,nareas+2))
 	r_vec[:,3]=1
 	if args.data_in_area == 1:
 		r_vec[:,1] = x[opt_ind_r_vec]
 		r_vec[:,2] = small_number
 	elif args.data_in_area == 2:
 		r_vec[:,1] = small_number
-		r_vec[:,2] = x[opt_ind_r_vec]	
+		r_vec[:,2] = x[opt_ind_r_vec]
 	else:
 		r_vec[:,1:3] = np.array(x[opt_ind_r_vec]).reshape(n_Q_times,nareas)
-	if argsG: 
+	if argsG:
 		alpha = x[alpha_ind]
 		alpha = alpha.flatten()
 	covar_par_A = np.zeros(4) + 0.
@@ -1887,10 +1887,10 @@ if args.A == 3:
 	if args.TdE is False or args.DivdE or args.DdE:
 		covar_par_A[[2,3]] = x[opt_ind_covar_ext]
 		if args.lgE:
-			x0_logistic_A[[2,3]] = x[opt_ind_x0_log_ext]	
+			x0_logistic_A[[2,3]] = x[opt_ind_x0_log_ext]
 	log_to_file = 1
 
-#############################################	
+#############################################
 do_approx_div_traj = 0
 ml_it=0
 scal_fac_ind=0
@@ -1925,22 +1925,22 @@ if args.DdE:
 	M_e = 50
 
 for it in range(n_generations * len(scal_fac_TI)):
-	if (it+1) % (n_generations+1) ==0: 
+	if (it+1) % (n_generations+1) ==0:
 		print(it, n_generations)
 		scal_fac_ind+=1
-	if it ==0: 
+	if it ==0:
 		dis_rate_vec_A= dis_rate_vec
 		ext_rate_vec_A= ext_rate_vec
-		r_vec_A= r_vec 
-		# fixed starting values 
+		r_vec_A= r_vec
+		# fixed starting values
 		# dis_rate_vec_A= np.array([[0.032924117],[0.045818755]]).T #dis_rate_vec
 		# ext_rate_vec_A= np.array([[0.446553889],[0.199597008]]).T #ext_rate_vec
 		# covar_par_A=np.array([-0.076944388,-0.100211345,-0.161531353,-0.059495477])
-		# r_vec_A=     exp(-np.array([0,1.548902792,1.477082486,1,0,1.767267039,1.981165598,1,0,2.726853331,3.048116889,1])*.5).reshape(3,4) # r_vec  
+		# r_vec_A=     exp(-np.array([0,1.548902792,1.477082486,1,0,1.767267039,1.981165598,1,0,2.726853331,3.048116889,1])*.5).reshape(3,4) # r_vec
 		likA=-inf
 		priorA=-inf
 		alphaA = alpha
-	
+
 	dis_rate_vec = dis_rate_vec_A + 0.
 	ext_rate_vec = ext_rate_vec_A + 0.
 	covar_par =    covar_par_A + 0.
@@ -1948,20 +1948,20 @@ for it in range(n_generations * len(scal_fac_TI)):
 	x0_logistic=   x0_logistic_A + 0.
 	hasting = 0
 	gibbs_sample = 0
-	if it>0: 
+	if it>0:
 		if runMCMC == 1:
 			r= np.random.random(3)
 		elif it % 10==0:
 			r= np.random.random(3)
 	else: r = np.ones(3)+1
-	
+
 	if it<100: r[1]=1
-	
+
 	if r[0] < update_freq[0]: # DISPERSAL UPDATES
 		if args.TdD is False and r[1] < .5: # update covar
 			if args.lgD and r[2] < .5: # update logistic mid point
 				x0_logistic=update_parameter_uni_2d_freq(x0_logistic_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)
-			else:	
+			else:
 				covar_par[0:2]=update_parameter_uni_2d_freq(covar_par_A[0:2], d=0.1*scale_proposal_d, f=0.5, m = m_d, M = M_d)
 				covar_par[2:4]=update_parameter_uni_2d_freq(covar_par_A[2:4], d=0.1*scale_proposal_e, f=0.5, m = m_e, M = M_e)
 		else: # update dispersal rates
@@ -1970,12 +1970,12 @@ for it in range(n_generations * len(scal_fac_TI)):
 				dis_rate_vec = array([d_temp,d_temp]).T
 			else:
 				dis_rate_vec,hasting=update_multiplier_proposal_freq(dis_rate_vec_A,d=1+.1*scale_proposal,f=update_rate_freq_d)
-			
+
 	elif r[0] < update_freq[1]: # EXTINCTION RATES
-		if args.TdE is False and r[1] < .5: 
+		if args.TdE is False and r[1] < .5:
 			if args.lgE and r[2] < .5: # update logistic mid point
 				x0_logistic=update_parameter_uni_2d_freq(x0_logistic_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)
-			else:	
+			else:
 				covar_par[0:2]=update_parameter_uni_2d_freq(covar_par_A[0:2], d=0.1*scale_proposal_d, f=0.5, m = m_d, M = M_d)
 				covar_par[2:4]=update_parameter_uni_2d_freq(covar_par_A[2:4], d=0.1*scale_proposal_e, f=0.5, m = m_e, M = M_e)
 		else:
@@ -1984,7 +1984,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 				ext_rate_vec = array([e_temp,e_temp]).T
 			else:
 				ext_rate_vec,hasting=update_multiplier_proposal_freq(ext_rate_vec_A,d=1+.1*scale_proposal,f=update_rate_freq_e)
-	
+
 	elif r[0] <=update_freq[2]: # SAMPLING RATES
 		r_vec=update_parameter_uni_2d_freq(r_vec_A,d=0.1*scale_proposal,f=update_rate_freq_r)
 		if argsG is True:
@@ -1997,14 +1997,14 @@ for it in range(n_generations * len(scal_fac_TI)):
 		#--> SYMMETRIC SAMPLING
 		if equal_q is True: r_vec[:,2] = r_vec[:,1]
 		r_vec[:,3]=1
-		
-		# CHECK THIS: CHANGE TO VALUE CLOSE TO 1? i.e. for 'ghost' area 
-		if args.data_in_area == 1: r_vec[:,2] = small_number 
+
+		# CHECK THIS: CHANGE TO VALUE CLOSE TO 1? i.e. for 'ghost' area
+		if args.data_in_area == 1: r_vec[:,2] = small_number
 		elif  args.data_in_area == 2: r_vec[:,1] = small_number
 	elif it>0:
 		gibbs_sample = 1
 		prior_exp_rate = gibbs_sampler_hp(np.concatenate((dis_rate_vec,ext_rate_vec)),hp_alpha,hp_beta)
-	
+
 	# enforce constraints if any
 	if len(constraints_covar)>0:
 		covar_par[constraints_covar] = 0
@@ -2013,15 +2013,15 @@ for it in range(n_generations * len(scal_fac_TI)):
 		ext_rate_vec[:,constraints_covar[constraints_covar>=2]-2] = ext_rate_vec[0,constraints_covar[constraints_covar>=2]-2]
 	if len(args.symCov)>0:
 		args_symCov = np.array(args.symCov)
-		covar_par[args_symCov] = covar_par[args_symCov-1] 
-		x0_logistic[args_symCov] = x0_logistic[args_symCov-1] 
-			
+		covar_par[args_symCov] = covar_par[args_symCov-1]
+		x0_logistic[args_symCov] = x0_logistic[args_symCov-1]
+
 	#dis_rate_vec[1:3,0] = dis_rate_vec[2,0]
-	
+
 	## CHANGE HERE TO FIRST OPTIMIZE DISPERSAL AND THEN EXTINCTION
 	if args.DdE and it < 100 and args.A != 3:
 		covar_par[2:4]=0
-	
+
 	#x0_logistic = np.array([0,0,5,5])
 	### GET LIST OF Q MATRICES ###
 	if args.TdD: # time dependent D
@@ -2041,14 +2041,14 @@ for it in range(n_generations * len(scal_fac_TI)):
 		time_var_d1,time_var_d2=time_varD,time_varD
 
 	if args.lgD: transf_d = 2
-	
+
 	if args.data_in_area == 1:
 		covar_par[[0,3]] = 0
 		x0_logistic[[0,3]] = 0
 	elif args.data_in_area == 2:
 		covar_par[[1,2]] = 0
 		x0_logistic[[1,2]] = 0
-	
+
 
 	if args.DisdE or model_DUO:
 		marginal_dispersal_rate_temp = get_dispersal_rate_through_time(dis_vec,time_var_d1,time_var_d2,covar_par,x0_logistic,transf_d)
@@ -2061,12 +2061,12 @@ for it in range(n_generations * len(scal_fac_TI)):
 		#numD12res = rescale_vec_to_range(log(1+numD12), r=10., m=0)
 		#numD21res = rescale_vec_to_range(log(1+numD21), r=10., m=0)
 		#div_traj1,div_traj2 = get_est_div_traj(r_vec)
-		
+
 		#numD12res = rescale_vec_to_range((1+numD12)/(1+div_traj2), r=10., m=0)
 		#numD21res = rescale_vec_to_range((1+numD21)/(1+div_traj1), r=10., m=0)
 
- 		
-		
+
+
 		# NOTE THAT no. dispersals from 1=>2 affects extinction in 2 and vice versa
 		transf_e=3
 		#time_var_e2,time_var_e1 = numD12res, numD21res
@@ -2094,7 +2094,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		ext_vec = ext_rate_vec
 		transf_e=1
 		time_var_e1,time_var_e2=time_varE,time_varE
-	
+
 
 	if (it % sampling_freq == 0 or args.A == 3):
 		do_approx_div_traj = 1
@@ -2113,7 +2113,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		if args.DdE:
 			time_var_e2 = numD12
 			time_var_e1 = numD21
-		
+
 	if args.lgE: transf_e = 2
 	if args.linE: transf_e = 3
 
@@ -2139,19 +2139,19 @@ for it in range(n_generations * len(scal_fac_TI)):
 		#print "transf_d", transf_d
 		#print "transf_e", transf_e
 		Q_list, marginal_rates_temp= make_Q_Covar4VDdE(dis_vec,ext_vec,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par,x0_logistic,transf_d,transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2)
-	
-		
-	
-	#__      
-	#__      
-	#__      
+
+
+
+	#__
+	#__
+	#__
 	#__      else:
 	#__      		time_var_e1,time_var_e2 = get_est_div_traj(r_vec) # diversity dependent extinction
-	#__      		Q_list= make_Q_Covar4VDdE(dis_vec[0:-1],ext_rate_vec,time_varD,time_var_e1,time_var_e2,covar_par,transf_d=0)	
-	#__      	
-	#__      	
+	#__      		Q_list= make_Q_Covar4VDdE(dis_vec[0:-1],ext_rate_vec,time_varD,time_var_e1,time_var_e2,covar_par,transf_d=0)
+	#__
+	#__
 	#__      elif args.DdE:
-	#__      	# TRANSFORM Q MATRIX DeE MODEL	
+	#__      	# TRANSFORM Q MATRIX DeE MODEL
 	#__      	# NOTE THAT no. dispersals from 1=>2 affects extinction in 2 and vice versa
  	#__      	time_var_e2,time_var_e1 = get_num_dispersals(dis_rate_vec,r_vec)
 	#__      	#print time_var_e1,time_var_e2
@@ -2160,26 +2160,26 @@ for it in range(n_generations * len(scal_fac_TI)):
 	#__      	#	print Q_list[i]
 	#__      	#quit()
 	#__      elif args.DivdE:
-	#__      	# TRANSFORM Q MATRIX DeE MODEL	
+	#__      	# TRANSFORM Q MATRIX DeE MODEL
 	#__      	# NOTE THAT extinction in 1 depends diversity in 1
  	#__      	time_var_e1,time_var_e2 = get_est_div_traj(r_vec)
 	#__      	#print time_var_e1,time_var_e2
 	#__      	Q_list= make_Q_Covar4VDdE(dis_rate_vec,ext_rate_vec,time_varD,time_var_e1,time_var_e2,covar_par)
 	#__      else:
-	#__      	# TRANSFORM Q MATRIX	
+	#__      	# TRANSFORM Q MATRIX
 	#__      	Q_list= make_Q_Covar4V(dis_rate_vec,ext_rate_vec,time_varD,covar_par)
 	#__      	#print "Q2", Q_list[0], covar_par
 	#__      	#print Q_list[3]
-	
-	
-	#if it % print_freq == 0: 
+
+
+	#if it % print_freq == 0:
 	#	print it,  Q_list[0],Q_list_old,covar_par
 	if r[0] < update_freq[1] or it==0:
 				w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
 	lik, weight_per_taxon = lik_DES(Q_list, w_list, vl_list, vl_inv_list, delta_t, r_vec, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST,OrigTimeIndex,Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, bin_last_occ)
-	
+
 	prior= sum(prior_exp(dis_rate_vec,prior_exp_rate))+sum(prior_exp(ext_rate_vec,prior_exp_rate))#+prior_normal(covar_par,0,1)
-	
+
 	if args.hp:
 		G_hp_alpha,G_hp_beta=1.,.1
 		g_shape=G_hp_alpha + 2.#len(covar_par)/2.
@@ -2194,7 +2194,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 				prior += 0
 	else:
 		prior += prior_normal(covar_par,0,1)
-	
+
 	lik_alter = lik * scal_fac_TI[scal_fac_ind]
 
 	accepted_state = 0
@@ -2202,7 +2202,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		accepted_state = 1
 		lik = minf
 	if np.isfinite((lik_alter+prior+hasting)) == True:
-		if it==0: 
+		if it==0:
 			likA=lik_alter+0.
 			MLik=likA-1
 			ml_it=0
@@ -2216,7 +2216,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 			else: rr = log(np.random.uniform(0,1))
 			if (lik_alter-(likA* scal_fac_TI[scal_fac_ind]))*map_power >= rr:
 				accepted_state=1
-	elif it==0: 
+	elif it==0:
 		MLik=likA-1
 	if accepted_state:
 		dis_rate_vec_A= dis_rate_vec
@@ -2229,8 +2229,8 @@ for it in range(n_generations * len(scal_fac_TI)):
 		marginal_rates_A = marginal_rates_temp
 		numD12A,numD21A = numD12,numD21
 		alphaA = alpha
-	
-	log_to_file=0	
+
+	log_to_file=0
 	dis_rate_not_transformed = True
 	ext_rate_not_transformed = True
 	if it % print_freq == 0:
@@ -2255,23 +2255,23 @@ for it in range(n_generations * len(scal_fac_TI)):
 		# sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
 		# q_rates = -log(sampling_prob)/bin_size
 		# log_state= [it,likA+priorA, priorA,likA]+list(dis_rate_vec_A.flatten())+list(ext_rate_vec_A.flatten())+list(q_rates)
-		# log_state = log_state+list(covar_par_A[0:2])	
+		# log_state = log_state+list(covar_par_A[0:2])
 		# if args.lgD: log_state = log_state+list(x0_logistic_A[0:2])
-		# log_state = log_state+list(covar_par_A[2:4])	
+		# log_state = log_state+list(covar_par_A[2:4])
 		# if args.lgE: log_state = log_state+list(x0_logistic_A[2:4])
 		# log_state = log_state+[prior_exp_rate]+[scal_fac_TI[scal_fac_ind]]
 		# wlog.writerow(log_state)
 		# logfile.flush()
 		# os.fsync(logfile)
 	if runMCMC == 0:
-		if likA>MLik: 
+		if likA>MLik:
 			log_to_file=1
 			# sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
 			# q_rates = -log(sampling_prob)/bin_size
 			# log_state= [it,likA+priorA, priorA,likA]+list(dis_rate_vec_A.flatten())+list(ext_rate_vec_A.flatten())+list(q_rates)
-			# log_state = log_state+list(covar_par_A[0:2])	
+			# log_state = log_state+list(covar_par_A[0:2])
 			# if args.lgD: log_state = log_state+list(x0_logistic_A[0:2])
-			# log_state = log_state+list(covar_par_A[2:4])	
+			# log_state = log_state+list(covar_par_A[2:4])
 			# if args.lgE: log_state = log_state+list(x0_logistic_A[2:4])
 			# log_state = log_state+[prior_exp_rate]+[scal_fac_TI[scal_fac_ind]]
 			# wlog.writerow(log_state)
@@ -2290,9 +2290,9 @@ for it in range(n_generations * len(scal_fac_TI)):
 			print("restore ML estimates", MLik, likA+0.)
 			dis_rate_vec_A = ML_dis_rate_vec
 			ext_rate_vec_A = ML_ext_rate_vec
-			covar_par_A    = ML_covar_par   
-			r_vec_A        = ML_r_vec   
-			alphaA         = ML_alpha    
+			covar_par_A    = ML_covar_par
+			r_vec_A        = ML_r_vec
+			alphaA         = ML_alpha
 			#if ml_it==100:
 			print(scale_proposal, "changed to:",)
 			scale_proposal = 0.1
@@ -2302,7 +2302,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		#		print scale_proposal, "changed to:",
 		#		scale_proposal = 0.5
 		#if ml_it>8:
-		#	scale_proposal = 0 
+		#	scale_proposal = 0
 		#	print lik, likA, MLik
 		if ml_it>max_ML_iterations:
 			msg= "Convergence reached. ML = %s (%s iterations)" % (round(MLik,3),it)
@@ -2388,7 +2388,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		rlog.writerow(log_state)
 		ratesfile.flush()
 		os.fsync(ratesfile)
-	
+
 	if args.log_div and log_to_file == 1:
 		log_state = [it] + list(approx_d1[::-1][:-1]) + list(approx_d2[::-1][:-1])
 		divlog.writerow(log_state)
@@ -2409,4 +2409,3 @@ if num_processes>0:
 
 
 quit()
-
