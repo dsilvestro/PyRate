@@ -30,20 +30,20 @@ self_path=os.getcwd()
 
 # DES libraries
 self_path= os.path.dirname(sys.argv[0])
-import imp
+from importlib.machinery import SourceFileLoader
 
 try: 
 	self_path= os.path.dirname(sys.argv[0])
-	des_model_lib = imp.load_source("des_model_lib", "%s/pyrate_lib/des_model_lib.py" % (self_path))
-	mcmc_lib = imp.load_source("mcmc_lib", "%s/pyrate_lib/des_mcmc_lib.py" % (self_path))
-	lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
-	lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
+	des_model_lib = SourceFileLoader("des_model_lib", "%s/pyrate_lib/des_model_lib.py" % (self_path)).load_module()
+	mcmc_lib = SourceFileLoader("mcmc_lib", "%s/pyrate_lib/des_mcmc_lib.py" % (self_path)).load_module()
+	lib_DD_likelihood = SourceFileLoader("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path)).load_module()
+	lib_utilities = SourceFileLoader("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path)).load_module()
 except:
 	self_path=os.getcwd()
-	des_model_lib = imp.load_source("des_model_lib", "%s/pyrate_lib/des_model_lib.py" % (self_path))
-	mcmc_lib = imp.load_source("mcmc_lib", "%s/pyrate_lib/des_mcmc_lib.py" % (self_path))
-	lib_DD_likelihood = imp.load_source("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path))
-	lib_utilities = imp.load_source("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path))
+	des_model_lib = SourceFileLoader("des_model_lib", "%s/pyrate_lib/des_model_lib.py" % (self_path)).load_module()
+	mcmc_lib = SourceFileLoader("mcmc_lib", "%s/pyrate_lib/des_mcmc_lib.py" % (self_path)).load_module()
+	lib_DD_likelihood = SourceFileLoader("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path)).load_module()
+	lib_utilities = SourceFileLoader("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path)).load_module()
 
 from des_model_lib import *
 from mcmc_lib import *
