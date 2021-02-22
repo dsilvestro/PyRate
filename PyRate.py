@@ -1252,7 +1252,7 @@ def update_times(times, max_time,min_time, mod_d4,a,b):
 
 def update_ts_te(ts, te, d1, sample_extinction=1):
     tsn, ten= zeros(len(ts))+ts, zeros(len(te))+te
-    f1=np.random.randint(1,frac1) #int(frac1*len(FA)) #-np.random.random_integers(0,frac1*len(FA)-1))
+    f1=np.random.randint(1,frac1) #int(frac1*len(FA)) #-np.random.randint(0,frac1*len(FA)-1))
     ind=np.random.choice(SP_in_window,f1) # update only values in SP/EX_in_window
     tsn[ind] = ts[ind] + (np.random.uniform(0,1,len(ind))-.5)*d1
     M = np.inf #boundMax
@@ -1617,9 +1617,9 @@ def BD_partial_lik_bounded(arg):
 # BD-NN model
 def get_rate_BDNN(rate, x, w): 
     # n: n species, j: traits, i: nodes
-    z = np.einsum('nj,ij->ni', x, w[0], optimize=True)
+    z = np.einsum('nj,ij->ni', x, w[0], optimize=False)
     z[z < 0] = 0 # ReLU
-    z = np.einsum('ni,i->n', z, w[1], optimize=True)
+    z = np.einsum('ni,i->n', z, w[1], optimize=False)
     rates = np.exp(z) * rate
     return rates # exponentiate to avoid negative rates
 
@@ -1659,10 +1659,42 @@ def BDNN_partial_lik(arg):
 
 
 
-def init_trait_and_weights(trait_tbl,nodes,bias_node=False,fadlad=0.1,verbose=False,fixed_times_of_shift=[],use_time_as_trait=False):
+def init_trait_and_weights(trait_tbl,nodes,bias_node=False,fadlad=0.1,verbose=False,fixed_times_of_shift=[],use_time_as_trait=False, use_time_as_bias=False):
     if bias_node:
         trait_tbl = 0+np.hstack((trait_tbl,np.ones((trait_tbl.shape[0],1)))) 
-    if not use_time_as_trait:
+        
+    if use_time_as_bias:
+        # create a list of trait tables, one for each time frame, with bias node
+        trait_tbl_list = []
+        trait_tbl_list = []
+        for i in range(1,len(fixed_times_of_shift)):
+            rescaled_time = 1
+            trait_tbl_list.append(np.hstack((trait_tbl,np.ones((trait_tbl.shape[0],1)))) )
+        trait_tbl_lam = np.array(trait_tbl_list)+0
+        trait_tbl_mu = np.array(trait_tbl_list)+0
+
+        w_lam = [np.random.normal(0, 0.1, (nodes,trait_tbl_lam[0].shape[1])), np.random.normal(0, 0.1, nodes)]
+        w_mu  = [np.random.normal(0, 0.1, (nodes,trait_tbl_mu[0].shape[1])), np.random.normal(0, 0.1, nodes)]
+        for i in w_lam:
+           print(i.shape)
+        print(trait_tbl_lam.shape)        
+    
+    elif use_time_as_trait: # only availble with -fixShift option
+        # create a list of trait tables, one for each time frame
+        trait_tbl_list = []
+        for i in range(1,len(fixed_times_of_shift)):
+            rescaled_time = np.mean([fixed_times_of_shift[i-1],fixed_times_of_shift[i]])
+            trait_tbl_list.append(np.hstack((trait_tbl,rescaled_time*np.ones((trait_tbl.shape[0],1)))) )
+        trait_tbl_lam = np.array(trait_tbl_list)+0
+        trait_tbl_mu = np.array(trait_tbl_list)+0
+
+        w_lam = [np.random.normal(0, 0.1, (nodes,trait_tbl_lam[0].shape[1])), np.random.normal(0, 0.1, nodes)]
+        w_mu  = [np.random.normal(0, 0.1, (nodes,trait_tbl_mu[0].shape[1])), np.random.normal(0, 0.1, nodes)]
+        for i in w_lam:
+            print(i.shape)
+        print(trait_tbl_lam.shape)
+    
+    else:
         if fadlad:
             trait_tbl_lam = 0+np.hstack((trait_tbl, (fadlad*FA).reshape((trait_tbl.shape[0],1)))) 
             trait_tbl_mu =  0+np.hstack((trait_tbl, (fadlad*LO).reshape((trait_tbl.shape[0],1)))) 
@@ -1679,20 +1711,6 @@ def init_trait_and_weights(trait_tbl,nodes,bias_node=False,fadlad=0.1,verbose=Fa
         for i in w_lam:
             print(i.shape)
     
-    else: # only availble with -fixShift option
-        # creat a list of trait tables, one for each time frame
-        trait_tbl_list = []
-        for i in range(1,len(fixed_times_of_shift)):
-            rescaled_time = np.mean([fixed_times_of_shift[i-1],fixed_times_of_shift[i]])
-            trait_tbl_list.append(np.hstack((trait_tbl,rescaled_time*np.ones((trait_tbl.shape[0],1)))) )
-        trait_tbl_lam = np.array(trait_tbl_list)+0
-        trait_tbl_mu = np.array(trait_tbl_list)+0
-
-        w_lam = [np.random.normal(0, 0.1, (nodes,trait_tbl_lam[0].shape[1])), np.random.normal(0, 0.1, nodes)]
-        w_mu  = [np.random.normal(0, 0.1, (nodes,trait_tbl_mu[0].shape[1])), np.random.normal(0, 0.1, nodes)]
-        for i in w_lam:
-            print(i.shape)
-        print(trait_tbl_lam.shape)
         
             
     return [trait_tbl_lam,trait_tbl_mu], [w_lam,w_mu]
@@ -2366,11 +2384,11 @@ def Alg_3_1(arg):
             if np.random.random()<Pr_birth or len(L)+len(M)==2: # ADD PARAMETER
                 LL=len(L)+len(M)
                 if np.random.random()>.5 and use_Death_model == 0:
-                    ind=np.random.random_integers(0,len(L))
+                    ind=np.random.randint(0,len(L))
                     timesL, L = born_prm(timesL, L, ind, ts[SP_in_window])
                     IND=ind
                 else:
-                    ind=np.random.random_integers(0,len(M))
+                    ind=np.random.randint(0,len(M))
                     timesM, M = born_prm(timesM, M, ind, te[EX_in_window])
                     IND=ind+len(timesL)-1
                 if LL == len(L)+len(M): IND=-1
@@ -2860,8 +2878,10 @@ def MCMC(all_arg):
         
         if use_BDNNmodel:
             cov_parA = cov_par_init_NN
-            
-        
+            # rates not updated and replaced by bias node
+            if use_time_as_bias:
+                LA = np.ones(len(timesLA))
+                MA = np.ones(len(timesMA))
         
         alpha_pp_gammaA = 1.
         if TPP_model == 1: # init multiple q rates
@@ -3289,11 +3309,12 @@ def MCMC(all_arg):
                 else:
                     args=list()
                     if use_ADE_model == 0: # speciation rate is not used under ADE model
-                        if use_BDNNmodel and use_time_as_trait > 0:
-                            for temp_l in range(len(timesL)-1):
-                                up, lo = timesL[temp_l], timesL[temp_l+1]
-                                l = L[temp_l]
-                                args.append([ts, te, up, lo, l, 'l', cov_par[0],temp_l])
+                        if use_BDNNmodel:
+                            if use_time_as_trait or use_time_as_bias:
+                                for temp_l in range(len(timesL)-1):
+                                    up, lo = timesL[temp_l], timesL[temp_l+1]
+                                    l = L[temp_l]
+                                    args.append([ts, te, up, lo, l, 'l', cov_par[0],temp_l])
                         else:
                             for temp_l in range(len(timesL)-1):
                                 up, lo = timesL[temp_l], timesL[temp_l+1]
@@ -3303,8 +3324,9 @@ def MCMC(all_arg):
                     for temp_m in range(len(timesM)-1):
                         up, lo = timesM[temp_m], timesM[temp_m+1]
                         m = M[temp_m]
-                        if use_BDNNmodel and use_time_as_trait > 0:
-                            args.append([ts, te, up, lo, m, 'm', cov_par[1],temp_m]) 
+                        if use_BDNNmodel:
+                            if use_time_as_trait or use_time_as_bias:
+                                args.append([ts, te, up, lo, m, 'm', cov_par[1],temp_m]) 
                         elif use_ADE_model == 0:
                             args.append([ts, te, up, lo, m, 'm', cov_par[1],np.nan])
                         elif use_ADE_model >= 1:
@@ -3671,7 +3693,7 @@ def MCMC(all_arg):
             log_state += [SA]
             
             if use_BDNNmodel:
-                if use_time_as_trait > 0:
+                if use_time_as_trait or use_time_as_bias:
                     sp_lam = get_rate_BDNN(LA[0], trait_tbl_NN[0][0], cov_parA[0])
                     sp_mu = get_rate_BDNN(MA[0], trait_tbl_NN[0][1], cov_parA[1])
                 else:
@@ -3888,6 +3910,9 @@ p.add_argument('-BDNNmodel', type=int, help='use BD-NN model (requires trait_fil
 p.add_argument('-BDNNnodes', type=int, help='number of BD-NN nodes', default=3, metavar=3)
 p.add_argument('-BDNNfadlad', type=float, help='if > 0 include FAD LAD as traits (rescaled i.e. FAD * BDNNfadlad)', default=0, metavar=0)
 p.add_argument('-BDNNtimetrait', type=float, help='if > 0 use (rescaled) time as a trait (only with -fixedShift option)', default=0, metavar=0)
+p.add_argument('-BDNNtimebias', type=int, help='use time as bias node (only with -fixedShift option)', default=0, metavar=0)
+
+
 
 # TUNING
 p.add_argument('-tT',     type=float, help='Tuning - window size (ts, te)', default=1., metavar=1.)
@@ -4736,13 +4761,19 @@ if use_poiD == 1:
 
 
 use_time_as_trait = args.BDNNtimetrait
+use_time_as_bias = args.BDNNtimebias
 if use_BDNNmodel:
     # model_cov = 6
     f_cov_par = [0.4, 0.5,0.9,1]
     f_update_se = 0.6
-    # print([f_update_q,f_update_lm,f_update_cov])
-    [f_update_q,f_update_lm,f_update_cov]=f_update_se+ np.array([0.1, 0.15,1-f_update_se])
-    # print([f_update_q,f_update_lm,f_update_cov])
+    
+    if use_time_as_bias:
+        [f_update_q,f_update_lm,f_update_cov]=f_update_se+ np.array([0.1, 0,1-f_update_se])
+    else:
+        # print([f_update_q,f_update_lm,f_update_cov])
+        [f_update_q,f_update_lm,f_update_cov]=f_update_se+ np.array([0.1, 0.15,1-f_update_se])
+        # print([f_update_q,f_update_lm,f_update_cov])
+
     n_BDNN_nodes = args.BDNNnodes
     
     # load trait data
@@ -4775,7 +4806,8 @@ if use_BDNNmodel:
                                                            bias_node=False, 
                                                            fadlad=args.BDNNfadlad,
                                                            use_time_as_trait=use_time_as_trait,
-                                                           fixed_times_of_shift=rescaled_time)
+                                                           fixed_times_of_shift=rescaled_time,
+                                                           use_time_as_bias=use_time_as_bias)
     cov_par_init_NN.append(0) # cov_par_init_NN[2] = covar prm for preseravtion rate (currently not used)
     if False:
         print(rescaled_time)    
@@ -4785,8 +4817,7 @@ if use_BDNNmodel:
     if TDI == 0 and len(fixed_times_of_shift) == 0:
         log_per_species_rates = True
     else: 
-        log_per_species_rates = False
-    
+        log_per_species_rates = False    
 
 
 
@@ -5164,7 +5195,7 @@ if use_seq_lik == 0 and runs>1:
     current_it=0
     swap_rate, attempts=0, 0
     while current_it<mcmc_gen:
-        n1=np.random.random_integers(0,runs-1,2)
+        n1=np.random.randint(0,runs-1,2)
         temp=1./(1+n1*temp_pr)
         [j,k]=n1
         #print "try: ", current_it, j,k #, res[j] #[2],res[0][2], res[1][2],res[2][2]
