@@ -215,16 +215,25 @@ def get_tste_from_logfile(f, burnin=0):
     
 
 def predicted_rates_per_species(logfile, 
-                                species_trait_file,
-                                wd, 
+                                species_trait_file=None,
+                                trait_tbl=None, # expects pandas data frame with header and 
+                                                # 1st column named: 'Taxon_name' 
+                                wd="", 
                                 time_range = np.arange(15), 
                                 rescale_time = 0.015,
                                 burnin = 0.25,
                                 fixShift = [np.inf,56.0,33.9,23.03,5.333,2.58,0],
-                                time_as_trait = True):
+                                time_as_trait = True, 
+                                return_post_sample=False):
     
-    species_traits = pd.read_csv(species_trait_file, delimiter="\t")
-    traits = species_traits.iloc[:,1:]
+    if species_trait_file:
+        species_traits = pd.read_csv(species_trait_file, delimiter="\t")
+        traits = species_traits.iloc[:,1:]
+    elif trait_tbl is not None:
+        species_traits = trait_tbl
+        traits = species_traits.iloc[:,1:]
+    else:
+        sys.exit("No traits found")
     n_traits = traits.shape[1]
     # use time as a feature
     if time_as_trait:   
@@ -237,6 +246,8 @@ def predicted_rates_per_species(logfile,
     species_rate_lam = []
     species_rate_mu  = []
     species_rate_div = []
+    
+    rate_samples = list()
     
     for i in range(len(rescaled_time)):
         time_i = rescaled_time[i]
@@ -265,6 +276,10 @@ def predicted_rates_per_species(logfile,
         print(time_range[i], "MAX",np.max(lam_matrix_hm), np.median(mu_matrix_hm), lam_matrix_hm.shape)
         net_div = lam_matrix - mu_matrix
         div_matrix_hm =  np.mean(net_div,axis=0) 
+        
+        if return_post_sample:
+            res = [lam_matrix, mu_matrix]
+            rate_samples.append(res)
         
         species_rate_lam.append(lam_matrix_hm)
         species_rate_mu.append(mu_matrix_hm)
@@ -302,6 +317,8 @@ def predicted_rates_per_species(logfile,
                     for i in range(len(species_rate_div)):
                         l = [species_traits["Taxon_name"][i]] + list_tste[i] + list(species_rate_div[i])
                         writer.writerow(l) 
+    if return_post_sample:
+        return np.array(rate_samples)
 
 
 
