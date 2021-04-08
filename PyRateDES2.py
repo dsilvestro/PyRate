@@ -63,7 +63,7 @@ p = argparse.ArgumentParser() #description='<input file>')
 
 p.add_argument('-v',        action='version', version='%(prog)s')
 p.add_argument('-cite',     help='print DES citation', action='store_true', default=False)
-p.add_argument('-A',        type=int, help='algorithm - 0: parameter estimation, 1: TI, 2: ML 3: ML (subplex algorithm; experimental; time dependent and simple mechanistic models)', default=0, metavar=0) # 0: par estimation, 1: TI
+p.add_argument('-A',        type=int, help='algorithm - 0: parameter estimation, 1: TI, 2: ML, 3: ML with the subplex algorithm', default=0, metavar=0) # 0: par estimation, 1: TI
 p.add_argument('-k',        type=int,   help='TI - no. scaling factors', default=10, metavar=10)
 p.add_argument('-a',        type=float, help='TI - shape beta distribution', default=.3, metavar=.3)
 p.add_argument('-hp',       help='Use hyper-prior on rates', action='store_true', default=False)
@@ -77,6 +77,8 @@ p.add_argument('-s',        type=int, help='sample freq.', default=100, metavar=
 p.add_argument('-p',        type=int, help='print freq.',  default=100, metavar=100)
 p.add_argument('-b',        type=int, help='burnin',  default=0)
 p.add_argument('-thread',   type=int, help='no threads',  default=0)
+p.add_argument('-A3set',    type=float, help='settings for -A 3 ML (stopping criteria: tolerance of parameters and likelihood, maximum iterations*1.25^K, maximum time (in s)) stepwise parameter optimization (1: yes, 0: no))',  default=[1e-2, 1e-4, 1000, 86400, 1], metavar=0, nargs='+')
+p.add_argument('-A3init',   type=float,  help='initial values for maximum likelihood search',  default=[], metavar=0, nargs='+')
 p.add_argument('-ver',      type=int, help='verbose',   default=0, metavar=0)
 p.add_argument('-pade',     type=int, help='0) Matrix decomposition 1) Use Pade approx (slow)', default=0, metavar=0)
 p.add_argument('-qtimes',   type=float, help='shift time (Q)',  default=[], metavar=0, nargs='+') # '*'
@@ -106,8 +108,10 @@ p.add_argument('-cov_and_dispersal', help='Model with symmetric extinction covar
 p.add_argument('-fU',     type=float, help='Tuning - update freq. (d, e, s)', default=[0, 0, 0], nargs=3)
 p.add_argument("-mG", help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
 p.add_argument("-ncat", type=int, help='Model - Number of categories for Gamma heterogeneity', default=4, metavar=4)
-p.add_argument('-traitD', type=str, help='Trait file Dispersal',  default="", metavar="")
-p.add_argument('-traitE', type=str, help='Trait file Extinction',  default="", metavar="")
+p.add_argument('-traitD', type=str, help='Trait file Dispersal', default="", metavar="")
+p.add_argument('-traitE', type=str, help='Trait file Extinction', default="", metavar="")
+p.add_argument('-catD', type=str, help='Categorical file Dispersal (e.g. a trait or a clade)', default="", metavar="")
+p.add_argument('-catE', type=str, help='Categorical file Extinction (e.g. a trait or a clade)', default="", metavar="")
 
 ### summary
 p.add_argument('-sum',      type=str, help='Summarize results (provide log file)',  default="", metavar="log file")
@@ -141,6 +145,7 @@ p.add_argument('-plot_raw', help='plot raw diversity curves', action='store_true
 
 p.add_argument('-log_div', help='log modeled diversity (DivdD or DivdE models)', action='store_true', default=False)
 p.add_argument('-log_dis', help='log modeled dispersal (DdE)', action='store_true', default=False)
+p.add_argument('-log_distr', help='log estimated taxon distribution', action='store_true', default=False)
 
 args = p.parse_args()
 if args.cite is True:
@@ -291,6 +296,7 @@ constraints_covar = np.array(args.constr)
 constraints_covar_true = len(constraints_covar) > 0
 constraints_01 = any(np.isin(constraints_covar, np.array([0, 1])))
 constraints_23 = any(np.isin(constraints_covar, np.array([2, 3])))
+constraints_45 = any(np.isin(constraints_covar, np.array([4, 5])))
 const_q = args.constq
 if args.cov_and_dispersal:
 	model_DUO= 1
@@ -298,6 +304,10 @@ else: model_DUO= 0
 argsG = args.mG
 pp_gamma_ncat = args.ncat
 rescale_factor=args.r
+argstraitD = args.traitD
+argstraitE = args.traitE
+argscatD = args.catD
+argscatE = args.catE
 
 # if args.const==1:
 # 	equal_d = True # this makes them symmatric not equal!
@@ -500,7 +510,7 @@ if args.ran is True:
 print(sim_d_rate,sim_e_rate)
 
 # sampling rates
-TimeSpan = 50.
+TimeSpan = 23.25
 sim_bin_size = TimeSpan/n_sim_bins
 # 1 minus prob of no occurrences (Poisson waiting time) = prob of at least 1 occurrence [assumes homogenenous Poisson process]
 # bin size:   [ 10.   5.    2.5   1.    0.5 ]
@@ -515,22 +525,54 @@ sampling_prob_per_sim_bin = np.array([1-exp(-q_rate[0]*sim_bin_size), 1-exp(-q_r
 #########################################
 if input_data=="":
 	print("simulating data...")
-	simulate_dataset(simulation_no,sim_d_rate,sim_e_rate,n_taxa,n_sim_bins,output_wd)
+	simulate_dataset(simulation_no,sim_d_rate,sim_e_rate,n_taxa,TimeSpan,n_sim_bins,output_wd)
 	RHO_sampling = np.array(sampling_prob_per_sim_bin)
 	time.sleep(1)
 	input_data = "%s/sim_%s_%s_%s_%s_%s_%s.txt" % (output_wd,simulation_no,n_taxa,sim_d_rate[0],sim_d_rate[1],sim_e_rate[0],sim_e_rate[1]) 
 	nTaxa, time_series, obs_area_series, OrigTimeIndex = parse_input_data(input_data,RHO_sampling,verbose,n_sampled_bins=n_bins)
 	print(obs_area_series)
+	len_time_series = len(time_series)
+	sampled_sim = np.empty((nTaxa, len_time_series + 1))
+	sampled_sim[:] = np.NaN
+	sampled_sim[:, 0] = np.arange(nTaxa)
+	for i in range(nTaxa):
+		for y in range(len_time_series):
+			if obs_area_series[i, y] == (nan,):
+				obs = nan
+			elif obs_area_series[i, y] == ():
+				obs = 0
+			elif obs_area_series[i, y] == (0,):
+				obs = 1
+				already_recorded = True
+			elif obs_area_series[i, y] == (1,):
+				obs = 2
+				already_recorded = True
+			elif obs_area_series[i, y] == (0,1):
+				obs = 3
+				already_recorded = True
+			sampled_sim[i, y + 1] = obs
+	# remove empty taxa (absent throughout)
+	ind_keep = (np.nansum(sampled_sim[:,1:], axis=1) != 0).nonzero()[0]
+	sampled_sim = sampled_sim[ind_keep]
+	obs_area_series = obs_area_series[ind_keep]
+	nTaxa = len(ind_keep)
+	input_data = "%s/sim_samp_%s_%s_%s_%s_%s_%s.txt" % (output_wd,simulation_no,n_taxa,sim_d_rate[0],sim_d_rate[1],sim_e_rate[0],sim_e_rate[1])
+	time_series = np.sort(time_series)[::-1]
+	head_sampled_sim = "scientificName\t" + "\t".join(time_series.astype("str"))
+	print(head_sampled_sim)
+	np.savetxt(input_data, sampled_sim, delimiter="\t", header = head_sampled_sim, comments = '')
 	if args.A==1: ti_tag ="_TI"
 	else: ti_tag=""
 	out_log = "%s/simContinuous_%s_b_%s_q_%s_mcmc_%s_%s_%s_%s_%s_%s_%s%s.log" \
 	% (output_wd,simulation_no,n_bins,q_rate[0],n_taxa,sim_d_rate[0],sim_d_rate[1],sim_e_rate[0],sim_e_rate[1],q_rate[0],q_rate[1],ti_tag)
-	time_series = np.sort(time_series)[::-1]
+	out_rates ="%s/simContinuous_%s_b_%s_q_%s_mcmc_%s_%s_%s_%s_%s_%s_%s%s_marginal_rates.log" \
+	% (output_wd,simulation_no,n_bins,q_rate[0],n_taxa,sim_d_rate[0],sim_d_rate[1],sim_e_rate[0],sim_e_rate[1],q_rate[0],q_rate[1],ti_tag)
 	
 else:
 	print("parsing input data...")
 	RHO_sampling= np.ones(2)
 	nTaxa, time_series, obs_area_series, OrigTimeIndex = parse_input_data(input_data,RHO_sampling,verbose,n_sampled_bins=0,reduce_data=args.red)
+#	OrigTimeIndex = np.ones(nTaxa, dtype = int)
 	name_file = os.path.splitext(os.path.basename(input_data))[0]
 	if len(Q_times)>0: Q_times_str = "_q_" + '_'.join(Q_times.astype("str"))
 	else: Q_times_str=""
@@ -561,8 +603,10 @@ else:
 	for i in constraints_covar: model_tag+= "_%s" % (i)
 	if len(args.symCov)>0: model_tag+= "_symCov"
 	for i in args.symCov: model_tag+= "_%s" % (i)
-	if args.traitD != "": model_tag+= "_TraitD"
-	if args.traitE != "": model_tag+= "_TraitE"
+	if argstraitD != "": model_tag+= "_TraitD"
+	if argstraitE != "": model_tag+= "_TraitE"
+	if argscatD != "": model_tag+= "_CatD"
+	if argscatE != "": model_tag+= "_CatE"
 	if argsG is True: model_tag+= "_G"
 	if args.A == 3: model_tag+= "_Mlsbplx"
 		
@@ -621,9 +665,9 @@ for l in range(nTaxa):
 	sign_list_LIST.append(sign_list)
 #####	
 
-dis_rate_vec= np.array([.1,.1]  ) #__ np.zeros(nareas)+.5 # np.random.uniform(0,1,nareas)
-ext_rate_vec= np.array([.005,.005]) #__ np.zeros(nareas)+.05 # np.random.uniform(0,1,nareas)
-r_vec= np.array([0]+list(np.zeros(nareas)+0.001) +[1])
+#dis_rate_vec= np.array([.1,.1]  ) #__ np.zeros(nareas)+.5 # np.random.uniform(0,1,nareas)
+#ext_rate_vec= np.array([.005,.005]) #__ np.zeros(nareas)+.05 # np.random.uniform(0,1,nareas)
+#r_vec= np.array([0]+list(np.zeros(nareas)+0.001) +[1])
 # where r[1] = prob not obs in A; r[2] = prob not obs in B
 # r[0] = 0 (for impossible ranges); r[3] = 1 (for obs ranges)
 
@@ -635,6 +679,7 @@ scal_fac_TI=np.ones(1)
 if args.A==1:
 	# parameters for TI are currently hard-coded (K=10, alpha=0.3)
 	scal_fac_TI=get_temp_TI(args.k,args.a)
+
 
 
 #############################################
@@ -819,7 +864,7 @@ def rescale_and_center_time_var(time_var, rescale_factor):
 	if rescale_factor > 0:
 		time_var = time_var * rescale_factor
 	else:
-		denom = (np.max(time_var) - np.min(time_var))
+		denom = np.max(time_var) - np.min(time_var)
 		if denom==0: denom=1.
 		time_var = time_var/denom
 		time_var = time_var - np.min(time_var) # curve rescaled between 0 and 1
@@ -865,42 +910,58 @@ bound_covar_e = (1. + small_number) / (range_time_varE + small_number) * bound_c
 #x0_logistic_A = np.array([np.mean(time_varD), np.mean(time_varD), np.mean(time_varE), np.mean(time_varE)])
 
 # Continuous traits
+def read_trait(path_var, taxa_input):
+	var = np.loadtxt(path_var, dtype = str, delimiter = '\t', skiprows = 1)
+	# Filter and sort for the species in the input file - there should be no missing trait data
+	idx = []
+	for ta in taxa_input:
+		pos = np.where(var[:,0] == ta)[0].tolist()
+		idx.append(pos)
+	idx = np.array(idx).flatten()
+	var = var[idx,1].astype(float)
+	return var
+
 taxa_input = tbl[1:,0][ind_keep]
 traitD = np.ones(len(taxa_input))
 traitE = np.ones(len(taxa_input))
-if args.traitD != "":
-	var = np.loadtxt(args.traitD, dtype = str, delimiter = '\t', skiprows = 1)
-	# Filter and sort for the species in the input file - there should be no missing trait data
-	trait_idx = []
-	for ta in taxa_input:
-		pos = np.where(var[:,0] == ta)[0].tolist()
-		trait_idx.append(pos)
-	trait_idx = np.array(trait_idx).flatten()
-	traitD = var[trait_idx,1].astype(float)
+traits = False
+if argstraitD != "":
+	traitD = read_trait(argstraitD, taxa_input)
 	traitD_untrans = traitD
 	traitD = np.log(traitD)
 	traitD = traitD - np.mean(traitD)
 	traits = True
-if args.traitE != "":
-	var = np.loadtxt(args.traitE, dtype = str, delimiter = '\t', skiprows = 1)
-	trait_idx = []
-	for ta in taxa_input:
-		pos = np.where(var[:,0] == ta)[0].tolist()
-		trait_idx.append(pos)
-	trait_idx = np.array(trait_idx).flatten()
-	traitE = var[trait_idx,1].astype(float)
+if argstraitE != "":
+	traitE = read_trait(argstraitE, taxa_input)
 	traitE_untrans = traitE
 	traitE = np.log(traitE)
 	traitE = traitE - np.mean(traitE)
 	traits = True
-if args.traitD == "" and args.traitE == "":
-	traits = False
 trait_par_A = np.zeros(2)
 
 range_traitD = np.max(traitD) - np.min(traitD)
 range_traitE = np.max(traitE) - np.min(traitE)
 bound_traitD = (1. + small_number) / (range_traitD + small_number) * bound_covar
 bound_traitE = (1. + small_number) / (range_traitE + small_number) * bound_covar
+
+# Categories
+catD = np.zeros(len(taxa_input))
+catE = np.zeros(len(taxa_input))
+cat = False
+if argscatD != "":
+	catD = read_trait(argscatD, taxa_input)
+	catD = catD.astype(int) - 1
+	cat = True
+if argscatE != "":
+	catE = read_trait(argscatE, taxa_input)
+	catE = catE.astype(int) - 1
+	cat = True
+unique_catD = np.unique(catD, return_counts = True)
+unique_catD = unique_catD[0][np.argsort(unique_catD[1])][::-1] # Sort according to frequency
+unique_catE = np.unique(catE, return_counts = True)
+unique_catE = unique_catE[0][np.argsort(unique_catE[1])][::-1]
+cat_parD_A = np.ones(len(unique_catD))
+cat_parE_A = np.ones(len(unique_catE))
 
 # DIVERSITY TRAJECTORIES
 # area 1
@@ -1080,7 +1141,7 @@ if plot_file != "":
 		plot_dis = 0
 		plot_ext = 0
 		covar_x_trait = 0
-		if args.varD != "" and args.traitD == "":
+		if args.varD != "" and argstraitD == "":
 			panel_count += 2
 			plot_dis = 1
 			covarD = np.linspace(np.min(time_varD), np.max(time_varD), 100)
@@ -1091,13 +1152,13 @@ if plot_file != "":
 				covarD = covarD / rescale_factor
 			else:
 				covarD = covarD * (time_varD_unscmax - time_varD_unscmin) + time_varD_unscmean
-		elif args.DivdD and args.traitD == "":
+		elif args.DivdD and argstraitD == "":
 			panel_count += 2
 			plot_dis = 1
 			covarD = np.linspace(1., np.min((np.max(cov_d12), np.max(cov_d21))), 100)
 			d12_mean, d12_hpd = get_covar_effect(covarD, cov_d12, d12, 2)
 			d21_mean, d21_hpd = get_covar_effect(covarD, cov_d21, d21, 2)
-		elif args.traitD != "" and args.varD == "" and args.DivdD is False:
+		elif argstraitD != "" and args.varD == "" and args.DivdD is False:
 			panel_count += 2
 			plot_dis = 1
 			covarD = np.linspace(np.min(traitD_untrans), np.max(traitD_untrans), 100)
@@ -1106,7 +1167,7 @@ if plot_file != "":
 			d21_mean, d21_hpd = get_covar_effect(traitD_eff, a_d, d21, 5)
 		else:
 			covar_x_trait = 1
-		if args.varE != "" and args.traitE == "":
+		if args.varE != "" and argstraitE == "":
 			panel_count += 2
 			plot_ext = 1
 			covarE = np.linspace(np.min(time_varE), np.max(time_varE), 100)
@@ -1117,19 +1178,19 @@ if plot_file != "":
 				covarE = covarE / rescale_factor
 			else:
 				covarE = covarE * (time_varE_unscmax - time_varE_unscmin) + time_varE_unscmean
-		elif args.DivdE and args.traitE == "":
+		elif args.DivdE and argstraitE == "":
 			panel_count += 2
 			plot_ext = 1
 			covarE = np.linspace(1., np.min((np.max(cov_e1), np.max(cov_e2))), 100)
 			e1_mean, e1_hpd = get_covar_effect(covarE, cov_e1, e1, 3)
 			e2_mean, e2_hpd = get_covar_effect(covarE, cov_e2, e2, 3)
-		elif args.DdE and args.traitE == "":
+		elif args.DdE and argstraitE == "":
 			panel_count += 2
 			plot_ext = 1
 			covarE = np.linspace(0., 0.5, 100)
 			e1_mean, e1_hpd = get_covar_effect(covarE, cov_e1, e1, 4)
 			e2_mean, e2_hpd = get_covar_effect(covarE, cov_e2, e2, 4)
-		elif args.traitE != "" and args.varE == "" and args.DivdE is False and args.DdE is False:
+		elif argstraitE != "" and args.varE == "" and args.DivdE is False and args.DdE is False:
 			panel_count += 2
 			plot_ext = 1
 			covarE = np.linspace(np.min(traitE_untrans), np.max(traitE_untrans), 100)
@@ -1154,10 +1215,10 @@ if plot_file != "":
 			panel_count = 4
 			plot_dis = 1
 			plot_ext = 1
-			if args.traitD != "":
+			if argstraitD != "":
 				traitD_plot = np.linspace(np.min(traitD_untrans), np.max(traitD_untrans), 100)
 				traitD_eff = np.log(traitD_plot) - np.mean(np.log(traitD_untrans))
-			if args.traitE != "":
+			if argstraitE != "":
 				traitE_plot = np.linspace(np.min(traitE_untrans), np.max(traitE_untrans), 100)
 				traitE_eff = np.log(traitE_plot) - np.mean(np.log(traitE_untrans))
 			if args.varD != "":
@@ -1333,8 +1394,22 @@ if plot_file != "":
 logfile = open(out_log , "w")
 head="it\tposterior\tprior\tlikelihood"
 Q_times_header = np.concatenate((0., Q_times), axis = None)[::-1]
-for i in range(len(dis_rate_vec)): head+= "\td12_t%s\td21_t%s" % (Q_times_header[i],Q_times_header[i])
-for i in range(len(ext_rate_vec)): head+= "\te1_t%s\te2_t%s" % (Q_times_header[i],Q_times_header[i])
+if len(unique_catD) == 1:
+	for i in range(len(dis_rate_vec)): head+= "\td12_t%s\td21_t%s" % (Q_times_header[i],Q_times_header[i])
+else:
+	for i in range(len(Q_times_header)):
+		for y in range(len(unique_catD)):
+			head+= "\td12_t%s_cat%s" % (Q_times_header[i], unique_catD[y] + 1)
+		for y in range(len(unique_catD)):
+			head+= "\td21_t%s_cat%s" % (Q_times_header[i], unique_catD[y] + 1)
+if len(unique_catE) == 1:
+	for i in range(len(ext_rate_vec)): head+= "\te1_t%s\te2_t%s" % (Q_times_header[i],Q_times_header[i])
+else:
+	for i in range(len(Q_times_header)):
+		for y in range(len(unique_catE)):
+			head+= "\te1_t%s_cat%s" % (Q_times_header[i], unique_catE[y] + 1)
+		for y in range(len(unique_catE)):
+			head+= "\te2_t%s_cat%s" % (Q_times_header[i], unique_catE[y] + 1)
 for i in range(n_Q_times): head+= "\tq1_t%s\tq2_t%s" % (Q_times_header[i],Q_times_header[i])
 if args.lgD: head += "\tk_d12\tk_d21\tx0_d12\tx0_d21"
 else: head += "\tcov_d12\tcov_d21"
@@ -1427,6 +1502,45 @@ def div_trait_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2, trait_par, 
 	dS[pres2_idx] = -mu2 * div[pres2_idx] + mu1 * div[pres3_idx] - dS[gainA_idx]
 	dS[pres3_idx] = -(mu1 + mu2) * div[pres3_idx] + dS[gainA_idx] + dS[gainB_idx]
 	return dS
+	
+def div_traitcat_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2, covar_mu1, covar_mu2,
+			trait_par, traitD, traitE, cat_parD, catD, cat_parE, catE,
+			argsDdE, argstraitD, argstraitE, argscatD, argscatE,
+			pres1_idx, pres2_idx, pres3_idx, gainA_idx, gainB_idx, nTaxa):
+	div1 = div[pres1_idx]
+	div2 = div[pres2_idx]
+	div3 = div[pres3_idx]
+	div13 = sum(div1) + sum(div3)
+	div23 = sum(div1) + sum(div3)
+	lim_d1 = max(0, 1 - div13/k_d1) # Limit dispersal into area 1
+	lim_d2 = max(0, 1 - div23/k_d2) # Limit dispersal into area 2
+	dS = np.zeros(5 * nTaxa)
+	if argstraitD: # Cont trait dis
+		d12 = np.exp(np.log(d12) + trait_par[0] * traitD)
+		d21 = np.exp(np.log(d21) + trait_par[0] * traitD)
+	if argscatD: # Cat trait dis
+		d12 = d12 * cat_parD[catD]
+		d21 = d21 * cat_parD[catD]
+	dS[gainA_idx] = d21 * div[pres2_idx] * lim_d1 # Gain area 1
+	dS[gainB_idx] = d12 * div[pres1_idx] * lim_d2 # Gain area 2
+	if argstraitE: # Cont trait
+		mu1 = np.exp(np.log(mu1) + trait_par[1] * traitE)
+		mu2 = np.exp(np.log(mu2) + trait_par[1] * traitE)
+	if argscatE: # Cat trait
+		mu1 = mu1 * cat_parE[catE]
+		mu2 = mu2 * cat_parE[catE]
+	if argsDdE: # Dispersal induced extinction
+		mu1 = mu1 + covar_mu1 * dS[3] / (div13 + 1.)
+		mu2 = mu2 + covar_mu2 * dS[4] / (div23 + 1.)
+	else:
+		lim_e1 = max(1e-05, 1 - div13/k_e1) # Increases extinction in area 1
+		lim_e2 = max(1e-05, 1 - div23/k_e2) # Increases extinction in area 2
+		mu1 = mu1 / lim_e1
+		mu2 = mu2 / lim_e2
+	dS[pres1_idx] = -mu1 * div[pres1_idx] + mu2 * div[pres3_idx] - dS[gainB_idx]
+	dS[pres2_idx] = -mu2 * div[pres2_idx] + mu1 * div[pres3_idx] - dS[gainA_idx]
+	dS[pres3_idx] = -(mu1 + mu2) * div[pres3_idx] + dS[gainA_idx] + dS[gainB_idx]
+	return dS
 
 def dis_dep_ext_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, covar_mu1, covar_mu2):
 	div1 = div[0]
@@ -1474,7 +1588,8 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 			r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ, 
 			covar_par, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 			time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp,
-			trait_par, traitD, traitE):
+			trait_par, traitD, traitE,
+			cat_parD, catD, cat_parE, catE, argstraitD, argstraitE, argscatD, argscatE):
 	if argsG:
 		YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
 		sa = np.zeros((pp_gamma_ncat, nTaxa))
@@ -1504,6 +1619,7 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 		div_3 = np.zeros(len_time_series)
 		gain_1 = np.zeros(len_time_series)
 		gain_2 = np.zeros(len_time_series)
+		pres = np.ones((len_time_series, 3 * nTaxa))
 		for i in range(1, len_time_series):
 			k_d1 = np.inf
 			k_d2 = np.inf
@@ -1567,9 +1683,9 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 			div_1[i] = div_int[1,0] + new_1
 			div_2[i] = div_int[1,1] + new_2
 			div_3[i] = div_int[1,2] + new_3
-			gain_2[i] = div_int[1,3]
-			gain_1[i] = div_int[1,4]
-	else: # Traits
+			gain_1[i] = div_int[1,3]
+			gain_2[i] = div_int[1,4]
+	else: # Traits and categorical
 		pres = np.zeros((len_time_series, 5 * nTaxa)) # time x probability of taxa presence - all presences could be case for a 3D array
 		pres1_idx = np.arange(0, 5 * nTaxa, 5)
 		pres2_idx = pres1_idx + 1
@@ -1592,6 +1708,8 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 
 			k_e1 = np.inf
 			k_e2 = np.inf
+			covar_mu1 = 0.
+			covar_mu2 = 0.
 			if argsDivdE:
 				ext_rate_vec_i = ext_rate_vec[0, ]
 				if data_in_area != 0:
@@ -1632,10 +1750,10 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 			dt = [0., time_series_pad[i - 1] - time_series_pad[i] ]
 			div_t = pres[i - 1,:]
 			
-			if argsDdE:
-				div_int = odeint(dis_dep_ext_trait_dt, div_t, dt, args = (d12, d21, mu1, mu2, k_d1, k_d2, covar_mu1, covar_mu2, trait_par, traitD, traitE, pres1_idx, pres2_idx, pres3_idx, gainA_idx, gainB_idx, nTaxa), mxstep = 100)
-			else:
-				div_int = odeint(div_trait_dt, div_t, dt, args = (d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2, trait_par, traitD, traitE, pres1_idx, pres2_idx, pres3_idx, gainA_idx, gainB_idx, nTaxa), mxstep = 100)
+			div_int = odeint(div_traitcat_dt, div_t, dt, args = (d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2, covar_mu1, covar_mu2,
+										trait_par, traitD, traitE, cat_parD, catD, cat_parE, catE,
+										argsDdE, argstraitD, argstraitE, argscatD, argscatE,
+										pres1_idx, pres2_idx, pres3_idx, gainA_idx, gainB_idx, nTaxa), mxstep = 100)
 			
 			pres[i, pres1_idx] = div_int[1, pres1_idx] + new_1
 			pres[i, pres2_idx] = div_int[1, pres2_idx] + new_2
@@ -1647,6 +1765,14 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 		div_3 = np.sum(pres[:, pres3_idx], axis = 1)
 		gain_1 = np.sum(pres[:, gainA_idx], axis = 1)
 		gain_2 = np.sum(pres[:, gainB_idx], axis = 1)
+		not_extinct = np.isin(data_temp[:,-1], 0) != True
+		pres[-1, pres1_idx[not_extinct]] = 0
+		pres[-1, pres2_idx[not_extinct]] = 0
+		pres[-1, pres3_idx[not_extinct]] = 0
+		pres[-1, pres1_idx[np.isin(data_temp[:,-1], 1)]] = 1
+		pres[-1, pres2_idx[np.isin(data_temp[:,-1], 2)]] = 1
+		pres[-1, pres3_idx[np.isin(data_temp[:,-1], 3)]] = 1
+		pres = pres[:, np.sort(np.concatenate((pres1_idx, pres2_idx, pres3_idx)))]
 		
 	div_13 = div_1 + div_3
 	div_23 = div_2 + div_3
@@ -1654,15 +1780,15 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 	gain_2_rescaled = gain_2 / (div_2 + 1.)
 	gain_1_rescaled[np.isnan(gain_1_rescaled)] = np.nanmax(gain_1_rescaled)
 	gain_2_rescaled[np.isnan(gain_2_rescaled)] = np.nanmax(gain_2_rescaled)
-	div_13[-1] = sum(np.in1d(data_temp[:,-1], [1., 3.]))
-	div_23[-1] = sum(np.in1d(data_temp[:,-1], [2., 3.]))
+	div_13[-1] = sum(np.isin(data_temp[:,-1], [1., 3.]))
+	div_23[-1] = sum(np.isin(data_temp[:,-1], [2., 3.]))
 	
 	div_13 = div_13[1:]
 	div_23 = div_23[1:]
 	gain_1_rescaled = gain_1_rescaled[1:]
 	gain_2_rescaled = gain_2_rescaled[1:]
 
-	return div_13, div_23, gain_1_rescaled, gain_2_rescaled
+	return div_13, div_23, gain_1_rescaled, gain_2_rescaled, pres[1:,:]
 
 
 # Calculate difference from a given diversity to the equilibrium diversity for two areas
@@ -1749,6 +1875,25 @@ weight_per_taxon = np.ones((nTaxa, pp_gamma_ncat)) / pp_gamma_ncat
 
 #get_num_dispersals(d12,d21,r_vec)
 
+def get_marginal_traitrate(baserate, nTaxa, pres, tr, trpar, trait_cat = 0):
+	pres3D = pres.reshape(pres.shape[0], nTaxa, 3)
+	abun_taxa = np.sum(pres3D, axis = 2)
+	abun_taxa = abun_taxa / np.sum(abun_taxa, axis = 1).reshape(-1,1)
+	baserate1 = baserate[:,0][::-1].reshape(-1,1)
+	baserate2 = baserate[:,1][::-1].reshape(-1,1)
+	if trait_cat == 0:
+		rate_taxa1 = np.exp(np.log(baserate1) + trpar * tr)
+		rate_taxa2 = np.exp(np.log(baserate2) + trpar * tr)
+	else:
+		rate_taxa1 = baserate1 * trpar[tr]
+		rate_taxa2 = baserate2 * trpar[tr]
+	rate_taxa1 = rate_taxa1 * abun_taxa
+	rate_taxa2 = rate_taxa2 * abun_taxa
+	rate1 = np.sum(rate_taxa1, axis = 1)
+	rate2 = np.sum(rate_taxa2, axis = 1)
+	margrate = np.array([rate1, rate2])
+	return(margrate)
+
 ###################################################################################
 # Avoid code redundancy in mcmc and maximum likelihood
 def lik_DES_taxon(args):
@@ -1756,11 +1901,20 @@ def lik_DES_taxon(args):
 	delta_t, r_vec, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
 	time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par,
 	x0_logistic, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-	traits, trait_par, traitD, traitE, use_Pade_approx] = args
+	traits, trait_par, traitD, traitE, cat, cat_parD, catD, cat_parE, catE, use_Pade_approx] = args
 	if traits:
 		dis_vec_trait = np.exp(np.log(dis_vec) + trait_par[0] * traitD[l])
 		ext_vec_trait = np.exp(np.log(ext_vec) + trait_par[1] * traitE[l])
 		Q_list, marginal_rates_temp = make_Q_Covar4VDdE(dis_vec_trait,ext_vec_trait,
+								time_var_d1,time_var_d2,time_var_e1,time_var_e2,
+								covar_par,x0_logistic,transf_d,transf_e,
+								offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2)
+		if use_Pade_approx==0:
+			w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
+	if cat:
+		dis_vec_cat = dis_vec * cat_parD[catD[l]]
+		ext_vec_cat = ext_vec * cat_parD[catD[l]]
+		Q_list, marginal_rates_temp = make_Q_Covar4VDdE(dis_vec_cat,ext_vec_cat,
 								time_var_d1,time_var_d2,time_var_e1,time_var_e2,
 								covar_par,x0_logistic,transf_d,transf_e,
 								offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2)
@@ -1776,7 +1930,7 @@ def lik_DES_taxon(args):
 if use_seq_lik is True: num_processes=0
 if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
 
-def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par, x0_logistic, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex,Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx,bin_last_occ, trait_par, traitD, traitE):
+def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par, x0_logistic, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex,Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, bin_last_occ, traits, trait_par, traitD, traitE, cat, cat_parD, catD, catE, cat_parE):
 	# weight per gamma cat per species: multiply 
 	weight_per_taxon = np.zeros((nTaxa, pp_gamma_ncat))
 	Q_list, marginal_rates_temp = make_Q_Covar4VDdE(dis_vec,ext_vec,
@@ -1784,6 +1938,9 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 							covar_par,x0_logistic,transf_d,transf_e,
 							offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2)
 	Q_index_temp = np.array(range(0,len(Q_list)))
+	cat_parD[0] = 1
+	cat_parE[0] = 1
+	#covar_par = np.array([0., 0., 2.7, 4.7])
 	if num_processes==0:
 		w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
 		lik = 0
@@ -1794,7 +1951,7 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 							rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
 							time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par,
 							x0_logistic, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-							traits, trait_par, traitD, traitE, use_Pade_approx])
+							traits, trait_par, traitD, traitE, cat, cat_parD, catD, cat_parE, catE, use_Pade_approx])
 		else:
 			for l in list_taxa_index:
 				YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
@@ -1820,7 +1977,7 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 							rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
 							time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par,
 							x0_logistic, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-							traits, trait_par, traitD, traitE, use_Pade_approx])
+							traits, trait_par, traitD, traitE, cat, cat_parD, catD, cat_parE, catE, use_Pade_approx])
 				lik_vec_max = np.max(lik_vec)
 				lik2 = lik_vec - lik_vec_max
 				lik += log(sum(exp(lik2))/pp_gamma_ncat) + lik_vec_max
@@ -1837,7 +1994,7 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 					rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
 					time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par,
 					x0_logistic, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-					traits, trait_par, traitD, traitE, use_Pade_approx] for l in list_taxa_index ]
+					traits, trait_par, traitD, traitE, cat, cat_parD, catD, cat_parE, catE, use_Pade_approx] for l in list_taxa_index ]
 			lik = sum(np.array(pool_lik.map(lik_DES_taxon, args_mt_lik)))
 		else:
 			YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
@@ -1855,7 +2012,7 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 						rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
 						time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par,
 						x0_logistic, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-						traits, trait_par, traitD, traitE, use_Pade_approx] for l in list_taxa_index ]
+						traits, trait_par, traitD, traitE, cat, catD, catE, use_Pade_approx] for l in list_taxa_index ]
 				liktmp[i,:] = np.array(pool_lik.map(lik_DES_taxon, args_mt_lik))
 			liktmpmax = np.amax(liktmp, axis = 0)
 			liktmp2 = liktmp - liktmpmax
@@ -1879,6 +2036,17 @@ def lik_opt(x, grad):
 	elif data_in_area == 2:
 		r_vec[:,1] = small_number
 		r_vec[:,2] = x[opt_ind_r_vec]
+	elif constraints_45:
+		constraints_45_which = constraints_covar[constraints_covar > 3]
+		if sum(constraints_45_which) == 4 and len(constraints_45_which) == 1:
+			r_vec[:,1] = np.array(x[opt_ind_r_vec[0]])
+			r_vec[:,2] = np.array(x[opt_ind_r_vec[1:]])
+		elif sum(constraints_45_which) == 5 and len(constraints_45_which) == 1:
+			r_vec[:,1] = np.array(x[opt_ind_r_vec[:-1]])
+			r_vec[:,2] = np.array(x[opt_ind_r_vec[-1]])
+		else:
+			r_vec[:,1] = np.array(x[opt_ind_r_vec[0]])
+			r_vec[:,2] = np.array(x[opt_ind_r_vec[1]])
 	else:
 		r_vec[:,1:3] = np.array(x[opt_ind_r_vec]).reshape(n_Q_times,nareas)
 	# Dispersal
@@ -1924,7 +2092,7 @@ def lik_opt(x, grad):
 	elif data_in_area == 2:
 		ext_vec[:,1] = x[opt_ind_ext]
 	elif constraints_23 and args.TdE:
-		constraints_23_which = constraints_covar[constraints_covar >= 2]
+		constraints_23_which = constraints_covar[np.logical_and(constraints_covar >= 2, constraints_covar < 4)]
 		if sum(constraints_23_which) == 2 and len(constraints_23_which) == 1:
 			ext_vec[:,0] = np.array(x[opt_ind_ext[0]])
 			ext_vec[:,1] = np.array(x[opt_ind_ext[1:]])
@@ -1978,37 +2146,29 @@ def lik_opt(x, grad):
 				
 	# enforce constraints if any
 	if constraints_covar_true:
-		covar_par[constraints_covar] = 0
-		x0_logistic[constraints_covar] = 0
+		covar_par[constraints_covar[constraints_covar<4]] = 0
+		x0_logistic[constraints_covar[constraints_covar<4]] = 0
 	# Trait-dependence
 	trait_par = np.zeros(2) + 0.
-	if args.traitD != "":
+	if argstraitD != "":
 		trait_par[0] = x[opt_ind_trait_dis]
-	if args.traitE != "":
+	if argstraitE != "":
 		trait_par[1] = x[opt_ind_trait_ext]
-#	if do_approx_div_traj == 1:
-#		approx_d1,approx_d2,numD12,numD21 = approx_div_traj(nTaxa, dis_vec, ext_vec,
-#								argsDivdD, argsDivdE, argsvarD, argsvarE, argsDdE, argsG,
-#								r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ,
-#								covar_par, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-#								time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp)
-#		if args.DivdD:
-#			time_var_d2 = approx_d1 # Limits dispersal into 1
-#			time_var_d1 = approx_d2 # Limits dispersal into 2
-#		if args.DivdE:
-#			time_var_e1 = approx_d1
-#			time_var_e2 = approx_d2
-#		if args.DdE:
-#			time_var_e2 = numD12
-#			time_var_e1 = numD21
+	# Categories
+	cat_parD = np.ones(len(unique_catD))
+	cat_parE = np.ones(len(unique_catE))
+	if argscatD != "":
+		cat_parD[1:] = x[opt_ind_cat_dis]
+	if argscatE != "":
+		cat_parE[1:] = x[opt_ind_cat_ext]
 
-
-	approx_d1,approx_d2,numD12,numD21 = approx_div_traj(nTaxa, dis_vec, ext_vec,
-							argsDivdD, argsDivdE, argsvarD, argsvarE, argsDdE, argsG,
-							r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ,
-							covar_par, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-							time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp,
-							trait_par, traitD, traitE)
+	approx_d1,approx_d2,numD21,numD12,pres = approx_div_traj(nTaxa, dis_vec, ext_vec,
+								argsDivdD, argsDivdE, argsvarD, argsvarE, argsDdE, argsG,
+								r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ,
+								covar_par, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
+								time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp,
+								trait_par, traitD, traitE,
+								cat_parD, catD, cat_parE, catE, argstraitD, argstraitE, argscatD, argscatE)
 	if args.DivdD:
 		time_var_d2 = approx_d1 # Limits dispersal into 1
 		time_var_d1 = approx_d2 # Limits dispersal into 2
@@ -2021,6 +2181,13 @@ def lik_opt(x, grad):
 	
 #	est_div_gr_obs = all(approx_d1[:-1] - div_traj_1[1:] >= 0) and all(approx_d2[:-1] - div_traj_2[1:] >= 0)
 	est_div_gr_obs = sum(approx_d1[:-1] - div_traj_1[1:] >= -0.1) > (0.95 * len(div_traj_1[1:])) and sum(approx_d2[:-1] - div_traj_2[1:] >= -0.1) > (0.95 * len(div_traj_2[1:]))
+	# Backpropagation for likelihood calculation before the first observation
+#	occ_prob = np.mean(r_vec[:,1:3], axis = 1)**(1 + np.arange(len_time_series))
+#	print(occ_prob)
+#	backpropagate = np.min(np.where(occ_prob < 0.5)) + 1
+#	OrigTimeIndex2 = OrigTimeIndex - backpropagate
+#	OrigTimeIndex2[OrigTimeIndex2 < 1] = 1
+#	print(OrigTimeIndex2)
 	if est_div_gr_obs:
 		lik, weight_per_taxon = lik_DES(dis_vec, ext_vec, r_vec,
 						time_var_d1, time_var_d2, time_var_e1, time_var_e2,
@@ -2028,7 +2195,7 @@ def lik_opt(x, grad):
 						offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 						rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST,OrigTimeIndex,
 						Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, bin_last_occ,
-						trait_par, traitD, traitE)
+						traits, trait_par, traitD, traitE, cat, cat_parD, catD, catE, cat_parE)
 	else:
 		lik = -np.inf#1e15
 	print("lik", lik, x)
@@ -2068,12 +2235,12 @@ if args.A == 3:
 		opt_ind_ext = np.max(opt_ind_dis) + 1 + np.repeat(np.arange(0, n_Q_times_ext), 2)
 	if data_in_area != 0:
 		opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, n_Q_times_ext)
-	if args.TdE is True and constraints_23: 
-		if len(constraints_covar[constraints_covar >= 2]) == 1:
-			opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, n_Q_times_ext + 1)
-		else:
+	if args.TdE is True and constraints_23:
+		if all(np.isin(np.array([2, 3]), constraints_covar)):
 			opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, nareas)
-			
+		else:
+			opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, n_Q_times_ext + 1)
+	
 	opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, n_Q_times*nareas)
 	if equal_q is True:
 		opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.repeat(np.arange(0, n_Q_times), 2) 
@@ -2082,7 +2249,12 @@ if args.A == 3:
 	if const_q ==2: # Needs bin1 = 01 bin2 = 21 bin3 = 31 bin4 = 41 bin5 = 51
 		opt_ind_r_vec = np.array([np.arange(1,nareas+1), np.ones(nareas, dtype = int)]).T.flatten()
 		opt_ind_r_vec[0] = 0
-		opt_ind_r_vec = np.max(opt_ind_ext) + 1 + opt_ind_r_vec 
+		opt_ind_r_vec = np.max(opt_ind_ext) + 1 + opt_ind_r_vec
+	if constraints_45:
+		if all(np.isin(np.array([4, 5]), constraints_covar)):
+			opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, nareas)
+		else:
+			opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, n_Q_times + 1)
 	if data_in_area != 0:
 		if const_q ==1 or const_q ==2:
 			opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.zeros(n_Q_times, dtype = int)
@@ -2177,24 +2349,50 @@ if args.A == 3:
 				upper_bounds = upper_bounds[0:-1]
 	
 	# Trait-dependence
-	if args.traitD != "":
+	if argstraitD != "":
 		opt_ind_trait_dis = np.array([ind_counter])
 		ind_counter += 1
 		x0 = np.concatenate((x0, 0.), axis = None)
 		#traitD_range = 10. / (np.max(traitD) - np.min(traitD))
 		lower_bounds = lower_bounds + [-bound_traitD]
 		upper_bounds = upper_bounds + [bound_traitD]
-	if args.traitE != "":
+	if argstraitE != "":
 		opt_ind_trait_ext = np.array([ind_counter])
 		ind_counter += 1
 		x0 = np.concatenate((x0, 0.), axis = None)
 		#traitE_range = 10. / (np.max(traitE) - np.min(traitE))
 		lower_bounds = lower_bounds + [-bound_traitE]
 		upper_bounds = upper_bounds + [bound_traitE]
+	# Categories
+	if argscatD != "":
+		len_catD = len(unique_catD) - 1
+		opt_ind_cat_dis = np.arange(ind_counter, ind_counter + len_catD)
+		ind_counter += len_catD
+		x0 = np.concatenate((x0, np.ones(len_catD)), axis = None)
+		lower_bounds = lower_bounds + [small_number] * len_catD
+		upper_bounds = upper_bounds + [10] * len_catD
+	if argscatE != "":
+		len_catE = len(unique_catE) - 1
+		opt_ind_cat_ext = np.arange(ind_counter, ind_counter + len_catE)
+		ind_counter += len_catE
+		x0 = np.concatenate((x0, np.ones(len_catE)), axis = None)
+		lower_bounds = lower_bounds + [small_number] * len_catE
+		upper_bounds = upper_bounds + [10] * len_catE
+		
+	if len(args.A3init) > 0:
+		A3init = np.array(args.A3init)
+		A3init[opt_ind_r_vec] = np.exp(-A3init[opt_ind_r_vec] * bin_size)
+		if argsDivdD:
+			A3init[opt_ind_dis] = A3init[opt_ind_dis] * (1. - ([offset_dis_div2, offset_dis_div1] / A3init[opt_ind_covar_dis]))
+		if argsDivdE:
+			A3init[opt_ind_ext] = A3init[opt_ind_ext] / (1. - ([offset_ext_div2, offset_ext_div1]/A3init[opt_ind_covar_ext]))
+		x0 = A3init
 
 	# Maximize likelihood
-	if any(args.TdD is False or args.DivdD or args.TdE is False or args.DivdE or args.DdE or (data_in_area != 0 and argsG)):
+	if args.A3set[4] == 1 and any(args.TdD is False or args.DivdD or args.TdE is False or args.DivdE or args.DdE or (data_in_area != 0 and argsG)):
 		print("Optimize only baseline dispersal, extinction and sampling")
+		args.A3set[2] = args.A3set[2] / 2
+		args.A3set[3] = args.A3set[3] / 2
 		opt_base = nlopt.opt(nlopt.LN_SBPLX, len(x0))
 		new_lower_bounds = lower_bounds[:]
 		new_upper_bounds = upper_bounds[:]
@@ -2219,9 +2417,10 @@ if args.A == 3:
 		opt_base.set_lower_bounds(new_lower_bounds)
 		opt_base.set_upper_bounds(new_upper_bounds)
 		opt_base.set_max_objective(lik_opt)
-		opt_base.set_xtol_rel(1e-2)
-		opt_base.set_maxeval(1000 * round(1.25**len(x0)))
-		opt_base.set_ftol_abs(1e-4)
+		opt_base.set_xtol_rel(args.A3set[0])
+		opt_base.set_maxeval(int(args.A3set[2])  * round(1.25**len(x0)))
+		opt_base.set_ftol_abs(args.A3set[1])
+		opt_base.set_maxtime(args.A3set[3])
 		x_base = opt_base.optimize(x0)
 		x0 = x_base
 		print("Baseline dispersal, extinction and sampling optimized")
@@ -2233,7 +2432,9 @@ if args.A == 3:
 			for i in range(len(opt_ind_covar_ext)):
 				fix_covar = int(opt_ind_covar_ext[i])
 				x0[fix_covar] = nTaxa
-	if args.TdD is False and args.TdE is False:
+	if args.A3set[4] == 1 and args.TdD is False and args.TdE is False:
+		args.A3set[2] = args.A3set[2] / 2
+		args.A3set[3] = args.A3set[3] / 2
 		opt_dis_cov = nlopt.opt(nlopt.LN_SBPLX, len(x0))
 		new_lower_bounds2 = lower_bounds[:]
 		new_upper_bounds2 = upper_bounds[:]
@@ -2252,20 +2453,22 @@ if args.A == 3:
 		opt_dis_cov.set_lower_bounds(new_lower_bounds2)
 		opt_dis_cov.set_upper_bounds(new_upper_bounds2)
 		opt_dis_cov.set_max_objective(lik_opt)
-		opt_dis_cov.set_xtol_rel(1e-2)
-		opt_dis_cov.set_maxeval(1000 * round(1.25**len(x0)))
-		opt_dis_cov.set_ftol_abs(1e-4)
+		opt_dis_cov.set_xtol_rel(args.A3set[0])
+		opt_dis_cov.set_maxeval(int(args.A3set[2])  * round(1.25**len(x0)))
+		opt_dis_cov.set_ftol_abs(args.A3set[1])
+		opt_dis_cov.set_maxtime(args.A3set[3])
 		x_dis_cov = opt_dis_cov.optimize(x0)
 		x0 = x_dis_cov
 	print("Final optimization")
 	opt = nlopt.opt(nlopt.LN_SBPLX, len(x0))
-	opt.set_lower_bounds(lower_bounds) 
-	opt.set_upper_bounds(upper_bounds) 
+	opt.set_lower_bounds(lower_bounds)
+	opt.set_upper_bounds(upper_bounds)
 	opt.set_max_objective(lik_opt)
-	opt.set_xtol_rel(1e-2)
-	opt.set_maxeval(1000 * round(1.25**len(x0)))
-	opt.set_ftol_abs(1e-4)
-	x = opt.optimize(x0) 
+	opt.set_xtol_rel(args.A3set[0])
+	opt.set_maxeval(int(args.A3set[2]) * round(1.25**len(x0)))
+	opt.set_ftol_abs(args.A3set[1])
+	opt.set_maxtime(args.A3set[3])
+	x = opt.optimize(x0)
 	minf = opt.last_optimum_value()
 	
 	# Format output
@@ -2295,7 +2498,7 @@ if args.A == 3:
 	elif data_in_area == 2:
 		ext_rate_vec[:,1] = x[opt_ind_ext]
 	elif constraints_23 and args.TdE:
-		constraints_23_which = constraints_covar[constraints_covar >= 2]
+		constraints_23_which = constraints_covar[np.logical_and(constraints_covar >= 2, constraints_covar < 4)]
 		if sum(constraints_23_which) == 2 and len(constraints_23_which) == 1:
 			ext_rate_vec[:,0] = np.array(x[opt_ind_ext[0]])
 			ext_rate_vec[:,1] = np.array(x[opt_ind_ext[1:]])
@@ -2315,7 +2518,18 @@ if args.A == 3:
 		r_vec[:,2] = small_number
 	elif data_in_area == 2:
 		r_vec[:,1] = small_number
-		r_vec[:,2] = x[opt_ind_r_vec]	
+		r_vec[:,2] = x[opt_ind_r_vec]
+	elif constraints_45:
+		constraints_45_which = constraints_covar[constraints_covar > 3]
+		if sum(constraints_45_which) == 4 and len(constraints_45_which) == 1:
+			r_vec[:,1] = np.array(x[opt_ind_r_vec[0]])
+			r_vec[:,2] = np.array(x[opt_ind_r_vec[1:]])
+		elif sum(constraints_45_which) == 5 and len(constraints_45_which) == 1:
+			r_vec[:,1] = np.array(x[opt_ind_r_vec[:-1]])
+			r_vec[:,2] = np.array(x[opt_ind_r_vec[-1]])
+		else:
+			r_vec[:,1] = x[opt_ind_r_vec[0]]
+			r_vec[:,2] = x[opt_ind_r_vec[1]]
 	else:
 		r_vec[:,1:3] = np.array(x[opt_ind_r_vec]).reshape(n_Q_times,nareas)
 	if argsG: 
@@ -2330,13 +2544,18 @@ if args.A == 3:
 	if args.TdE is False or args.DivdE or args.DdE:
 		covar_par_A[[2,3]] = x[opt_ind_covar_ext]
 		if args.lgE:
-			x0_logistic_A[[2,3]] = x[opt_ind_x0_log_ext]	
+			x0_logistic_A[[2,3]] = x[opt_ind_x0_log_ext]
 	# Trait-dependence
 	trait_par = np.zeros(2) + 0.
-	if args.traitD != "":
+	if argstraitD != "":
 		trait_par_A[0] = x[opt_ind_trait_dis]
-	if args.traitE != "":
+	if argstraitE != "":
 		trait_par_A[1] = x[opt_ind_trait_ext]
+	# Categories
+	if argscatD != "":
+		cat_parD_A[1:] = x[opt_ind_cat_dis]
+	if argscatE != "":
+		cat_parE_A[1:] = x[opt_ind_cat_ext]
 	log_to_file = 1
 
 #############################################	
@@ -2372,11 +2591,11 @@ if args.DdE:
 	scale_proposal_e = 5
 	m_e = -50
 	M_e = 50
-if args.traitD != "":
+if argstraitD != "":
 	scale_proposal_a_d = bound_traitD/3.
 	m_a_d = -bound_traitD
 	M_a_d = bound_traitD
-if args.traitE != "":
+if argstraitE != "":
 	scale_proposal_a_e = bound_traitE/3.
 	m_a_e = -bound_traitE
 	M_a_e = bound_traitE
@@ -2402,6 +2621,8 @@ for it in range(n_generations * len(scal_fac_TI)):
 	ext_rate_vec = ext_rate_vec_A + 0.
 	covar_par =    covar_par_A + 0.
 	trait_par =    trait_par_A + 0.
+	cat_parD =     cat_parD_A + 0.
+	cat_parE =     cat_parE_A + 0.
 	r_vec=         r_vec_A + 0.
 	x0_logistic=   x0_logistic_A + 0.
 	hasting = 0
@@ -2428,9 +2649,17 @@ for it in range(n_generations * len(scal_fac_TI)):
 				dis_rate_vec = array([d_temp,d_temp]).T
 			else:
 				dis_rate_vec,hasting=update_multiplier_proposal_freq(dis_rate_vec_A,d=1+.1*scale_proposal,f=update_rate_freq_d)
-		if args.traitD != "" and r[2] < .5:
+		if argstraitD != "" and r[2] < .5:
 			trait_par[0] = update_parameter_uni_2d_freq(trait_par_A[[0]], d=0.1*scale_proposal_a_d, f=0.5, m = m_a_d, M = M_a_d)
+		if argstraitE != "" and r[2] < .5:
 			trait_par[1] = update_parameter_uni_2d_freq(trait_par_A[[1]], d=0.1*scale_proposal_a_e, f=0.5, m = m_a_e, M = M_a_e)
+		if argscatD != "" and r[2] < .5:
+			#cat_parD,dump = update_multiplier_proposal_freq(cat_parD_A, d = 3.1, f = 0.9)
+			cat_parD = update_parameter_uni_2d_freq(cat_parD_A, d=0.1, f=0.5, m = small_number, M = 100)
+			cat_parD[0] = 1
+			#cat_parE,dump = update_multiplier_proposal_freq(cat_parE_A, d = 3.1, f = 0.9)
+			cat_parE = update_parameter_uni_2d_freq(cat_parE_A, d=0.1, f=0.5, m = small_number, M = 100)
+			cat_parE[0] = 1
 			
 	elif r[0] < update_freq[1]: # EXTINCTION RATES
 		if args.TdE is False and r[1] < .5: 
@@ -2445,9 +2674,16 @@ for it in range(n_generations * len(scal_fac_TI)):
 				ext_rate_vec = array([e_temp,e_temp]).T
 			else:
 				ext_rate_vec,hasting=update_multiplier_proposal_freq(ext_rate_vec_A,d=1+.1*scale_proposal,f=update_rate_freq_e)
-		if args.traitE != "" and r[2] < .5:
+		if argstraitE != "" and r[2] < .5:
 			trait_par[0] = update_parameter_uni_2d_freq(trait_par_A[[0]], d=0.1*scale_proposal_a_d, f=0.5, m = m_a_d, M = M_a_d)
 			trait_par[1] = update_parameter_uni_2d_freq(trait_par_A[[1]], d=0.1*scale_proposal_a_e, f=0.5, m = m_a_e, M = M_a_e)
+		if argscatE != "" and r[2] < .5:
+			#cat_parD,dump = update_multiplier_proposal_freq(cat_parD_A, d = 3.1, f = 0.9)
+			cat_parD = update_parameter_uni_2d_freq(cat_parD_A, d=0.1, f=0.5, m = small_number, M = 100)
+			cat_parD[0] = 1
+			#cat_parE,dump = update_multiplier_proposal_freq(cat_parE_A, d = 3.1, f = 0.9)
+			cat_parE = update_parameter_uni_2d_freq(cat_parE_A, d=0.1, f=0.5, m = small_number, M = 100)
+			cat_parE[0] = 1
 	
 	elif r[0] <=update_freq[2]: # SAMPLING RATES
 		r_vec=update_parameter_uni_2d_freq(r_vec_A,d=0.1*scale_proposal,f=update_rate_freq_r)
@@ -2471,10 +2707,10 @@ for it in range(n_generations * len(scal_fac_TI)):
 	
 	# enforce constraints if any
 	if len(constraints_covar)>0:
-		covar_par[constraints_covar] = 0
-		x0_logistic[constraints_covar] = 0
+		covar_par[constraints_covar[constraints_covar<4]] = 0
+		x0_logistic[constraints_covar[constraints_covar<4]] = 0
 		dis_rate_vec[:,constraints_covar[constraints_covar<2]] = dis_rate_vec[0,constraints_covar[constraints_covar<2]]
-		ext_rate_vec[:,constraints_covar[constraints_covar>=2]-2] = ext_rate_vec[0,constraints_covar[constraints_covar>=2]-2]
+		ext_rate_vec[:,constraints_covar[np.logical_and(constraints_covar >= 2, constraints_covar < 4)]-2] = ext_rate_vec[0,constraints_covar[np.logical_and(constraints_covar >= 2, constraints_covar < 4)]-2]
 	if len(args.symCov)>0:
 		args_symCov = np.array(args.symCov)
 		covar_par[args_symCov] = covar_par[args_symCov-1] 
@@ -2563,12 +2799,13 @@ for it in range(n_generations * len(scal_fac_TI)):
 	if (it % sampling_freq == 0 or args.A == 3):
 		do_approx_div_traj = 1
 	if do_approx_div_traj == 1:
-		approx_d1,approx_d2,numD12,numD21 = approx_div_traj(nTaxa, dis_vec, ext_vec,
-								argsDivdD, argsDivdE, argsvarD, argsvarE, argsDdE, argsG,
-								r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ,
-								covar_par, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-								time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp,
-								trait_par, traitD, traitE)
+		approx_d1,approx_d2,numD21,numD12,pres = approx_div_traj(nTaxa, dis_vec, ext_vec,
+									argsDivdD, argsDivdE, argsvarD, argsvarE, argsDdE, argsG,
+									r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ,
+									covar_par, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
+									time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp,
+									trait_par, traitD, traitE,
+									cat_parD, catD, cat_parE, catE, argstraitD, argstraitE, argscatD, argscatE)
 		if args.DivdD:
 			time_var_d2 = approx_d1 # Limits dispersal into 1
 			time_var_d1 = approx_d2 # Limits dispersal into 2
@@ -2649,7 +2886,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 					offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 					rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST,OrigTimeIndex,
 					Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, bin_last_occ,
-					trait_par, traitD, traitE)
+					traits, trait_par, traitD, traitE, cat, cat_parD, catD, catE, cat_parE)
 	
 	prior= sum(prior_exp(dis_rate_vec,prior_exp_rate))+sum(prior_exp(ext_rate_vec,prior_exp_rate))#+prior_normal(covar_par,0,1)
 	
@@ -2675,9 +2912,22 @@ for it in range(n_generations * len(scal_fac_TI)):
 				prior += -np.inf
 			else:
 				prior += 0
+		cat_par_concat = np.concatenate((cat_parD[1:], cat_parD[1:]))
+		g_shape=G_hp_alpha + len(cat_par_concat)/2.
+		g_rate=G_hp_beta + np.sum((cat_par_concat-1.)**2)/2.
+		hypGA = 1./np.random.gamma(shape= g_shape, scale= 1./g_rate)
+		if hypGA>0: # use normal prior on trait par
+			prior += prior_normal(cat_par_concat,scale=sqrt(hypGA))
+		else: # use uniform prior on trait par
+			if np.anp.max(abs(cat_par_concat)) > -hypGA:
+				prior += -np.inf
+			else:
+				prior += 0
 	else:
 		prior += prior_normal(covar_par,0,1)
 		prior += prior_normal(trait_par,0,1)
+		prior += prior_normal(cat_parD,1,1)
+		prior += prior_normal(cat_parE,1,1)
 	
 	lik_alter = lik * scal_fac_TI[scal_fac_ind]
 
@@ -2710,6 +2960,8 @@ for it in range(n_generations * len(scal_fac_TI)):
 		priorA=prior
 		covar_par_A=covar_par
 		trait_par_A=trait_par
+		cat_parD_A=cat_parD
+		cat_parE_A=cat_parE
 		x0_logistic_A=x0_logistic
 		marginal_rates_A = marginal_rates_temp
 		numD12A,numD21A = numD12,numD21
@@ -2736,6 +2988,8 @@ for it in range(n_generations * len(scal_fac_TI)):
 		print("\td:", dis_rate_vec_A.flatten(), "e:", ext_rate_vec_A.flatten(),"q:",q_rates,"alpha:",alphaA)
 		print("\ta/k:",covar_par_A,"x0:",x0_logistic_A)
 		print("\ttrait:",trait_par_A)
+		print("\tcat dispersal:", cat_parD_A)
+		print("\tcat extinction:", cat_parE_A)
 	if it % sampling_freq == 0 and it >= burnin and runMCMC == 1:
 		log_to_file=1
 		# sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
@@ -2804,7 +3058,13 @@ for it in range(n_generations * len(scal_fac_TI)):
 			dis_rate_vec_A[0,:] = dis_rate_vec_A[0,:] * ( 1. + exp(-covar_par_A[0:2] * (covar_mean_dis - x0_logistic_A[0:2])))
 		if args.lgE and ext_rate_not_transformed:
 			ext_rate_vec_A[0,:] = ext_rate_vec_A[0,:] * ( 1. + exp(-covar_par_A[2:4] * (covar_mean_dis - x0_logistic_A[2:4])))
-		log_state= [it,likA+priorA, priorA,likA]+list(dis_rate_vec_A.flatten())+list(ext_rate_vec_A.flatten())+list(q_rates)
+		log_dis_rate = dis_rate_vec_A.flatten()
+		log_ext_rate = ext_rate_vec_A.flatten()
+		if argscatD != "":
+			log_dis_rate = np.repeat(log_dis_rate, len(unique_catD)) * np.tile(cat_parD, len(log_dis_rate))
+		if argscatE != "":
+			log_ext_rate = np.repeat(log_ext_rate, len(unique_catE)) * np.tile(cat_parE, len(log_ext_rate))
+		log_state= [it,likA+priorA, priorA,likA]+list(log_dis_rate)+list(log_ext_rate)+list(q_rates)
 		log_state = log_state+list(covar_par_A[0:2])
 		if args.lgD: log_state = log_state+list(x0_logistic_A[0:2] + mean_varD_before_centering)
 		log_state = log_state+list(covar_par_A[2:4])
@@ -2867,10 +3127,31 @@ for it in range(n_generations * len(scal_fac_TI)):
 		temp_marginal_d21 = list(marginal_rates_A[0][:,1][::-1])
 		temp_marginal_e1  = list(marginal_rates_A[1][:,0][::-1])
 		temp_marginal_e2  = list(marginal_rates_A[1][:,1][::-1])
+		if argstraitD != "":
+			marginal_traitrate = get_marginal_traitrate(marginal_rates_A[0], nTaxa, pres, traitD, trait_par_A[0])
+			temp_marginal_d12 = list(marginal_traitrate[0,:])
+			temp_marginal_d21 = list(marginal_traitrate[1,:])
+		if argstraitE != "":
+			marginal_traitrate = get_marginal_traitrate(marginal_rates_A[1], nTaxa, pres, traitD, trait_par_A[1])
+			temp_marginal_e1 = list(marginal_traitrate[0,:])
+			temp_marginal_e2 = list(marginal_traitrate[1,:])
+		if argscatD:
+			marginal_traitrate = get_marginal_traitrate(marginal_rates_A[0], nTaxa, pres, catD, cat_parD_A, 1)
+			temp_marginal_e1 = list(marginal_traitrate[0,:])
+			temp_marginal_e2 = list(marginal_traitrate[1,:])
+		if argscatE:
+			marginal_traitrate = get_marginal_traitrate(marginal_rates_A[1], nTaxa, pres, catE, cat_parE_A, 1)
+			temp_marginal_e1 = list(marginal_traitrate[0,:])
+			temp_marginal_e2 = list(marginal_traitrate[1,:])
 		log_state = [it]+temp_marginal_d12+temp_marginal_d21+temp_marginal_e1+temp_marginal_e2
 		rlog.writerow(log_state)
 		ratesfile.flush()
 		os.fsync(ratesfile)
+		# Log predicted presence
+		if args.log_distr:
+			pres_file ="%s/%s_%s%s%s%s%s%s.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag,model_tag,args.out,"_distr")
+			pres = np.transpose(pres)
+			np.savetxt(pres_file, pres, delimiter="\t")
 	if args.log_div and log_to_file == 1:
 		log_state = [it] + list(approx_d1[::-1]) + list(approx_d2[::-1])
 		divlog.writerow(log_state)
