@@ -278,7 +278,7 @@ def make_Q3A(dv,ev): # construct Q matrix
 ######################################
 ########      SIMULATOR      #########
 ######################################
-def simulate_dataset(no_sim,d,e,n_taxa,n_bins=20,wd=""):
+def simulate_dataset(no_sim,d,e,n_taxa,TimeSpan,n_bins=20,wd=""):
 	n_bins +=1
 	def random_choice_P(vector):
 		probDeath=np.cumsum(vector/sum(vector)) # cumulative prob (used to randomly sample one 
@@ -291,15 +291,16 @@ def simulate_dataset(no_sim,d,e,n_taxa,n_bins=20,wd=""):
 	D = -np.diagonal(Q) # waiting times
 	
 	outfile="%s/sim_%s_%s_%s_%s_%s_%s.txt" % (wd,no_sim,n_taxa,d[0],d[1],e[0],e[1]) 
-	newfile = open(outfile, "wb") 
+	newfile = open(outfile, "w") 
 	wlog=csv.writer(newfile, delimiter='\t')
 	
-	TimeSpan = 50
+	#TimeSpan = 50.
 	# origin age of taxa
-	OrigTimes = np.zeros(n_taxa) # all extant at the present
+	#OrigTimes = np.zeros(n_taxa) # all extant at the present
 	#OrigTimes = np.random.geometric(0.3,n_taxa)-1 # geometric distrib 
 	OrigTimes = np.random.uniform(0,TimeSpan,n_taxa) # uniform distribution of speciation times
-	OrigTimes[OrigTimes>45]=0 # avoid taxa appearing later than 5 Ma 
+	#OrigTimes[OrigTimes>45]=0 # avoid taxa appearing later than 5 Ma 
+	#OrigTimes = np.random.uniform(0, TimeSpan - TimeSpan * 0.1, n_taxa)
 	
 	#Times = sort(np.random.uniform(0,50,10))  #
 	Times_mod = sort(np.linspace(0,TimeSpan,n_bins))
@@ -513,20 +514,23 @@ def parse_input_data(input_file_name,RHO_sampling=np.ones(2),verbose=0,n_sampled
 				t2=Binned_time[i]
 				ind=np.intersect1d(np.nonzero(time_series>=t1)[0],np.nonzero(time_series<t2)[0])
 				samples_taxon_j_time_t = samples_taxon_j[ind]
-		
-				if (0,1) in list(samples_taxon_j_time_t): 
-					binned_states.append((0,1))
-				elif (1,) in list(samples_taxon_j_time_t) and (0,) in list(samples_taxon_j_time_t): 
-					binned_states.append((0,1))
-				elif (1,) in list(samples_taxon_j_time_t): 
-					binned_states.append((1,))
-				elif (0,) in list(samples_taxon_j_time_t): 
-					binned_states.append((0,))
-				elif () in list(samples_taxon_j_time_t): 
-					binned_states.append(())
-				else:
+				if len(shape(samples_taxon_j_time_t)) > 1:
 					binned_states.append((nan,))
 					binned_OrigTimeIndex[j] = i
+				else:
+					if (0,1) in list(samples_taxon_j_time_t): 
+						binned_states.append((0,1))
+					elif (1,) in list(samples_taxon_j_time_t) and (0,) in list(samples_taxon_j_time_t): 
+						binned_states.append((0,1))
+					elif (1,) in list(samples_taxon_j_time_t): 
+						binned_states.append((1,))
+					elif (0,) in list(samples_taxon_j_time_t): 
+						binned_states.append((0,))
+					elif () in list(samples_taxon_j_time_t): 
+						binned_states.append(())
+					else:
+						binned_states.append((nan,))
+						binned_OrigTimeIndex[j] = i
 
 			# add present state
 			binned_states.append(samples_taxon_j[-1])
