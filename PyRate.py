@@ -1615,11 +1615,14 @@ def BD_partial_lik_bounded(arg):
 
 
 # BD-NN model
+def softPlus(z):
+    return np.log(np.exp(z) + 1)
+
 def get_rate_BDNN(rate, x, w): 
     # n: n species, j: traits, i: nodes
-    z = np.einsum('nj,ij->ni', x, w[0], optimize=False)
+    z = np.einsum('nj,ij->ni', x, w[0])
     z[z < 0] = 0 # ReLU
-    z = np.einsum('ni,i->n', z, w[1], optimize=False)
+    z = np.einsum('ni,i->n', z, w[1])
     rates = np.exp(z) * rate
     return rates # exponentiate to avoid negative rates
 

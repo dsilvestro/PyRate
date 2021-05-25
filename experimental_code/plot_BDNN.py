@@ -4,11 +4,14 @@ import os, csv
 import pandas as pd
 
 
+def softPlus(z):
+    return np.log(np.exp(z) + 1)
+
 def get_rate_BDNN(rate, x, w): 
     # n: n species, j: traits, i: nodes
-    z = np.einsum('nj,ij->ni', x, w[0], optimize=True)
+    z = np.einsum('nj,ij->ni', x, w[0])
     z[z < 0] = 0 
-    z = np.einsum('ni,i->n', z, w[1], optimize=True)
+    z = np.einsum('ni,i->n', z, w[1])
     rates = np.exp(z) * rate
     return rates 
 
