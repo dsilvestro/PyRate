@@ -24,7 +24,7 @@ PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-af
 * Silvestro D., Salamin N., Antonelli A., Meyer X. (2019) Improved estimation of macroevolutionary rates from fossil data using a Bayesian framework. Paleobiology,
 [doi:10.1017/pab.2019.23](https://doi.org/10.1017/pab.2019.23)
 
-* Silvestro D., Schnitzler J., Liow L.H., Antonelli A. and Salamin N. (2014) Bayesian Estimation of Speciation and Extinction from Incomplete Fossil Occurrence Data. Systematic Biology, [63, 349-367](https://academic.oup.com/sysbio/article/63/3/349/1650079).
+* Silvestro D., Schnitzler J., Liow L.H., Antonelli A., Salamin N. (2014) Bayesian Estimation of Speciation and Extinction from Incomplete Fossil Occurrence Data. Systematic Biology, [63, 349-367](https://academic.oup.com/sysbio/article/63/3/349/1650079).
 
 * Silvestro D., Salamin N., Schnitzler J. (2014) PyRate: A new program to estimate speciation and extinction rates from incomplete fossil record. Methods in Ecology and Evolution, [5, 1126-1131](http://onlinelibrary.wiley.com/doi/10.1111/2041-210X.12263/abstract).
  
@@ -44,7 +44,7 @@ PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-af
 
 #### The dispersal-extinction-cladogenesis model (DES) is described here:
 
-* Silvestro, D., Zizka A., Bacon C. D., Cascales-Minana B. and Salamin, N., Antonelli, A. (2016) Fossil Biogeography: A new model to infer dispersal, extinction and sampling from paleontological data. Philosophical Transactions of the Royal Society B [371:20150225](http://rstb.royalsocietypublishing.org/content/371/1691/20150225).
+* Silvestro D., Zizka A., Bacon C. D., Cascales-Minana B., Salamin N., Antonelli, A. (2016) Fossil Biogeography: A new model to infer dispersal, extinction and sampling from paleontological data. Philosophical Transactions of the Royal Society B [371:20150225](http://rstb.royalsocietypublishing.org/content/371/1691/20150225).
 
 * See tutorial [5](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_5.md)
 
@@ -62,7 +62,7 @@ PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-af
 
 #### The birth death chrono-species model (BDC) is described here:
 
-* Silvestro D., Warnock R., Gavryushkina A. & Stadler T. (2018) Closing the gap between palaeontological and neontological speciation and extinction rate estimates. Nature Communications, [doi: 10.1038/s41467-018-07622-y](https://www.nature.com/articles/s41467-018-07622-y).
+* Silvestro D., Warnock R., Gavryushkina A., Stadler T. (2018) Closing the gap between palaeontological and neontological speciation and extinction rate estimates. Nature Communications, [doi: 10.1038/s41467-018-07622-y](https://www.nature.com/articles/s41467-018-07622-y).
 
 * See tutorial [4](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#the-birth-death-chronospecies-bdc-model)
 
@@ -70,8 +70,8 @@ PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-af
 
 #### The fossilized birth-death-range model (FBDrange) is described here:
 
-* Warnock R., Heath T. A. & Stadler T. (2020) Assessing the impact of incomplete species sampling on estimates of speciation and extinction rates. Paleobiology, [doi: 10.1017/pab.2020.12](https://www.cambridge.org/core/journals/paleobiology/article/assessing-the-impact-of-incomplete-species-sampling-on-estimates-of-speciation-and-extinction-rates/8D82C01066E7E2A24F2A4A8ACAC2B69F).
+* Warnock R., Heath T. A., Stadler T. (2020) Assessing the impact of incomplete species sampling on estimates of speciation and extinction rates. Paleobiology, [doi: 10.1017/pab.2020.12](https://www.cambridge.org/core/journals/paleobiology/article/assessing-the-impact-of-incomplete-species-sampling-on-estimates-of-speciation-and-extinction-rates/8D82C01066E7E2A24F2A4A8ACAC2B69F).
 
-* Stadler, T., A. Gavryushkina, R. C. Warnock, A. J. Drummond, and T. A. Heath. (2018). The fossilized birth-death model for the analysis of stratigraphic range data under different speciation modes. Journal of Theoretical Biology [doi: 10.1016/j.jtbi.2018.03.0](https://www.sciencedirect.com/science/article/pii/S002251931830119X).
+* Stadler T., Gavryushkina A., Warnock R. C., Drummond A. J., Heath T. A. (2018). The fossilized birth-death model for the analysis of stratigraphic range data under different speciation modes. Journal of Theoretical Biology [doi: 10.1016/j.jtbi.2018.03.0](https://www.sciencedirect.com/science/article/pii/S002251931830119X).
 
 * Tutorial in prep. 
