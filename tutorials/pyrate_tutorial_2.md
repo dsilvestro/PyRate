@@ -12,14 +12,12 @@
 ***
 
 
+# Extract estimated times of origination and extinction
+Estimated times of origination and extinction are used as input files for PyRateContinuous and other analyses in the PyRate package. 
+The table is formatted as tab-separated text file, with the first line containing column headers followed by one row for each species. Each row contains 4 columns: the first column indicates the clade assignment of species, this is only useful when using [MCDD models](https://github.com/dsilvestro/PyRate/wiki#pyratemcddpy-requires-library-pyrate_lib) and should be filled with 0s for all other analyses. The second column indicates a species numeric identifier (this values are arbitrary and only used for reference). Finally the following columns contain the time of origin and extinction of each species or taxon.  
 
-# Birth-death models with time-continuous correlates
-This tutorial describes how to analyze data under birth-death models in which rates vary through time through linear or exponential correlations with a time-continuous variable. Time continuous variables may include a clade's own diversity (diversity dependence) or e.g. paleo-environmental variables such as temperature or sea level. Birth-death models with time-continuous correlates are implemented in the program "PyRateContinuous.py".
-
-## Generate input file for PyRateContinuous
-The program does not model preservation and assumes that the times of origination and extinction of each lineage are known or have been estimated, typically in a previous PyRate analysis. Thus, the input file for PyRateContinuous.py is a simple table with the times of origination and extinction of each lineage. The table is formatted as tab-separated text file, with the first line containing column headers followed by one row for each species. Each row contains 4 columns: the first column indicates the clade assignment of species, this is only useful when using [MCDD models](https://github.com/dsilvestro/PyRate/wiki#pyratemcddpy-requires-library-pyrate_lib) and should be filled with 0s for all other analyses. The second column indicates a species numeric identifier (this values are arbitrary and only used for reference). Finally the third and fourth column contain the time of origin and extinction of each species, respectively.  
-
-**The input files for PyRateContinuous can be generated from the _mcmc.log files of a previous PyRate analysis using the command `-ginput`.** For instance if in a previous analysis using PyRate you generated an output file named "Canidae_1_G_mcmc.log", this can be used to extract the estimated times of origination and extinction of each species using:  
+### Mean times of origination and extinction
+The input files for PyRateContinuous can be generated from the _mcmc.log files of a previous PyRate analysis using the command `-ginput`. For instance if in a previous analysis using PyRate you generated an output file named "Canidae_1_G_mcmc.log", this can be used to extract the estimated times of origination and extinction of each species using:  
 
 `python PyRate.py -ginput .../Canidae_1_G_mcmc.log -b 100`  
 
@@ -37,14 +35,27 @@ You can also provide the `-ginput` command with the path to a directory containi
 
 in which case each file with extension `*_mcmc.log` will be processed separately.
 
-Finally, the additional flag `-tag` can be used to identify files that should be combined in a single `...se_ext.txt` file, e.g. resulting from replicated analyses. For instance, with the following command 	
+You can use the additional flag `-tag` can be used to identify files that should be combined in a single `...se_ext.txt` file, e.g. resulting from replicated analyses. For instance, with the following command 	
 
 `python PyRate.py -ginput .../path_to_log_files -tag Canidae -b 100`  
 
 all log files containing `Canidae` in the file name and the extension `*_mcmc.log` will be combined into a single `...se_ext.txt`, with columns with the origin and extinction of each species given for each replicate.
 
+### Multiple samples of times of origination and extinction
+To extract multiple samples of the times of origination and extinction from the posterior instead of the mean, the commands shown above can be combined with the additional flag `-resample` specifying how many samples should be taken.
+For example: 
 
-## Plot range-through diversity trajectory (lineage through time plot)
+`python PyRate.py -ginput .../Canidae_1_G_mcmc.log -b 100 -resample 10`  
+
+will sample ten times of origination and extinction and store them in the resulting text file as additional columns. 
+Similarly, the command: 
+
+`python PyRate.py -ginput .../path_to_log_files -tag Canidae -b 100 -resample 10`  
+
+will sample ten values from each file and concatenate them in one table. 
+
+
+# Plot range-through diversity trajectory (lineage through time plot)
 The `...se_ext.txt` file can be used to produce lineage through time (LTT) plots based on range-through diversity. To do this, we need to provide the `...se_ext.txt` file using the `-d` command and use the flag `-ltt ` followed by a number to choose between different options:
 
 `python PyRate.py -d Canidae_1_G_se_est.txt -ltt 1`
@@ -68,6 +79,14 @@ For example with:
 `python PyRate.py -d Canidae_1_G_se_est.txt -ltt 1 -grid_plot 0.1`
 
 the diversity trajectory will be computed in 0.1 Myr time bins.
+
+
+# Birth-death models with time-continuous correlates
+This tutorial describes how to analyze data under birth-death models in which rates vary through time through linear or exponential correlations with a time-continuous variable. Time continuous variables may include a clade's own diversity (diversity dependence) or e.g. paleo-environmental variables such as temperature or sea level. Birth-death models with time-continuous correlates are implemented in the program "PyRateContinuous.py". 
+
+## Generate input file for PyRateContinuous
+The program does not model preservation and assumes that the times of origination and extinction of each lineage are known or have been estimated, typically in a previous PyRate analysis. Thus, the input file for PyRateContinuous.py is a simple table with the times of origination and extinction of each lineage. The table is generated as described [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#extract-estimated-times-of-origination-and-extinction))
+
 
 
 ## Diversity-dependent birth-death models
