@@ -85,7 +85,7 @@ the diversity trajectory will be computed in 0.1 Myr time bins.
 This tutorial describes how to analyze data under birth-death models in which rates vary through time through linear or exponential correlations with a time-continuous variable. Time continuous variables may include a clade's own diversity (diversity dependence) or e.g. paleo-environmental variables such as temperature or sea level. Birth-death models with time-continuous correlates are implemented in the program "PyRateContinuous.py". 
 
 ## Generate input file for PyRateContinuous
-The program does not model preservation and assumes that the times of origination and extinction of each lineage are known or have been estimated, typically in a previous PyRate analysis. Thus, the input file for PyRateContinuous.py is a simple table with the times of origination and extinction of each lineage. The table is generated as described [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#extract-estimated-times-of-origination-and-extinction))
+The program does not model preservation and assumes that the times of origination and extinction of each lineage are known or have been estimated, typically in a previous PyRate analysis. Thus, the input file for PyRateContinuous.py is a simple table with the times of origination and extinction of each lineage. The table is generated as described [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#extract-estimated-times-of-origination-and-extinction)
 
 
 
@@ -105,7 +105,7 @@ As in standard PyRate analyses the number of MCMC iterations and sampling freque
 Note that PyRateContinuous does not estimate times of origination and extinction nor preservation rates. This means that the number of parameters to be estimated is much smaller than in a standard PyRate analysis. Thus, setting the number of MCMC iterations between 100,000 and 1 million, will be sufficient for most data sets.
 
 #### Output file
-PyRateContinuous generate a single output file with the posterior samples of all parameters. The estimated **diversity dependence parameters** are logged to the output log file as *Gl* and *Gm* for speciation and extinction, respectively. When these parameters are significantly different from 0 (based on their 95% HPD) we consider the correlation as significantly positive or negative (depending on whether *G* >> 0 or *G* << 0). The **baseline speciation and extinction rates** (indicated by *L0* and *M0* in the log file) represent the esitmated speciation and extinction rates at the present.  
+PyRateContinuous generate a single output file with the posterior samples of all parameters. The estimated **diversity dependence parameters** are logged to the output log file as *Gl* and *Gm* for speciation and extinction, respectively. When these parameters are significantly different from 0 (based on their 95% HPD) we consider the correlation as significantly positive or negative (depending on whether *G* >> 0 or *G* << 0). The **baseline speciation and extinction rates** (indicated by *L0* and *M0* in the log file) represent the estimated speciation and extinction rates at the present.  
 
 The log file can be opened in Tracer to check if convergence has been reached and inspect the mean and 95% HPDs of the parameters of interest. 
 
@@ -126,7 +126,7 @@ To run an analysis with temperature-dependent speciation and extinction rates yo
 
 As with the diversity dependent model (see above) the flag `-m` is used to change between the default **exponential model** (`-m 0`) in which speciation and extinction rates are exponential functions of the time-continuous variable and a **linear model** (`-m 1`) in which a linear correlation is assumed.  
 
-The time-continuous variable is by default rescaled so that its range of values equals 1. It is additionally shifted to equal 0 at the present. The estimated **correlation parameters** are saved in the output log file as *Gl* and *Gm* for speciation and extinction, respectively, and the **baseline speciation and extinction rates** (indicated by *L0* and *M0* in the log file) represent the esitmated speciation and extinction rates at the present. The rescaling of the time-continuous variable can be changed using the flag `-r`. 
+The time-continuous variable is by default rescaled so that its range of values equals 1. It is additionally shifted to equal 0 at the present. The estimated **correlation parameters** are saved in the output log file as *Gl* and *Gm* for speciation and extinction, respectively, and the **baseline speciation and extinction rates** (indicated by *L0* and *M0* in the log file) represent the estimated speciation and extinction rates at the present. The rescaling of the time-continuous variable can be changed using the flag `-r`. 
 
 Rates through time plots can be generated using the command `-plot` as shown above for the DD model, e.g.
 
