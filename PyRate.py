@@ -3839,7 +3839,7 @@ p.add_argument('-SE_stats',   type=str,help="Calculate and plot stats from SE ta
 p.add_argument('-ginput',     type=str,help='generate SE table from *mcmc.log files', default="", metavar="<path_to_mcmc.log>")
 p.add_argument('-combLog',    type=str,help='Combine (and resample) log files', default="", metavar="<path_to_log_files>")
 p.add_argument('-combLogRJ',  type=str,help='Combine (and resample) all log files form RJMCMC', default="", metavar="<path_to_log_files>")
-p.add_argument('-resample',   type=int,help='Number of samples for each log file (-combLog). Use 0 to keep all samples.', default=0, metavar=0)
+p.add_argument('-resample',   type=int,help='Number of samples for each log file (-combLog). Use 0 to keep all samples. ', default=0, metavar=0)
 p.add_argument('-col_tag',    type=str,help='Columns to be combined using combLog', default=[], metavar="column names",nargs='+')
 p.add_argument('-check_names',type=str,help='Automatic check for typos in taxa names (provide SpeciesList file)', default="", metavar="<*_SpeciesList.txt file>")
 p.add_argument('-reduceLog',  type=str,help='Reduce file size (mcmc.log) to quickly assess convergence', default="", metavar="<*_mcmc.log file>")
@@ -4052,7 +4052,8 @@ if args.ginput != "" or args.check_names != "" or args.reduceLog != "":
         You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
 
     if args.ginput != "":
-        pyrate_lib.lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=-1,burnin=int(burnin)+1)
+        n_samples = np.max([args.resample,1])
+        pyrate_lib.lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=-1,burnin=int(burnin)+1, n_samples=n_samples)
     elif args.check_names != "":
         SpeciesList_file = args.check_names
         pyrate_lib.check_species_names.run_name_check(SpeciesList_file)
