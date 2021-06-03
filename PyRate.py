@@ -4539,7 +4539,12 @@ if model_cov>=1 or useDiscreteTraitModel == 1 or useBounded_BD == 1:
             for i in range(len(fossil_complete)):
                 MidPoints[i]=np.mean([max(fossil_complete[i]),min(fossil_complete[i])])
 
-        MidPoints = MidPoints[taxa_included]
+        try: 
+            MidPoints = MidPoints[taxa_included]
+        except: 
+            print("\nAssuming taxa in the same order in the tste file and in the trait file!\n")
+            taxa_names = ["taxon_%s" % i for i in range(len(trait_values))]
+            have_record = np.ones(len(trait_values))
         # fit linear regression (for species with trait value - even if without fossil data)
         print(len(trait_values), len(np.isfinite(trait_values)), len(taxa_names), len(MidPoints), len(have_record))
         slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(MidPoints[np.isfinite(trait_values)],trait_values[np.isfinite(trait_values)])
