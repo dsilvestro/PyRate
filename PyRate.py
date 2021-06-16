@@ -7,7 +7,7 @@ import importlib.util
 import copy as copy_lib
 
 version= "PyRate"
-build  = "v3.0 - 20210603"
+build  = "v3.0 - 20210616"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
@@ -860,10 +860,12 @@ def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type=""):
         if len(col_tag) == 0:
             if j==0:
                 head_temp = np.array(next(open(f)).split())
-                head_temp = np.delete(head_temp,q_ind)
-                head_temp = np.insert(head_temp,q_ind[0],"mean_q")
+                print(head_temp)
+                if len(q_ind)>0:
+                    head_temp = np.delete(head_temp,2)
+                    head_temp = np.insert(head_temp,q_ind[0],"mean_q")
                 tbl_header=""
-                for i in head_temp: tbl_header = tbl_header + "\t" + i
+                for i in head_temp: tbl_header = tbl_header + i  + "\t"
                 tbl_header+="\n"
                 comb = t_file
             else:
