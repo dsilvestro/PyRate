@@ -860,7 +860,6 @@ def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type=""):
         if len(col_tag) == 0:
             if j==0:
                 head_temp = np.array(next(open(f)).split())
-                print(head_temp)
                 if len(q_ind)>0:
                     head_temp = np.delete(head_temp,2)
                     head_temp = np.insert(head_temp,q_ind[0],"mean_q")
