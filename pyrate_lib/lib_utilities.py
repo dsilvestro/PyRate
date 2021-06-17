@@ -126,19 +126,21 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True, n_sampl
             
             else:
                 for i in arange(ind_ts0,ind_te0):
-                    indx = np.random.choice(range(n_samples),n_samples)
+                    indx = np.random.choice(range(burnin, shape_f[0]-1),n_samples)
                     TS= list(t_file[burnin:shape_f[0],i].astype(float)[indx])
                     TE= list(t_file[burnin:shape_f[0],ind_te0+j].astype(float)[indx])
                     j+=1
-                    listTSTE = list(np.array([i for i in zip(TS,TE)] ).flatten())
+                    #print(indx, n_samples, TS)
+                    
+                    listTSTE = list(np.array([y for y in zip(TS,TE)] ).flatten())
                     if count==0: 
                         out_list.append(array([clade, j] + listTSTE))
                     else: out_list.append(array(listTSTE))
         
                     #print i-ind_ts0, array([meanTS,meanTE])
             
-            
             out_list=array(out_list)
+            #print(out_list)
             
             if plot_ltt is True and count==0:                
                 ### plot lineages and LTT
