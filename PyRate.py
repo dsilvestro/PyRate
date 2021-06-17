@@ -1619,12 +1619,15 @@ def BD_partial_lik_bounded(arg):
 def softPlus(z):
     return np.log(np.exp(z) + 1)
 
+def expFun(z):
+    return np.exp(z)
+
 def get_rate_BDNN(rate, x, w): 
     # n: n species, j: traits, i: nodes
     z = np.einsum('nj,ij->ni', x, w[0])
     z[z < 0] = 0 # ReLU
     z = np.einsum('ni,i->n', z, w[1])
-    rates = np.exp(z) * rate
+    rates = ACTFUN(z) * rate
     return rates # exponentiate to avoid negative rates
 
 def BDNN_likelihood(arg):
@@ -1663,27 +1666,11 @@ def BDNN_partial_lik(arg):
 
 
 
-def init_trait_and_weights(trait_tbl,nodes,bias_node=False,fadlad=0.1,verbose=False,fixed_times_of_shift=[],use_time_as_trait=False, use_time_as_bias=False):
+def init_trait_and_weights(trait_tbl,nodes,bias_node=False,fadlad=0.1,verbose=False,fixed_times_of_shift=[],use_time_as_trait=False):
     if bias_node:
         trait_tbl = 0+np.hstack((trait_tbl,np.ones((trait_tbl.shape[0],1)))) 
-        
-    if use_time_as_bias:
-        # create a list of trait tables, one for each time frame, with bias node
-        trait_tbl_list = []
-        trait_tbl_list = []
-        for i in range(1,len(fixed_times_of_shift)):
-            rescaled_time = 1
-            trait_tbl_list.append(np.hstack((trait_tbl,np.ones((trait_tbl.shape[0],1)))) )
-        trait_tbl_lam = np.array(trait_tbl_list)+0
-        trait_tbl_mu = np.array(trait_tbl_list)+0
-
-        w_lam = [np.random.normal(0, 0.1, (nodes,trait_tbl_lam[0].shape[1])), np.random.normal(0, 0.1, nodes)]
-        w_mu  = [np.random.normal(0, 0.1, (nodes,trait_tbl_mu[0].shape[1])), np.random.normal(0, 0.1, nodes)]
-        for i in w_lam:
-           print(i.shape)
-        print(trait_tbl_lam.shape)        
-    
-    elif use_time_as_trait: # only availble with -fixShift option
+            
+    if use_time_as_trait: # only availble with -fixShift option
         # create a list of trait tables, one for each time frame
         trait_tbl_list = []
         for i in range(1,len(fixed_times_of_shift)):
@@ -2883,9 +2870,9 @@ def MCMC(all_arg):
         if use_BDNNmodel:
             cov_parA = cov_par_init_NN
             # rates not updated and replaced by bias node
-            if use_time_as_bias:
-                LA = np.ones(len(timesLA))
-                MA = np.ones(len(timesMA))
+            if bdnn_const_baseline:
+                LA = np.ones(len(timesLA)-1)
+                MA = np.ones(len(timesMA)-1)
         
         alpha_pp_gammaA = 1.
         if TPP_model == 1: # init multiple q rates
@@ -2988,7 +2975,7 @@ def MCMC(all_arg):
         L,M = np.zeros(len(LA)),np.zeros(len(MA))
         tot_L = np.sum(tsA-teA)
         hasting=0
-
+        
         # autotuning
         if TDI != 1: tmp=0
         mod_d1= d1           # window size ts, te
@@ -3069,10 +3056,13 @@ def MCMC(all_arg):
         elif rr<f_update_cov: # cov
             if use_BDNNmodel:
                 if np.random.random() < 0.5:
+                    # update first layer B rate
                     cov_par[0][0]=update_parameter_normal_vec(cov_par[0][0],d=0.05,f=.1) 
-                    cov_par[0][1]=update_parameter_normal_vec(cov_par[0][1],d=0.05,f=.33)
-                else:
+                    # update 1st layers D rate
                     cov_par[1][0]=update_parameter_normal_vec(cov_par[1][0],d=0.05,f=.1) 
+                else:
+                    # update second layers
+                    cov_par[0][1]=update_parameter_normal_vec(cov_par[0][1],d=0.05,f=.33)
                     cov_par[1][1]=update_parameter_normal_vec(cov_par[1][1],d=0.05,f=.33)
                 
             else:
@@ -3313,29 +3303,28 @@ def MCMC(all_arg):
                 else:
                     args=list()
                     if use_ADE_model == 0: # speciation rate is not used under ADE model
-                        if use_BDNNmodel:
-                            if use_time_as_trait or use_time_as_bias:
-                                for temp_l in range(len(timesL)-1):
-                                    up, lo = timesL[temp_l], timesL[temp_l+1]
-                                    l = L[temp_l]
-                                    args.append([ts, te, up, lo, l, 'l', cov_par[0],temp_l])
+                        if use_BDNNmodel and use_time_as_trait:
+                            for temp_l in range(len(timesL)-1):
+                                up, lo = timesL[temp_l], timesL[temp_l+1]
+                                l = L[temp_l]
+                                args.append([ts, te, up, lo, l, 'l', cov_par[0],temp_l])
                         else:
                             for temp_l in range(len(timesL)-1):
                                 up, lo = timesL[temp_l], timesL[temp_l+1]
                                 l = L[temp_l]
                                 args.append([ts, te, up, lo, l, 'l', cov_par[0],np.nan])
+                    # print(args[0][4], args[0][6], args[0][-1])
                     # parameters of each partial likelihood and prior (m)
                     for temp_m in range(len(timesM)-1):
                         up, lo = timesM[temp_m], timesM[temp_m+1]
                         m = M[temp_m]
-                        if use_BDNNmodel:
-                            if use_time_as_trait or use_time_as_bias:
-                                args.append([ts, te, up, lo, m, 'm', cov_par[1],temp_m]) 
+                        if use_BDNNmodel and use_time_as_trait:
+                            args.append([ts, te, up, lo, m, 'm', cov_par[1],temp_m]) 
                         elif use_ADE_model == 0:
                             args.append([ts, te, up, lo, m, 'm', cov_par[1],np.nan])
                         elif use_ADE_model >= 1:
                             args.append([ts, te, up, lo, m, 'm', cov_par[1],W_shape,q_rates[1]])
-
+                    
                     if hasFoundPyRateC and model_cov==0 and use_ADE_model == 0 and use_BDNNmodel == 0:
                         likBDtemp = PyRateC_BD_partial_lik(ts, te, timesL, timesM, L, M)
 
@@ -3363,8 +3352,7 @@ def MCMC(all_arg):
                                 i+=1
                         # multi-thread computation of lik and prior (rates)
                         else: likBDtemp = array(pool_lik.map(BPD_partial_lik, args))
-                    likBDtemp = likBDtemp
-                    #print likBDtemp - BD_lik_vec_times([ts,te,timesL,L,M])
+                    
 
             else:
                 if TDI==2: # run BD algorithm (Alg. 3.1)
@@ -3417,6 +3405,8 @@ def MCMC(all_arg):
                         #print sum(likBDtemp)-sum(likBDtempA),hasting,get_hyper_priorBD(timesL,timesM,L,M,T,hyperP)+(-log(max(ts)\
                         # -min(te))*(len(L)-1+len(M)-1))-(get_hyper_priorBD(timesLA,timesMA,LA,MA,T,hyperP)+(-log(max(tsA)\
                         # -min(teA))*(len(LA)-1+len(MA)-1))), len(L),len(M)
+                elif TDI == 4 and use_BDNNmodel > 0:
+                    sys.exit("RJMCMC not allowed with BD-NN model!")
 
                 # NHPP Lik: needs to be recalculated after Alg 3.1 or RJ (but only if NHPP+DA)
                 if fix_SE == 0 and TPP_model == 0 and argsHPP == 0 and use_DA == 1:
@@ -3697,7 +3687,7 @@ def MCMC(all_arg):
             log_state += [SA]
             
             if use_BDNNmodel:
-                if use_time_as_trait or use_time_as_bias:
+                if use_time_as_trait:
                     sp_lam = get_rate_BDNN(LA[0], trait_tbl_NN[0][0], cov_parA[0])
                     sp_mu = get_rate_BDNN(MA[0], trait_tbl_NN[0][1], cov_parA[1])
                 else:
@@ -3913,8 +3903,9 @@ p.add_argument('-FBDrange', type=int, help='use FBDrange likelihood (experimenta
 p.add_argument('-BDNNmodel', type=int, help='use BD-NN model (requires trait_file)', default=0, metavar=0)
 p.add_argument('-BDNNnodes', type=int, help='number of BD-NN nodes', default=3, metavar=3)
 p.add_argument('-BDNNfadlad', type=float, help='if > 0 include FAD LAD as traits (rescaled i.e. FAD * BDNNfadlad)', default=0, metavar=0)
-p.add_argument('-BDNNtimetrait', type=float, help='if > 0 use (rescaled) time as a trait (only with -fixedShift option)', default=0, metavar=0)
-p.add_argument('-BDNNtimebias', type=int, help='use time as bias node (only with -fixedShift option)', default=0, metavar=0)
+p.add_argument('-BDNNtimetrait', type=float, help='if > 0 use (rescaled) time as a trait (only with -fixedShift option). if = -1 auto-rescaled', default=0, metavar=0)
+p.add_argument('-BDNNconstbaseline', type=int, help='constant baseline rates (only with -fixedShift option AND time as a trait)', default=0, metavar=0)
+p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) softPlus, 1) exp', default=0, metavar=0)
 
 
 
@@ -4771,13 +4762,14 @@ if use_poiD == 1:
 
 
 use_time_as_trait = args.BDNNtimetrait
-use_time_as_bias = args.BDNNtimebias
+bdnn_const_baseline = args.BDNNconstbaseline
+ACTFUN = [softPlus, expFun][args.BDNNoutputfun]
 if use_BDNNmodel:
     # model_cov = 6
     f_cov_par = [0.4, 0.5,0.9,1]
     f_update_se = 0.6
     
-    if use_time_as_bias:
+    if bdnn_const_baseline:
         [f_update_q,f_update_lm,f_update_cov]=f_update_se+ np.array([0.1, 0,1-f_update_se])
     else:
         # print([f_update_q,f_update_lm,f_update_cov])
@@ -4810,14 +4802,21 @@ if use_BDNNmodel:
     trait_values= np.array(matched_trait_values)    
     
     time_vec = np.sort(np.array([np.max(FA), np.min(LO)] + list(fixed_times_of_shift)))[::-1]
-    rescaled_time = time_vec*args.BDNNtimetrait
+    if args.BDNNtimetrait:
+        if args.BDNNtimetrait == -1:
+            rescaled_time = time_vec/np.max(time_vec)
+        else:
+            rescaled_time = time_vec*args.BDNNtimetrait
+        print("rescaled times", rescaled_time)
+    else:
+        rescaled_time = []
+    
     trait_tbl_NN, cov_par_init_NN = init_trait_and_weights(trait_values,
                                                            n_BDNN_nodes,
                                                            bias_node=False, 
                                                            fadlad=args.BDNNfadlad,
                                                            use_time_as_trait=use_time_as_trait,
-                                                           fixed_times_of_shift=rescaled_time,
-                                                           use_time_as_bias=use_time_as_bias)
+                                                           fixed_times_of_shift=rescaled_time)
     cov_par_init_NN.append(0) # cov_par_init_NN[2] = covar prm for preseravtion rate (currently not used)
     if False:
         print(rescaled_time)    
@@ -4985,6 +4984,8 @@ if use_BDNNmodel:
     suff_out+= "_BDNN%s" % n_BDNN_nodes
     if use_time_as_trait:
         suff_out+= "T"
+    if bdnn_const_baseline:
+        suff_out+= "c"
 
 
 # OUTPUT 0 SUMMARY AND SETTINGS
