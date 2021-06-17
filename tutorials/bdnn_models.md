@@ -5,7 +5,7 @@
 #### June 2021
 ---
 
-The BD-NN models use a neural network to link changes in origination and extinction rates as a function of one or more discrete and/or continuous traits and as a function of time. 
+The BD-NN models use a neural network to model changes in origination and extinction rates as a function of one or more discrete and/or continuous traits and as a function of time. 
 The BD-NN model is available using a constant baseline rate (`-A 0`) or with time variable rate within fixed time frames (`-A 0 -fixShift <file>`).
 There are currently three flavors of the model:
 
