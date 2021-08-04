@@ -23,7 +23,7 @@ echo "Preparing boost c++ library."
 # Get the boost c++ library
 if [ ! -d "boost" ]; then
   echo ">Downloading"
-  curl -fsSL https://dl.bintray.com/boostorg/release/1.66.0/source/boost_1_66_0.zip -o boost_1_66_0.zip
+  curl -fsSL https://boostorg.jfrog.io/artifactory/main/release/1.66.0/source/boost_1_66_0.zip -o boost_1_66_0.zip
   # Unzip it
   echo "> Unziping"
   unzip -q boost_1_66_0.zip
