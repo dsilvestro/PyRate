@@ -4,7 +4,8 @@ from distutils.core import setup, Extension
 
 module1 = Extension('_FastPyRateC',
 										include_dirs = ['./'],
-                    sources = ['FastPyRateC.cpp', 'FastPyRateC_wrap.cxx'])
+                    sources = ['FastPyRateC.cpp', 'FastPyRateC_wrap.cxx'],
+                    extra_compile_args=['-std=c++11'])
 
 setup (name = 'FastPyRateC',
 			 author='Xavier Meyer',
