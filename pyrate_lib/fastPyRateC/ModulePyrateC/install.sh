@@ -23,16 +23,16 @@ echo "Preparing boost c++ library."
 # Get the boost c++ library
 if [ ! -d "boost" ]; then
   echo ">Downloading"
-  curl -fsSL https://boostorg.jfrog.io/artifactory/main/release/1.66.0/source/boost_1_66_0.zip -o boost_1_66_0.zip
+  curl -fsSL https://boostorg.jfrog.io/artifactory/main/release/1.77.0/source/boost_1_77_0.zip -o boost_1_77_0.zip
   # Unzip it
   echo "> Unziping"
-  unzip -q boost_1_66_0.zip
+  unzip -q boost_1_77_0.zip
   # Move header files
   echo "> Moving files"
-  mv boost_1_66_0/boost .
+  mv boost_1_77_0/boost .
   # Clean up mess
-  rm boost_1_66_0.zip
-  rm -r boost_1_66_0
+  rm boost_1_77_0.zip
+  rm -r boost_1_77_0
 fi
 echo "> done"
 echo "############################"
