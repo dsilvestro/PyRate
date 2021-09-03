@@ -7,12 +7,16 @@ import pandas as pd
 def softPlus(z):
     return np.log(np.exp(z) + 1)
 
-def get_rate_BDNN(rate, x, w): 
+def expFun(z):
+    return np.exp(z)
+
+def get_rate_BDNN(rate, x, w, outputfun=0): 
+    actfun = [softPlus, expFun][outputfun]
     # n: n species, j: traits, i: nodes
     z = np.einsum('nj,ij->ni', x, w[0])
     z[z < 0] = 0 
     z = np.einsum('ni,i->n', z, w[1])
-    rates = np.exp(z) * rate
+    rates = actfun(z) * rate
     return rates 
 
 
@@ -219,8 +223,7 @@ def get_tste_from_logfile(f, burnin=0):
 
 def predicted_rates_per_species(logfile, 
                                 species_trait_file=None,
-                                trait_tbl=None, # expects pandas data frame with header and 
-                                                # 1st column named: 'Taxon_name' 
+                                trait_tbl=None,
                                 wd="", 
                                 time_range = np.arange(15), 
                                 rescale_time = 0.015,
