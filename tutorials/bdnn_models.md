@@ -27,4 +27,12 @@ This model is similar to model \#3 but the baseline rates are constant and set t
 This in practice can be achieved by setting via `-fixShift` many small time slices, e.g. 1 per Myr. Note that a high number of time bins will increase computing time. 
 The potential limitation is that all rate variation is captured through the NN, which might mean that a higher number of nodes is necessary to make a good job (but this has not been verified yet). 
 
+#### Additional settings
 There are currently two available activation functions for the output layer (while for the hidden layer it is set to ReLU), and which ensure that the resulting rates are positive: the softPlus function (`-BDNNoutputfun 0`) and the exponential function (`-BDNNoutputfun 1`). While the choice of activation function might have an effect on efficiency of the MCMC and convergence, this has not yet been explored and might depend on the dataset. 
+
+`-BDNNnodes <int> (default=3)`: number of nodes in the hidden layer
+
+
+
+
+

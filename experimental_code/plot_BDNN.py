@@ -98,6 +98,7 @@ def get_posterior_rates(logfile,
                         rescale_time = 0.015,
                         burnin = 0.25):
     
+    """
     traits_raw = np.genfromtxt(trait_file,skip_header=1, dtype=str)
     traits = traits_raw[:,1:].astype(float)
     n_traits = traits.shape[1]
@@ -145,7 +146,8 @@ def get_posterior_rates(logfile,
         print("\ntime", time_i/rescale_time)
         print("lambda:",np.mean(lam_matrix, axis=0))
         print("mu:",np.mean(mu_matrix, axis=0))
-
+    """
+    pass
 
 def predicted_rates(logfile, 
                     trait_file, 
@@ -221,16 +223,16 @@ def get_tste_from_logfile(f, burnin=0):
     return out_list
     
 
-def predicted_rates_per_species(logfile, 
-                                species_trait_file=None,
-                                trait_tbl=None,
-                                wd="", 
-                                time_range = np.arange(15), 
-                                rescale_time = 0.015,
-                                burnin = 0.25,
-                                fixShift = [np.inf,56.0,33.9,23.03,5.333,2.58,0],
-                                time_as_trait = True, 
-                                return_post_sample=False):
+def predict_rates_per_species(logfile, 
+                              species_trait_file=None,
+                              trait_tbl=None,
+                              wd="", 
+                              time_range = np.arange(15), 
+                              rescale_time = 0.015,
+                              burnin = 0.25,
+                              fixShift = [np.inf,56.0,33.9,23.03,5.333,2.58,0],
+                              time_as_trait = True, 
+                              return_post_sample=False):
     
     if species_trait_file:
         species_traits = pd.read_csv(species_trait_file, delimiter="\t")
@@ -277,8 +279,8 @@ def predicted_rates_per_species(logfile,
             
         # get harmonic mean of rates
         # print(lam_matrix.shape)
-        lam_matrix_hm = np.mean(lam_matrix,axis=0) #len(rate_l) / np.sum(1/lam_matrix,axis=0)
-        mu_matrix_hm =  np.mean(mu_matrix,axis=0) #len(rate_l) / np.sum(1/mu_matrix,axis=0)
+        lam_matrix_hm =  len(rate_l) / np.sum(1/lam_matrix,axis=0) # np.mean(lam_matrix,axis=0)
+        mu_matrix_hm =   len(rate_l) / np.sum(1/mu_matrix,axis=0) # np.mean(mu_matrix,axis=0) 
         print(time_range[i], "MAX",np.max(lam_matrix_hm), np.median(mu_matrix_hm), lam_matrix_hm.shape)
         net_div = lam_matrix - mu_matrix
         div_matrix_hm =  np.mean(net_div,axis=0) 
@@ -340,7 +342,7 @@ if __name__ == '__main__':
     time_as_trait = True
     fixShift = [np.inf,56.0,47.8,41.2,37.8,33.9,28.1,23.03,20.44,15.97,13.82,11.63,7.246,5.333,3.6,2.58]
 
-    predicted_rates_per_species(logfile, 
+    predict_rates_per_species(logfile, 
                                 species_trait_file,
                                 wd, 
                                 time_range = np.arange(0, 65, 1), 
