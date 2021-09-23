@@ -24,18 +24,18 @@ Note:
 
 
 ### Manual installation (all OSs):
-* Download the boost C++ library [https://boostorg.jfrog.io/artifactory/main/release/1.66.0/source/boost_1_66_0.zip](https://boostorg.jfrog.io/artifactory/main/release/1.66.0/source/boost_1_66_0.zip).
+* Download the boost C++ library [https://boostorg.jfrog.io/ui/native/main/release/1.77.0/source/boost_1_77_0.zip](https://boostorg.jfrog.io/ui/native/main/release/1.77.0/source/boost_1_77_0.zip).
 `curl -fsSL (https://boostorg.jfrog.io/artifactory/main/release/1.66.0/source/boost_1_66_0.zip)`
 
 * Unzip it inside the current folder (ModulePyRateC).
-`unzip boost_1_66_0.zip`
+`unzip boost_1_77_0.zip`
 
-* Move the folder "boost_1_66_0/boost" into the current folder
-`mv boost_1_66_0/boost`
+* Move the folder "boost_1_77_0/boost" into the current folder
+`mv boost_1_77_0/boost`
 
-* Remove the folder "boost_1_66_0/" and the "boost_1_66_0.zip" file (optional)
-`rm boost_1_66_0.zip`
-`rm -r boost_1_66_0`
+* Remove the folder "boost_1_77_0/" and the "boost_1_77_0.zip" file (optional)
+`rm boost_1_77_0.zip`
+`rm -r boost_1_77_0`
 
 * Create the C++/Python interface typing:
 `swig -c++ -python FastPyRateC.i`
