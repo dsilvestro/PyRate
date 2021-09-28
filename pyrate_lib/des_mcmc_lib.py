@@ -90,6 +90,8 @@ def prior_exp(L,rate): return sum(scipy.stats.expon.logpdf(L, scale=1./rate))
 
 def prior_normal(L,loc=0,scale=1): return sum(scipy.stats.norm.logpdf(L,loc,scale))
 
+def prior_beta(L, a, b): return sum(scipy.stats.beta.logpdf(L, a, b))
+
 def calc_likelihood_mQ_compr(args):
 	[delta_t,r_vec_list,Q_list,rho_at_present,r_vec_indexes,sign_list,sp_OrigTimeIndex,Q_index]=args
 	PvDes= rho_at_present

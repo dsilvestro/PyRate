@@ -155,9 +155,11 @@ def get_dispersal_rate_through_time(dv_list,time_var_d1,time_var_d2,covar_par=np
 
 
 
-def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par=np.zeros(4),x0_logistic=np.zeros(4),transf_d=0,transf_e=0, offset_dis_div1 = 0, offset_dis_div2 = 0, offset_ext_div1 = 0, offset_ext_div2 = 0): 
+def make_Q_Covar4VDdE(dv_list, ev_list, time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par=np.zeros(4), covar_parD=np.zeros(4), covar_parE=np.zeros(4), x0_logistic=np.zeros(4),transf_d=0,transf_e=0, offset_dis_div1 = 0, offset_dis_div2 = 0, offset_ext_div1 = 0, offset_ext_div2 = 0): 
 	if transf_d==1: # exponential
-		transf_d = np.array([dv_list[0][0] *exp(covar_par[0]*time_var_d1), dv_list[0][1] *exp(covar_par[1]*time_var_d2)]).T
+		idx1 = np.arange(0, len(covar_parD), 2, dtype = int)
+		idx2 = np.arange(1, len(covar_parD), 2, dtype = int)
+		transf_d = np.array([dv_list[0][0] * exp(np.sum(covar_parD[idx1]*time_var_d1, axis = 1)), dv_list[0][1] * exp(np.sum(covar_parD[idx2]*time_var_d2, axis = 1))]).T
 	elif transf_d==2: # logistic
 		transf_d12 = transform_rate_logistic(dv_list[0][0], [covar_par[0],x0_logistic[0]],time_var_d1)
 		transf_d21 = transform_rate_logistic(dv_list[0][1], [covar_par[1],x0_logistic[1]],time_var_d2)
@@ -170,13 +172,15 @@ def make_Q_Covar4VDdE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_v
 	else: # time-dependent-dispersal
 		transf_d = dv_list
 	if transf_e==1: # exponential
-		transf_e = np.array([ev_list[0][0] *exp(covar_par[2]*time_var_e1), ev_list[0][1] *exp(covar_par[3]*time_var_e2)]).T
-	elif transf_e==3: # linear
-		transf_e = np.array([ev_list[0][0] + (covar_par[2]*time_var_e1), ev_list[0][1] +(covar_par[3]*time_var_e2)]).T
+		idx1 = np.arange(0, len(covar_parE), 2, dtype = int)
+		idx2 = np.arange(1, len(covar_parE), 2, dtype = int)
+		transf_e = np.array([ev_list[0][0] * exp(np.sum(covar_parE[idx1]*time_var_e1, axis = 1)), ev_list[0][1] * exp(np.sum(covar_parE[idx2]*time_var_e2, axis = 1))]).T
 	elif transf_e==2: # logistic
 		transf_e1  = transform_rate_logistic(ev_list[0][0], [covar_par[2],x0_logistic[2]],time_var_e1)
 		transf_e2  = transform_rate_logistic(ev_list[0][1], [covar_par[3],x0_logistic[3]],time_var_e2)
 		transf_e = np.array([transf_e1 ,transf_e2 ]).T
+	elif transf_e==3: # linear
+		transf_e = np.array([ev_list[0][0] + (covar_par[2]*time_var_e1), ev_list[0][1] +(covar_par[3]*time_var_e2)]).T
 	elif transf_e==4: # linear diversity dependence
 		base_e1 = ev_list[0][0] * (1. - (offset_ext_div1/covar_par[2]))
 		base_e2 = ev_list[0][1] * (1. - (offset_ext_div2/covar_par[3]))
@@ -221,7 +225,7 @@ def make_Q_Covar4VDdEDOUBLE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,
 	elif transf_d==2: # logistic
 		transf_d12 = transform_rate_logistic(dv_list[0][0], [covar_par[0],x0_logistic[0]],time_var_d1)
 		transf_d21 = transform_rate_logistic(dv_list[0][1], [covar_par[1],x0_logistic[1]],time_var_d2)
-		transf_d = np.array([transf_d12,transf_d21]).T		
+		transf_d = np.array([transf_d12,transf_d21]).T
 	else: # time-dependent-dispersal
 		transf_d = dv_list
 	if transf_e==1: # exponential
