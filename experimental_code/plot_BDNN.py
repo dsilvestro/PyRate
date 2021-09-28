@@ -98,6 +98,7 @@ def get_posterior_rates(logfile,
                         rescale_time = 0.015,
                         burnin = 0.25):
     
+    """
     traits_raw = np.genfromtxt(trait_file,skip_header=1, dtype=str)
     traits = traits_raw[:,1:].astype(float)
     n_traits = traits.shape[1]
@@ -145,7 +146,8 @@ def get_posterior_rates(logfile,
         print("\ntime", time_i/rescale_time)
         print("lambda:",np.mean(lam_matrix, axis=0))
         print("mu:",np.mean(mu_matrix, axis=0))
-
+    """
+    pass
 
 def predicted_rates(logfile, 
                     trait_file, 
@@ -218,19 +220,22 @@ def get_tste_from_logfile(f, burnin=0):
         meanTE= np.mean(t_file[burnin:t_file.shape[0],ind_te0+j])
         out_list.append([meanTS, meanTE])
         j += 1
-    return out_list
+    
+    species_list = [s.split("_TS")[0] for s in w]
+    return out_list, species_list
     
 
-def predicted_rates_per_species(logfile, 
-                                species_trait_file=None,
-                                trait_tbl=None,
-                                wd="", 
-                                time_range = np.arange(15), 
-                                rescale_time = 0.015,
-                                burnin = 0.25,
-                                fixShift = [np.inf,56.0,33.9,23.03,5.333,2.58,0],
-                                time_as_trait = True, 
-                                return_post_sample=False):
+def predict_rates_per_species(logfile, 
+                              species_trait_file=None,
+                              trait_tbl=None,
+                              wd="", 
+                              time_range = np.arange(15), 
+                              rescale_time = 0.015,
+                              burnin = 0.25,
+                              fixShift = [np.inf,56.0,33.9,23.03,5.333,2.58,0],
+                              time_as_trait = True, 
+                              return_post_sample=False,
+                              out=""):
     
     if species_trait_file:
         species_traits = pd.read_csv(species_trait_file, delimiter="\t")
@@ -246,6 +251,7 @@ def predicted_rates_per_species(logfile,
         n_traits += 1
     
     rate_l2D, rate_m2D, w_lam, w_mu = get_posterior_weigths_BDS(logfile, n_traits, burnin)
+    print("N. traits: ", n_traits, rate_l2D.shape)
     
     rescaled_time = rescale_time*time_range
     
@@ -263,6 +269,7 @@ def predicted_rates_per_species(logfile,
             trait_tbl_i = 0+traits
         
         rate_l = rate_l2D[:, np.digitize(time_range[i], fixShift)-1] 
+        # print('rate_l', rate_l)
         rate_m = rate_m2D[:, np.digitize(time_range[i], fixShift)-1] 
         # print(np.mean(rate_l), np.mean(rate_m))
             
@@ -277,8 +284,8 @@ def predicted_rates_per_species(logfile,
             
         # get harmonic mean of rates
         # print(lam_matrix.shape)
-        lam_matrix_hm = np.mean(lam_matrix,axis=0) #len(rate_l) / np.sum(1/lam_matrix,axis=0)
-        mu_matrix_hm =  np.mean(mu_matrix,axis=0) #len(rate_l) / np.sum(1/mu_matrix,axis=0)
+        lam_matrix_hm =  len(rate_l) / np.sum(1/lam_matrix,axis=0) # np.mean(lam_matrix,axis=0)
+        mu_matrix_hm =   len(rate_l) / np.sum(1/mu_matrix,axis=0) # np.mean(mu_matrix,axis=0) 
         print(time_range[i], "MAX",np.max(lam_matrix_hm), np.median(mu_matrix_hm), lam_matrix_hm.shape)
         net_div = lam_matrix - mu_matrix
         div_matrix_hm =  np.mean(net_div,axis=0) 
@@ -295,33 +302,48 @@ def predicted_rates_per_species(logfile,
     species_rate_mu = np.array(species_rate_mu).T
     species_rate_div = np.array(species_rate_div).T
     
-    list_tste = get_tste_from_logfile(logfile, burnin)    
-    
-    with open(os.path.join(wd, "taxon_speciation_rates.txt"), 'w') as f:
+    list_tste, species_list_in_log_file = get_tste_from_logfile(logfile, burnin)    
+    # species_list_in_log_file might be different from list in trait file
+    species_list_in_log_file = np.array(species_list_in_log_file)
+    with open(os.path.join(wd, "taxon_speciation_rates%s.txt" % out), 'w') as f:
                     writer = csv.writer(f, delimiter='\t')
                     l = ["Species","ts","te"]
                     h = ["%s_Ma" % time_range[i] for i in  range(len(rescaled_time))]
                     writer.writerow(l+h) 
+                    # print(species_list_in_log_file)
                     for i in range(len(species_rate_lam)):
-                        l = [species_traits["Taxon_name"][i]] + list_tste[i] + list(species_rate_lam[i])
+                        if species_traits["Taxon_name"][i] in species_list_in_log_file:
+                            indx = np.where(species_list_in_log_file == species_traits["Taxon_name"][i])[0][0]
+                            # print(indx ,species_traits["Taxon_name"][i])
+                            l = [species_traits["Taxon_name"][i]] + list_tste[indx] + list(species_rate_lam[i])
+                        else:
+                            l = [species_traits["Taxon_name"][i]] + ['NA', 'NA'] + list(species_rate_lam[i])
                         writer.writerow(l) 
 
-    with open(os.path.join(wd, "taxon_extinction_rates.txt"), 'w') as f:
+    with open(os.path.join(wd, "taxon_extinction_rates%s.txt" % out), 'w') as f:
                     writer = csv.writer(f, delimiter='\t')
                     l = ["Species","ts","te"]
                     h = ["%s_Ma" % time_range[i] for i in  range(len(rescaled_time))]
                     writer.writerow(l+h) 
                     for i in range(len(species_rate_mu)):
-                        l = [species_traits["Taxon_name"][i]] + list_tste[i] + list(species_rate_mu[i])
+                        if species_traits["Taxon_name"][i] in species_list_in_log_file:
+                            indx = np.where(species_list_in_log_file == species_traits["Taxon_name"][i])[0][0]
+                            l = [species_traits["Taxon_name"][i]] + list_tste[indx] + list(species_rate_mu[i])
+                        else:
+                            l = [species_traits["Taxon_name"][i]] + ['NA', 'NA'] + list(species_rate_mu[i])
                         writer.writerow(l) 
     
-    with open(os.path.join(wd, "taxon_diversification_rates.txt"), 'w') as f:
+    with open(os.path.join(wd, "taxon_diversification_rates%s.txt" % out), 'w') as f:
                     writer = csv.writer(f, delimiter='\t')
                     l = ["Species","ts","te"]
                     h = ["%s_Ma" % time_range[i] for i in  range(len(rescaled_time))]
                     writer.writerow(l+h) 
                     for i in range(len(species_rate_div)):
-                        l = [species_traits["Taxon_name"][i]] + list_tste[i] + list(species_rate_div[i])
+                        if species_traits["Taxon_name"][i] in species_list_in_log_file:
+                            indx = np.where(species_list_in_log_file == species_traits["Taxon_name"][i])[0][0]
+                            l = [species_traits["Taxon_name"][i]] + list_tste[indx] + list(species_rate_div[i])
+                        else:
+                            l = [species_traits["Taxon_name"][i]] + ['NA', 'NA'] + list(species_rate_div[i])
                         writer.writerow(l) 
     if return_post_sample:
         return np.array(rate_samples)
@@ -340,7 +362,7 @@ if __name__ == '__main__':
     time_as_trait = True
     fixShift = [np.inf,56.0,47.8,41.2,37.8,33.9,28.1,23.03,20.44,15.97,13.82,11.63,7.246,5.333,3.6,2.58]
 
-    predicted_rates_per_species(logfile, 
+    predict_rates_per_species(logfile, 
                                 species_trait_file,
                                 wd, 
                                 time_range = np.arange(0, 65, 1), 
