@@ -892,8 +892,8 @@ def rescale_and_center_time_var(time_var, rescale_factor):
 	time_var = time_var - mean_before_centering
 	return time_var, mean_before_centering, unscaled_min, unscaled_max, unscaled_mean
 
-mean_varD_before_centering = 0.
-mean_varE_before_centering = 0.
+mean_varD_before_centering = np.zeros(1)
+mean_varE_before_centering = np.zeros(1)
 # if args.varD != "" and args.varE != "":
 # 	time_var_temp = get_binned_continuous_variable(time_series, args.varD)
 # 	time_varD, mean_varD_before_centering, time_varD_unscmin, time_varD_unscmax, time_varD_unscmean = rescale_and_center_time_var(time_var_temp, rescale_factor)
@@ -914,35 +914,35 @@ if do_varD:
 	list_dis_files = list(sort(glob.glob(all_dis_files)))
 	num_dis_files = len(list_dis_files)
 	time_varD = np.ones((len(time_series) - 1, num_dis_files))
-	mean_varD_before_centering = np.ones(num_dis_files)
+	mean_varD_before_centering = np.zeros(num_dis_files)
 	time_varD_unscmin = np.ones(num_dis_files)
 	time_varD_unscmax = np.ones(num_dis_files)
 	time_varD_unscmean = np.ones(num_dis_files)
-	covar_mean_dis = np.ones(num_dis_files)
 	for i in range(num_dis_files):
 		time_var_temp = get_binned_continuous_variable(time_series, list_dis_files[i])
 		time_varD[:,i], mean_varD_before_centering[i], time_varD_unscmin[i], time_varD_unscmax[i], time_varD_unscmean[i] = rescale_and_center_time_var(time_var_temp, rescale_factor)
 #		print("Rescaled variable dispersal",time_varD, time_series)
-	covar_mean_dis = np.mean(time_varD, axis = 1)
+	covar_mean_dis = np.mean(time_varD, axis = 0)
+	mean_varD_before_centering = mean_varD_before_centering
 if do_varE:
 	all_ext_files = "%s/*" % (args.varE)
 	list_ext_files = list(sort(glob.glob(all_ext_files)))
 	num_ext_files = len(list_ext_files)
 	time_varE = np.ones((len(time_series) - 1, num_ext_files))
-	mean_varE_before_centering = np.ones(num_ext_files)
+	mean_varE_before_centering = np.zeros(num_ext_files)
 	time_varE_unscmin = np.ones(num_ext_files)
 	time_varE_unscmax = np.ones(num_ext_files)
 	time_varE_unscmean = np.ones(num_ext_files)
-	covar_mean_dis = np.ones(num_ext_files)
 	for i in range(num_ext_files):
 		time_var_temp = get_binned_continuous_variable(time_series, list_ext_files[i])
 		time_varE[:,i], mean_varE_before_centering[i], time_varE_unscmin[i], time_varE_unscmax[i], time_varE_unscmean[i] = rescale_and_center_time_var(time_var_temp, rescale_factor)
 #		print("Rescaled variable extinction",time_varE, time_series)
-	covar_mean_ext = np.mean(time_varE, axis = 1)
+	covar_mean_ext = np.mean(time_varE, axis = 0)
 
-mean_varD_before_centering = np.array([mean_varD_before_centering, mean_varD_before_centering])
-mean_varE_before_centering = np.array([mean_varE_before_centering, mean_varE_before_centering])
-
+#mean_varD_before_centering = np.array([mean_varD_before_centering, mean_varD_before_centering])
+#mean_varE_before_centering = np.array([mean_varE_before_centering, mean_varE_before_centering])
+mean_varD_before_centering = np.concatenate((mean_varD_before_centering, mean_varD_before_centering))
+mean_varE_before_centering = np.concatenate((mean_varE_before_centering, mean_varE_before_centering))
 bound_covar = 25.
 range_time_varD = np.max(time_varD, axis = 0) - np.min(time_varD, axis = 0)
 range_time_varE = np.max(time_varE, axis = 0) - np.min(time_varE, axis = 0)
@@ -1095,6 +1095,8 @@ cat_parD_A = np.zeros(len(unique_catD))
 cat_parE_A = np.zeros(len(unique_catE))
 catD_not_baseline = np.isin(np.arange(0, len(unique_catD)), catD_baseline) == False
 catE_not_baseline = np.isin(np.arange(0, len(unique_catE)), catE_baseline) == False
+hp_catD_A = np.ones(1)
+hp_catE_A = np.ones(1)
 #if args.A != 3: # Bayesian infers deviation from a common mean while ML baseline + state specific multiplier
 #	catD_baseline = np.repeat(False, len(unique_catD))
 #	catE_baseline = np.repeat(False, len(unique_catE))
@@ -1543,7 +1545,7 @@ if do_varE:
 		head += "\tcov%s_e1\tcov%s_e2" % (i + 1, i + 1)
 	if args.lgE:
 		for i in range(num_varE):
-			head += "\tk%s_e1\tk%s_e2" % (i + 1, i + 1)
+			head += "\tx0%s_e1\tx0%s_e2" % (i + 1, i + 1)
 if do_DivdE: head += "\tK_e1\tK_e2"
 if argsDdE: head += "\tphi_e1\tphi_e2"
 if argsG: head+= "\talpha"
@@ -1562,12 +1564,16 @@ if any(num_catD > 0):
 	for i in range(len(num_catD)):
 		catD_y = np.unique(catD[:,i]).astype(int)
 		catD_y = catD_y - np.min(catD_y)
-		for y in catD_y: head+= "\tcat%s_%s_d" % (i + 1, y + 1)
+		for y in catD_y:
+			head += "\tcat%s_%s_d" % (i + 1, y + 1)
+	head += "\thp_cat_d"
 if any(num_catE > 0):
 	for i in range(len(num_catE)):
 		catE_y = np.unique(catE[:,i]).astype(int)
 		catE_y = catE_y - np.min(catE_y)
-		for y in catE_y: head+= "\tcat%s_%s_e" % (i + 1, y + 1)
+		for y in catE_y:
+			head += "\tcat%s_%s_e" % (i + 1, y + 1)
+	head += "\thp_cat_e"
 head+="\thp_rate\tbeta"
 
 
@@ -2008,7 +2014,7 @@ def lik_DES_taxon(args):
 	[l, dis_vec, ext_vec, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp,
 	delta_t, r_vec, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
 	time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par, covar_parD, covar_parE,
-	x0_logistic, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
+	x0_logisticD, x0_logisticE, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 	traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, cat_parE, catE, use_Pade_approx] = args
 	if traits or cat:
 		if traits:
@@ -2019,7 +2025,7 @@ def lik_DES_taxon(args):
 			ext_vec = ext_vec * np.sum(np.exp(cat_parE[catE][l,:]))
 		Q_list, marginal_rates_temp = make_Q_Covar4VDdE(dis_vec, ext_vec,
 								time_var_d1, time_var_d2, time_var_e1, time_var_e2,
-								covar_par, covar_parD, covar_parE, x0_logistic, transf_d, transf_e,
+								covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE, transf_d, transf_e,
 								offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2)
 	if use_Pade_approx==0:
 		w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
@@ -2032,12 +2038,12 @@ def lik_DES_taxon(args):
 if use_seq_lik is True: num_processes=0
 if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
 
-def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par, covar_parD, covar_parE, x0_logistic, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex,Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, bin_last_occ, traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, catE, cat_parE):
+def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex,Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, bin_last_occ, traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, catE, cat_parE):
 	# weight per gamma cat per species: multiply 
 	weight_per_taxon = np.zeros((nTaxa, pp_gamma_ncat))
 	Q_list, marginal_rates_temp = make_Q_Covar4VDdE(dis_vec,ext_vec,
 							time_var_d1,time_var_d2,time_var_e1,time_var_e2,
-							covar_par, covar_parD, covar_parE, x0_logistic,transf_d,transf_e,
+							covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE, transf_d, transf_e,
 							offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2)
 	Q_index_temp = np.array(range(0,len(Q_list)))
 	if num_processes==0:
@@ -2049,7 +2055,7 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 							r_vec,
 							rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
 							time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par, covar_parD, covar_parE,
-							x0_logistic, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
+							x0_logisticD, x0_logisticE, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 							traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, cat_parE, catE, use_Pade_approx])
 		else:
 			for l in list_taxa_index:
@@ -2065,14 +2071,14 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 						r_vec_Gamma[:,1] = small_number
 						Q_list, marginal_rates_temp= make_Q_Covar4VDdE(dis_vec,ext_vec,
 												time_var_d1,time_var_d2,time_var_e1,time_var_e2,
-												covar_par, covar_parD, covar_parE, x0_logistic,transf_d,transf_e,
+												covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE,transf_d,transf_e,
 												offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2)
 					w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
 					lik_vec[i] = lik_DES_taxon([l,dis_vec, ext_vec, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp, delta_t,
 							r_vec_Gamma, # Only difference to homogeneous sampling
 							rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
 							time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par, covar_parD, covar_parE,
-							x0_logistic, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
+							x0_logisticD, x0_logisticE, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 							traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, cat_parE, catE, use_Pade_approx])
 				lik_vec_max = np.max(lik_vec)
 				lik2 = lik_vec - lik_vec_max
@@ -2089,7 +2095,7 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 					r_vec,
 					rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
 					time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par, covar_parD, covar_parE,
-					x0_logistic, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
+					x0_logisticD, x0_logisticE, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 					traits, trait_par, traitD, traitE, cat, cat_parD, catD, cat_parE, catE, use_Pade_approx] for l in list_taxa_index ]
 			lik = sum(np.array(pool_lik.map(lik_DES_taxon, args_mt_lik)))
 		else:
@@ -2107,7 +2113,7 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 						r_vec_Gamma, # Only difference to homogeneous sampling
 						rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
 						time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par, covar_parD, covar_parE,
-						x0_logistic, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
+						x0_logisticD, x0_logisticE, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 						traits, trait_par, traitD, traitE, cat, catD, catE, use_Pade_approx] for l in list_taxa_index ]
 				liktmp[i,:] = np.array(pool_lik.map(lik_DES_taxon, args_mt_lik))
 			liktmpmax = np.amax(liktmp, axis = 0)
@@ -2308,7 +2314,7 @@ def lik_opt(x, grad):
 	if est_div_gr_obs:
 		lik, weight_per_taxon = lik_DES(dis_vec, ext_vec, r_vec,
 						time_var_d1, time_var_d2, time_var_e1, time_var_e2,
-						covar_par, covar_parD, covar_parE, x0_logistic, transf_d, transf_e,
+						covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE, transf_d, transf_e,
 						offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 						rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST,OrigTimeIndex,
 						Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, bin_last_occ,
@@ -2425,8 +2431,8 @@ if args.A == 3:
 			opt_ind_x0_log_dis = np.arange(ind_counter, ind_counter + 2 * num_varD)
 			ind_counter += 2 * num_varD
 			x0 = np.concatenate((x0, np.mean(time_varD, axis = 0), np.mean(time_varD, axis = 0)), axis = None)
-			lower_bounds = lower_bounds + [np.min(time_varD, axis = 0).tolist()] + [np.min(time_varD, axis = 0).tolist()]
-			upper_bounds = upper_bounds + [np.max(time_varD, axis = 0).tolist()] + [np.max(time_varD, axis = 0).tolist()]
+			lower_bounds = lower_bounds + np.min(time_varD, axis = 0).tolist() + np.min(time_varD, axis = 0).tolist()
+			upper_bounds = upper_bounds + np.max(time_varD, axis = 0).tolist() + np.max(time_varD, axis = 0).tolist()
 			if do_symCovD or data_in_area != 0 or constraints_01:
 				until = 1
 				if do_symCovD:
@@ -2471,8 +2477,8 @@ if args.A == 3:
 			opt_ind_x0_log_ext = np.arange(ind_counter, ind_counter + 2 * num_varE)
 			ind_counter += 2 * num_varE
 			x0 = np.concatenate((x0, np.mean(time_varE), np.mean(time_varE)), axis = None)
-			lower_bounds = lower_bounds + [np.min(time_varE, axis = 0).tolist()] + [np.min(time_varE, axis = 0).tolist()]
-			upper_bounds = upper_bounds + [np.max(time_varE, axis = 0).tolist()] + [np.max(time_varE, axis = 0).tolist()]
+			lower_bounds = lower_bounds + np.min(time_varE, axis = 0).tolist() + np.min(time_varE, axis = 0).tolist()
+			upper_bounds = upper_bounds + np.max(time_varE, axis = 0).tolist() + np.max(time_varE, axis = 0).tolist()
 			if do_symCovE or data_in_area != 0 or constraints_23:
 				until = 1
 				if do_symCovE:
@@ -2520,6 +2526,7 @@ if args.A == 3:
 		if do_DivdE:
 			A3init[opt_ind_ext] = A3init[opt_ind_ext] / (1. - ([offset_ext_div2, offset_ext_div1]/A3init[opt_ind_covar_ext]))
 		x0 = A3init
+
 
 	# Maximize likelihood
 	if args.A3set[4] == 1 and any(args.TdD is False or do_DivdD or args.TdE is False or do_DivdE or args.DdE or (data_in_area != 0 and argsG) or argstraitD != "" or argstraitE != "" or argscatD != "" or argscatE != ""):
@@ -2787,9 +2794,13 @@ for it in range(n_generations * len(scal_fac_TI)):
 	r_vec = r_vec_A + 0.
 	x0_logistic = x0_logistic_A + 0.
 	x0_logisticD = x0_logisticD_A + 0.
-	x0_logisticE = x0_logisticD_A + 0.
+	x0_logisticE = x0_logisticE_A + 0.
 	hasting_de = 0
 	hasting_alpha = 0
+	hasting_catD = 0
+	hasting_catE = 0
+	hp_catD = hp_catD_A + 0.
+	hp_catE = hp_catE_A + 0.
 	gibbs_sample = 0
 	if it>0: 
 		if runMCMC == 1:
@@ -2822,9 +2833,11 @@ for it in range(n_generations * len(scal_fac_TI)):
 		if argscatD != "" and r[2] < .5:
 			cat_parD = update_parameter_uni_2d_freq(cat_parD_A, d=0.5, f=0.5, m = -3., M = 5.)
 			cat_parD[catD_baseline] = 0.
+			hp_catD, hasting_catD = update_multiplier_proposal_freq(hp_catD_A, d = 0.5, f = 0.75)
 		if argscatE != "" and r[2] < .5:
 			cat_parE = update_parameter_uni_2d_freq(cat_parE_A, d=0.5, f=0.5, m = -3., M = 5.)
 			cat_parE[catE_baseline] = 0.
+			hp_catE, hasting_catE = update_multiplier_proposal_freq(hp_catE_A, d = 0.5, f = 0.75)
 			
 	elif r[0] < update_freq[1]: # EXTINCTION RATES
 		if args.TdE is False and r[1] < .5: 
@@ -2848,9 +2861,11 @@ for it in range(n_generations * len(scal_fac_TI)):
 		if argscatD != "" and r[2] < .5:
 			cat_parD = update_parameter_uni_2d_freq(cat_parD_A, d=0.5, f=0.5, m = -3., M = 5.)
 			cat_parD[catD_baseline] = 0.
+			hp_catD, hasting_catD = update_multiplier_proposal_freq(hp_catD_A, d = 0.5, f = 0.75)
 		if argscatE != "" and r[2] < .5:
 			cat_parE = update_parameter_uni_2d_freq(cat_parE_A, d=0.5, f=0.5, m = -3., M = 5.)
 			cat_parE[catE_baseline] = 0.
+			hp_catE, hasting_catE = update_multiplier_proposal_freq(hp_catE_A, d = 0.5, f = 0.75)
 	
 	elif r[0] <=update_freq[2]: # SAMPLING RATES
 		r_vec=update_parameter_uni_2d_freq(r_vec_A,d=0.1*scale_proposal,f=update_rate_freq_r)
@@ -3023,7 +3038,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		#print "transf_d", transf_d
 		#print "transf_e", transf_e
 		if r[0] < update_freq[1] or it==0:
-			Q_list, marginal_rates_temp= make_Q_Covar4VDdE(dis_vec,ext_vec,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par, covar_parD, covar_parE, x0_logistic,transf_d,transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2)
+			Q_list, marginal_rates_temp= make_Q_Covar4VDdE(dis_vec,ext_vec,time_var_d1,time_var_d2,time_var_e1,time_var_e2,covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE,transf_d,transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2)
 	
 		
 	
@@ -3063,7 +3078,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	#			w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
 	lik, weight_per_taxon = lik_DES(dis_vec, ext_vec, r_vec,
 					time_var_d1, time_var_d2, time_var_e1, time_var_e2,
-					covar_par, covar_parD, covar_parE, x0_logistic, transf_d, transf_e,
+					covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE, transf_d, transf_e,
 					offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 					rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST,OrigTimeIndex,
 					Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, bin_last_occ,
@@ -3125,13 +3140,12 @@ for it in range(n_generations * len(scal_fac_TI)):
 		if args.lgE: prior += prior_normal(x0_logisticE[idx2_symCovE], 0, 1)
 		if argstraitD != "": prior += prior_normal(trait_parD, 0, 1)
 		if argstraitE != "": prior += prior_normal(trait_parE, 0, 1)
-		if argscatD != "": prior += prior_normal(cat_parD, 0, 1)
-		if argscatE != "": prior += prior_normal(cat_parE, 0, 1)
+		if argscatD != "": prior += prior_normal(cat_parD, 0, hp_catD)
+		if argscatE != "": prior += prior_normal(cat_parE, 0, hp_catE)
 
 
-	
 	lik_alter = lik * scal_fac_TI[scal_fac_ind]
-	hasting = hasting_de + hasting_alpha
+	hasting = hasting_de + hasting_alpha + hasting_catD + hasting_catE
 
 	accepted_state = 0
 	if args.A == 3:
@@ -3159,14 +3173,15 @@ for it in range(n_generations * len(scal_fac_TI)):
 		ext_rate_vec_A= ext_rate_vec
 		r_vec_A=        r_vec
 		likA=lik
-		priorA=prior
-		covar_par_A=covar_par
-		covar_parD_A=covar_parD
-		covar_parE_A=covar_parE
-		trait_parD_A=trait_parD
-		trait_parE_A=trait_parE
-		cat_parD_A=cat_parD
-		cat_parE_A=cat_parE
+		priorA = prior
+		covar_par_A = covar_par
+		covar_parD_A = covar_parD
+		covar_parE_A = covar_parE
+		trait_parD_A = trait_parD
+		trait_parE_A = trait_parE
+		cat_parD_A = cat_parD
+		cat_parE_A = cat_parE
+		hp_catD_A = hp_catD
 		x0_logisticD_A = x0_logisticD
 		x0_logisticE_A = x0_logisticE
 		marginal_rates_A = marginal_rates_temp
@@ -3186,6 +3201,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 			ext_rate_vec_A[0,:] = ext_rate_vec_A[0,:] * (1. - ([offset_ext_div2, offset_ext_div1]/covar_par[2:4]))
 			ext_rate_not_transformed = False
 		if args.lgD:
+			print("covar_mean_dis:", covar_mean_dis)
 			dis_rate_vec_A[0,:] = dis_rate_vec_A[0,:] * ( 1. + exp(-covar_parD_A * (covar_mean_dis - x0_logisticD_A)))
 			dis_rate_not_transformed = False
 		if args.lgE:
@@ -3325,10 +3341,10 @@ for it in range(n_generations * len(scal_fac_TI)):
 		log_state = log_state + list(trait_parD_A) + list(trait_parE_A)
 		if argscatD != "":
 			#log_dis_rate = np.repeat(log_dis_rate, len(unique_catD)) * np.tile(cat_parD, len(log_dis_rate))
-			log_state = log_state + list(np.exp(cat_parD))
+			log_state = log_state + list(np.exp(cat_parD)) + list(hp_catD)
 		if argscatE != "":
 			#log_ext_rate = np.repeat(log_ext_rate, len(unique_catE)) * np.tile(cat_parE, len(log_ext_rate))
-			log_state = log_state + list(np.exp(cat_parE))
+			log_state = log_state + list(np.exp(cat_parE)) + list(hp_catE)
 		log_state = log_state+[prior_exp_rate]+[scal_fac_TI[scal_fac_ind]]
 		wlog.writerow(log_state)
 		logfile.flush()
