@@ -2122,7 +2122,8 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 			liktmp2 = liktmp - liktmpmax
 			lik = sum(log(sum( exp(liktmp2), axis = 0 )/pp_gamma_ncat)+liktmpmax)
 			weight_per_taxon = liktmp / sum(liktmp, axis = 0)
-
+			weight_per_taxon = weight_per_taxon.T
+	
 	return lik, weight_per_taxon
 
 
