@@ -2027,8 +2027,9 @@ def lik_DES_taxon(args):
 								time_var_d1, time_var_d2, time_var_e1, time_var_e2,
 								covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE, transf_d, transf_e,
 								offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2)
+		if use_Pade_approx==0:
+			w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
 	if use_Pade_approx==0:
-		w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
 		l_temp = calc_likelihood_mQ_eigen([delta_t,r_vec,w_list,vl_list,vl_inv_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp,bin_last_occ[l]])
 	else:
 		l_temp = calc_likelihood_mQ([delta_t,r_vec,Q_list,rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp,bin_last_occ[l]])
@@ -2041,13 +2042,19 @@ if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
 def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex,Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, bin_last_occ, traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, catE, cat_parE):
 	# weight per gamma cat per species: multiply 
 	weight_per_taxon = np.zeros((nTaxa, pp_gamma_ncat))
-	Q_list, marginal_rates_temp = make_Q_Covar4VDdE(dis_vec,ext_vec,
-							time_var_d1,time_var_d2,time_var_e1,time_var_e2,
-							covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE, transf_d, transf_e,
-							offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2)
-	Q_index_temp = np.array(range(0,len(Q_list)))
-	if num_processes==0:
+	Q_list = np.zeros(1)
+	marginal_rates_temp = np.zeros(1)
+	w_list = np.zeros(1)
+	vl_list = np.zeros(1)
+	vl_inv_list = np.zeros(1)
+	Q_index_temp = np.array(range(0,len(time_var_d1)))
+	if traits is False and cat is False:
+		Q_list, marginal_rates_temp = make_Q_Covar4VDdE(dis_vec,ext_vec,
+								time_var_d1,time_var_d2,time_var_e1,time_var_e2,
+								covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE, transf_d, transf_e,
+								offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2)
 		w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
+	if num_processes==0:
 		lik = 0
 		if argsG is False:
 			for l in list_taxa_index:
@@ -2069,11 +2076,6 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 						r_vec_Gamma[:,2] = small_number
 					elif args.data_in_area == 2:
 						r_vec_Gamma[:,1] = small_number
-						Q_list, marginal_rates_temp= make_Q_Covar4VDdE(dis_vec,ext_vec,
-												time_var_d1,time_var_d2,time_var_e1,time_var_e2,
-												covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE,transf_d,transf_e,
-												offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2)
-					w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
 					lik_vec[i] = lik_DES_taxon([l,dis_vec, ext_vec, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp, delta_t,
 							r_vec_Gamma, # Only difference to homogeneous sampling
 							rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
@@ -2089,14 +2091,14 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 			
 	else: # multi=processing
 		#sys.exit("Multi-threading not available")
-		w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
+		#w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
 		if argsG is False:
 			args_mt_lik = [ [l, dis_vec, ext_vec, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp, delta_t,
 					r_vec,
 					rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
 					time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par, covar_parD, covar_parE,
 					x0_logisticD, x0_logisticE, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-					traits, trait_par, traitD, traitE, cat, cat_parD, catD, cat_parE, catE, use_Pade_approx] for l in list_taxa_index ]
+					traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, cat_parE, catE, use_Pade_approx] for l in list_taxa_index ]
 			lik = sum(np.array(pool_lik.map(lik_DES_taxon, args_mt_lik)))
 		else:
 			YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
@@ -2114,7 +2116,7 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 						rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
 						time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par, covar_parD, covar_parE,
 						x0_logisticD, x0_logisticE, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-						traits, trait_par, traitD, traitE, cat, catD, catE, use_Pade_approx] for l in list_taxa_index ]
+						traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, cat_parE, catE, use_Pade_approx] for l in list_taxa_index ]
 				liktmp[i,:] = np.array(pool_lik.map(lik_DES_taxon, args_mt_lik))
 			liktmpmax = np.amax(liktmp, axis = 0)
 			liktmp2 = liktmp - liktmpmax
@@ -2529,19 +2531,21 @@ if args.A == 3:
 
 
 	# Maximize likelihood
+	div_iter = 1
+	div_timeout = 1
 	if args.A3set[4] == 1 and any(args.TdD is False or do_DivdD or args.TdE is False or do_DivdE or args.DdE or (data_in_area != 0 and argsG) or argstraitD != "" or argstraitE != "" or argscatD != "" or argscatE != ""):
 		print("Optimize only baseline dispersal, extinction and sampling")
-		args.A3set[2] = args.A3set[2] / 2
-		args.A3set[3] = args.A3set[3] / 2
+#		args.A3set[2] = args.A3set[2] / 3
+#		args.A3set[3] = args.A3set[3] / 3
 		opt_base = nlopt.opt(nlopt.LN_SBPLX, len(x0))
 		new_lower_bounds = lower_bounds[:]
 		new_upper_bounds = upper_bounds[:]
 		frombound = int(max(opt_ind_r_vec)) + 1
-		tobount = len(x0)
+		tobound = len(x0)
 		if argsG and data_in_area == 0:
 			frombound = frombound + 1
-		new_lower_bounds[frombound:tobount] = x0[frombound:tobount]
-		new_upper_bounds[frombound:tobount] = x0[frombound:tobount]
+		new_lower_bounds[frombound:tobound] = x0[frombound:tobound]
+		new_upper_bounds[frombound:tobound] = x0[frombound:tobound]
 		if do_DivdD:
 			for i in range(len(opt_ind_covar_dis)):
 				fix_covar = int(opt_ind_covar_dis[i])
@@ -2558,11 +2562,13 @@ if args.A == 3:
 		opt_base.set_upper_bounds(new_upper_bounds)
 		opt_base.set_max_objective(lik_opt)
 		opt_base.set_xtol_rel(args.A3set[0])
-		opt_base.set_maxeval(int(args.A3set[2])  * round(1.25**len(x0)))
+		opt_base.set_maxeval(int(args.A3set[2]/3)  * round(1.25**frombound))
 		opt_base.set_ftol_abs(args.A3set[1])
-		opt_base.set_maxtime(args.A3set[3])
+		opt_base.set_maxtime(args.A3set[3]/3)
 		x_base = opt_base.optimize(x0)
 		x0 = x_base
+		div_iter = 2
+		div_timeout = 2
 		print("Baseline dispersal, extinction and sampling optimized")
 		if do_DivdD:
 			for i in range(len(opt_ind_covar_dis)):
@@ -2573,17 +2579,17 @@ if args.A == 3:
 				fix_covar = int(opt_ind_covar_ext[i])
 				x0[fix_covar] = nTaxa
 	if args.A3set[4] == 1 and args.TdD is False and args.TdE is False:
-		args.A3set[2] = args.A3set[2] / 2
-		args.A3set[3] = args.A3set[3] / 2
+#		args.A3set[2] = args.A3set[2] / 3
+#		args.A3set[3] = args.A3set[3] / 3
 		opt_dis_cov = nlopt.opt(nlopt.LN_SBPLX, len(x0))
 		new_lower_bounds2 = lower_bounds[:]
 		new_upper_bounds2 = upper_bounds[:]
 		frombound = int(max(opt_ind_covar_dis)) + 1
 		if args.lgD:
 			frombound = int(max(opt_ind_x0_log_dis)) + 1
-		tobount = len(x0)
-		new_lower_bounds2[frombound:tobount] = x0[frombound:tobount]
-		new_upper_bounds2[frombound:tobount] = x0[frombound:tobount]
+		tobound = len(x0)
+		new_lower_bounds2[frombound:tobound] = x0[frombound:tobound]
+		new_upper_bounds2[frombound:tobound] = x0[frombound:tobound]
 		if do_DivdE:
 			for i in range(len(opt_ind_covar_ext)):
 				fix_covar = int(opt_ind_covar_ext[i])
@@ -2594,20 +2600,45 @@ if args.A == 3:
 		opt_dis_cov.set_upper_bounds(new_upper_bounds2)
 		opt_dis_cov.set_max_objective(lik_opt)
 		opt_dis_cov.set_xtol_rel(args.A3set[0])
-		opt_dis_cov.set_maxeval(int(args.A3set[2]) * round(1.25**len(x0)))
+		opt_dis_cov.set_maxeval(int(args.A3set[2]/3) * round(1.25**frombound))
 		opt_dis_cov.set_ftol_abs(args.A3set[1])
-		opt_dis_cov.set_maxtime(args.A3set[3])
+		opt_dis_cov.set_maxtime(args.A3set[3]/3)
 		x_dis_cov = opt_dis_cov.optimize(x0)
 		x0 = x_dis_cov
+		div_iter = 2
+		div_timeout = 2
+		print("dispersal covariates optimized")
+	if args.A3set[4] == 1 and args.TdE is False and any(argstraitD != "" or argstraitE != "" or argscatD != "" or argscatE != ""):
+#		args.A3set[2] = args.A3set[2] / 3
+#		args.A3set[3] = args.A3set[3] / 3
+		opt_ext_cov = nlopt.opt(nlopt.LN_SBPLX, len(x0))
+		new_lower_bounds2 = lower_bounds[:]
+		new_upper_bounds2 = upper_bounds[:]
+		frombound = int(max(opt_ind_covar_ext)) + 1
+		tobound = len(x0)
+		new_lower_bounds2[frombound:tobound] = x0[frombound:tobound]
+		new_upper_bounds2[frombound:tobound] = x0[frombound:tobound]
+		opt_ext_cov.set_lower_bounds(new_lower_bounds2)
+		opt_ext_cov.set_upper_bounds(new_upper_bounds2)
+		opt_ext_cov.set_max_objective(lik_opt)
+		opt_ext_cov.set_xtol_rel(args.A3set[0])
+		opt_ext_cov.set_maxeval(int(args.A3set[2]/3) * round(1.25**frombound))
+		opt_ext_cov.set_ftol_abs(args.A3set[1])
+		opt_ext_cov.set_maxtime(args.A3set[3]/3)
+		x_ext_cov = opt_ext_cov.optimize(x0)
+		x0 = x_ext_cov
+		div_iter = 2
+		div_timeout = 2
+		print("extinction covariates optimized")
 	print("Final optimization")
 	opt = nlopt.opt(nlopt.LN_SBPLX, len(x0))
 	opt.set_lower_bounds(lower_bounds)
 	opt.set_upper_bounds(upper_bounds)
 	opt.set_max_objective(lik_opt)
 	opt.set_xtol_rel(args.A3set[0])
-	opt.set_maxeval(int(args.A3set[2]) * round(1.25**len(x0)))
+	opt.set_maxeval(int(args.A3set[2]/div_iter) * round(1.25**len(x0)))
 	opt.set_ftol_abs(args.A3set[1])
-	opt.set_maxtime(args.A3set[3])
+	opt.set_maxtime(args.A3set[3]/div_timeout)
 	x = opt.optimize(x0)
 	minf = opt.last_optimum_value()
 	
@@ -3194,6 +3225,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		cat_parD_A = cat_parD
 		cat_parE_A = cat_parE
 		hp_catD_A = hp_catD
+		hp_catE_A = hp_catE
 		x0_logisticD_A = x0_logisticD
 		x0_logisticE_A = x0_logisticE
 		marginal_rates_A = marginal_rates_temp
@@ -3353,10 +3385,10 @@ for it in range(n_generations * len(scal_fac_TI)):
 		log_state = log_state + list(trait_parD_A) + list(trait_parE_A)
 		if argscatD != "":
 			#log_dis_rate = np.repeat(log_dis_rate, len(unique_catD)) * np.tile(cat_parD, len(log_dis_rate))
-			log_state = log_state + list(np.exp(cat_parD)) + list(hp_catD)
+			log_state = log_state + list(np.exp(cat_parD_A)) + list(hp_catD_A)
 		if argscatE != "":
 			#log_ext_rate = np.repeat(log_ext_rate, len(unique_catE)) * np.tile(cat_parE, len(log_ext_rate))
-			log_state = log_state + list(np.exp(cat_parE)) + list(hp_catE)
+			log_state = log_state + list(np.exp(cat_parE_A)) + list(hp_catE_A)
 		log_state = log_state+[prior_exp_rate]+[scal_fac_TI[scal_fac_ind]]
 		wlog.writerow(log_state)
 		logfile.flush()
