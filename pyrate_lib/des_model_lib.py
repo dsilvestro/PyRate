@@ -198,22 +198,41 @@ def make_Q_Covar4VDdE(dv_list, ev_list, time_var_d1, time_var_d2, time_var_e1, t
 		transf_e[1, np.isfinite(transf_e[1, ]) == False] = rep_e2
 	else:
 		transf_e = ev_list
-	Q_list=[]
-	for i in range(len(transf_d)):
-		D=0
-		[d1,d2] = transf_d[i] # d1 A->B; d2 B->A;
-		[e1,e2] = transf_e[i]
-		Q= np.array([
-			[D, 0, 0, 0 ],
-			# [D, d1, d2, 0 ],
-			[e1,D, 0, d1],
-			[e2,0, D, d2],
-			[0 ,e2,e1,D ]
-		])
-		# fill diagonal values
-		np.fill_diagonal(Q, -np.sum(Q,axis=1))
-		Q_list.append(Q)
-	return Q_list, [transf_d,transf_e]
+#	Q_list=[]
+#	for i in range(len(transf_d)):
+#		D=0
+#		[d1,d2] = transf_d[i] # d1 A->B; d2 B->A;
+#		[e1,e2] = transf_e[i]
+#		Q= np.array([
+#			[D, 0, 0, 0 ],
+#			# [D, d1, d2, 0 ],
+#			[e1,D, 0, d1],
+#			[e2,0, D, d2],
+#			[0 ,e2,e1,D ]
+#		])
+#		# fill diagonal values
+#		np.fill_diagonal(Q, -np.sum(Q,axis=1))
+#		Q_list.append(Q)
+#	return Q_list, [transf_d,transf_e]
+	# Transposed Q matrix for numpy.linalg.eig instead of scipy.lin.alg 
+	# this breaks pade=1!
+	#         FROM
+	#      O  A  A AB
+	#   O [-,e1,e2, 0]
+	#T  A [0, -, 0,e2]
+	#O  B [0, 0, -,e1]
+	#  AB [0,d1,d2, 0]
+	QT_array = np.zeros((transf_d.shape[0], 4, 4))
+	QT_array[:,3,1] = transf_d[:,0]
+	QT_array[:,3,2] = transf_d[:,1]
+	QT_array[:,0,1] = transf_e[:,0]
+	QT_array[:,2,3] = transf_e[:,0]
+	QT_array[:,0,2] = transf_e[:,1]
+	QT_array[:,1,3] = transf_e[:,1]
+#	col_sum = -np.einsum('ijk->ik', QT_array) # Colsum per slice
+#	s0,s1,s2 = QT_array.shape
+#	QT_array.reshape(s0,-1)[:,::s2+1] = col_sum
+	return QT_array, [transf_d,transf_e]
 
 
 def make_Q_Covar4VDdEDOUBLE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_var_e2,time_var_e1two,time_var_e2two,covar_par=np.zeros(4),x0_logistic=np.zeros(4),transf_d=0,transf_e=0): 

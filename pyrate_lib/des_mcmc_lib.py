@@ -133,16 +133,24 @@ def calc_likelihood_mQ_compr(args):
 	PvDes_final=L[-1,:]
 	return np.log(np.sum(PvDes_final))
 
-def get_eigen_list(Q_list):
-	L=len(Q_list)
-	w_list,vl_list,vl_inv_list = [],[],[]
-	for Q in Q_list:
-		w, vl = scipy.linalg.eig(Q,left=True, right=False) # w = eigenvalues; vl = eigenvectors
-		vl_inv = np.linalg.inv(vl)
-		w_list.append(w)
-		vl_list.append(vl)
-		vl_inv_list.append(vl_inv)
-	return w_list,vl_list,vl_inv_list
+#def get_eigen_list(Q_list):
+#	L=len(Q_list)
+#	w_list,vl_list,vl_inv_list = [],[],[]
+#	for Q in Q_list:
+#		w, vl = scipy.linalg.eig(Q,left=True, right=False) # w = eigenvalues; vl = eigenvectors
+#		vl_inv = np.linalg.inv(vl)
+#		w_list.append(w)
+#		vl_list.append(vl)
+#		vl_inv_list.append(vl_inv)
+#	return w_list,vl_list,vl_inv_list
+
+def get_eigen_list(QT_array):
+	# Requires 3D array with transposed Q matrices along axis 0!
+	w, vl = np.linalg.eig(QT_array)
+	vl = vl[:,:,[1,2,3,0]] * [-1,1,-1,1]
+	w = w[:,[1,2,3,0]]
+	vl_inv = np.linalg.inv(vl)
+	return w, vl, vl_inv
 
 
 def calc_likelihood_mQ_eigen(args):
@@ -161,11 +169,11 @@ def calc_likelihood_mQ_eigen(args):
 		r_ind= r_vec_indexes[i]
 		sign=  sign_list[i]
 		rho_vec= np.prod(abs(sign-r_vec[r_ind]),axis=1)
-		d= exp(w_list[ind_Q]*t) 
+		d= exp(w_list[ind_Q,:]*t) 
 		m1 = np.zeros((4,4))
 		np.fill_diagonal(m1,d)
-		Pt1 = np.dot(vl_list[ind_Q],m1)
-		Pt = np.dot(Pt1,vl_inv_list[ind_Q])
+		Pt1 = np.dot(vl_list[ind_Q,:],m1)
+		Pt = np.dot(Pt1,vl_inv_list[ind_Q,:])
 		PvDes_temp = L[j,:]
 		condLik_temp= np.dot(PvDes_temp,Pt)
 		PvDes= condLik_temp *rho_vec
@@ -178,8 +186,6 @@ def calc_likelihood_mQ_eigen(args):
 		return -np.inf
 	else: 
 		return np.log(np.sum(PvDes_final))
-
-
 
 def calc_likelihood_mQ_eigen_aprx(args):
 	[delta_t,r_vec_list,w_list,vl_list,vl_inv_list,rho_at_present,r_vec_indexes,sign_list,sp_OrigTimeIndex,Q_index]=args
@@ -254,7 +260,7 @@ def calc_likelihood_mQ(args):
 	recursive = np.arange(sp_OrigTimeIndex, last_occ)[::-1]
 	for i in recursive:
 		#print "here",i, Q_index[i]
-		Q = Q_list[index_q[i]]
+		Q = Q_list[index_q[i],:].T
 		r_vec=r_vec_list[index_r[i]]
 		# get time span
 		t=delta_t[i] 
