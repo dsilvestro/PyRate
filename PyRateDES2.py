@@ -2011,11 +2011,9 @@ def get_marginal_traitrate(baserate, nTaxa, pres, traits, cont_trait, cont_trait
 ###################################################################################
 # Avoid code redundancy in mcmc and maximum likelihood
 def lik_DES_taxon(args):
-	[l, nTaxa, dis_vec, ext_vec, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp,
+	[l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp,
 	delta_t, r_vec, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
-	time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par, covar_parD, covar_parE,
-	x0_logisticD, x0_logisticE, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-	traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, cat_parE, catE, use_Pade_approx] = args
+	traits, cat, use_Pade_approx] = args
 	len_delta_t = len(delta_t)
 	qwvl_idx = np.arange(0, len_delta_t)
 	if traits or cat:
@@ -2072,12 +2070,9 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 		lik = 0
 		if argsG is False:
 			for l in list_taxa_index:
-				lik += lik_DES_taxon([l, nTaxa, dis_vec, ext_vec, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp, delta_t,
-							r_vec,
-							rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
-							time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par, covar_parD, covar_parE,
-							x0_logisticD, x0_logisticE, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-							traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, cat_parE, catE, use_Pade_approx])
+				lik += lik_DES_taxon([l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp,
+							delta_t, r_vec, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
+							traits, cat, use_Pade_approx])
 		else:
 			for l in list_taxa_index:
 				YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
@@ -2090,12 +2085,10 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 						r_vec_Gamma[:,2] = small_number
 					elif args.data_in_area == 2:
 						r_vec_Gamma[:,1] = small_number
-					lik_vec[i] = lik_DES_taxon([l, nTaxa, dis_vec, ext_vec, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp, delta_t,
+					lik_vec[i] = lik_DES_taxon([l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp, delta_t,
 							r_vec_Gamma, # Only difference to homogeneous sampling
 							rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
-							time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par, covar_parD, covar_parE,
-							x0_logisticD, x0_logisticE, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-							traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, cat_parE, catE, use_Pade_approx])
+							traits, cat, use_Pade_approx])
 				lik_vec_max = np.max(lik_vec)
 				lik2 = lik_vec - lik_vec_max
 				lik += log(sum(exp(lik2))/pp_gamma_ncat) + lik_vec_max
@@ -2107,12 +2100,10 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 		#sys.exit("Multi-threading not available")
 		#w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
 		if argsG is False:
-			args_mt_lik = [ [l, nTaxa, dis_vec, ext_vec, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp, delta_t,
+			args_mt_lik = [ [l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp, delta_t,
 					r_vec,
 					rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
-					time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par, covar_parD, covar_parE,
-					x0_logisticD, x0_logisticE, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-					traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, cat_parE, catE, use_Pade_approx] for l in list_taxa_index ]
+					traits, cat, use_Pade_approx] for l in list_taxa_index ]
 			lik = sum(np.array(pool_lik.map(lik_DES_taxon, args_mt_lik)))
 		else:
 			YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
@@ -2125,12 +2116,10 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 					r_vec_Gamma[:,2] = small_number
 				elif data_in_area == 2:
 					r_vec_Gamma[:,1] = small_number
-				args_mt_lik = [ [l, nTaxa, dis_vec, ext_vec, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp, delta_t,
+				args_mt_lik = [ [l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp, delta_t,
 						r_vec_Gamma, # Only difference to homogeneous sampling
 						rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
-						time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par, covar_parD, covar_parE,
-						x0_logisticD, x0_logisticE, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-						traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, cat_parE, catE, use_Pade_approx] for l in list_taxa_index ]
+						traits, cat, use_Pade_approx] for l in list_taxa_index ]
 				liktmp[i,:] = np.array(pool_lik.map(lik_DES_taxon, args_mt_lik))
 			liktmpmax = np.amax(liktmp, axis = 0)
 			liktmp2 = liktmp - liktmpmax
