@@ -1095,8 +1095,8 @@ cat_parD_A = np.zeros(len(unique_catD))
 cat_parE_A = np.zeros(len(unique_catE))
 catD_not_baseline = np.isin(np.arange(0, len(unique_catD)), catD_baseline) == False
 catE_not_baseline = np.isin(np.arange(0, len(unique_catE)), catE_baseline) == False
-hp_catD_A = np.ones(1)
-hp_catE_A = np.ones(1)
+hp_catD_A = np.ones(len(num_catD))
+hp_catE_A = np.ones(len(num_catE))
 #if args.A != 3: # Bayesian infers deviation from a common mean while ML baseline + state specific multiplier
 #	catD_baseline = np.repeat(False, len(unique_catD))
 #	catE_baseline = np.repeat(False, len(unique_catE))
@@ -1566,7 +1566,8 @@ if any(num_catD > 0):
 		catD_y = catD_y - np.min(catD_y)
 		for y in catD_y:
 			head += "\tcat%s_%s_d" % (i + 1, y + 1)
-	head += "\thp_cat_d"
+	for i in range(len(num_catD)):
+		head += "\thp_cat%s_d" % (i + 1)
 if any(num_catE > 0):
 	for i in range(len(num_catE)):
 		catE_y = np.unique(catE[:,i]).astype(int)
@@ -2018,6 +2019,7 @@ def lik_DES_taxon(args):
 	qwvl_idx = np.arange(0, len_delta_t)
 	if traits or cat:
 		qwvl_idx = np.arange(0 + l * len_delta_t, len_delta_t + l * len_delta_t)
+		#print("qwvl_idx:", qwvl_idx)
 	if use_Pade_approx==0:
 		l_temp = calc_likelihood_mQ_eigen([delta_t,r_vec,w_list[qwvl_idx,:],vl_list[qwvl_idx,:],vl_inv_list[qwvl_idx,:],rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp,bin_last_occ[l]])
 	else:
@@ -2866,12 +2868,12 @@ for it in range(n_generations * len(scal_fac_TI)):
 				cat_parD = update_parameter_uni_2d_freq(cat_parD_A, d=0.5, f=0.5, m = -3., M = 5.)
 				cat_parD[catD_baseline] = 0.
 			if argscatD != "" and r[3] < .5:
-				hp_catD, hasting_catD = update_multiplier_proposal(hp_catD_A, d = 1.5)
+				hp_catD, hasting_catD = update_multiplier_proposal_freq(hp_catD_A, d=1.5, f=0.1)
 			if argscatE != "" and r[3] < .5:
 				cat_parE = update_parameter_uni_2d_freq(cat_parE_A, d=0.5, f=0.5, m = -3., M = 5.)
 				cat_parE[catE_baseline] = 0.
 			if argscatE != "" and r[3] >= .5:
-				hp_catE, hasting_catE = update_multiplier_proposal(hp_catE_A, d = 1.5)
+				hp_catE, hasting_catE = update_multiplier_proposal_freq(hp_catE_A, d=1.5, f=0.1)
 		else: # update dispersal rates
 			if equal_d is True:
 				d_temp, hasting_de = update_multiplier_proposal_freq(dis_rate_vec_A[:,0],d=1+.1*scale_proposal,f=update_rate_freq_d)
@@ -2897,12 +2899,12 @@ for it in range(n_generations * len(scal_fac_TI)):
 				cat_parD = update_parameter_uni_2d_freq(cat_parD_A, d=0.5, f=0.5, m = -3., M = 5.)
 				cat_parD[catD_baseline] = 0.
 			if argscatD != "" and r[3] < .5:
-				hp_catD, hasting_catD = update_multiplier_proposal(hp_catD_A, d = 1.5)
+				hp_catD, hasting_catD = update_multiplier_proposal_freq(hp_catD_A, d=1.5, f=0.1)
 			if argscatE != "" and r[3] < .5:
 				cat_parE = update_parameter_uni_2d_freq(cat_parE_A, d=0.5, f=0.5, m = -3., M = 5.)
 				cat_parE[catE_baseline] = 0.
 			if argscatE != "" and r[3] >= .5:
-				hp_catE, hasting_catE = update_multiplier_proposal(hp_catE_A, d = 1.5)
+				hp_catE, hasting_catE = update_multiplier_proposal_freq(hp_catE_A, d=1.5, f=0.1)
 		else: # update extinction rates
 			if equal_e is True:
 				e_temp, hasting_de = update_multiplier_proposal_freq(ext_rate_vec_A[:,0],d=1+.1*scale_proposal,f=update_rate_freq_e)
@@ -3184,11 +3186,15 @@ for it in range(n_generations * len(scal_fac_TI)):
 		if argstraitD != "": prior += prior_normal(trait_parD, 0, 1)
 		if argstraitE != "": prior += prior_normal(trait_parE, 0, 1)
 		if argscatD != "":
-			prior += prior_normal(cat_parD[catD_not_baseline], 0, hp_catD)
-			prior += prior_exp(hp_catD, 1.)
+			for i in range(len(cat_parD_idx)):
+				cat_parD_prior = cat_parD[cat_parD_idx[i][np.isin(cat_parD_idx[i], catD_baseline[i]) == False]]
+				prior += prior_normal(cat_parD_prior, 0, hp_catD[i])
+				prior += prior_exp(hp_catD[i], 1.0)
 		if argscatE != "":
-			prior += prior_normal(cat_parE[catE_not_baseline], 0, hp_catE)
-			prior += prior_exp(hp_catE, 1.)
+			for i in range(len(cat_parE_idx)):
+				cat_parE_prior = cat_parE[cat_parE_idx[i][np.isin(cat_parE_idx[i], catE_baseline[i]) == False]]
+				prior += prior_normal(cat_parE_prior, 0, hp_catE[i])
+				prior += prior_exp(hp_catE[i], 1.0)
 
 
 	lik_alter = lik * scal_fac_TI[scal_fac_ind]
