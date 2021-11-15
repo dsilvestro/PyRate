@@ -149,7 +149,7 @@ if verbose: print("time_bins",time_bins)
 # init diversity multipliers assuming const diversity
 n_multi_A = np.max(x_obs)-x_obs + 1
 if modern_diversity >= 0:
-	n_multi[0] = 0
+	n_multi_A[0] = 0
 n_est = x_obs + n_multi_A
 
 # init q multiplier

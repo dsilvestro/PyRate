@@ -14,6 +14,10 @@ Estimation of corrected diversity trajectories using `mcmcDivE` requires a PyRat
 `-j`: number of randomized ages of fossil occurrences in the PyRate input files (these will be resampled across MCMC samples)
 `-N`: number of extant taxa
 
+### Example code
+```
+python3 mcmcDivE.py -d example/Rhinos.py -q example/epochs_q.txt -m example/pyrate_mcmc_logs/Rhinos_Grj_mcmc.log -b 50 -j 1 -N 5
+```
 ### Plot estimated diversity trajectories:
 
 Plotting functions to summarize the estimated diversity trajectories are implemented in the R script `plot_mcmcDivE_results.R `:  
