@@ -7,7 +7,7 @@ import importlib.util
 import copy as copy_lib
 
 version= "PyRate"
-build  = "v3.0 - 20210903"
+build  = "v3.0 - 20211115"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
@@ -3573,6 +3573,8 @@ def MCMC(all_arg):
                 if TDI==1: print_out+=" beta: %s" % (round(temperature,4))
                 if TDI in [2,3,4]: print_out+=" k: %s" % (len(LA)+len(MA))
                 print(print_out)
+                if analyze_tree >=1:
+                    print("\ttree lik:", np.round(tree_likA,2)) 
                 #if TDI==1: print "\tpower posteriors:", marginal_lik[0:10], "..."
                 if TDI==3:
                     print("\tind L", indDPP_L)
@@ -3586,14 +3588,13 @@ def MCMC(all_arg):
                 else:
                     print("\tsp.rates:", LA)
                     print("\tex.rates:", MA)
-                if analyze_tree ==1:
-                    print(np.array([tree_likA, r_treeA+m_treeA, m_treeA]))
-                if analyze_tree==2:
-                    ltreetemp,mtreetemp = (M[0]*r_tree) + (L[0]-M[0]), M[0]*r_tree
-                    print(np.array([tree_likA,ltreetemp,mtreetemp,ltreetemp-mtreetemp,LA[0]-MA[0]]))
-                if analyze_tree==4:
-                    ltreetemp,mtreetemp = list(r_treeA[::-1]*m_treeA[::-1]), list(m_treeA[::-1])
-                    print(np.array([tree_likA] + ltreetemp + mtreetemp))
+                #   print(np.array([tree_likA, r_treeA+m_treeA, m_treeA]))
+                # if analyze_tree==2:
+                #     ltreetemp,mtreetemp = (M[0]*r_tree) + (L[0]-M[0]), M[0]*r_tree
+                #     print(np.array([tree_likA,ltreetemp,mtreetemp,ltreetemp-mtreetemp,LA[0]-MA[0]]))
+                # if analyze_tree==4:
+                #     ltreetemp,mtreetemp = list(r_treeA[::-1]*m_treeA[::-1]), list(m_treeA[::-1])
+                #     print(np.array([tree_likA] + ltreetemp + mtreetemp))
 
                 if est_hyperP == 1: print("\thyper.prior.par", hyperPA)
 
@@ -3972,10 +3973,10 @@ else: argsHPP=0
 TDI=args.A                  # 0: parameter estimation, 1: thermodynamic integration, 2: BD-MCMC
 if constrain_time_frames == 1 or args.fixShift != "":
     if TDI in [2,4]:
-        print("\nConstrained shift times (-mC,-fixShift) cannot be used with BD/RJ MCMC alorithms. Using standard MCMC instead.\n")
+        # print("\nConstrained shift times (-mC,-fixShift) cannot be used with BD/RJ MCMC alorithms. Using standard MCMC instead.\n")
         TDI = 0
 if args.ADE>=1 and TDI>1:
-    print("\nADE models (-ADE 1) cannot be used with BD/RJ MCMC alorithms. Using standard MCMC instead.\n")
+    # print("\nADE models (-ADE 1) cannot be used with BD/RJ MCMC alorithms. Using standard MCMC instead.\n")
     TDI = 0
 mcmc_gen=args.n             # no. total mcmc generations
 sample_freq=args.s
@@ -4860,7 +4861,6 @@ if args.tree != "":
     if args.eqr: analyze_tree = 3
 
     if fix_Shift == 1:
-        print("Using Skyline independent model")
         import pyrate_lib.phylo_bds_likelihood as phylo_bds_likelihood
         analyze_tree = 4
         treeBDlikelihoodSkyLine = phylo_bds_likelihood.TreePar_LikShifts
@@ -4868,10 +4868,14 @@ if args.tree != "":
         tree_node_ages = np.sort(tree_node_ages)
         phylo_times_of_shift = np.sort(np.array(list(fixed_times_of_shift) + [0]))
         tree_sampling_frac = np.array([tree_sampling_frac] + list(np.ones(len(fixed_times_of_shift))))
-        print(phylo_times_of_shift)
-        print(tree_node_ages)
-        if args.bdc: args_bdc = 1
-        else: args_bdc = 0
+        # print(phylo_times_of_shift)
+        # print(tree_node_ages)
+        if args.bdc: 
+            print("Using BDC Skyline model")
+            args_bdc = 1
+        else: 
+            print("Using Skyline independent model")
+            args_bdc = 0
         # print tree_sampling_frac
         #quit()
 

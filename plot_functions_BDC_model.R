@@ -1,10 +1,11 @@
+# library(latex2exp)
+library(HDInterval)
+library(scales)
 # functions to plot results of BDC model (Silvestro, Warnock et al. 2018 Nature Comm.)
 
 ### SKYLINE PLOTS
 # PLOT SPECIATION MODE PREVALENCE
 plot_polygon <- function(x,t1,t2,color="#3dab3c"){
-	library(HDInterval)
-	library(scales)
 	for (lev in seq(0.95,0.10, length.out =30)){
 		hpd = hdi(x,lev)
 		polygon(x=-c(t1,t1,t2,t2), y = c(as.numeric(hpd[1:2]),rev(as.numeric(hpd[1:2]))),border=F,col=alpha(color,0.075))	
@@ -12,10 +13,9 @@ plot_polygon <- function(x,t1,t2,color="#3dab3c"){
 }
 
 
-plot_speciation_mode <- function(f,time_bins,Ymax,title=""){
-	library(latex2exp)
+plot_speciation_mode <- function(f,time_bins,Ymax=0,title=""){
 	tbl = read.table(f,h=T)
-	tbl = tbl[50:dim(tbl)[1],]
+    # tbl = tbl[50:dim(tbl)[1],]
 	
 	indx_lambda_foss = grep("lambda_",colnames(tbl))
 	indx_lambda_tree = grep("tree_sp",colnames(tbl))
@@ -25,12 +25,22 @@ plot_speciation_mode <- function(f,time_bins,Ymax,title=""){
 	dL = tbl[indx_lambda_foss]- 2*tbl[indx_lambda_tree]
 	dL2= tbl[indx_lambda_foss]-   tbl[indx_lambda_tree]
 	
-	time_bins = rev(sort(time_bins))
+    time_bins = sort(c(0,time_bins))[1:length(indx_lambda_foss)]
+    time_bins = rev(sort(time_bins))
+
 	
 	x = c(1,2,3)
 	par(mfrow=c(3,2))
 	# speciation mode
-	plot(mean(x),xlim=c(-max(time_bins),-min(time_bins)),ylim=c(-Ymax,Ymax),type="n",ylab=TeX('Budding vs anagenetic speciation ($\\lambda^{*} - 2 \\lambda)'),xlab="Time (Ma)")
+    if (Ymax){
+    	plot(mean(x),xlim=c(-max(time_bins),-min(time_bins)),ylim=c(-Ymax,Ymax),type="n",
+        ylab='Budding vs anagenetic speciation (lambda* - 2 lambda)',xlab="Time (Ma)",
+        main="Speciation mode")        
+    }else{
+    	plot(mean(x),xlim=c(-max(time_bins),-min(time_bins)),type="n",ylim=c(min(dL),max(dL)),
+        ylab='Budding vs anagenetic speciation (lambda* - 2 lambda)',xlab="Time (Ma)",
+        main="Speciation mode")                
+    }
 	abline(h=0,lty=2)
 	for (t in 2:length(time_bins)){
 		t1=time_bins[t-1]
@@ -40,8 +50,13 @@ plot_speciation_mode <- function(f,time_bins,Ymax,title=""){
 	}
 
 	# anagenetic + bifurcation mode
-	plot(mean(x),xlim=c(-max(time_bins),-min(time_bins)),ylim=c(0,Ymax),type="n",
-		ylab=TeX('Bifurcation + anagenetic speciation ($\\lambda^{*} - \\lambda)'),xlab="Time (Ma)")
+	if (Ymax){
+        plot(mean(x),xlim=c(-max(time_bins),-min(time_bins)),ylim=c(0,Ymax),type="n",
+		ylab='Bifurcation + anagenetic speciation (lambda* - lambda)',xlab="Time (Ma)")
+    }else{
+        plot(mean(x),xlim=c(-max(time_bins),-min(time_bins)),type="n",ylim=c(0,max(dL2)),
+		ylab='Bifurcation + anagenetic speciation (lambda* - lambda',xlab="Time (Ma)")        
+    }
 	for (t in 2:length(time_bins)){
 		t1=time_bins[t-1]
 		t2= time_bins[t]
@@ -50,8 +65,13 @@ plot_speciation_mode <- function(f,time_bins,Ymax,title=""){
 	}
 	
 	# speciation rate
-	plot(mean(x),xlim=c(-max(time_bins),-min(time_bins)),ylim=c(0,Ymax),type="n",
-		ylab=TeX('$\\lambda^{*}'),xlab="Time (Ma)",main="Fossil estimates")
+	if (Ymax){
+        plot(mean(x),xlim=c(-max(time_bins),-min(time_bins)),ylim=c(0,Ymax),type="n",
+		ylab='lambda*',xlab="Time (Ma)",main="Fossil estimates")
+    }else{
+            plot(mean(x),xlim=c(-max(time_bins),-min(time_bins)),type="n",ylim=c(0,max(tbl[indx_lambda_foss])),
+    		ylab='lambda*',xlab="Time (Ma)",main="Fossil estimates")
+        }
 	for (t in 2:length(time_bins)){
 		t1=time_bins[t-1]
 		t2= time_bins[t]
@@ -59,8 +79,13 @@ plot_speciation_mode <- function(f,time_bins,Ymax,title=""){
 		plot_polygon(x,t1,t2,color="#084594")
 	}
 
-	plot(mean(x),xlim=c(-max(time_bins),-min(time_bins)),ylim=c(0,Ymax),type="n",
-		ylab=TeX('$\\lambda'),xlab="Time (Ma)",main="Phylogenetic estimates")
+	if (Ymax){
+        plot(mean(x),xlim=c(-max(time_bins),-min(time_bins)),ylim=c(0,Ymax),type="n",
+		ylab='lambda',xlab="Time (Ma)",main="Phylogenetic estimates") 
+    }else{
+            plot(mean(x),xlim=c(-max(time_bins),-min(time_bins)),ylim=c(0,max(tbl[indx_lambda_foss])),type="n",
+    		ylab='lambda',xlab="Time (Ma)",main="Phylogenetic estimates") 
+        }
 	for (t in 2:length(time_bins)){
 		t1=time_bins[t-1]
 		t2= time_bins[t]
@@ -69,14 +94,22 @@ plot_speciation_mode <- function(f,time_bins,Ymax,title=""){
 	}
 	
 	# extinction rate
-	plot(mean(x),xlim=c(-max(time_bins),-min(time_bins)),ylim=c(0,Ymax),type="n",ylab=TeX('$\\mu^{*}'),xlab="Time (Ma)")
+	if (Ymax){	
+        plot(mean(x),xlim=c(-max(time_bins),-min(time_bins)),ylim=c(0,Ymax),type="n",ylab='mu*',xlab="Time (Ma)")
+    }else{
+        plot(mean(x),xlim=c(-max(time_bins),-min(time_bins)),type="n",ylab='mu*',xlab="Time (Ma)",ylim=c(0,max(tbl[indx_mu_foss])))
+    }
 	for (t in 2:length(time_bins)){
 		t1=time_bins[t-1]
 		t2= time_bins[t]
 		x=as.numeric(tbl[indx_mu_foss][,t-1])
 		plot_polygon(x,t1,t2,color="#b30000")
 	}
-	plot(mean(x),xlim=c(-max(time_bins),-min(time_bins)),ylim=c(0,Ymax),type="n",ylab=TeX('$\\mu'),xlab="Time (Ma)")
+	if (Ymax){	
+        plot(mean(x),xlim=c(-max(time_bins),-min(time_bins)),ylim=c(0,Ymax),type="n",ylab='mu',xlab="Time (Ma)")
+    }else{
+        plot(mean(x),xlim=c(-max(time_bins),-min(time_bins)),type="n",ylab='mu',xlab="Time (Ma)",ylim=c(0,max(tbl[indx_mu_foss])))
+    }
 	for (t in 2:length(time_bins)){
 		t1=time_bins[t-1]
 		t2= time_bins[t]
@@ -89,17 +122,14 @@ plot_speciation_mode <- function(f,time_bins,Ymax,title=""){
 
 
 
-pdf("your_path/PyRate_github/example_files/BDC_model/Ferns_BDCskyline_rates.pdf",width=8,height=12 )
-time_bins = rev(c(0,25,50,75,100,125,150,175))
-f="your_path/PyRate_github/example_files/BDC_model/Ferns_BDCskyline_mcmc.log"
-plot_speciation_mode(f,time_bins,0.03)
-dev.off()
-
+# pdf("your_path/PyRate_github/example_files/BDC_model/Ferns_BDCskyline_rates.pdf",width=8,height=12 )
+# time_bins = rev(c(0,25,50,75,100,125,150,175))
+# f="your_path/PyRate_github/example_files/BDC_model/Ferns_BDCskyline_mcmc.log"
+# plot_speciation_mode(f,time_bins,0.03)
+# dev.off()
 # GET PLOTS AND P-VALUS FOR SKYLINE INDEPENDENT MODEL
 
 plot_fossil_phylo_skyline <- function(mcmc_file,burnin=0.2,maxR_arg=0){
-	library(latex2exp)
-	library(scales)
 	t = read.table(mcmc_file,h=T)
 	burnin=round(dim(t)[1]*0.25)
 	
@@ -152,15 +182,15 @@ plot_fossil_phylo_skyline <- function(mcmc_file,burnin=0.2,maxR_arg=0){
 	}
 }
 
-par(mfrow=c(4,4))
-f="your_path/PyRate_github/example_files/BDC_model/Ferns_Independent_skyline_mcmc.log"
-plot_fossil_phylo_skyline(f)
+# par(mfrow=c(4,4))
+# f="your_path/PyRate_github/example_files/BDC_model/Ferns_Independent_skyline_mcmc.log"
+# plot_fossil_phylo_skyline(f)
 
 
 
 ### CONSTANT RATE MODELS
 # PLOT SPECIATION MODE PREVALENCE
-plot_speciation_mode <- function(f,title=""){
+plot_speciation_mode_const_rate <- function(f,title=""){
 	library(latex2exp)
 	tbl = read.table(f,h=T)
 	tbl = tbl[500:dim(tbl)[1],]
