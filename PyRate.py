@@ -7,7 +7,7 @@ import importlib.util
 import copy as copy_lib
 
 version= "PyRate"
-build  = "v3.0 - 20211115"
+build  = "v3.0 - 20211129"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
@@ -4021,7 +4021,8 @@ if frac1==0: f_update_se=0
 [f_update_q,f_update_lm,f_update_cov]=f_update_se+np.cumsum(array(freq_list))
 
 
-if args.se_gibbs: use_gibbs_se_sampling = 1
+if args.se_gibbs: 
+    use_gibbs_se_sampling = 1
 else: use_gibbs_se_sampling = 0
 
 fast_burnin =args.fast_burnin
@@ -4390,6 +4391,12 @@ if args.restore_mcmc != "":
     restore_init_values = get_init_values(args.restore_mcmc,taxa_names)
     restore_chain = 1
 else: restore_chain = 0
+
+
+if args.se_gibbs: 
+    if argsHPP == 1:
+        times_q_shift = np.array([max(FA), min(LO)])
+
 
 ###### SET UP BD MODEL WITH STARTING NUMBER OF LINEAGES > 1
 no_starting_lineages = args.initDiv
