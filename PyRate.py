@@ -4395,7 +4395,7 @@ else: restore_chain = 0
 
 if args.se_gibbs: 
     if argsHPP == 1:
-        times_q_shift = np.array([max(FA), min(LO)])
+        times_q_shift = np.array([np.max(FA), 0])
 
 
 ###### SET UP BD MODEL WITH STARTING NUMBER OF LINEAGES > 1
