@@ -2019,7 +2019,6 @@ def lik_DES_taxon(args):
 	qwvl_idx = np.arange(0, len_delta_t)
 	if traits or cat:
 		qwvl_idx = np.arange(0 + l * len_delta_t, len_delta_t + l * len_delta_t)
-		#print("qwvl_idx:", qwvl_idx)
 	if use_Pade_approx==0:
 		l_temp = calc_likelihood_mQ_eigen([delta_t,r_vec,w_list[qwvl_idx,:],vl_list[qwvl_idx,:],vl_inv_list[qwvl_idx,:],rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp,bin_last_occ[l]])
 	else:
@@ -2772,18 +2771,18 @@ M_e = 3
 scale_proposal_d = 1
 scale_proposal_e = 1
 if args.TdD is False:
-	scale_proposal_d = bound_covar_d/3.
-	m_d = -bound_covar_d
-	M_d = bound_covar_d
+	scale_proposal_d = bound_covar_d[0]/3.
+	m_d = -bound_covar_d[0]
+	M_d = bound_covar_d[0]
 if do_DivdD:
 	b = np.maximum(np.max(div_traj_2), np.max(div_traj_1))
 	scale_proposal_divdd = b + 0.
 	m_d = b
 	M_d = np.inf
 if args.TdE is False:
-	scale_proposal_e = bound_covar_e/3.
-	m_e = -bound_covar_e
-	M_e = bound_covar_e
+	scale_proposal_e = bound_covar_e[0]/3.
+	m_e = -bound_covar_e[0]
+	M_e = bound_covar_e[0]
 if do_DivdE:
 	b = np.maximum(np.max(div_traj_2), np.max(div_traj_1))
 	scale_proposal_divde = b + 0.
@@ -2854,10 +2853,10 @@ for it in range(n_generations * len(scal_fac_TI)):
 		if args.TdD is False and r[1] < .5: # update covar
 			if args.lgD and r[2] < .5: # update logistic mid point
 				x0_logisticD = update_parameter_uni_2d_freq(x0_logisticD_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)
-			else:	
+			else:
 				if do_DivdD: covar_par[0:2] = update_parameter_uni_2d_freq(covar_par_A[0:2], d=scale_proposal_divdd, f=0.5, m = m_d, M = M_d)
 				if do_DivdE or argsDdE: covar_par[2:4] = update_parameter_uni_2d_freq(covar_par_A[2:4], d=scale_proposal_divde, f=0.5, m = m_e, M = M_e)
-				if do_varD: covar_parD = update_parameter_uni_2d_freq(covar_parD_A, d=0.1*scale_proposal_d, f=0.5, m = m_e, M = M_e)
+				if do_varD: covar_parD = update_parameter_uni_2d_freq(covar_parD_A, d=0.1*scale_proposal_d, f=0.5, m = m_d, M = M_d)
 				if do_varE: covar_parE = update_parameter_uni_2d_freq(covar_parE_A, d=0.1*scale_proposal_e, f=0.5, m = m_e, M = M_e)
 		elif r[2] < .5 and (argstraitD != "" or argstraitE != "" or argscatD != "" or argscatE != ""): # update traits
 			if argstraitD != "" and r[3] < .5:
@@ -2868,12 +2867,12 @@ for it in range(n_generations * len(scal_fac_TI)):
 				cat_parD = update_parameter_uni_2d_freq(cat_parD_A, d=0.5, f=0.5, m = -3., M = 5.)
 				cat_parD[catD_baseline] = 0.
 			if argscatD != "" and r[3] < .5:
-				hp_catD, hasting_catD = update_multiplier_proposal_freq(hp_catD_A, d=1.5, f=0.1)
+				hp_catD, hasting_catD = update_multiplier_proposal_freq(hp_catD_A, d= 1.5, f=0.1)
 			if argscatE != "" and r[3] < .5:
 				cat_parE = update_parameter_uni_2d_freq(cat_parE_A, d=0.5, f=0.5, m = -3., M = 5.)
 				cat_parE[catE_baseline] = 0.
 			if argscatE != "" and r[3] >= .5:
-				hp_catE, hasting_catE = update_multiplier_proposal_freq(hp_catE_A, d=1.5, f=0.1)
+				hp_catE, hasting_catE = update_multiplier_proposal_freq(hp_catE_A, d= 1.5, f=0.1)
 		else: # update dispersal rates
 			if equal_d is True:
 				d_temp, hasting_de = update_multiplier_proposal_freq(dis_rate_vec_A[:,0],d=1+.1*scale_proposal,f=update_rate_freq_d)
@@ -2888,7 +2887,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 			else:	
 				if do_DivdD: covar_par[0:2] = update_parameter_uni_2d_freq(covar_par_A[0:2], d=scale_proposal_divdd, f=0.5, m = m_d, M = M_d)
 				if do_DivdE or argsDdE: covar_par[2:4] = update_parameter_uni_2d_freq(covar_par_A[2:4], d=scale_proposal_divde, f=0.5, m = m_e, M = M_e)
-				if do_varD: covar_parD = update_parameter_uni_2d_freq(covar_parD_A, d=0.1*scale_proposal_d, f=0.5, m = m_e, M = M_e)
+				if do_varD: covar_parD = update_parameter_uni_2d_freq(covar_parD_A, d=0.1*scale_proposal_d, f=0.5, m = m_d, M = M_d)
 				if do_varE: covar_parE = update_parameter_uni_2d_freq(covar_parE_A, d=0.1*scale_proposal_e, f=0.5, m = m_e, M = M_e)
 		elif r[2] < .5 and (argstraitD != "" or argstraitE != "" or argscatD != "" or argscatE != ""): # update traits
 			if argstraitD != "" and r[3] < .5:
@@ -2899,12 +2898,12 @@ for it in range(n_generations * len(scal_fac_TI)):
 				cat_parD = update_parameter_uni_2d_freq(cat_parD_A, d=0.5, f=0.5, m = -3., M = 5.)
 				cat_parD[catD_baseline] = 0.
 			if argscatD != "" and r[3] < .5:
-				hp_catD, hasting_catD = update_multiplier_proposal_freq(hp_catD_A, d=1.5, f=0.1)
+				hp_catD, hasting_catD = update_multiplier_proposal_freq(hp_catD_A, d= 1.5, f=0.1)
 			if argscatE != "" and r[3] < .5:
 				cat_parE = update_parameter_uni_2d_freq(cat_parE_A, d=0.5, f=0.5, m = -3., M = 5.)
 				cat_parE[catE_baseline] = 0.
 			if argscatE != "" and r[3] >= .5:
-				hp_catE, hasting_catE = update_multiplier_proposal_freq(hp_catE_A, d=1.5, f=0.1)
+				hp_catE, hasting_catE = update_multiplier_proposal_freq(hp_catE_A, d= 1.5, f=0.1)
 		else: # update extinction rates
 			if equal_e is True:
 				e_temp, hasting_de = update_multiplier_proposal_freq(ext_rate_vec_A[:,0],d=1+.1*scale_proposal,f=update_rate_freq_e)
@@ -3189,12 +3188,12 @@ for it in range(n_generations * len(scal_fac_TI)):
 			for i in range(len(cat_parD_idx)):
 				cat_parD_prior = cat_parD[cat_parD_idx[i][np.isin(cat_parD_idx[i], catD_baseline[i]) == False]]
 				prior += prior_normal(cat_parD_prior, 0, hp_catD[i])
-				prior += prior_exp(hp_catD[i], 1.0)
+				prior += prior_exp(hp_catD[i], 0.1)
 		if argscatE != "":
 			for i in range(len(cat_parE_idx)):
 				cat_parE_prior = cat_parE[cat_parE_idx[i][np.isin(cat_parE_idx[i], catE_baseline[i]) == False]]
 				prior += prior_normal(cat_parE_prior, 0, hp_catE[i])
-				prior += prior_exp(hp_catE[i], 1.0)
+				prior += prior_exp(hp_catE[i], 0.1)
 
 
 	lik_alter = lik * scal_fac_TI[scal_fac_ind]
