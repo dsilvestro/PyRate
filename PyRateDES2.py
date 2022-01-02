@@ -112,8 +112,8 @@ p.add_argument("-mG", help='Model - Gamma heterogeneity of preservation rate', a
 p.add_argument("-ncat", type=int, help='Model - Number of categories for Gamma heterogeneity', default=4, metavar=4)
 p.add_argument('-traitD', type=str, help='Trait file Dispersal', default="", metavar="")
 p.add_argument('-traitE', type=str, help='Trait file Extinction', default="", metavar="")
-p.add_argument('-logTraitD', type=str, help='Transform dispersal traits by taking logarithm 1) yes 0) no', default=1, metavar="", nargs='+')
-p.add_argument('-logTraitE', type=str, help='Transform extinction traits by taking logarithm 1) yes 0) no', default=1, metavar="", nargs='+')
+p.add_argument('-logTraitD', type=int, help='Transform dispersal traits by taking logarithm 1) yes 0) no', default=1, metavar=1, nargs='+')
+p.add_argument('-logTraitE', type=int, help='Transform extinction traits by taking logarithm 1) yes 0) no', default=1, metavar=1, nargs='+')
 p.add_argument('-catD', type=str, help='Categorical file Dispersal (e.g. a trait or a clade)', default="", metavar="")
 p.add_argument('-catE', type=str, help='Categorical file Extinction (e.g. a trait or a clade)', default="", metavar="")
 
@@ -1016,11 +1016,15 @@ def read_trait(path_var, taxa_input):
 
 
 def logtransf_traits(var, transfTrait):
-	num_traitD = var.shape[1]
-	transfTrait = transfTrait.astype(bool)
-	var = np.log(var, where = transfTrait)
-	var = var - np.mean(var, axis = 0)
-	return var
+	var_shape = var.shape
+	var2 = np.zeros(var_shape)
+	transfTrait = np.array([transfTrait]).flatten()
+	if transfTrait.shape[0] < var_shape[1]:
+		transfTrait = np.repeat(transfTrait[0], var_shape[1])
+	var2[:,transfTrait == 0] = var[:,transfTrait == 0]
+	var2[:,transfTrait == 1] = np.log(var[:,transfTrait == 1])
+	var2 = var2 - np.mean(var2, axis = 0)
+	return var2
 
 
 taxa_input = tbl[1:,0][ind_keep]
@@ -1030,14 +1034,14 @@ traits = False
 if argstraitD != "":
 	traitD = read_trait(argstraitD, taxa_input)
 	traitD_untrans = traitD
-	traitD = logtransf_traits(traitD, np.array(args.logTraitD))
+	traitD = logtransf_traits(traitD, args.logTraitD)
 	traits = True
 num_traitD = traitD.shape[1]
 trait_parD_A = np.zeros(num_traitD)
 if argstraitE != "":
 	traitE = read_trait(argstraitE, taxa_input)
 	traitE_untrans = traitE
-	traitE = logtransf_traits(traitE, np.array(args.logTraitE))
+	traitE = logtransf_traits(traitE, args.logTraitE)
 	traits = True
 num_traitE = traitE.shape[1]
 trait_parE_A = np.zeros(num_traitE)
@@ -2771,18 +2775,18 @@ M_e = 3
 scale_proposal_d = 1
 scale_proposal_e = 1
 if args.TdD is False:
-	scale_proposal_d = bound_covar_d[0]/3.
-	m_d = -bound_covar_d[0]
-	M_d = bound_covar_d[0]
+	scale_proposal_d = np.mean(bound_covar_d)/3.
+	m_d = -np.max(bound_covar_d)
+	M_d = np.max(bound_covar_d)
 if do_DivdD:
 	b = np.maximum(np.max(div_traj_2), np.max(div_traj_1))
 	scale_proposal_divdd = b + 0.
 	m_d = b
 	M_d = np.inf
 if args.TdE is False:
-	scale_proposal_e = bound_covar_e[0]/3.
-	m_e = -bound_covar_e[0]
-	M_e = bound_covar_e[0]
+	scale_proposal_e = np.mean(bound_covar_e)/3.
+	m_e = -np.max(bound_covar_e)
+	M_e = np.max(bound_covar_e)
 if do_DivdE:
 	b = np.maximum(np.max(div_traj_2), np.max(div_traj_1))
 	scale_proposal_divde = b + 0.
@@ -2795,13 +2799,13 @@ if argsDdE:
 	m_e = 0.
 	M_e = 50.
 if argstraitD != "":
-	scale_proposal_a_d = bound_traitD/3.
-	m_a_d = -bound_traitD
-	M_a_d = bound_traitD
+	scale_proposal_a_d = np.mean(bound_traitD)/3.
+	m_a_d = -np.max(bound_traitD)
+	M_a_d = np.max(bound_traitD)
 if argstraitE != "":
-	scale_proposal_a_e = bound_traitE/3.
-	m_a_e = -bound_traitE
-	M_a_e = bound_traitE
+	scale_proposal_a_e = np.mean(bound_traitE)/3.
+	m_a_e = -np.max(bound_traitE)
+	M_a_e = np.max(bound_traitE)
 
 for it in range(n_generations * len(scal_fac_TI)):
 	if (it+1) % (n_generations+1) ==0: 
