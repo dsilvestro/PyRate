@@ -72,7 +72,7 @@ p.add_argument('-A',        type=int, help='algorithm - 0: parameter estimation,
 p.add_argument('-k',        type=int,   help='TI - no. scaling factors', default=10, metavar=10)
 p.add_argument('-a',        type=float, help='TI - shape beta distribution', default=.3, metavar=.3)
 p.add_argument('-hp',       help='Use hyper-prior on rates', action='store_true', default=False)
-p.add_argument('-pw',       type=float, help='Exponent acceptance ratio (ML)', default=58, metavar=58) # accept 0.95 post ratio with 5% prob
+p.add_argument('-pw',       type=float, help='Exponent acceptance ratio (-A 2: ML)', default=58, metavar=58) # accept 0.95 post ratio with 5% prob
 p.add_argument('-seed',     type=int, help='seed (set to -1 to make it random)', default= 1, metavar= 1)
 p.add_argument('-out',      type=str, help='output string',   default="", metavar="")
 
@@ -384,7 +384,8 @@ if args.sum !="":
 	if burnin==0: 
 		print("""Burnin was set to 0. Use command -b to specify a higher burnin
 	(e.g. -b 100 will exclude the first 100 samples).""")
-	t=loadtxt(f, skiprows=max(1,burnin))
+	t=loadtxt(f, skiprows=1)
+	t = t[t[:,0] > burnin,:]
 
 	head = next(open(f)).split()
 	start_column = 4
@@ -421,12 +422,13 @@ if plot_file != "":
 		if burnin == 0:
 			print("""Burnin was set to 0. Use command -b to specify a higher burnin
 (e.g. -b 100 will exclude the first 100 samples).""")
-		rtt = loadtxt(plot_file, skiprows=max(1,burnin))
+		rtt = loadtxt(plot_file, skiprows=1)
 		mcmc_rtt = rtt.ndim == 2
-		# No way to remove the TI steps
+		# No way to remove the TI steps because they are not logged in the rate file (and shouldn't!)
 		plotCI = np.sort(args.plotCI)[::-1]
 		lenCI = len(plotCI)
 		if mcmc_rtt:
+			rtt = rtt[rtt[:,0] > burnin,:]
 			ncols = shape(rtt)[1]
 			hpd = np.zeros((2 * lenCI, ncols))
 			for i in range(ncols):
@@ -568,7 +570,7 @@ if args.ran is True:
 	n_taxa = np.random.randint(20,75)
 	q_rate = np.round(np.random.uniform(.05,1, 2),2)
 
-print(sim_d_rate,sim_e_rate)
+#print(sim_d_rate,sim_e_rate)
 
 # sampling rates
 TimeSpan = 23.25
@@ -649,11 +651,12 @@ else:
 	if do_DivdE: model_tag+= "_DivdE"
 	if args.DisdE: model_tag+= "_DisdE"
 	if do_DdE: model_tag+= "_DdE"
-	if do_varE: model_tag+= "_Eexp"
+	if do_varE and args.linE is False: model_tag+= "_Eexp"
+	if do_varE and args.linE: model_tag+= "_linE"
 
 	if args.lgD: model_tag+= "_lgD"
 	if args.lgE: model_tag+= "_lgE"
-	if args.linE: model_tag+= "_linE"
+
 	# constraints
 	if equal_d is True: model_tag+= "_symd"
 	if equal_e is True: model_tag+= "_syme"
@@ -685,10 +688,10 @@ else:
 	time_series = np.sort(time_series)[::-1] # the order of the time vector is only used to assign the different Q matrices
 	                                         # to the correct time bin. Q_list[0] = root age, Q_list[n] = most recent
 
-if verbose ==1:
+if verbose == 1:
 	print(time_series)
 	print(obs_area_series)
-	
+
 #############################################
 ######            INIT MODEL           ######
 #############################################
@@ -722,7 +725,7 @@ for i in range(nTaxa):
 	last_occ = np.max( np.where( np.in1d(data_temp[i,:], [0., 1., 2., 3.]) ) )
 	bin_last_occ[i] = last_occ
 	present_data[i] = obs_area_series[i, last_occ]
-if verbose ==1:
+if verbose == 1:
 	print("last occurrence bin", bin_last_occ)
 	print("present data", present_data)
 
@@ -815,7 +818,7 @@ ind_shift.append(len(time_series))
 ind_shift= np.sort(ind_shift)[::-1]
 # Q_index = [0,0,0,1,1,1,1,....] # Q index for each time bin
 # Note that Q_index also provides the index for r_vec
-if verbose ==1: print(ind_shift,time_series)
+if verbose == 1: print(ind_shift,time_series)
 Q_index=np.zeros(len(time_series))
 i,count=0,0
 for j in ind_shift[::-1]:
@@ -825,7 +828,7 @@ for j in ind_shift[::-1]:
 	count+=1
 
 Q_index =Q_index.astype(int) 
-if verbose ==1: print(Q_index, shape(dis_rate_vec))
+if verbose == 1: print(Q_index, shape(dis_rate_vec))
 
 prior_exp_rate = 1.
 
@@ -849,7 +852,7 @@ alpha = array([10.]) # little sampling heterogeneity
 ######               MCMC              ######
 #############################################
 
-if verbose ==1:
+if verbose == 1:
 	print("data size:", len(list_taxa_index), nTaxa, len(time_series))
 	print("starting MCMC...")
 #if use_seq_lik is True: num_processes=0
@@ -859,7 +862,7 @@ start_time=time.time()
 update_rate_freq_d = max(0.1, 1.5/sum(np.size(dis_rate_vec)))
 update_rate_freq_e = max(0.1, 1.5/sum(np.size(ext_rate_vec)))
 update_rate_freq_r = max(0.1, 1.5/sum(np.size(r_vec)))
-if verbose ==1: print("Origination time (binned):", OrigTimeIndex, delta_t)
+if verbose == 1: print("Origination time (binned):", OrigTimeIndex, delta_t)
 l=1
 recursive = np.arange(OrigTimeIndex[l],len(delta_t))[::-1]
 #if verbose ==1: print(recursive)
@@ -1166,7 +1169,7 @@ data_temp2[data_temp2==1]=0
 data_temp2[data_temp2==2]=1
 data_temp2[data_temp2==3]=1
 div_traj_2 = np.nansum(data_temp2,axis=0)[0:-1]
-if verbose ==1: print("Diversity trajectories", div_traj_1,div_traj_2)
+if verbose == 1: print("Diversity trajectories", div_traj_1,div_traj_2)
 
 #def smooth_trajectory(div_traj):
 #	for i in range(len(div_traj)):
@@ -1247,7 +1250,9 @@ if plot_file != "":
 					tmp[tmp <= 0] = rep_e
 					rate[i:,] = tmp
 				if transf == 4: # DdE
-					rate[i:,] = de[i] + par[i] * covar
+					tmp = de[i] + np.sum(par[i] * covar, axis = 1)
+					tmp[tmp <= 0.0] = 0.0
+					rate[i:,] = tmp
 			lenCI = len(plotCI)
 			hpd = np.zeros((2 * lenCI, len_covar))
 			if len_par > 1:
@@ -1344,7 +1349,7 @@ if plot_file != "":
 			plot_script += "\naxis(side=1, at = xaxis_ticks, label = xaxis_label)"
 			num_CI = (rate1.shape[0] - 1) / 2 # number of credible intervals
 			num_CI = int(num_CI)
-			if num_CI > 1:
+			if num_CI >= 1:
 				plot_script += "\nalpha = 0.3/%s" % num_CI
 				for i in range(num_CI):
 					plot_script += print_R_vec('\nr1_lwr', rate1[2 * i + 1,:])
@@ -1353,7 +1358,7 @@ if plot_file != "":
 			plot_script += "\nlines(covar_rate, r1_mean, col = col_rate, lwd = 2)"
 			if rate2 is not None:
 				plot_script += "\nplot(covar_rate, r2_mean, type = 'n', ylim = c(0, ylim), xlab = name_covar, ylab = name_rate2)"
-				if num_CI> 1:
+				if num_CI>= 1:
 					for i in range(num_CI):
 						plot_script += print_R_vec('\nr2_lwr', rate2[2 * i + 1,:])
 						plot_script += print_R_vec('\nr2_upr', rate2[2 * i + 2,:])
@@ -1393,7 +1398,7 @@ if plot_file != "":
 			plot_script += "\ncol_rainbow = rainbow(%s) " % rate.shape[2]
 			for y in range(rate.shape[2]):
 				plot_script += "\ncol_rate = col_rainbow[1 + %s] " % y
-				if num_CI > 1:
+				if num_CI >= 1:
 					plot_script += print_R_vec('\ntrait', trait[:,y])
 					for i in range(num_CI):
 						plot_script += print_R_vec('\nr_lwr', rate[2 * i + 1,:,y])
@@ -1411,8 +1416,10 @@ if plot_file != "":
 			return plot_script
 
 		head = next(open(plot_file)).split()
-		logfile = loadtxt(plot_file, skiprows=max(1,burnin))
+		logfile = loadtxt(plot_file, skiprows=1)
 		mcmc_logfile = logfile.ndim == 2
+		if mcmc_logfile:
+			logfile = logfile[logfile[:,0] > burnin,:]
 		e1_index = [head.index(i) for i in head if "e1" in i]
 		e1_index = min(e1_index)
 		e2_index = [head.index(i) for i in head if "e2" in i]
@@ -1452,7 +1459,6 @@ if plot_file != "":
 						m_d.append(logfile[:,i + cat_parD_idx[y]])
 					else:
 						m_d.append(np.array(logfile[i + cat_parD_idx[y]]))
-				print("m_d", m_d)
 			if fnmatch.fnmatch(head[i], "cat*e") and do_cate_index:
 				do_cate_index = False
 				m_e = []
@@ -1461,7 +1467,6 @@ if plot_file != "":
 						m_e.append(logfile[:,i + cat_parE_idx[y]])
 					else:
 						m_e.append(np.array(logfile[i + cat_parE_idx[y]]))
-				print("m_e", m_e)
 		panel_count = 0
 		if mcmc_logfile:
 			d12 = logfile[:,4]
@@ -1543,8 +1548,10 @@ if plot_file != "":
 			for i in range(num_varE):
 				covar_tmp = covarE
 				covar_tmp[:,i] = np.linspace(np.min(time_varE[:,i]), np.max(time_varE[:,i]), 100)
-				covarE_e1.append(get_covar_effect(covar_tmp, cov_e1, e1, 1, plotCI))
-				covarE_e2.append(get_covar_effect(covar_tmp, cov_e2, e2, 1, plotCI))
+				transf_e = 1
+				if args.linE: transf_e = 4
+				covarE_e1.append(get_covar_effect(covar_tmp, cov_e1, e1, transf_e, plotCI))
+				covarE_e2.append(get_covar_effect(covar_tmp, cov_e2, e2, transf_e, plotCI))
 			covarE = np.linspace(np.min(time_varE, axis = 0), np.max(time_varE, axis = 0), 100)
 			if rescale_factor > 0:
 				covarE = covarE + mean_varE_before_centering
@@ -2354,14 +2361,15 @@ def lik_opt(x, grad):
 	elif do_DivdE and do_varE is False: # Diversity dep Extinction
 		transf_e = 4
 		do_approx_div_traj = 1
-	elif do_DivdE and do_varE: # Diversity dep Extinction
-		# NOTE THAT extinction in 1 depends diversity in 1
+	elif do_DivdE and do_varE: # Diversity dep and temp dep Extinction
 		transf_e = 5
 		do_approx_div_traj = 1
 	else: # Temp dependent Extinction
 		transf_e = 1
 		if args.lgE:
 			transf_e = 2
+		if args.linE:
+			transf_e = 6
 	
 	alpha = 10.
 	if argsG:
@@ -2385,7 +2393,7 @@ def lik_opt(x, grad):
 			else:
 				x0_logisticD = x[opt_ind_x0_log_dis]
 	if transf_e > 0:
-		if transf_e == 1 or transf_e == 2 or transf_e == 5:
+		if transf_e == 1 or transf_e == 2 or transf_e == 5 or transf_e == 6:
 			if do_symCovE:
 				x_covE = x[opt_ind_covar_ext]
 				x_covE = x_covE[idx_symCovE]
@@ -3064,7 +3072,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 				if r[r_idx_varD] < .5:
 					covar_parD = update_parameter_uni_2d_freq(covar_parD_A, d=0.1*scale_proposal_d, f = f_varD, m = m_d, M = M_d)
 			if do_varE:
-				if r[r_idx_varD] < .5:
+				if r[r_idx_varE] < .5:
 					covar_parE = update_parameter_uni_2d_freq(covar_parE_A, d=0.1*scale_proposal_e, f = f_varE, m = m_e, M = M_e)
 		elif r[2] < .5 and (argstraitD != "" or argstraitE != "" or argscatD != "" or argscatE != ""): # update traits
 			if argstraitD != "":
@@ -3222,7 +3230,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		dis_into_1 = numD21
 		
 	if args.lgE: transf_e = 2
-	if args.linE: transf_e = 3
+	if args.linE: transf_e = 6
 
 	if model_DUO:
 		numD12res = rescale_vec_to_range(log(1+numD12), r=10., m=0)

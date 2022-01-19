@@ -188,8 +188,9 @@ def make_Q_Covar4VDdE(dv_list, ev_list, time_var_d1, time_var_d2, time_var_e1, t
 		transf_e1  = transform_rate_logistic(ev_list[0][0], [covar_parE[0],x0_logisticE[0]],time_var_e1)
 		transf_e2  = transform_rate_logistic(ev_list[0][1], [covar_parE[1],x0_logisticE[1]],time_var_e2)
 		transf_e = np.array([transf_e1 ,transf_e2 ]).T
-	elif transf_e==3: # linear
+	elif transf_e==3: # linear dependence on dispersal fraction
 		transf_e = np.array([ev_list[0][0] + (covar_par[2]*dis_into_1), ev_list[0][1] +(covar_par[3]*dis_into_2)]).T
+		transf_e[transf_e < 0.0] = 0.0
 	elif transf_e==4: # linear diversity dependence
 		base_e1 = ev_list[0][0] * (1. - (offset_ext_div1/covar_par[2]))
 		base_e2 = ev_list[0][1] * (1. - (offset_ext_div2/covar_par[3]))
@@ -210,12 +211,10 @@ def make_Q_Covar4VDdE(dv_list, ev_list, time_var_d1, time_var_d2, time_var_e1, t
 		idx2 = np.arange(1, len(covar_parE), 2, dtype = int)
 		env_e1 = ev_list[0][0] * exp(np.sum(covar_parE[idx1]*time_var_e1, axis = 1))
 		env_e2 = ev_list[0][1] * exp(np.sum(covar_parE[idx2]*time_var_e2, axis = 1))
-#		print("env_e1", env_e1)
 		denom_e1 = 1. - diversity_e1/covar_par[2]
 		denom_e2 = 1. - diversity_e2/covar_par[3]
 		denom_e1[denom_e1 == 0.0] = 1e-5 # Diversity equals K
 		denom_e2[denom_e2 == 0.0] = 1e-5
-#		print("denom_e1", denom_e1)
 		transf_e = np.array([env_e1 / denom_e1, env_e2 / denom_e2]).T
 		# Replace negative and infinite extinction rate when observed diversity is >= K by max extinction
 		rep_e1 = env_e1 / (1. - ((covar_par[2] - 1e-5)/covar_par[2]))
@@ -228,6 +227,11 @@ def make_Q_Covar4VDdE(dv_list, ev_list, time_var_d1, time_var_d2, time_var_e1, t
 		transf_e[idx_smaller0, 1] = rep_e2[idx_smaller0]
 		idx_na = np.isfinite(transf_e[:,1]) == False
 		transf_e[idx_na, 1] = rep_e2[idx_na]
+	elif transf_e==6: # linear dependence on environment
+		idx1 = np.arange(0, len(covar_parE), 2, dtype = int)
+		idx2 = np.arange(1, len(covar_parE), 2, dtype = int)
+		transf_e = np.array([ev_list[0][0] + np.sum(covar_parE[idx1]*time_var_e1, axis = 1), ev_list[0][1] + np.sum(covar_parE[idx2]*time_var_e2, axis = 1)]).T
+		transf_e[transf_e < 0.0] = 0.0
 	else:
 		transf_e = ev_list
 #	Q_list=[]
@@ -486,7 +490,7 @@ def parse_input_data(input_file_name,RHO_sampling=np.ones(2),verbose=0,n_sampled
 		DATA = DATA[ind_keep]
 		if reduce_data==1: # KEEPS ONLY TAXA WITH OCCURRENCES IN BOTH AREAS
 			DATA_temp = []
-			print("\n\n\n",shape(DATA), "\n\n\n")
+			if verbose == 1: print("\n\n\n",shape(DATA), "\n\n\n")
 			for i in range(np.shape(DATA)[0]):
 				d = DATA[i]
 				d=d[np.isfinite(d)]
@@ -524,7 +528,7 @@ def parse_input_data(input_file_name,RHO_sampling=np.ones(2),verbose=0,n_sampled
 		
 			else:
 				sampling_fraction = sampling_fraction[np.array(obs[i])] # RHO[0] if area (0), RHO[1] if area (1), RHO[0,1] if area (0,1)
-				if verbose ==1: print(sampling_fraction, np.array(obs[i]))
+				if verbose == 1: print(sampling_fraction, np.array(obs[i]))
 				r=np.random.uniform(0,1,len(obs[i]))
 				ind=np.nonzero(r<sampling_fraction)[0]
 				if len(ind)>0: new_obs.append(tuple(np.array(obs[i])[ind]))	
