@@ -42,7 +42,7 @@ PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-af
 * See tutorial [4](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md)
 
 
-#### The dispersal-extinction-cladogenesis model (DES) is described here:
+#### The dispersal-extinction-sampling model (DES) is described here:
 
 * Silvestro D., Zizka A., Bacon C. D., Cascales-Minana B., Salamin N., Antonelli, A. (2016) Fossil Biogeography: A new model to infer dispersal, extinction and sampling from paleontological data. Philosophical Transactions of the Royal Society B [371:20150225](http://rstb.royalsocietypublishing.org/content/371/1691/20150225).
 

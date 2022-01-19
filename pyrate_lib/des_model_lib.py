@@ -155,7 +155,7 @@ def get_dispersal_rate_through_time(dv_list,time_var_d1,time_var_d2,covar_par=np
 
 
 
-def make_Q_Covar4VDdE(dv_list, ev_list, time_var_d1, time_var_d2, time_var_e1, time_var_e2, covar_par=np.zeros(4), covar_parD=np.zeros(4), covar_parE=np.zeros(4), x0_logisticD=np.zeros(4), x0_logisticE=np.zeros(4),transf_d=0,transf_e=0, offset_dis_div1 = 0, offset_dis_div2 = 0, offset_ext_div1 = 0, offset_ext_div2 = 0): 
+def make_Q_Covar4VDdE(dv_list, ev_list, time_var_d1, time_var_d2, time_var_e1, time_var_e2, diversity_d1, diversity_d2, diversity_e1, diversity_e2, dis_into_1, dis_into_2, covar_par=np.zeros(4), covar_parD=np.zeros(4), covar_parE=np.zeros(4), x0_logisticD=np.zeros(4), x0_logisticE=np.zeros(4),transf_d=0,transf_e=0, offset_dis_div1 = 0, offset_dis_div2 = 0, offset_ext_div1 = 0, offset_ext_div2 = 0): 
 	if transf_d==1: # exponential
 		idx1 = np.arange(0, len(covar_parD), 2, dtype = int)
 		idx2 = np.arange(1, len(covar_parD), 2, dtype = int)
@@ -165,8 +165,17 @@ def make_Q_Covar4VDdE(dv_list, ev_list, time_var_d1, time_var_d2, time_var_e1, t
 		transf_d21 = transform_rate_logistic(dv_list[0][1], [covar_parD[1],x0_logisticD[1]],time_var_d2)
 		transf_d = np.array([transf_d12,transf_d21]).T
 	elif transf_d==4: # linear diversity dependence
-		transf_d = np.array([(dv_list[0][0]/(1. - (offset_dis_div1/covar_par[0]))) * (1. - (time_var_d1/covar_par[0])), 
-		                     (dv_list[0][1]/(1. - (offset_dis_div2/covar_par[1]))) * (1. - (time_var_d2/covar_par[1]))]).T 
+		transf_d = np.array([(dv_list[0][0]/(1. - (offset_dis_div1/covar_par[0]))) * (1. - (diversity_d1/covar_par[0])), 
+		                     (dv_list[0][1]/(1. - (offset_dis_div2/covar_par[1]))) * (1. - (diversity_d2/covar_par[1]))]).T
+		transf_d[transf_d <= 0] = 1e-5
+		transf_d[np.isnan(transf_d)] = 1e-5
+	elif transf_d==5: # Combination of environment and diversity dependent dispersal
+		idx1 = np.arange(0, len(covar_parD), 2, dtype = int)
+		idx2 = np.arange(1, len(covar_parD), 2, dtype = int)
+		env_d12 = dv_list[0][0] * exp(np.sum(covar_parD[idx1]*time_var_d1, axis = 1))
+		env_d21 = dv_list[0][1] * exp(np.sum(covar_parD[idx2]*time_var_d2, axis = 1))
+		transf_d = np.array([(env_d12 / (1. - (offset_dis_div1/covar_par[0]))) * (1. - (diversity_d1/covar_par[0])), 
+		                     (env_d21 / (1. - (offset_dis_div2/covar_par[1]))) * (1. - (diversity_d2/covar_par[1]))]).T
 		transf_d[transf_d <= 0] = 1e-5
 		transf_d[np.isnan(transf_d)] = 1e-5
 	else: # time-dependent-dispersal
@@ -180,22 +189,45 @@ def make_Q_Covar4VDdE(dv_list, ev_list, time_var_d1, time_var_d2, time_var_e1, t
 		transf_e2  = transform_rate_logistic(ev_list[0][1], [covar_parE[1],x0_logisticE[1]],time_var_e2)
 		transf_e = np.array([transf_e1 ,transf_e2 ]).T
 	elif transf_e==3: # linear
-		transf_e = np.array([ev_list[0][0] + (covar_par[2]*time_var_e1), ev_list[0][1] +(covar_par[3]*time_var_e2)]).T
+		transf_e = np.array([ev_list[0][0] + (covar_par[2]*dis_into_1), ev_list[0][1] +(covar_par[3]*dis_into_2)]).T
 	elif transf_e==4: # linear diversity dependence
 		base_e1 = ev_list[0][0] * (1. - (offset_ext_div1/covar_par[2]))
 		base_e2 = ev_list[0][1] * (1. - (offset_ext_div2/covar_par[3]))
-		denom_e1 = 1. - time_var_e1/covar_par[2]
-		denom_e2 = 1. - time_var_e2/covar_par[3]
+		denom_e1 = 1. - diversity_e1/covar_par[2]
+		denom_e2 = 1. - diversity_e2/covar_par[3]
 		denom_e1[denom_e1 == 0.0] = 1e-5 # Diversity equals K
 		denom_e2[denom_e2 == 0.0] = 1e-5
 		transf_e = np.array([base_e1 / denom_e1, base_e2 / denom_e2]).T
 		# Replace negative and infinite extinction rate when observed diversity is >= K by max extinction
 		rep_e1 = base_e1 / (1. - ((covar_par[2] - 1e-5)/covar_par[2]))
 		rep_e2 = base_e2 / (1. - ((covar_par[3] - 1e-5)/covar_par[3]))
-		transf_e[0, transf_e[0, ] < 0] = rep_e1 
+		transf_e[0, transf_e[0, ] < 0] = rep_e1
 		transf_e[0, np.isfinite(transf_e[0, ]) == False] = rep_e1
 		transf_e[1, transf_e[1, ] < 0] = rep_e2
 		transf_e[1, np.isfinite(transf_e[1, ]) == False] = rep_e2
+	elif transf_e==5: # Combination of environment and diversity dependent extinction
+		idx1 = np.arange(0, len(covar_parE), 2, dtype = int)
+		idx2 = np.arange(1, len(covar_parE), 2, dtype = int)
+		env_e1 = ev_list[0][0] * exp(np.sum(covar_parE[idx1]*time_var_e1, axis = 1))
+		env_e2 = ev_list[0][1] * exp(np.sum(covar_parE[idx2]*time_var_e2, axis = 1))
+#		print("env_e1", env_e1)
+		denom_e1 = 1. - diversity_e1/covar_par[2]
+		denom_e2 = 1. - diversity_e2/covar_par[3]
+		denom_e1[denom_e1 == 0.0] = 1e-5 # Diversity equals K
+		denom_e2[denom_e2 == 0.0] = 1e-5
+#		print("denom_e1", denom_e1)
+		transf_e = np.array([env_e1 / denom_e1, env_e2 / denom_e2]).T
+		# Replace negative and infinite extinction rate when observed diversity is >= K by max extinction
+		rep_e1 = env_e1 / (1. - ((covar_par[2] - 1e-5)/covar_par[2]))
+		rep_e2 = env_e2 / (1. - ((covar_par[3] - 1e-5)/covar_par[3]))
+		idx_smaller0 = transf_e[:,0] < 0
+		transf_e[idx_smaller0, 0] = rep_e1[idx_smaller0]
+		idx_na = np.isfinite(transf_e[:,0]) == False
+		transf_e[idx_na, 0] = rep_e1[idx_na]
+		idx_smaller0 = transf_e[:,1] < 0
+		transf_e[idx_smaller0, 1] = rep_e2[idx_smaller0]
+		idx_na = np.isfinite(transf_e[:,1]) == False
+		transf_e[idx_na, 1] = rep_e2[idx_na]
 	else:
 		transf_e = ev_list
 #	Q_list=[]
@@ -438,7 +470,7 @@ def transform_Array_Tuple(A): # works ONLY for 2 areas
 	A[isnan(A)]=4 # 4 means NaN
 	A =np.ndarray.astype(A,dtype=int)
 	z=np.empty(np.shape(A),dtype=object)
-	translation = np.array([(),(0,),(1,),(0,1),(np.nan,)])
+	translation = np.array([(),(0,),(1,),(0,1),(np.nan,)], dtype = object)
 	z = translation[A]
 	return z
 
@@ -566,7 +598,7 @@ def parse_input_data(input_file_name,RHO_sampling=np.ones(2),verbose=0,n_sampled
 		binned_OrigTimeIndex   = binned_OrigTimeIndex.astype(int)	
 	else:
 		print("Empirical bins")
-		binned_obs_area_series = np.array(sampled_data)
+		binned_obs_area_series = np.array(sampled_data, dtype = object)
 		binned_OrigTimeIndex   = OrigTimeIndex.astype(int)
 		Binned_time = time_series
 		print(Binned_time)
