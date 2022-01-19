@@ -698,11 +698,20 @@ bin_size = delta_t[0]
 possible_areas= list(powerset(np.arange(nareas)))
 
 tbl = np.genfromtxt(input_data, dtype=str, delimiter='\t')
-tbl_temp=tbl[1:,1:]
-data_temp=tbl_temp.astype(float)
+tbl = tbl[1:,:]
+data_temp=tbl[:,1:].astype(float)
 # remove empty taxa (absent throughout)
 ind_keep = (np.nansum(data_temp,axis=1) != 0).nonzero()[0]
-data_temp = data_temp[ind_keep]
+data_temp = data_temp[ind_keep,:]
+tbl = tbl[ind_keep,:]
+# reduce dataset to taxa with occs in both areas
+if args.red == 1:
+	ind_keep = []
+	for i in range(data_temp.shape[0]):
+		if (any(data_temp[i,:] == 1) and any(data_temp[i,:] == 2)) or any(data_temp[i,:] == 3):
+			ind_keep.append(i)
+	data_temp = data_temp[ind_keep,:]
+	tbl = tbl[ind_keep,:]
 
 # For the one area model, we need to identify the bin of the last appearance in the focal area
 # Also useful in the two area case if we know the exact time and area (!) of extinction
@@ -830,7 +839,6 @@ elif data_in_area == 2:
 	dis_rate_vec[:,1] = 0
 	r_vec[:,1] = small_number
 
-print(np.shape(ext_rate_vec))
 
 YangGammaQuant = array([1.])
 if argsG is True:
@@ -1068,7 +1076,7 @@ def logtransf_traits(var, transfTrait):
 	return var2, transfTrait
 
 
-taxa_input = tbl[1:,0][ind_keep]
+taxa_input = tbl[:,0]
 traitD = np.ones((len(taxa_input), 1))
 traitE = np.ones((len(taxa_input), 1))
 traits = False
