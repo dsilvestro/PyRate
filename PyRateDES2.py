@@ -94,9 +94,11 @@ p.add_argument('-symCovD',  type=int,  help='symmetric correlations with dispers
 p.add_argument('-symCovE',  type=int,  help='symmetric correlations with extinction (starting with 1 for 1st covariate in directory varE)', default=[], metavar=0, nargs='+')
 p.add_argument('-symDivdD', help='symmetric diversity-dependent dispersal', action='store_true', default=False)
 p.add_argument('-symDivdE', help='symmetric diversity or dispersal dependent extinction', action='store_true', default=False)
-p.add_argument('-constq',   type=int,  help='if 1 (or 2): constant q in area 1 (or 2)', default=0)
-p.add_argument('-constr',   type=int, help='Contraints on covar parameters',  default=[], metavar=0, nargs='+')
-#p.add_argument('-constA',   type=int, help='Contraints on covar parameters',  default=[], metavar=0, nargs='+') # '*'
+p.add_argument('-constr',   type=int, help='Contraints on dispersal, extinction and sampling rates (1/2 constant d12/d21; 3/4 constant e1/e2; ; 5/6 constant q1/q2)',  default=[], metavar=0, nargs='+')
+p.add_argument('-constrCovD_0', type=int, help='Contraint dispersal covariate to be zero (e.g. 1 for no effect on d12 or 2 for no effect on d21)',  default=[], metavar=0, nargs='+')
+p.add_argument('-constrCovE_0', type=int, help='Contraint extinction covariate to be zero (e.g. 1 for no effect on e1 or 2 for no effect on e2)',  default=[], metavar=0, nargs='+')
+p.add_argument('-constrDivdD_0', type=int, help='Contraint diversity effect on dispersal to be zero (e.g. 1 for no effect on d12 or 2 for no effect on d21)',  default=[], metavar=0, nargs='+')
+p.add_argument('-constrDivdE_0', type=int, help='Contraint diversity or dispersal effect on extinction to be zero (e.g. 1 for no effect on e1 or 2 for no effect on e2)',  default=[], metavar=0, nargs='+')
 p.add_argument('-data_in_area', type=int,  help='if data only in area 1 set to 1 (set to 2 if data only in area 2)', default=0)
 p.add_argument('-varD',      type=str, help='Directory to time variable files for dispersal (takes all files)', default="", metavar="")
 p.add_argument('-varE',      type=str, help='Directory to time variable files for dispersal (takes all files)', default="", metavar="")
@@ -160,6 +162,13 @@ p.add_argument('-log_distr', help='log estimated taxon distribution', action='st
 p.add_argument('-log_weights', help='log likelihood weights of the sampling categories (only -mG and -A 3)', action='store_true', default=False)
 
 args = p.parse_args()
+
+# Currently unsupported models
+if args.cov_and_dispersal:
+	sys.exit(print("Model with symmetric extinction covarying with both a proxy and dispersal currently not possible. You could combine -varE and -DdE."))
+if args.DisdE:
+	sys.exit(print("Model with symmetric extinction covarying with both a proxy and dispersal currently not possible. You could combine -varE and -DdE."))
+
 if args.cite is True:
 	sys.exit(citation)
 simulation_no = args.i
@@ -305,19 +314,20 @@ if output_wd=="": output_wd= self_path
 equal_d = args.symd
 equal_e = args.syme
 equal_q = args.symq
-constraints_covar = np.array(args.constr)
-constraints_covar_true = len(constraints_covar) > 0
-constraints_01 = any(np.isin(constraints_covar, np.array([0, 1])))
-constraints_23 = any(np.isin(constraints_covar, np.array([2, 3])))
-constraints_45 = any(np.isin(constraints_covar, np.array([4, 5])))
+constraints = np.array(args.constr)
+constraints = constraints - 1
+constraints_true = len(constraints) > 0
+constraints_01 = any(np.isin(constraints, np.array([0, 1])))
+constraints_23 = any(np.isin(constraints, np.array([2, 3])))
+constraints_45 = any(np.isin(constraints, np.array([4, 5])))
 d12_prior_idx = n_Q_times
 d21_prior_idx = n_Q_times
 e1_prior_idx = n_Q_times
 e2_prior_idx = n_Q_times
-if np.isin(0, constraints_covar): d12_prior_idx = 1
-if np.isin(1, constraints_covar): d21_prior_idx = 1
-if np.isin(2, constraints_covar): e1_prior_idx = 1
-if np.isin(3, constraints_covar): e2_prior_idx = 1
+if np.isin(0, constraints): d12_prior_idx = 1
+if np.isin(1, constraints): d21_prior_idx = 1
+if np.isin(2, constraints): e1_prior_idx = 1
+if np.isin(3, constraints): e2_prior_idx = 1
 
 do_DivdD = args.DivdD
 do_DivdE = args.DivdE
@@ -325,7 +335,6 @@ do_varD = False
 if args.varD != "": do_varD = True
 do_varE = False
 if args.varE != "": do_varE = True
-const_q = args.constq
 do_symCovD = False
 symCovD = args.symCovD
 if len(symCovD) > 0: do_symCovD = True
@@ -661,10 +670,9 @@ else:
 	if equal_d is True: model_tag+= "_symd"
 	if equal_e is True: model_tag+= "_syme"
 	if equal_q is True: model_tag+= "_symq"
-	if const_q > 0: model_tag+= "_constq%s" % (const_q)
-	if len(constraints_covar)>0:
+	if len(constraints)>0:
 		model_tag+= "_constr"
-		for i in constraints_covar: model_tag+= "_%s" % (i)
+		for i in constraints: model_tag+= "_%s" % (i + 1)
 	if do_symDivdD:
 		model_tag+= "_symDivdD"
 	if do_symCovD:
@@ -995,13 +1003,46 @@ range_time_varE = np.max(time_varE, axis = 0) - np.min(time_varE, axis = 0)
 bound_covar_d = (1. + small_number) / (range_time_varD + small_number) * bound_covar
 bound_covar_e = (1. + small_number) / (range_time_varE + small_number) * bound_covar
 num_varD = time_varD.shape[1]
+if num_varD > 1 and args.lgD:
+	sys.exit(print("Logistic relationship only possible with a single covariate"))
 num_varE = time_varE.shape[1]
+if num_varE > 1 and args.lgE:
+	sys.exit(print("Logistic relationship only possible with a single covariate"))
 covar_parD_A = np.zeros(2 * num_varD)
 covar_parE_A = np.zeros(2 * num_varE)
 x0_logisticD_A = np.zeros(2 * num_varD)
 x0_logisticE_A = np.zeros(2 * num_varE)
 covar_par_A = np.zeros(4)
 
+# Constraint covariate effect to 0
+constrCovD_0 = np.array([])
+constrCovD_not0 = np.arange(0, 2 * num_varD, 1)
+if args.constrCovD_0:
+	if do_symCovD and args.A == 3:
+		sys.exit(print("Combination of symmetric covariate influence and constraining an influence to 0 currently only possible with -A 1 and 2"))
+	else:
+		constrCovD_0 = np.array(args.constrCovD_0) - 1
+		constrCovD_not0 = constrCovD_not0[np.isin(constrCovD_not0, constrCovD_0) == False]
+constrCovE_0 = np.array([])
+constrCovE_not0 = np.arange(0, 2 * num_varE, 1)
+if args.constrCovE_0:
+	if do_symCovE and args.A == 3:
+		sys.exit(print("Combination of symmetric covariate influence and constraining an influence to 0 currently only possible with -A 1 and 2"))
+	else:
+		constrCovE_0 = np.array(args.constrCovE_0) - 1
+		constrCovE_not0 = constrCovE_not0[np.isin(constrCovE_not0, constrCovE_0) == False]
+# Constraint dispersal effect to be absent
+constrDivdD_0 = np.array([])
+constrDivdD_not0 = np.arange(0, 2, 1)
+if args.constrDivdD_0:
+	constrDivdD_0 = np.array(args.constrDivdD_0) - 1
+	constrDivdD_not0 = constrCovD_not0[np.isin(constrDivdD_not0, constrDivdD_0) == False]
+constrDivdE_0 = np.array([])
+constrDivdE_not0 = np.arange(0, 2, 1)
+if args.constrDivdE_0:
+	constrDivdE_0 = np.array(args.constrDivdE_0) - 1
+	constrDivdE_not0 = 2 + constrCovE_not0[np.isin(constrDivdE_not0, constrDivdE_0) == False]
+	constrDivdE_0 = 2 + constrDivdE_0
 
 def get_idx_symCov(symCov, num_var):
 	sym_cov_idx = list()
@@ -1022,21 +1063,13 @@ if do_varD:
 	if do_symCovD:
 		idx_symCovD = get_idx_symCov(symCovD, num_varD)
 		idx2_symCovD = idx2_symCovD[np.isin(idx2_symCovD, 2 * np.array(symCovD) - 1) == False]
-#else:
-#	idx2_symCovD = np.array([0, 1])
-#	if do_symCovD:
-#		idx_symCovD = np.zeros(2, dtype = int)
-#		idx2_symCovD = np.zeros(1, dtype = int)
+
 if do_varE:
 	idx2_symCovE = np.arange(0, 2 * num_varE, 1)
 	if do_symCovE:
 		idx_symCovE = get_idx_symCov(symCovE, num_varE)
 		idx2_symCovE = idx2_symCovE[np.isin(idx2_symCovE, 2 * np.array(symCovE) - 1) == False]
-#else:
-#	idx2_symCovE = np.array([0, 1])
-#	if do_symCovE:
-#		idx_symCovE = np.zeros(2, dtype = int)
-#		idx2_symCovE = np.zeros(1, dtype = int)
+
 
 if do_DivdD:
 	covar_par_A[0:2] = np.array([nTaxa * 1., nTaxa * 1.])
@@ -2280,7 +2313,7 @@ def lik_opt(x, grad):
 		r_vec[:,1] = small_number
 		r_vec[:,2] = x[opt_ind_r_vec]
 	elif constraints_45:
-		constraints_45_which = constraints_covar[constraints_covar > 3]
+		constraints_45_which = constraints[constraints > 3]
 		if sum(constraints_45_which) == 4 and len(constraints_45_which) == 1:
 			r_vec[:,1] = np.array(x[opt_ind_r_vec[0]])
 			r_vec[:,2] = np.array(x[opt_ind_r_vec[1:]])
@@ -2299,7 +2332,7 @@ def lik_opt(x, grad):
 	elif data_in_area == 2:
 		dis_vec[:,0] = x[opt_ind_dis]
 	elif constraints_01 and args.TdD:
-		constraints_01_which = constraints_covar[constraints_covar < 2]
+		constraints_01_which = constraints[constraints < 2]
 		# Both dispersal rates could be constant!
 		if sum(constraints_01_which) == 0 and len(constraints_01_which) == 1:
 			dis_vec[:,0] = np.array(x[opt_ind_dis[0]])
@@ -2337,7 +2370,7 @@ def lik_opt(x, grad):
 	elif data_in_area == 2:
 		ext_vec[:,1] = x[opt_ind_ext]
 	elif constraints_23 and args.TdE:
-		constraints_23_which = constraints_covar[np.logical_and(constraints_covar >= 2, constraints_covar < 4)]
+		constraints_23_which = constraints[np.logical_and(constraints >= 2, constraints < 4)]
 		if sum(constraints_23_which) == 2 and len(constraints_23_which) == 1:
 			ext_vec[:,0] = np.array(x[opt_ind_ext[0]])
 			ext_vec[:,1] = np.array(x[opt_ind_ext[1:]])
@@ -2381,15 +2414,25 @@ def lik_opt(x, grad):
 				x_covD = x[opt_ind_covar_dis]
 				x_covD = x_covD[idx_symCovD]
 				covar_parD = x_covD
+			elif len(constrCovD_0) > 0:
+				covar_parD = np.zeros(2 * num_varD)
+				covar_parD[constrCovD_not0] = x[opt_ind_covar_dis]
 			else:
 				covar_parD = x[opt_ind_covar_dis]
-		if transf_d == 4 or transf_d == 5: 
-			covar_par[[0,1]] = x[opt_ind_divd_dis]
+		if transf_d == 4 or transf_d == 5:
+			if len(constrDivdD_0) > 0:
+				covar_par[[0,1]] = np.array([10000 * nTaxa, 10000 * nTaxa])
+				covar_par[constrDivdD_not0] = x[opt_ind_divd_dis]
+			else:
+				covar_par[[0,1]] = x[opt_ind_divd_dis]
 		if transf_d == 2:
 			if do_symCovD:
 				x0_covD = x[opt_ind_x0_log_dis]
 				x0_covD = x0_covD[idx_symCovD]
 				x0_logisticD = x_covD
+			elif len(constrCovD_0) > 0:
+				x0_logisticD = np.zeros(2 * num_varD)
+				x0_logisticD[constrCovD_not0] = x[opt_ind_x0_log_dis]
 			else:
 				x0_logisticD = x[opt_ind_x0_log_dis]
 	if transf_e > 0:
@@ -2398,22 +2441,28 @@ def lik_opt(x, grad):
 				x_covE = x[opt_ind_covar_ext]
 				x_covE = x_covE[idx_symCovE]
 				covar_parE = x_covE
+			elif len(constrCovE_0) > 0:
+				covar_parE = np.zeros(2 * num_varE)
+				covar_parE[constrCovE_not0] = x[opt_ind_covar_ext]
 			else:
 				covar_parE = x[opt_ind_covar_ext]
 		if transf_e == 4 or transf_e == 5:
+			if len(constrDivdE_0) > 0:
+				covar_par[[2,3]] = np.array([10000 * nTaxa, 10000 * nTaxa])
+				if do_DdE: covar_par[[2,3]] = np.zeros(2)
+				covar_par[constrDivdE_not0] = x[opt_ind_divd_ext]
 			covar_par[[2,3]] = x[opt_ind_divd_ext]
 		if transf_e == 2:
 			if do_symCovE:
 				x0_covE = x[opt_ind_x0_log_ext]
 				x0_covE = x0_covE[idx_symCovE]
 				x0_logisticE = x0_covE
+			elif len(constrCovE_0) > 0:
+				x0_logisticE = np.zeros(2 * num_varE)
+				x0_logisticE[constrCovE_not0] = x[opt_ind_x0_log_ext]
 			else:
 				x0_logisticE = x[opt_ind_x0_log_ext]
-	
-	# enforce constraints if any
-	if constraints_covar_true:
-		covar_par[constraints_covar[constraints_covar<4]] = 0
-		x0_logistic[constraints_covar[constraints_covar<4]] = 0
+
 	# Trait-dependence
 	trait_parD = np.zeros(num_traitD) + 0.
 	trait_parE = np.zeros(num_traitE) + 0.
@@ -2489,7 +2538,7 @@ if args.A == 3:
 	if data_in_area != 0:
 		opt_ind_dis = np.arange(0, n_Q_times_dis)
 	if args.TdD is True and constraints_01: 
-		if len(constraints_covar[constraints_covar < 2]) == 1:
+		if len(constraints[constraints < 2]) == 1:
 			opt_ind_dis = np.arange(0, n_Q_times_dis + 1)
 		else:
 			opt_ind_dis = np.arange(0, nareas)
@@ -2504,7 +2553,7 @@ if args.A == 3:
 	if data_in_area != 0:
 		opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, n_Q_times_ext)
 	if args.TdE is True and constraints_23:
-		if all(np.isin(np.array([2, 3]), constraints_covar)):
+		if all(np.isin(np.array([2, 3]), constraints)):
 			opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, nareas)
 		else:
 			opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, n_Q_times_ext + 1)
@@ -2512,22 +2561,13 @@ if args.A == 3:
 	opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, n_Q_times*nareas)
 	if equal_q is True:
 		opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.repeat(np.arange(0, n_Q_times), 2) 
-	if const_q ==1: # Needs bin1 = 01 bin2 = 02 bin3 = 03 bin4 = 04 bin5 = 05
-		opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.array([np.zeros(nareas, dtype = int), np.arange(1,nareas+1)]).T.flatten()
-	if const_q ==2: # Needs bin1 = 01 bin2 = 21 bin3 = 31 bin4 = 41 bin5 = 51
-		opt_ind_r_vec = np.array([np.arange(1,nareas+1), np.ones(nareas, dtype = int)]).T.flatten()
-		opt_ind_r_vec[0] = 0
-		opt_ind_r_vec = np.max(opt_ind_ext) + 1 + opt_ind_r_vec
 	if constraints_45:
-		if all(np.isin(np.array([4, 5]), constraints_covar)):
+		if all(np.isin(np.array([4, 5]), constraints)):
 			opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, nareas)
 		else:
 			opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, n_Q_times + 1)
 	if data_in_area != 0:
-		if const_q ==1 or const_q ==2:
-			opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.zeros(n_Q_times, dtype = int)
-		else: 
-			opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, n_Q_times)
+		opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, n_Q_times)
 	
 	
 	x0 = np.zeros(1 + np.max(opt_ind_r_vec)) # Initial values
@@ -2555,8 +2595,10 @@ if args.A == 3:
 			x0 = np.concatenate((x0, np.zeros(2 * num_varD)), axis = None)
 			lower_bounds = lower_bounds + (-bound_covar_d).tolist() + (-bound_covar_d).tolist()
 			upper_bounds = upper_bounds + (bound_covar_d).tolist() + (bound_covar_d).tolist()
-			if do_symCovD or data_in_area != 0 or constraints_01:
-				until = len(symCovD)
+			if do_symCovD or data_in_area != 0 or len(constrCovD_0) > 0:
+				if do_symCovD: until = len(symCovD)
+				elif len(constrCovD_0) > 0: until = len(constrCovD_0)
+				else: until = num_varD # for data_in_area
 				opt_ind_covar_dis = opt_ind_covar_dis[0:-until]
 				ind_counter = ind_counter - until
 				x0 = x0[0:-until]
@@ -2568,8 +2610,10 @@ if args.A == 3:
 				x0 = np.concatenate((x0, np.mean(time_varD, axis = 0), np.mean(time_varD, axis = 0)), axis = None)
 				lower_bounds = lower_bounds + np.min(time_varD, axis = 0).tolist() + np.min(time_varD, axis = 0).tolist()
 				upper_bounds = upper_bounds + np.max(time_varD, axis = 0).tolist() + np.max(time_varD, axis = 0).tolist()
-				if do_symCovD or data_in_area != 0 or constraints_01:
-					until = len(symCovD)
+				if do_symCovD or data_in_area != 0 or len(constrCovD_0) > 0:
+					if do_symCovD: until = len(symCovD)
+					elif len(constrCovD_0) > 0: until = len(constrCovD_0)
+					else: until = num_varD # for data_in_area
 					opt_ind_x0_log_dis = opt_ind_x0_log_dis[0:-until]
 					ind_counter = ind_counter - until
 					x0 = x0[0:-until]
@@ -2581,7 +2625,7 @@ if args.A == 3:
 			x0 = np.concatenate((x0, nTaxa + 0., nTaxa + 0.), axis = None)
 			lower_bounds = lower_bounds + [np.max(div_traj_2)] + [np.max(div_traj_1)]
 			upper_bounds = upper_bounds + [np.inf] + [np.inf]
-			if do_symDivdD or data_in_area != 0 or constraints_01:
+			if do_symDivdD or data_in_area != 0 or len(constrDivdD_0) > 0:
 				opt_ind_divd_dis = opt_ind_divd_dis[0:-1]
 				ind_counter = ind_counter - 1
 				x0 = x0[0:-1]
@@ -2596,8 +2640,10 @@ if args.A == 3:
 			x0 = np.concatenate((x0, np.zeros(2 * num_varE)), axis = None)
 			lower_bounds = lower_bounds + (-bound_covar_e).tolist() + (-bound_covar_e).tolist()
 			upper_bounds = upper_bounds + bound_covar_e.tolist() + bound_covar_e.tolist()
-			if do_symCovE or data_in_area != 0 or constraints_23:
-				until = len(symCovE)
+			if do_symCovE or data_in_area != 0 or len(constrCovE_0) > 0:
+				if do_symCovE: until = len(symCovE)
+				elif len(constrCovE_0) > 0: until = len(constrCovE_0)
+				else: until = num_varE # for data_in_area
 				opt_ind_covar_ext = opt_ind_covar_ext[0:-until]
 				ind_counter = ind_counter - until
 				x0 = x0[0:-until]
@@ -2609,8 +2655,10 @@ if args.A == 3:
 				x0 = np.concatenate((x0, np.mean(time_varE), np.mean(time_varE)), axis = None)
 				lower_bounds = lower_bounds + np.min(time_varE, axis = 0).tolist() + np.min(time_varE, axis = 0).tolist()
 				upper_bounds = upper_bounds + np.max(time_varE, axis = 0).tolist() + np.max(time_varE, axis = 0).tolist()
-				if do_symCovE or data_in_area != 0 or constraints_23:
-					until = len(symCovE)
+				if do_symCovE or data_in_area != 0 or len(constrCovE_0) > 0:
+					if do_symCovE: until = len(symCovE)
+					elif len(constrCovE_0) > 0: until = len(constrCovE_0)
+					else: until = num_varE # for data_in_area
 					opt_ind_x0_log_ext = opt_ind_x0_log_ext[0:-until]
 					ind_counter = ind_counter - until
 					x0 = x0[0:-until]
@@ -2627,7 +2675,7 @@ if args.A == 3:
 				x0 = np.concatenate((x0, 0., 0.), axis = None)
 				lower_bounds = lower_bounds + [0.] + [0.]
 				upper_bounds = upper_bounds + [50.] + [50.]
-			if do_symDivdE or data_in_area != 0 or constraints_01:
+			if do_symDivdE or data_in_area != 0 or len(constrDivdE_0) > 0:
 				opt_ind_divd_ext = opt_ind_divd_ext[0:-1]
 				ind_counter = ind_counter - 1
 				x0 = x0[0:-1]
@@ -2729,9 +2777,10 @@ if args.A == 3:
 		opt_dis_cov = nlopt.opt(nlopt.LN_SBPLX, len(x0))
 		new_lower_bounds2 = lower_bounds[:]
 		new_upper_bounds2 = upper_bounds[:]
-		frombound = int(max(opt_ind_covar_dis)) + 1
-		if args.lgD:
-			frombound = int(max(opt_ind_x0_log_dis)) + 1
+		if do_varD:
+			frombound = int(max(opt_ind_covar_dis)) + 1
+			if args.lgD: frombound = int(max(opt_ind_x0_log_dis)) + 1
+		else: frombound = int(max(opt_ind_divd_dis)) + 1 # DivdD
 		tobound = len(x0)
 		new_lower_bounds2[frombound:tobound] = x0[frombound:tobound]
 		new_upper_bounds2[frombound:tobound] = x0[frombound:tobound]
@@ -2757,7 +2806,10 @@ if args.A == 3:
 		opt_ext_cov = nlopt.opt(nlopt.LN_SBPLX, len(x0))
 		new_lower_bounds2 = lower_bounds[:]
 		new_upper_bounds2 = upper_bounds[:]
-		frombound = int(max(opt_ind_covar_ext)) + 1
+		if do_varE:
+			frombound = int(max(opt_ind_covar_ext)) + 1
+			if args.lgE: frombound = int(max(opt_ind_x0_log_ext)) + 1
+		else: frombound = int(max(opt_ind_divd_ext)) + 1
 		tobound = len(x0)
 		new_lower_bounds2[frombound:tobound] = x0[frombound:tobound]
 		new_upper_bounds2[frombound:tobound] = x0[frombound:tobound]
@@ -2792,7 +2844,7 @@ if args.A == 3:
 	elif data_in_area == 2:
 		dis_rate_vec[:,0] = x[opt_ind_dis]
 	elif constraints_01 and args.TdD:
-		constraints_01_which = constraints_covar[constraints_covar<2]
+		constraints_01_which = constraints[constraints < 2]
 		# Both dispersal rates could be constant!
 		if sum(constraints_01_which) == 0 and len(constraints_01_which) == 1:
 			dis_rate_vec[:,0] = np.array(x[opt_ind_dis[0]])
@@ -2812,7 +2864,7 @@ if args.A == 3:
 	elif data_in_area == 2:
 		ext_rate_vec[:,1] = x[opt_ind_ext]
 	elif constraints_23 and args.TdE:
-		constraints_23_which = constraints_covar[np.logical_and(constraints_covar >= 2, constraints_covar < 4)]
+		constraints_23_which = constraints[np.logical_and(constraints >= 2, constraints < 4)]
 		if sum(constraints_23_which) == 2 and len(constraints_23_which) == 1:
 			ext_rate_vec[:,0] = np.array(x[opt_ind_ext[0]])
 			ext_rate_vec[:,1] = np.array(x[opt_ind_ext[1:]])
@@ -2834,7 +2886,7 @@ if args.A == 3:
 		r_vec[:,1] = small_number
 		r_vec[:,2] = x[opt_ind_r_vec]
 	elif constraints_45:
-		constraints_45_which = constraints_covar[constraints_covar > 3]
+		constraints_45_which = constraints[constraints > 3]
 		if sum(constraints_45_which) == 4 and len(constraints_45_which) == 1:
 			r_vec[:,1] = np.array(x[opt_ind_r_vec[0]])
 			r_vec[:,2] = np.array(x[opt_ind_r_vec[1:]])
@@ -2856,6 +2908,9 @@ if args.A == 3:
 			x_covD = x[opt_ind_covar_dis]
 			x_covD = x_covD[idx_symCovD]
 			covar_parD_A = x_covD
+		elif len(constrCovD_0) > 0:
+			covar_parD_A = np.zeros(2 * num_varD)
+			covar_parD_A[constrCovD_not0] = x[opt_ind_covar_dis]
 		else:
 			covar_parD_A = x[opt_ind_covar_dis]
 		if args.lgD:
@@ -2863,15 +2918,25 @@ if args.A == 3:
 				x0_covD = x[opt_ind_x0_log_dis]
 				x0_covD = x0_covD[idx_symCovD]
 				x0_logisticD_A = x0_covD
+			elif len(constrCovD_0) > 0:
+				x0_logisticD_A = np.zeros(2 * num_varD)
+				x0_logisticD_A[constrCovD_not0] = x[opt_ind_x0_log_dis]
 			else:
 				x0_logisticD_A = x[opt_ind_x0_log_dis]
 	if do_DivdD:
-		covar_par_A[[0,1]] = x[opt_ind_divd_dis]
+		if len(constrDivdD_0) > 0:
+			covar_par_A[[0,1]] = np.array([10000 * nTaxa, 10000 * nTaxa])
+			covar_par_A[constrDivdD_not0] = x[opt_ind_divd_dis]
+		else:
+			covar_par_A[[0,1]] = x[opt_ind_divd_dis]
 	if do_varE:
 		if do_symCovE:
 			x_covE = x[opt_ind_covar_ext]
 			x_covE = x_covE[idx_symCovE]
 			covar_parE_A = x_covE
+		elif len(constrCovE_0) > 0:
+			covar_parE_A = np.zeros(2 * num_varE)
+			covar_parE_A[constrCovE_not0] = x[opt_ind_covar_ext]
 		else:
 			covar_parE_A = x[opt_ind_covar_ext]
 		if args.lgE:
@@ -2879,9 +2944,16 @@ if args.A == 3:
 				x0_covE = x[opt_ind_x0_log_ext]
 				x0_covE = x0_covE[idx_symCovE]
 				x0_logisticE_A = x0_covE
+			elif len(constrCovE_0) > 0:
+				x0_logisticE_A = np.zeros(2 * num_varE)
+				x0_logisticE_A[constrCovE_not0] = x[opt_ind_x0_log_ext]
 			else:
 				x0_logisticE_A = x[opt_ind_x0_log_ext]
 	if do_DivdE or args.DdE:
+		if len(constrDivdE_0) > 0:
+			covar_par_A[[2,3]] = np.array([10000 * nTaxa, 10000 * nTaxa])
+			if do_DdE: covar_par_A[[2,3]] = np.zeros(2)
+			covar_par_A[constrDivdE_not0] = x[opt_ind_divd_ext]
 		covar_par_A[[2,3]] = x[opt_ind_divd_ext]
 
 	# Trait-dependence
@@ -3021,17 +3093,19 @@ for it in range(n_generations * len(scal_fac_TI)):
 			if do_DivdD:
 				if r[r_idx_DivdD] < .5:
 					covar_par[0:2] = update_parameter_uni_2d_freq(covar_par_A[0:2], d=scale_proposal_divdd, f=0.5, m = m_divdd, M = M_divdd)
-					if args.lgD and r[2] < .5: # update logistic mid point
-						x0_logisticD = update_parameter_uni_2d_freq(x0_logisticD_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)
 			if do_DivdE or do_DdE:
 				if r[r_idx_DivdE] < .5:
 					covar_par[2:4] = update_parameter_uni_2d_freq(covar_par_A[2:4], d=scale_proposal_divde, f=0.5, m = m_divde, M = M_divde)
 			if do_varD:
 				if r[r_idx_varD] < .5:
 					covar_parD = update_parameter_uni_2d_freq(covar_parD_A, d=0.1*scale_proposal_d, f = f_varD, m = m_d, M = M_d)
+				if args.lgD and r[r_idx_varD] >= .5: # update logistic mid point
+					x0_logisticD = update_parameter_uni_2d_freq(x0_logisticD_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)
 			if do_varE:
 				if r[r_idx_varE] < .5:
 					covar_parE = update_parameter_uni_2d_freq(covar_parE_A, d=0.1*scale_proposal_e, f = f_varE, m = m_e, M = M_e)
+				if args.lgE and r[r_idx_varE] >= .5: # update logistic mid point
+					x0_logisticE = update_parameter_uni_2d_freq(x0_logisticE_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)
 		elif r[2] < .5 and (argstraitD != "" or argstraitE != "" or argscatD != "" or argscatE != ""): # update traits
 			if argstraitD != "":
 				if r[r_idx_traitD] < .5:
@@ -3063,23 +3137,25 @@ for it in range(n_generations * len(scal_fac_TI)):
 			if do_DivdD:
 				if r[r_idx_DivdD] < .5:
 					covar_par[0:2] = update_parameter_uni_2d_freq(covar_par_A[0:2], d=scale_proposal_divdd, f=0.5, m = m_divdd, M = M_divdd)
-					if args.lgE and r[2] < .5: # update logistic mid point
-						x0_logisticE = update_parameter_uni_2d_freq(x0_logisticE_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)
 			if do_DivdE or do_DdE:
 				if r[r_idx_DivdE] < .5:
 					covar_par[2:4] = update_parameter_uni_2d_freq(covar_par_A[2:4], d=scale_proposal_divde, f=0.5, m = m_divde, M = M_divde)
 			if do_varD:
 				if r[r_idx_varD] < .5:
 					covar_parD = update_parameter_uni_2d_freq(covar_parD_A, d=0.1*scale_proposal_d, f = f_varD, m = m_d, M = M_d)
+				if args.lgD and r[r_idx_varD] >= .5: # update logistic mid point
+					x0_logisticD = update_parameter_uni_2d_freq(x0_logisticD_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)
 			if do_varE:
 				if r[r_idx_varE] < .5:
 					covar_parE = update_parameter_uni_2d_freq(covar_parE_A, d=0.1*scale_proposal_e, f = f_varE, m = m_e, M = M_e)
+				if args.lgE and r[r_idx_varE] >= .5: # update logistic mid point
+					x0_logisticE = update_parameter_uni_2d_freq(x0_logisticE_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)
 		elif r[2] < .5 and (argstraitD != "" or argstraitE != "" or argscatD != "" or argscatE != ""): # update traits
 			if argstraitD != "":
 				if r[r_idx_traitD] < .5:
 					trait_parD = update_parameter_uni_2d_freq(trait_parD_A, d=0.1*scale_proposal_a_d, f = f_traitD, m = m_a_d, M = M_a_d)
 			if argstraitE != "":
-				if r[r_idx_traitD] >= .5:
+				if r[r_idx_traitE] >= .5:
 					trait_parE = update_parameter_uni_2d_freq(trait_parE_A, d=0.1*scale_proposal_a_e, f = f_traitE, m = m_a_e, M = M_a_e)
 			if argscatD != "":
 				if r[r_idx_catD] >= .5:
@@ -3106,9 +3182,9 @@ for it in range(n_generations * len(scal_fac_TI)):
 			alpha, hasting_alpha = update_multiplier_proposal(alphaA,d=1.1)
 		r_vec[:,0]=0
 		#--> CONSTANT Q IN AREA 2
-		if const_q ==1: r_vec[:,1] = r_vec[1,1]
+		if any(constraints == 4): r_vec[:,1] = r_vec[1,1]
 		#--> CONSTANT Q IN AREA 2
-		if const_q ==2: r_vec[:,2] = r_vec[1,2]
+		if any(constraints == 5): r_vec[:,2] = r_vec[1,2]
 		#--> SYMMETRIC SAMPLING
 		if equal_q is True: r_vec[:,2] = r_vec[:,1]
 		r_vec[:,3]=1
@@ -3122,29 +3198,38 @@ for it in range(n_generations * len(scal_fac_TI)):
 		d21_for_prior = dis_rate_vec[0:d21_prior_idx, 1].flatten()
 		if equal_d:
 			d21_for_prior = np.array([])
-		e1_for_prior = dis_rate_vec[0:e1_prior_idx, 0].flatten()
-		e2_for_prior = dis_rate_vec[0:e2_prior_idx, 1].flatten()
+		e1_for_prior = ext_rate_vec[0:e1_prior_idx, 0].flatten()
+		e2_for_prior = ext_rate_vec[0:e2_prior_idx, 1].flatten()
 		if equal_e:
 			e2_for_prior = np.array([])
 		prior_exp_rate = gibbs_sampler_hp(np.concatenate((d12_for_prior, d21_for_prior, e1_for_prior, e2_for_prior)), hp_alpha, hp_beta)
 	
 	# enforce constraints if any
-	if len(constraints_covar)>0:
-		covar_par[constraints_covar[constraints_covar<4]] = 0
-		x0_logistic[constraints_covar[constraints_covar<4]] = 0
-		dis_rate_vec[:,constraints_covar[constraints_covar<2]] = dis_rate_vec[0,constraints_covar[constraints_covar<2]]
-		ext_rate_vec[:,constraints_covar[np.logical_and(constraints_covar >= 2, constraints_covar < 4)]-2] = ext_rate_vec[0,constraints_covar[np.logical_and(constraints_covar >= 2, constraints_covar < 4)]-2]
+	if len(constraints)>0:
+		dis_rate_vec[:,constraints[constraints < 2]] = dis_rate_vec[0,constraints[constraints < 2]]
+		ext_rate_vec[:,constraints[np.logical_and(constraints >= 2, constraints < 4)]-2] = ext_rate_vec[0,constraints[np.logical_and(constraints >= 2, constraints < 4)]-2]
 
 	if do_symCovD:
 		covar_parD = covar_parD[idx2_symCovD][idx_symCovD]
 		x0_logisticD = x0_logisticD[idx2_symCovD][idx_symCovD]
+	if len(constrCovD_0) > 0:
+		covar_parD[constrCovD_0] = 0.0
+		x0_logisticD[constrCovD_0] = 0.0
 	if do_symDivdD:
 		covar_par[1] = covar_par[0]
+	if len(constrDivdD_0) > 0:
+		covar_par[constrDivdD_0] = 10000 * nTaxa
 	if do_symCovE:
 		covar_parE = covar_parE[idx2_symCovE][idx_symCovE]
 		x0_logisticE = x0_logisticE[idx2_symCovE][idx_symCovE]
+	if len(constrCovE_0) > 0:
+		covar_parE[constrCovE_0] = 0.0
+		x0_logisticE[constrCovE_0] = 0.0
 	if do_symDivdE:
 		covar_par[3] = covar_par[2]
+	if len(constrDivdD_0) > 0:
+		if do_DdE: covar_par[constrDivdE_0] = 0.0
+		else: covar_par[constrDivdE_0] = 10000 * nTaxa
 	
 	## CHANGE HERE TO FIRST OPTIMIZE DISPERSAL AND THEN EXTINCTION
 	if args.DdE and it < 100 and args.A != 3:
@@ -3303,13 +3388,21 @@ for it in range(n_generations * len(scal_fac_TI)):
 			else:
 				prior += 0
 	else:
-		if do_DivdD: prior += prior_beta(1./covar_par[0:2][idx2_symDivdD], 1., nTaxa/3.) # covar_par[0:2][idx2_symCovD]
-		if do_DivdE: prior += prior_beta(1./covar_par[2:4][idx2_symDivdE], 1., nTaxa/3.) # covar_par[2:4][idx2_symCovE]
+		if do_DivdD: prior += prior_beta(1./covar_par[0:2][idx2_symDivdD], 1., nTaxa/3.)
+		if do_DivdE: prior += prior_beta(1./covar_par[2:4][idx2_symDivdE], 1., nTaxa/3.)
 		if do_DdE: prior += prior_normal(covar_par[2:4][idx2_symDivdE], 0, 1)
-		if do_varD: prior += prior_normal(covar_parD[idx2_symCovD], 0, 1)
-		if do_varE: prior += prior_normal(covar_parE[idx2_symCovE], 0, 1)
-		if args.lgD: prior += prior_normal(x0_logisticD[idx2_symCovD], 0, 1)
-		if args.lgE: prior += prior_normal(x0_logisticE[idx2_symCovE], 0, 1)
+		if do_varD:
+			if len(constrCovD_0): prior += prior_normal(covar_parD[constrCovD_not0], 0, 1)
+			else: prior += prior_normal(covar_parD[idx2_symCovD], 0, 1)
+		if do_varE: 
+			if len(constrCovE_0): prior += prior_normal(covar_parE[constrCovE_not0], 0, 1)
+			else: prior += prior_normal(covar_parE[idx2_symCovE], 0, 1)
+		if args.lgD:
+			if len(constrCovD_0): prior += prior_normal(x0_logisticD[constrCovD_not0], 0, 1)
+			else: prior += prior_normal(x0_logisticD[idx2_symCovD], 0, 1)
+		if args.lgE:
+			if len(constrCovE_0): prior += prior_normal(cx0_logisticE[constrCovE_not0], 0, 1)
+			else: prior += prior_normal(x0_logisticE[idx2_symCovE], 0, 1)
 		if argstraitD != "": prior += prior_normal(trait_parD, 0, 1)
 		if argstraitE != "": prior += prior_normal(trait_parE, 0, 1)
 		if argscatD != "":
