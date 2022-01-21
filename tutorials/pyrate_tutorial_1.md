@@ -113,6 +113,10 @@ When the rate is set to zero, PyRate assigns a vague exponential hyper-prior to 
 `python PyRate.py .../Canis_pbdb_data_PyRate.py -qShift .../epochs_q.txt -mG`  
 
 
+**Saving per-lineage relative preservation rates**. When combining a TPP model with a Gamma model you can log to a file the estimated relative preservation rate for each lineage. This is done by adding the flag `-log_sp_q_rates` to the command and will save one additional log file containing one column for each lineage in the data set with the estimated relative rate of preservation (note that the actual rate will depend on the mean preservation rate and it variation through time). 
+
+`python PyRate.py .../Canis_pbdb_data_PyRate.py -qShift .../epochs_q.txt -mG -log_sp_q_rates` 
+
 ### Model testing across preservation models
 A maximum likelihood test across (described [here](https://www.cambridge.org/core/journals/paleobiology/article/improved-estimation-of-macroevolutionary-rates-from-fossil-data-using-a-bayesian-framework/334F08A74A6C92F1FEAD91A71FE59A1C)) is available to assess which of NHPP, HPP, or TPP is best supported by the data. To run the test you need to provide the input file and the file providing the times of rate shift for the TPP model and add the flag `-PPmodeltest`
 
