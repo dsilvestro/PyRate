@@ -1907,7 +1907,7 @@ def PoiD_partial_lik(arg):
     return lik
 
 # PRESERVATION
-def HPP_vec_lik(arg):
+def HPP_vec_lik(arg, return_rate=False):
     [te,ts,time_frames,q_rates,i,alpha]=arg
     i=int(i) # species number
     k_vec = occs_sp_bin[i] # no. occurrences per time bin per species
@@ -1939,7 +1939,15 @@ def HPP_vec_lik(arg):
         lik = sum(log(sum(exp(lik2))/pp_gamma_ncat)+np.max(lik_vec))
     else:
         lik = sum(-q_rates[ind]*d + log(q_rates[ind])*k_vec[ind]) - log(1-exp(sum(-q_rates[ind]*d))) -sum(log(np.arange(1,sum(k_vec)+1)))
-    return lik
+        if return_rate:
+            YangGamma=get_gamma_rates(alpha)
+            lik2 = np.ones(pp_gamma_ncat) / pp_gamma_ncat
+    if return_rate:
+        pr = np.exp(lik2) / np.sum(np.exp(lik2))
+        weighted_mean = np.sum(YangGamma * pr)
+        return weighted_mean
+    else:
+        return lik
 
 def HOMPP_lik(arg):
     [m,M,shapeGamma,q_rate,i,cov_par, ex_rate]=arg
@@ -3143,7 +3151,7 @@ def MCMC(all_arg):
                             YangGamma=get_gamma_rates(q_rates[0])
 
                         lik_fossil = np.array(PyRateC_HOMPP_lik(ind1, ts, te, q_rates[1], YangGamma, cov_par[2], M[len(M)-1]))
-
+                        
                         # Check correctness of results by comparing with python version
                         if sanityCheckForPyRateC == 1:
                             lik_fossil2 = zeros(len(fossil))
@@ -3707,6 +3715,18 @@ def MCMC(all_arg):
                     species_rate_writer.writerow([it]+list(sp_lam)+list(sp_mu))
                     species_rate_file.flush()
             
+            if sp_specific_q_rates:
+                sp_q_rates = []
+                for i in range(len(tsA)):
+                    w_rates = HPP_vec_lik([teA[i],tsA[i],q_time_frames,q_ratesA,i,alpha_pp_gamma], return_rate=True)
+                    sp_q_rates.append(w_rates)
+                
+                sp_q_marg.writerow([it, alpha_pp_gammaA] + sp_q_rates)
+                sp_q_marg_rate_file.flush()
+                os.fsync(sp_q_marg_rate_file)
+                
+                
+            
             if fix_SE == 0:
                 log_state += list(tsA)
                 log_state += list(teA)
@@ -3806,6 +3826,8 @@ p.add_argument('-filter_taxa',type=str,help="Filter lineages within list (drop a
 p.add_argument('-initDiv',    type=int, help='Number of initial lineages (option only available with -d SE_table or -fixSE)', default=0, metavar=0)
 p.add_argument('-PPmodeltest',help='Likelihood testing among preservation models', action='store_true', default=False)
 p.add_argument('-log_marginal_rates',type=int,help='0) save summary file, default for -A 4; 1) save marginal rate file, default for -A 0,2 ', default=-1,metavar=-1)
+p.add_argument('-log_sp_q_rates',      help='Save species-specific relative preservation rates', action='store_true', default=False)
+
 # phylo test
 p.add_argument('-tree',       type=str,help="Tree file (NEXUS format)",default="", metavar="")
 p.add_argument('-sampling',   type=float,help="Taxon sampling (phylogeny)",default=1., metavar=1.)
@@ -3965,6 +3987,12 @@ if args.mG:             # number of gamma categories
     YangGammaQuant=(np.linspace(0,1,pp_gamma_ncat+1)-np.linspace(0,1,pp_gamma_ncat+1)[1]/2)[1:]
 else: argsG = 0
 model_cov=args.mCov           # boolean 0: no covariance 1: covariance (speciation,extinction) 2: covariance (speciation,extinction,preservation)
+
+sp_specific_q_rates = args.log_sp_q_rates
+if sp_specific_q_rates:
+    if argsG == 0 or args.qShift == "":
+        sys.exit("option only available with TPP + Gamma model")
+    
 
 if args.mHPP: argsHPP=1
 else: argsHPP=0
@@ -5199,6 +5227,18 @@ if use_BDNNmodel and log_per_species_rates:
     species_rate_writer=csv.writer(species_rate_file, delimiter='\t')
     species_rate_writer.writerow(head)
     species_rate_file.flush()
+
+# OUTPUT 5 species-specific (relative) preservation rate
+if sp_specific_q_rates:
+    sp_q_marg_rate_file_name = "%s/%s_species_q_rates.log" % (path_dir, suff_out)
+    head = ["iteration", "alpha"]
+    for i in taxa_names: head.append("%s_rel_q" % (i))
+    sp_q_marg_rate_file = open(sp_q_marg_rate_file_name , "w")
+    sp_q_marg=csv.writer(sp_q_marg_rate_file, delimiter='\t')
+    sp_q_marg.writerow(head)
+    sp_q_marg_rate_file.flush()
+
+
 
 
 ########################## START MCMC ####################################
