@@ -1,9 +1,9 @@
 # Dispersal Extinction Sampling models
-#### Feb 2019
+#### January 2022
 ***
 #### Contents
 * [Preparing input data for DES analysis](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_5.md#input-data-preparation)
-* [Running a DES analysis (draft tutorial)](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_5.md#running-a-des-analysis)
+* [Running a DES analysis](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_5.md#running-a-des-analysis)
 
 * [Return to Index](https://github.com/dsilvestro/PyRate/tree/master/tutorials#pyrate-tutorials---index) 
 ***
@@ -46,23 +46,23 @@ The following code produces the DES input files.
 
 `python ./PyRateDES2.py -fossil .../example_files/DES_examples/Carnivora/CarnivoraFossils.txt -recent .../example_files/DES_examples/Carnivora/CarnivoraRecent.txt -wd .../example_files/DES_examples/Carnivora -filename Carnivora -bin_size 0.5 -rep 10`
 
-`-fossil` is the path to the table with fossil occurrences.
+* `-fossil` is the path to the table with fossil occurrences.
 
-`-recent` is the path to the table with the recent distribution.
+* `-recent` is the path to the table with the recent distribution.
 
-`-wd` is the path to the generated inpute file(s).
+* `-wd` is the path to the generated inpute file(s).
 
-`-filename` is the name of the generated inpute file(s) for the DES analysis.
+* `-filename` is the name of the generated inpute file(s) for the DES analysis.
 
-`-bin_size` defines the size of the time bins (in million years if fossil ages are in million years). Bin size should be chosen as a compromise between the desired resolution and data availability.
+* `-bin_size` defines the size of the time bins (in million years if fossil ages are in million years). Bin size should be chosen as a compromise between the desired resolution and data availability.
 
-`-rep` is the number of replicates desired. Replication arises from the age uncertainty of the fossils, which are usually dated with a minimum and maximum age. For each replicate the age of the fossils is sampled from a uniform distribution between minimum and maximum age.
+* `-rep` is the number of replicates desired. Replication arises from the age uncertainty of the fossils, which are usually dated with a minimum and maximum age. For each replicate the age of the fossils is sampled from a uniform distribution between minimum and maximum age.
 
-`-trim_age` is an optional argument to truncate the dataset by an maximum age (e.g. `-trim_age 23.03`. truncates to the Neogene). It omits a fossil when the uniform resampling of the fossil age estimates exceeds the specified age.
+* `-trim_age` is an optional argument to truncate the dataset by an maximum age (e.g. `-trim_age 23.03`. truncates to the Neogene). It omits a fossil when the uniform resampling of the fossil age estimates exceeds the specified age.
 
-`-data_in_area 1` is an argument to code fossil occurrences for a DES analysis where lineages are only known from a single area.
+* `-data_in_area 1` is an argument to code fossil occurrences for a DES analysis where lineages are only known from a single area.
 
-`-plot_raw` is an optional argument to generate a plot in PDF format in `-wd` of the observed diversity trajectories and their 95% credible interval in the two area. This requires that R is installed on your PC to execute the shell command Rscript. If you are using Windows, please make sure that the path to Rscript.exe is included in the PATH environment variables (default in Mac/Linux).
+* `-plot_raw` is an optional argument to generate a plot in PDF format in `-wd` of the observed diversity trajectories and their 95% credible interval in the two area. This requires that R is installed on your PC to execute the shell command Rscript. If you are using Windows, please make sure that the path to Rscript.exe is included in the PATH environment variables (default in Mac/Linux).
 
 ![Example observed diversity](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/DES_observed_diversity.png)
 
@@ -73,20 +73,21 @@ Often species distributions are available as coordinates rather than as discrete
 
 ```{r, warning = F, echo = F}
 library(speciesgeocodeR)
-source(DES_input_preparation.R)
 
 occ.thresh <- 0.1 #at least 10% occurrence in an area required
 
 #Assign the fossil coordinates to operational areas
-fos <- read.table("Example_data/Example_2_coordinates.txt", sep = "\t", header = TRUE)
-fos.class <- SpGeoCod("Example_data/Example_2_coordinates.txt", "Example_data/Example_regions.shp", areanames = "Region")
+fos <- read.table(".../PyRate/example_files/DES_examples/DES_input_data/Example_2_coordinates.txt", sep = "\t", header = TRUE)
+fos.class <- SpGeoCod(".../PyRate/example_files/DES_examples/DES_input_data/Example_2_coordinates.txt",
+                      ".../PyRate/example_files/DES_examples/DES_input_data/Example_regions.shp", areanames = "Region")
 foss <- data.frame(fos, higherGeography = fos.class$sample_table$homepolygon)
 foss <- foss[complete.cases(foss),]
 
 #Assign the recent coordinates to operational areas, using the occurrence threshold
 rec <- read.table("Example_data/Example_2_recent_coordinates.txt", sep = "\t", header = TRUE)
 
-rec.class <- SpGeoCod("Example_data/Example_2_recent_coordinates.txt", "Example_data/Example_regions.shp", 
+rec.class <- SpGeoCod(".../PyRate/example_files/DES_examples/DES_input_dataExample_2_recent_coordinates.txt",
+                      ".../PyRate/example_files/DES_examples/DES_input_data/Example_regions.shp", 
                       areanames = "Region")
 
 pres <- round(rec.class$spec_table[, 2:3] / rowSums(rec.class$spec_table[, 2:3]), 2)
@@ -96,17 +97,20 @@ pres <- data.frame(scientificName = rep(rec.class$spec_table[, 1], 2),
                    higherGeography = c(pres[, 1], pres[, 2]))
 pres <- pres[pres$higherGeography %in% names(rec.class$spec_table), ]
 
-#create DESin files
-exp2 <- DESin(foss, pres, bin.size = 2, reps = 3)
-write.DES.in(exp2, "Example2_out")
-
-#explore data
-summary(exp2)
-
-par(ask = T)
-plot(exp2)
-
+# Write tables 
+write.table(foss, ".../PyRate/example_files/DES_examples/DES_input_data/foss.txt",
+            sep = "\t", col.names = TRUE, row.names = FALSE, quote = FALSE)
+write.table(pres, ".../PyRate/example_files/DES_examples/DES_input_data/pres.txt",
+            sep = "\t", col.names = TRUE, row.names = FALSE, quote = FALSE)
 ```
+
+Launch PyRateDES by opening a Terminal window and browsing to the PyRate directory 
+
+`cd /path/to/PyRate`
+
+The following code produces the DES input files (see Example 1 for the explanation of the arguments).
+
+`python ./PyRateDES2.py -fossil .../example_files/DES_examples/DES_input_data/foss.txt -recent .../example_files/DES_examples/DES_input_data/pres.txt -wd .../example_files/DES_examples -filename Example2 -bin_size 2 -rep 5`
 
 
 ## Running a DES analysis
