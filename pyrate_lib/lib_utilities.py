@@ -499,7 +499,7 @@ def write_des_in(out_list, reps, all_taxa_list, taxon, time, input_wd, filename)
         w_in_file.flush()
         os.fsync(w_in_file)
 
-def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "higherGeography", age1 = "earliestAge", age2 = "latestAge", binsize = 5., reps = 3, trim_age = []):
+def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "higherGeography", age1 = "earliestAge", age2 = "latestAge", binsize = 5., reps = 3, trim_age = [], data_in_area = []):
     rece = np.genfromtxt(recent, dtype = str, delimiter='\t')
     rece_names = rece[0,:]
     rece = np.unique(rece[1:,:], axis = 0)
@@ -507,8 +507,11 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
     rece_taxa = rece[:,rece_names == taxon].flatten()
     areas = np.unique(rece[:,rece_names_area])
     area_recent = np.zeros(rece.shape[0], dtype=int)
-    area_recent[np.array(rece[:,rece_names_area] == areas[0]).flatten()] = 1
-    area_recent[np.array(rece[:,rece_names_area] == areas[1]).flatten()] = 2
+    if data_in_area == 0:
+        area_recent[np.array(rece[:, rece_names_area] == areas[0]).flatten()] = 1
+        area_recent[np.array(rece[:, rece_names_area] == areas[1]).flatten()] = 2
+    else:
+        area_recent = area_recent + 3
     out_list = []
     all_taxa_list = []
     dat = np.genfromtxt(x, dtype=str, delimiter='\t')
@@ -522,7 +525,8 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
     dat_ages = dat[:,np.concatenate((dat_names_age1, dat_names_age2), axis = None)]
     dat_ages = dat_ages.astype(float)
     max_age = np.max(dat_ages)
-    if np.array(trim_age) > 0: max_age = trim_age
+    if np.array(trim_age) > 0:
+        max_age = np.array(trim_age)
     cutter = np.arange(0., max_age + binsize, binsize)
     cutter_len = len(cutter)
     for i in range(reps):
@@ -532,11 +536,18 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
         binnedage = np.digitize(age_ran, cutter) # Starts with 1!
         area_fossil = np.zeros(dat.shape[0], dtype=int)
         area_fossil[np.array(dat[:,dat_names_area] == areas[0]).flatten()] = 1
-        area_fossil[np.array(dat[:,dat_names_area] == areas[1]).flatten()] = 2
+        if data_in_area == 0:
+            area_fossil[np.array(dat[:,dat_names_area] == areas[1]).flatten()] = 2
+        elif data_in_area == 2:
+            area_fossil = area_fossil + 1
         all_taxa = np.concatenate((np.unique(dat_taxa), np.unique(rece_taxa)), axis = None)
         all_taxa = np.unique(all_taxa)
         # First column is the most recent time bin and we reverse this latter
         out = np.zeros((len(all_taxa), cutter_len + 1))
+        if data_in_area == 1:
+            out = out + 1
+        elif data_in_area == 2:
+            out = out + 2
         for a in range(len(all_taxa)):
             idx = np.where(dat_taxa == all_taxa[a])
             idx = np.array(idx).flatten()
@@ -548,13 +559,16 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
                 area_taxon = area_taxon[younger_max_age]
                 for b in binnedage_taxon:
                     area_taxon_b = np.unique(area_taxon[binnedage_taxon == b])
-                    if len(area_taxon_b) == 1:
+                    if len(area_taxon_b) == 1 and data_in_area == 0:
                         area_code = area_taxon_b
                     else:
                         area_code = 3
                     out[a,b] = area_code
-                    if b == np.max(binnedage_taxon) and b != cutter_len:
-                        out[a,(b + 1):(cutter_len + 1)] = np.nan
+                    if data_in_area == 0:
+                        if b == np.max(binnedage_taxon) and b != cutter_len:
+                            out[a, (b + 1):(cutter_len + 1)] = np.nan
+                    else:
+                        out[a, cutter_len] = np.nan
             if np.isin(all_taxa[a], rece_taxa):
                 idx = np.where(rece_taxa == all_taxa[a])
                 area_taxon = area_recent[idx]

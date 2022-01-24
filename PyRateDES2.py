@@ -184,7 +184,7 @@ print("Random seed: ", rseed)
 # generate DES input
 if args.fossil != "":
 	reps = args.rep
-	desin_list, time = des_in(args.fossil, args.recent, args.wd, args.filename, taxon = args.taxon, area = args.area, age1 = args.age1, age2 = args.age2, binsize = args.bin_size, reps = reps, trim_age = args.trim_age)
+	desin_list, time = des_in(args.fossil, args.recent, args.wd, args.filename, taxon = args.taxon, area = args.area, age1 = args.age1, age2 = args.age2, binsize = args.bin_size, reps = reps, trim_age = args.trim_age, data_in_area = args.data_in_area)
 	if args.plot_raw:
 		len_time = len(time)
 		desin_div1 = np.zeros((reps, len_time))
@@ -253,12 +253,18 @@ if args.fossil != "":
 		r_script += "\nlayout(matrix(1:2, ncol = 2, nrow = 1, byrow = TRUE))"
 		r_script += "\npar(las = 1, mar = c(4, 4, 0.5, 0.5))"
 		r_script += "\nlen_time = length(time)"
-		r_script += "\nslicer_1 = 1 + max(which(cumsum(desin_div1_mean) == 0))"
+		r_script += "\nm = 1"
+		r_script += "\ncs0 = cumsum(desin_div1_mean) == 0"
+		r_script += "\nif(any(cs0)){m = max(which(cs0))}"
+		r_script += "\nslicer_1 = 1 + m"
 		r_script += "\ntime_1 = time[slicer_1:len_time]"
 		r_script += "\ndesin_div1_mean = desin_div1_mean[slicer_1:len_time]"
 		r_script += "\ndesin_div1_lwr = desin_div1_lwr[slicer_1:len_time]"
 		r_script += "\ndesin_div1_upr = desin_div1_upr[slicer_1:len_time]"
-		r_script += "\nslicer_2 = 1 + max(which(cumsum(desin_div2_mean) == 0))"
+		r_script += "\nm = 1"
+		r_script += "\ncs0 = cumsum(desin_div2_mean) == 0"
+		r_script += "\nif(any(cs0)){m = max(which(cs0))}"
+		r_script += "\nslicer_2 = 1 + m"
 		r_script += "\ntime_2 = time[slicer_2:len_time]"
 		r_script += "\ndesin_div2_mean = desin_div2_mean[slicer_2:len_time]"
 		r_script += "\ndesin_div2_lwr = desin_div2_lwr[slicer_2:len_time]"
