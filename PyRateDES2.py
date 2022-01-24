@@ -292,9 +292,9 @@ if args.fossil != "":
 		
 		print("\nAn R script with the source for the RTT plot was saved as: %s_raw_div.r\n(in %s)" % (name_file, output_wd))
 		if platform.system() == "Windows" or platform.system() == "Microsoft":
-			cmd="cd %s & Rscript %s_%s_raw_div.r" % (output_wd, name_file, name_file)
+			cmd="cd %s & Rscript %s_raw_div.r" % (output_wd, name_file)
 		else:
-			cmd="cd %s; Rscript %s/%s_raw_div.r" % (output_wd, output_wd, name_file)
+			cmd="cd %s; Rscript %s_raw_div.r" % (output_wd, name_file)
 		os.system(cmd)
 		print("done\n")
 	quit()
@@ -570,9 +570,10 @@ if plot_file != "":
 		
 		print("\nAn R script with the source for the RTT plot was saved as: %s_%s.r\n(in %s)" % (name_file, r_file_name, output_wd))
 		if platform.system() == "Windows" or platform.system() == "Microsoft":
-			cmd="cd %s & Rscript %s_%s_%s.r" % (output_wd, name_file, name_file, r_file_name)
+			cmd="cd %s & Rscript %s_%s.r" % (output_wd, name_file, r_file_name)
 		else:
-			cmd="cd %s; Rscript %s/%s_%s.r" % (output_wd, output_wd, name_file, r_file_name)
+			cmd="cd %s; Rscript %s_%s.r" % (output_wd, name_file, r_file_name)
+		print("cmd", cmd)
 		os.system(cmd)
 		print("done\n")
 		sys.exit("\n")
@@ -1711,9 +1712,9 @@ if plot_file != "":
 
 		print("\nAn R script with the source for the RTT plot was saved as: %s_Covar_effect.r\n(in %s)" % (name_file, output_wd))
 		if platform.system() == "Windows" or platform.system() == "Microsoft":
-			cmd="cd %s & Rscript %s_%s_Covar_effect.r" % (output_wd, name_file, name_file)
+			cmd="cd %s & Rscript %s_Covar_effect.r" % (output_wd, name_file)
 		else:
-			cmd="cd %s; Rscript %s/%s_Covar_effect.r" % (output_wd, output_wd, name_file)
+			cmd="cd %s; Rscript %s_Covar_effect.r" % (output_wd, name_file)
 		os.system(cmd)
 		print("done\n")
 	sys.exit("\n")
@@ -2287,8 +2288,7 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 		
 			
 	else: # multi=processing
-		#sys.exit("Multi-threading not available")
-		#w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
+		sys.exit("Multi-threading not available") # Not working on windows and massive slow down on linux
 		if argsG is False:
 			args_mt_lik = [ [l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp, delta_t,
 					r_vec,
