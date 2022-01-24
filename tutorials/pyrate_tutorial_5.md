@@ -116,22 +116,30 @@ The following code produces the DES input files (see Example 1 for the explanati
 ## Running a DES analysis
 To launch PyRateDES open a Terminal window and browse to the PyRate directory 
 
-`cd /path/to/pyrate/code`
+`cd /path/to/PyRate`
 
-PyRateDES2.py is an upgraded version of the original DES model which allows more flexibility in time-variable dispersal and extinction models.
+The following command executes a DES analysis with dispersal, extinction and sampling rates that are constant through time but differ between both areas.
+
+`python ./PyRateDES2.py -d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE`
+
+The default settings specify a Bayesian inference. We can (and in the cases of more complex models should) change the number of MCMC iterations and the sampling frequency. By default PyRateDES will run 100,000 iterations and sample and print the parameters every 100 iterations. Depending on the size of the data set you may have to increase the number iterations to reach convergence (in which case it might be a good idea to sample the chain less frequently to reduce the size of the output files). This is done using the commands `-n`, `-s`, and `-p`:
+
+`python ./PyRateDES2.py -d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -n 500000 -s 1000 -p 10000`
+
 
 #### Time variable model (rate shifts)
 Launch a maximum likelihood analysis with shifts in preservation, dispersal, and extinction rates at 5.3 and 2.6 Ma.
 
-`./PyRateDES2.py -d input_data.txt -A 2 -qtimes 5.3 2.6 -TdD -TdE`
+`python ./PyRateDES2.py -d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -A 2 -qtimes 5.3 2.6 -TdD -TdE`
 
 The `-TdD` and `-TdE` commands specify time-dependent dispersal and extinction rates, respectively.
 
 The command `-A 2` specifies that you want to use a maximum likelihood algorithm. 
 
-Note that if `input_data.txt` is in not in he same directory as `PyRateDES2.py` you need to specify its full path. The output files will be saved where the `input_data.txt` was.
+The output files will be saved where the input data was.
 
 #### Covariate D/E models
+PyRateDES2.py is an upgraded version of the original DES model which allows more flexibility in time-variable dispersal and extinction models.
 You can use a time variable predictor (e.g. sea level or temperature) and model dispersal and/or extinction as an exponential function of the predictor. 
 
 `./PyRateDES2.py -d input_data.txt -A 2 -qtimes 5.3 2.6 -varD predictor_file.txt -varE predictor_file.txt`
