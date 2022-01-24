@@ -14,11 +14,11 @@ The DES model needs a set of replicated input files with the taxon occurrences c
 
 #### Example 1 - Discrete area classification input
 
-In the first example the taxon distribution is already available in the areas of interest for the DES analysis (Eurasia and North America). Example input and output files can be found [here](https://github.com/dsilvestro/PyRate/tree/master/example_files/DES_input_data). The format of the input data follows the DarwinCore standard. [CarnivoraFossils.txt](https://github.com/dsilvestro/PyRate/blob/master/example_files/DES_examples/Carnivora/CarnivoraFossils.txt) shows the minimum input data for fossil occurrences.
+In the first example the taxon distribution is already available in the areas of interest for the DES analysis (Eurasia and North America). Example input and output files can be found [here](https://github.com/dsilvestro/PyRate/tree/master/example_files/DES_examples/Carnivora). The format of the input data follows the DarwinCore standard. [CarnivoraFossils.txt](https://github.com/dsilvestro/PyRate/blob/master/example_files/DES_examples/Carnivora/CarnivoraFossils.txt) shows the minimum input data for fossil occurrences.
 
 | scientificName   | earliestAge  | latestAge | higherGeography |
 | ------------- |:-------------:| -----:| -----:|
-Acheronictis	30.8	20.43	NAmerica
+Acheronictis | 30.8 | 20.43 | NAmerica
 Adcrocuta | 11.608 | 5.333 | Eurasia
 Agriotherium | 10.3 | 4.9 | NAmerica
 Agriotherium | 11.608 | 5.333 | Eurasia
@@ -47,14 +47,22 @@ The following code produces the DES input files.
 `python ./PyRateDES2.py -fossil .../example_files/DES_examples/Carnivora/CarnivoraFossils.txt -recent .../example_files/DES_examples/Carnivora/CarnivoraRecent.txt -wd .../example_files/DES_examples/Carnivora -filename Carnivora -bin_size 0.5 -rep 10`
 
 `-fossil` is the path to the table with fossil occurrences.
+
 `-recent` is the path to the table with the recent distribution.
+
 `-wd` is the path to the generated inpute file(s).
+
 `-filename` is the name of the generated inpute file(s) for the DES analysis.
-`-bin_size` defines the size of the time bins (in million years if fossil ages are in million years). Bin size should be chosen as a compromise between the desired resolution and data availability. 
+
+`-bin_size` defines the size of the time bins (in million years if fossil ages are in million years). Bin size should be chosen as a compromise between the desired resolution and data availability.
+
 `-rep` is the number of replicates desired. Replication arises from the age uncertainty of the fossils, which are usually dated with a minimum and maximum age. For each replicate the age of the fossils is sampled from a uniform distribution between minimum and maximum age.
+
 `-trim_age` is an optional argument to truncate the dataset by an maximum age (e.g. `-trim_age 23.03`. truncates to the Neogene). It omits a fossil when the uniform resampling of the fossil age estimates exceeds the specified age.
+
 `-data_in_area 1` is an argument to code fossil occurrences for a DES analysis where lineages are only known from a single area.
-`-plot_raw` is an optional argument to generate a plot in PDF format in `-wd` of the observed diversity trajectories and their 95% credible interval in the two area. This requires that R is installed on your PC to execute the shell command Rscript. If you are using Windows, please make sure that the path to Rscript.exe is included in the PATH environment variables (default in Mac/Linux).$
+
+`-plot_raw` is an optional argument to generate a plot in PDF format in `-wd` of the observed diversity trajectories and their 95% credible interval in the two area. This requires that R is installed on your PC to execute the shell command Rscript. If you are using Windows, please make sure that the path to Rscript.exe is included in the PATH environment variables (default in Mac/Linux).
 
 ![Example observed diversity](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/DES_observed_diversity.png)
 
