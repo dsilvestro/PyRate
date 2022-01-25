@@ -538,16 +538,16 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
         area_fossil[np.array(dat[:,dat_names_area] == areas[0]).flatten()] = 1
         if data_in_area == 0:
             area_fossil[np.array(dat[:,dat_names_area] == areas[1]).flatten()] = 2
-        elif data_in_area == 2:
+        elif data_in_area == 1:
             area_fossil = area_fossil + 1
         all_taxa = np.concatenate((np.unique(dat_taxa), np.unique(rece_taxa)), axis = None)
         all_taxa = np.unique(all_taxa)
         # First column is the most recent time bin and we reverse this latter
         out = np.zeros((len(all_taxa), cutter_len + 1))
         if data_in_area == 1:
-            out = out + 1
-        elif data_in_area == 2:
             out = out + 2
+        elif data_in_area == 2:
+            out = out + 1
         for a in range(len(all_taxa)):
             idx = np.where(dat_taxa == all_taxa[a])
             idx = np.array(idx).flatten()
