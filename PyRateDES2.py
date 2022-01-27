@@ -159,7 +159,7 @@ p.add_argument('-plot_raw', help='plot raw diversity curves', action='store_true
 p.add_argument('-log_div', help='log modeled diversity (DivdD or DivdE models)', action='store_true', default=False)
 p.add_argument('-log_dis', help='log modeled dispersal (DdE)', action='store_true', default=False)
 p.add_argument('-log_distr', help='log estimated taxon distribution', action='store_true', default=False)
-p.add_argument('-log_weights', help='log likelihood weights of the sampling categories (only -mG and -A 3)', action='store_true', default=False)
+p.add_argument('-log_sp_q_rates', help='log species-specific relative sampling rates', action='store_true', default=False)
 
 args = p.parse_args()
 
@@ -1293,6 +1293,7 @@ if plot_file != "":
 		if burnin==0:
 			print("""Burnin was set to 0. Use command -b to specify a higher burnin (e.g. -b 100 will exclude the first 100 samples).""")
 		
+		
 		def get_covar_effect(covar, par, de, transf, plotCI = np.array([0.95])):
 			len_par = len(par)
 			len_covar = covar.shape[0]
@@ -1312,7 +1313,7 @@ if plot_file != "":
 					tmp[tmp <= 0] = rep_e
 					rate[i:,] = tmp
 				if transf == 4: # DdE
-					tmp = de[i] + np.sum(par[i] * covar, axis = 1)
+					tmp = de[i] + np.sum(par[i] * covar, axis = 1) # CHECK THIS!
 					tmp[tmp <= 0.0] = 0.0
 					rate[i:,] = tmp
 			lenCI = len(plotCI)
@@ -1322,11 +1323,53 @@ if plot_file != "":
 				for i in range(len_covar):
 					for y in range(lenCI):
 						hpd[[2 * y, 1 + 2 * y],i] = calcHPD(rate[:,i], plotCI[y])
+#						hpd[[2 * y, 1 + 2 * y],i] = HDI_from_MCMC(rate[:,i], plotCI[y])
+#				for y in range(lenCI):
+#					quantile = np.array([(1-plotCI[y])/2, plotCI[y] + (1-plotCI[y])/2])
+#					hpd[[2 * y, 1 + 2 * y],:] = np.quantile(rate, quantile, axis = 0)
 			else:
 				rate_mean = rate[0,:]
 				hpd[:] = np.NaN
 			rate_mean = rate_mean.reshape(1, len_covar) # columns: rate along covariate/trait, rows: mean + CI
 			return np.vstack((rate_mean.reshape(1, len_covar), hpd))
+
+
+#		def get_covar_effect(covar, par, de, transf, plotCI = np.array([0.95])):
+#			len_CI = len(plotCI)
+#			len_par = len(par)
+#			len_covar = covar.shape[0]
+#			rate = np.zeros((1 + 2 * len_CI, len_covar)) # columns: rate along covariate/trait, rows: mean + CI
+#			rate[:] = np.nan
+#			de_hpd = np.copy(de)
+#			par_hpd = np.copy(par)
+#			if len_par > 1:
+#				de_hpd = np.zeros(1 + 2 * len_CI)
+#				par_hpd = np.zeros((1 + 2 * len_CI, par.shape[1]))
+#				de_hpd[0] = np.median(de)
+#				par_hpd[0,:] = np.median(par, axis = 0)
+#				for i in range(len_CI):
+#					de_hpd[[2 * i, 1 + 2 * i]] = calcHPD(de, plotCI[i])
+#					for y in range(par.shape[1]):
+#						par_hpd[[2 * i, 1 + 2 * i],y] = calcHPD(par[:,y], plotCI[i])
+#			for i in range(len(de_hpd)):
+#				if transf == 1: # Time/environment-dependency and trait dependency
+#					rate[i,:] = de_hpd[i] * exp(np.sum(par_hpd[i,:] * covar, axis = 1))
+#				if transf == 2: # DivdD
+#					tmp = de_hpd[i] * (1. - (covar/par_hpd[i]))
+#					tmp[tmp <= 0] = 0.
+#					rate[i:,] = tmp
+#				if transf == 3: # DivdE
+#					tmp = de_hpd[i] / (1. - (covar/par_hpd[i]))
+#					isinf = np.isfinite(tmp)
+#					rep_e = np.max(tmp[isinf])
+#					tmp[isinf == False] = rep_e
+#					tmp[tmp <= 0] = rep_e
+#					rate[i:,] = tmp
+#				if transf == 4: # DdE
+#					tmp = de_hpd[i] + np.sum(par_hpd[i] * covar, axis = 1) # CHECK THIS!
+#					tmp[tmp <= 0.0] = 0.0
+#					rate[i:,] = tmp
+#			return rate
 
 
 		def get_trait_x_cat_effect(trait, trait_untrans, cat, log_transfTrait, base_rate1, base_rate2, trait_a, multiplier, plotCI):
@@ -1805,6 +1848,26 @@ if args.log_dis:
 	head=head.split("\t")
 	dislog=csv.writer(disfile, delimiter='\t')
 	dislog.writerow(head)
+if args.log_sp_q_rates:
+	out_spq = "%s/%s_%s%s%s%s%s_sp_q.log" % (output_wd, name_file, simulation_no, Q_times_str, ti_tag, model_tag, args.out)
+	spqfile = open(out_spq, "w")
+	head = "it"
+	for i in range(len(taxa_input)): head += "\t%s" % (taxa_input[i])
+	head = head.split("\t")
+	spqlog = csv.writer(spqfile, delimiter = '\t')
+	spqlog.writerow(head)
+argslogdistr = args.log_distr
+if argslogdistr:
+	out_distr ="%s/%s_%s%s%s%s%s_distr.log" % (output_wd, name_file, simulation_no, Q_times_str, ti_tag, model_tag, args.out)
+	distrfile = open(out_distr, "w")
+	head = "it"
+	for y in range(len(taxa_input)):
+		for i in range(len(ts_rev)): head += "\t%s_A_%s" % (taxa_input[y], ts_rev[i])
+		for i in range(len(ts_rev)): head += "\t%s_B_%s" % (taxa_input[y], ts_rev[i])
+		for i in range(len(ts_rev)): head += "\t%s_AB_%s" % (taxa_input[y], ts_rev[i])
+	head = head.split("\t")
+	distrlog = csv.writer(distrfile, delimiter='\t')
+	distrlog.writerow(head)
 
 # Use an ode solver to approximate the diversity trajectories
 def div_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2):
@@ -1894,7 +1957,7 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 			covar_par, covar_parD, covar_parE, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 			time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp,
 			trait_parD, traitD, trait_parE, traitE,
-			cat_parD, catD, cat_parE, catE, argstraitD, argstraitE, argscatD, argscatE):
+			cat_parD, catD, cat_parE, catE, argstraitD, argstraitE, argscatD, argscatE, argslogdistr):
 	if argsG:
 		YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
 		sa = np.zeros((pp_gamma_ncat, nTaxa))
@@ -1922,7 +1985,7 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 	idx_covar_parD2 = np.arange(1, len(covar_parD), 2, dtype = int)
 	idx_covar_parE1 = np.arange(0, len(covar_parE), 2, dtype = int)
 	idx_covar_parE2 = np.arange(1, len(covar_parE), 2, dtype = int)
-	if traits is False and cat is False:
+	if (traits is False and cat is False) and argslogdistr is False:
 		div_1 = np.zeros(len_time_series)
 		div_2 = np.zeros(len_time_series)
 		div_3 = np.zeros(len_time_series)
@@ -2071,10 +2134,13 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 		div_3 = np.sum(pres[:, pres3_idx], axis = 1)
 		gain_1 = np.sum(pres[:, gainA_idx], axis = 1)
 		gain_2 = np.sum(pres[:, gainB_idx], axis = 1)
-		not_extinct = np.isin(data_temp[:,-1], 0) != True
-		pres[-1, pres1_idx[not_extinct]] = 0
-		pres[-1, pres2_idx[not_extinct]] = 0
-		pres[-1, pres3_idx[not_extinct]] = 0
+#		not_extinct = np.isin(data_temp[:,-1], 0) != True
+#		pres[-1, pres1_idx[not_extinct]] = 0
+#		pres[-1, pres2_idx[not_extinct]] = 0
+#		pres[-1, pres3_idx[not_extinct]] = 0
+		pres[-1, pres1_idx] = 0
+		pres[-1, pres2_idx] = 0
+		pres[-1, pres3_idx] = 0
 		pres[-1, pres1_idx[np.isin(data_temp[:,-1], 1)]] = 1
 		pres[-1, pres2_idx[np.isin(data_temp[:,-1], 2)]] = 1
 		pres[-1, pres3_idx[np.isin(data_temp[:,-1], 3)]] = 1
@@ -2220,7 +2286,7 @@ if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
 
 def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time_var_e2, diversity_d1, diversity_d2, diversity_e1, diversity_e2, dis_into_1, dis_into_2, covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex,Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, bin_last_occ, traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, catE, cat_parE, list_taxa_index, nTaxa):
 	# weight per gamma cat per species: multiply 
-	weight_per_taxon = np.zeros((nTaxa, pp_gamma_ncat))
+	weight_per_taxon = np.ones((nTaxa, pp_gamma_ncat)) / pp_gamma_ncat
 	Q_list = np.zeros(1)
 	marginal_rates_temp = np.zeros(1)
 	w_list = np.zeros(1)
@@ -2283,7 +2349,8 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 				lik_vec_max = np.max(lik_vec)
 				lik2 = lik_vec - lik_vec_max
 				lik += log(sum(exp(lik2))/pp_gamma_ncat) + lik_vec_max
-				weight_per_taxon[l,:] = lik_vec / sum(lik_vec)
+#				weight_per_taxon[l,:] = lik_vec / sum(lik_vec)
+				weight_per_taxon[l,:] = np.exp(lik2) / np.sum(np.exp(lik2))
 		#print "lik2", lik
 		
 			
@@ -2509,7 +2576,7 @@ def lik_opt(x, grad):
 								covar_par, covar_parD, covar_parE, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 								time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp,
 								trait_parD, traitD, trait_parE, traitE,
-								cat_parD, catD, cat_parE, catE, argstraitD, argstraitE, argscatD, argscatE)
+								cat_parD, catD, cat_parE, catE, argstraitD, argstraitE, argscatD, argscatE, argslogdistr)
 
 	diversity_d2 = approx_d1 # Limits dispersal into 1
 	diversity_d1 = approx_d2 # Limits dispersal into 2
@@ -3345,7 +3412,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 									covar_par, covar_parD, covar_parE, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 									time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp,
 									trait_parD, traitD, trait_parE, traitE,
-									cat_parD, catD, cat_parE, catE, argstraitD, argstraitE, argscatD, argscatE)
+									cat_parD, catD, cat_parE, catE, argstraitD, argstraitE, argscatD, argscatE, argslogdistr)
 		diversity_d2 = approx_d1 # Limits dispersal into 1
 		diversity_d1 = approx_d2 # Limits dispersal into 2
 		diversity_e1 = approx_d1
@@ -3666,16 +3733,22 @@ for it in range(n_generations * len(scal_fac_TI)):
 		rlog.writerow(log_state)
 		ratesfile.flush()
 		os.fsync(ratesfile)
-		# Log predicted presence - only works for ML
-		if args.log_distr:
-			pres_file ="%s/%s_%s%s%s%s%s%s.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag,model_tag,args.out,"_distr")
-			pres = np.transpose(pres)
-			np.savetxt(pres_file, pres, delimiter="\t")
-		# Log weights for sampling heterogeneity - only works for ML
-		if args.log_weights:
-			weight_file ="%s/%s_%s%s%s%s%s%s.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag,model_tag,args.out,"_weight")
-			weight_per_taxon =  np.transpose(weight_per_taxon)
-			np.savetxt(weight_file, weight_per_taxon, delimiter="\t")
+	# Log predicted presence
+	if args.log_distr and log_to_file == 1:
+		pres = np.round(pres, 3) # Round to reduce file size
+		pres = np.transpose(pres)
+		log_state = [it] + list(pres[:,::-1].flatten())
+		distrlog.writerow(log_state)
+		distrfile.flush()
+		os.fsync(distrfile)
+	# Log species specific sampling rates
+	if args.log_sp_q_rates and log_to_file == 1:
+		YangGamma = get_gamma_rates(alphaA, YangGammaQuant, pp_gamma_ncat)
+		spq = np.sum(YangGamma * weight_per_taxon, axis = 1)
+		log_state = [it] + list(spq)
+		spqlog.writerow(log_state)
+		spqfile.flush()
+		os.fsync(spqfile)
 	if args.log_div and log_to_file == 1:
 		log_state = [it] + list(approx_d1[::-1]) + list(approx_d2[::-1])
 		divlog.writerow(log_state)
