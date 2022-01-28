@@ -1319,7 +1319,7 @@ if plot_file != "":
 			lenCI = len(plotCI)
 			hpd = np.zeros((2 * lenCI, len_covar))
 			if len_par > 1:
-				rate_mean = np.mean(rate, axis = 0)
+				rate_mean = np.median(rate, axis = 0)
 				for i in range(len_covar):
 					for y in range(lenCI):
 						hpd[[2 * y, 1 + 2 * y],i] = calcHPD(rate[:,i], plotCI[y])
@@ -1953,7 +1953,7 @@ def dis_dep_ext_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, covar_mu1, covar_mu2)
 
 def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec, 
 			do_DivdD, do_DivdE, do_varD, do_varE, do_DdE, argsG,
-			r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ,
+			r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ, weight_per_taxon,
 			covar_par, covar_parD, covar_parE, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 			time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp,
 			trait_parD, traitD, trait_parE, traitE,
@@ -1967,8 +1967,10 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 			sb[i,:] = exp(-bin_size * YangGamma[i] * -log(r_vec[Q_index_first_occ, 2])/bin_size)
 		sa = sa * weight_per_taxon.T
 		sb = sb * weight_per_taxon.T
+#		print("sb", sb)
 		sa = np.nansum(sa, axis = 0)
 		sb = np.nansum(sb, axis = 0)
+#		print("sum sb", sb)
 	else:	
 		sa = r_vec[Q_index_first_occ, 1]
 		sb = r_vec[Q_index_first_occ, 2]
@@ -2110,6 +2112,7 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 				occ_area_2 = np.logical_and(occ_i, first_area == 2.)
 				occ_area_3 = np.logical_and(occ_i, first_area == 3.)
 				false_absence_area_2 = sb * occ_area_1
+#				print(i, "false_absence_area_2", false_absence_area_2)
 				false_absence_area_1 = sa * occ_area_2
 				new_1 = occ_area_1 - false_absence_area_2
 				new_2 = occ_area_2 - false_absence_area_1
@@ -2386,7 +2389,6 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 	
 	return lik, weight_per_taxon
 
-
 # Likelihood for a set of parameters
 def lik_opt(x, grad):
 	covar_par = np.zeros(4) + 0.
@@ -2570,20 +2572,31 @@ def lik_opt(x, grad):
 	if argscatE != "":
 		cat_parE[catE_not_baseline] = x[opt_ind_cat_ext]
 
-	approx_d1,approx_d2,numD21,numD12,pres = approx_div_traj(nTaxa, dis_vec, ext_vec,
-								do_DivdD, do_DivdE, do_varD, do_varE, do_DdE, argsG,
-								r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ,
-								covar_par, covar_parD, covar_parE, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-								time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp,
-								trait_parD, traitD, trait_parE, traitE,
-								cat_parD, catD, cat_parE, catE, argstraitD, argstraitE, argscatD, argscatE, argslogdistr)
-
-	diversity_d2 = approx_d1 # Limits dispersal into 1
-	diversity_d1 = approx_d2 # Limits dispersal into 2
-	diversity_e1 = approx_d1
-	diversity_e2 = approx_d2
-	dis_into_2 = numD12
-	dis_into_1 = numD21
+	global weight_per_taxon # Dangerous !!! but nlopt seems to allow only one target; hence return lik, weight_per_taxon does not work
+	if weight_per_taxon is False:
+		weight_per_taxon = np.ones((nTaxa, pp_gamma_ncat)) / pp_gamma_ncat
+	# Only for diversity or dispersal dependence
+	if transf_d == 2 or transf_d == 5 or transf_e == 2 or transf_e == 5:
+		approx_d1,approx_d2,numD21,numD12,pres = approx_div_traj(nTaxa, dis_vec, ext_vec,
+									do_DivdD, do_DivdE, do_varD, do_varE, do_DdE, argsG,
+									r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ, weight_per_taxon,
+									covar_par, covar_parD, covar_parE, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
+									time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp,
+									trait_parD, traitD, trait_parE, traitE,
+									cat_parD, catD, cat_parE, catE, argstraitD, argstraitE, argscatD, argscatE, argslogdistr)
+		diversity_d2 = approx_d1 # Limits dispersal into 1
+		diversity_d1 = approx_d2 # Limits dispersal into 2
+		diversity_e1 = approx_d1
+		diversity_e2 = approx_d2
+		dis_into_2 = numD12
+		dis_into_1 = numD21
+	else: # Why are these not taken from the global env?
+		diversity_d1 = np.ones(len(time_series) - 1)
+		diversity_d2 = np.ones(len(time_series) - 1)
+		diversity_e1 = np.ones(len(time_series) - 1)
+		diversity_e2 = np.ones(len(time_series) - 1)
+		dis_into_1 = np.ones(len(time_series) - 1)
+		dis_into_2 = np.ones(len(time_series) - 1)
 	
 #	est_div_gr_obs = all(approx_d1[:-1] - div_traj_1[1:] >= 0) and all(approx_d2[:-1] - div_traj_2[1:] >= 0)
 #	est_div_gr_obs = sum(approx_d1[:-1] - div_traj_1[1:] >= -0.1) > (0.95 * len(div_traj_1[1:])) and sum(approx_d2[:-1] - div_traj_2[1:] >= -0.1) > (0.95 * len(div_traj_2[1:]))
@@ -2595,7 +2608,6 @@ def lik_opt(x, grad):
 #	OrigTimeIndex2 = OrigTimeIndex - backpropagate
 #	OrigTimeIndex2[OrigTimeIndex2 < 1] = 1
 #	print(OrigTimeIndex2)
-
 	if est_div_gr_obs:
 		lik, weight_per_taxon = lik_DES(dis_vec, ext_vec, r_vec,
 						time_var_d1, time_var_d2, time_var_e1, time_var_e2,
@@ -2853,7 +2865,7 @@ if args.A == 3:
 		opt_base.set_upper_bounds(new_upper_bounds)
 		opt_base.set_max_objective(lik_opt)
 		opt_base.set_xtol_rel(args.A3set[0])
-		opt_base.set_maxeval(int(args.A3set[2]/3)  * round(1.25**frombound))
+		opt_base.set_maxeval(int(args.A3set[2]/3) * round(1.25**frombound))
 		opt_base.set_ftol_abs(args.A3set[1])
 		opt_base.set_maxtime(args.A3set[3]/3)
 		x_base = opt_base.optimize(x0)
@@ -3408,7 +3420,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	if do_approx_div_traj == 1:
 		approx_d1,approx_d2,numD21,numD12,pres = approx_div_traj(nTaxa, dis_vec, ext_vec,
 									do_DivdD, do_DivdE, do_varD, do_varE, do_DdE, argsG,
-									r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ,
+									r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ, weight_per_taxon,
 									covar_par, covar_parD, covar_parE, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 									time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp,
 									trait_parD, traitD, trait_parE, traitE,
