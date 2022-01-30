@@ -2576,7 +2576,7 @@ def lik_opt(x, grad):
 	if weight_per_taxon is False:
 		weight_per_taxon = np.ones((nTaxa, pp_gamma_ncat)) / pp_gamma_ncat
 	# Only for diversity or dispersal dependence
-	if transf_d == 2 or transf_d == 5 or transf_e == 2 or transf_e == 5:
+	if transf_d == 4 or transf_d == 5 or transf_e == 4 or transf_e == 5:
 		approx_d1,approx_d2,numD21,numD12,pres = approx_div_traj(nTaxa, dis_vec, ext_vec,
 									do_DivdD, do_DivdE, do_varD, do_varE, do_DdE, argsG,
 									r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ, weight_per_taxon,
