@@ -1313,20 +1313,19 @@ if plot_file != "":
 					tmp[tmp <= 0] = rep_e
 					rate[i:,] = tmp
 				if transf == 4: # DdE
-					tmp = de[i] + np.sum(par[i] * covar, axis = 1) # CHECK THIS!
+					tmp = de[i] + par[i] * covar.flatten()
 					tmp[tmp <= 0.0] = 0.0
 					rate[i:,] = tmp
 			lenCI = len(plotCI)
 			hpd = np.zeros((2 * lenCI, len_covar))
 			if len_par > 1:
 				rate_mean = np.median(rate, axis = 0)
-				for i in range(len_covar):
-					for y in range(lenCI):
-						hpd[[2 * y, 1 + 2 * y],i] = calcHPD(rate[:,i], plotCI[y])
-#						hpd[[2 * y, 1 + 2 * y],i] = HDI_from_MCMC(rate[:,i], plotCI[y])
-#				for y in range(lenCI):
-#					quantile = np.array([(1-plotCI[y])/2, plotCI[y] + (1-plotCI[y])/2])
-#					hpd[[2 * y, 1 + 2 * y],:] = np.quantile(rate, quantile, axis = 0)
+#				for i in range(len_covar):
+#					for y in range(lenCI):
+#						hpd[[2 * y, 1 + 2 * y],i] = calcHPD(rate[:,i], plotCI[y])
+				for y in range(lenCI):
+					quantile = np.array([(1-plotCI[y])/2, plotCI[y] + (1-plotCI[y])/2])
+					hpd[[2 * y, 1 + 2 * y],:] = np.quantile(rate, quantile, axis = 0)
 			else:
 				rate_mean = rate[0,:]
 				hpd[:] = np.NaN
@@ -1997,33 +1996,36 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 		for i in range(1, len_time_series):
 			k_d1 = np.inf
 			k_d2 = np.inf
-			if do_DivdD:
+			if do_varD:
 				dis_rate_vec_i = dis_rate_vec[0,:]
+				dis_rate_vec_i = np.array([dis_rate_vec_i[0] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[i - 1, :])), dis_rate_vec_i[1] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[i - 1, :]))])
+			if do_DivdD:
+				if do_varD is False:
+					dis_rate_vec_i = dis_rate_vec[0,:]
 				k_d1 = covar_par[0]
 				k_d2 = covar_par[1]
 				dis_rate_vec_i = dis_rate_vec_i / (1.- [offset_dis_div2, offset_dis_div1]/covar_par[0:2])
-			elif do_varD:
-				dis_rate_vec_i = dis_rate_vec[0,:]
-				dis_rate_vec_i = np.array([dis_rate_vec_i[0] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[i - 1, :])), dis_rate_vec_i[1] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[i - 1, :]))])
-			else:
+			if do_DivdD is False and do_varD is False:
 				dis_rate_vec_i = dis_rate_vec[i - 1, ]
 
 			k_e1 = np.inf
 			k_e2 = np.inf
-			if do_DivdE:
+			if do_varE:
 				ext_rate_vec_i = ext_rate_vec[0,:]
+				ext_rate_vec_i = np.array([ext_rate_vec_i[0] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[i - 1, :])), ext_rate_vec_i[1] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[i - 1, :]))])
+			if do_DivdE:
+				if do_varE is False:
+					ext_rate_vec_i = ext_rate_vec[0,:]
 				k_e1 = covar_par[2]
 				k_e2 = covar_par[3]
 				ext_rate_vec_i = ext_rate_vec_i * (1 - ([offset_ext_div1, offset_ext_div2]/covar_par[2:4]))
 				ext_rate_vec_i[np.isfinite(ext_rate_vec_i) == False] = 1e-5 # nan for data_in_area
-			elif do_varE:
-				ext_rate_vec_i = ext_rate_vec[0,:]
-				ext_rate_vec_i = np.array([ext_rate_vec_i[0] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[i - 1, :])), ext_rate_vec_i[1] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[i - 1, :]))])
-			elif do_DdE:
-				ext_rate_vec_i = ext_rate_vec[0,:]
+			if do_DdE:
+				if do_varE is False:
+					ext_rate_vec_i = ext_rate_vec[0,:]
 				covar_mu1 = covar_par[2]
 				covar_mu2 = covar_par[3]
-			else:
+			if do_varE is False and do_DivdE is False and do_DdE is False:
 				ext_rate_vec_i = ext_rate_vec[i - 1,:]
 
 			d12 = dis_rate_vec_i[0]
@@ -2067,35 +2069,39 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 		for i in range(1, len_time_series):
 			k_d1 = np.inf
 			k_d2 = np.inf
-			if do_DivdD:
+			if do_varD:
 				dis_rate_vec_i = dis_rate_vec[0,:]
+				dis_rate_vec_i = np.array([dis_rate_vec_i[0] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[i - 1, :])), dis_rate_vec_i[1] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[i - 1, :]))])
+			if do_DivdD:
+				if do_varD is False:
+					dis_rate_vec_i = dis_rate_vec[0,:]
 				k_d1 = covar_par[0]
 				k_d2 = covar_par[1]
 				dis_rate_vec_i = dis_rate_vec_i / (1.- [offset_dis_div2, offset_dis_div1]/covar_par[0:2])
-			elif do_varD:
-				dis_rate_vec_i = dis_rate_vec[0,:]
-				dis_rate_vec_i = np.array([dis_rate_vec_i[0] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[i - 1, :])), dis_rate_vec_i[1] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[i - 1, :]))])
-			else:
+			if do_DivdD is False and do_varD is False:
 				dis_rate_vec_i = dis_rate_vec[i - 1,:]
 
 			k_e1 = np.inf
 			k_e2 = np.inf
 			covar_mu1 = 0.
 			covar_mu2 = 0.
-			if do_DivdE:
+			if do_varE:
 				ext_rate_vec_i = ext_rate_vec[0,:]
+				ext_rate_vec_i = np.array([ext_rate_vec_i[0] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[i - 1, :])), ext_rate_vec_i[1] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[i - 1, :]))])
+			if do_DivdE: # Only exponential temp dependent estinction
+				if do_varE is False:
+					ext_rate_vec_i = ext_rate_vec[0,:]
 				k_e1 = covar_par[2]
 				k_e2 = covar_par[3]
 				ext_rate_vec_i = ext_rate_vec_i * (1 - ([offset_ext_div1, offset_ext_div2]/covar_par[2:4]))
 				ext_rate_vec_i[np.isfinite(ext_rate_vec_i) == False] = 1e-5 # nan for data_in_area
-			elif do_varE:
-				ext_rate_vec_i = ext_rate_vec[0,:]
-				ext_rate_vec_i = np.array([ext_rate_vec_i[0] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[i - 1, :])), ext_rate_vec_i[1] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[i - 1, :]))])
-			elif do_DdE:
+			if do_DdE:
+				if do_varE is False:
+					ext_rate_vec_i = ext_rate_vec[0,:]
 				ext_rate_vec_i = ext_rate_vec[0,:]
 				covar_mu1 = covar_par[2]
 				covar_mu2 = covar_par[3]
-			else:
+			if do_varE is False and do_DivdE is False and do_DdE is False:
 				ext_rate_vec_i = ext_rate_vec[i - 1, ]
 
 			d12 = dis_rate_vec_i[0]
@@ -2491,6 +2497,9 @@ def lik_opt(x, grad):
 	elif do_DivdE and do_varE: # Diversity dep and temp dep Extinction
 		transf_e = 5
 		do_approx_div_traj = 1
+	elif do_DdE and do_varE: # Dispersal dep and temp dep Extinction
+		transf_e = 7
+		do_approx_div_traj = 1
 	else: # Temp dependent Extinction
 		transf_e = 1
 		if args.lgE:
@@ -2530,7 +2539,7 @@ def lik_opt(x, grad):
 			else:
 				x0_logisticD = x[opt_ind_x0_log_dis]
 	if transf_e > 0:
-		if transf_e == 1 or transf_e == 2 or transf_e == 5 or transf_e == 6:
+		if transf_e == 1 or transf_e == 2 or transf_e == 5 or transf_e == 6 or transf_e == 7:
 			if do_symCovE:
 				x_covE = x[opt_ind_covar_ext]
 				x_covE = x_covE[idx_symCovE]
@@ -2540,7 +2549,7 @@ def lik_opt(x, grad):
 				covar_parE[constrCovE_not0] = x[opt_ind_covar_ext]
 			else:
 				covar_parE = x[opt_ind_covar_ext]
-		if transf_e == 4 or transf_e == 5:
+		if transf_e == 3 or transf_e == 4 or transf_e == 5 or transf_e == 7:
 			if len(constrDivdE_0) > 0:
 				covar_par[[2,3]] = np.array([10000 * nTaxa, 10000 * nTaxa])
 				if do_DdE: covar_par[[2,3]] = np.zeros(2)
@@ -2576,7 +2585,7 @@ def lik_opt(x, grad):
 	if weight_per_taxon is False:
 		weight_per_taxon = np.ones((nTaxa, pp_gamma_ncat)) / pp_gamma_ncat
 	# Only for diversity or dispersal dependence
-	if transf_d == 4 or transf_d == 5 or transf_e == 4 or transf_e == 5:
+	if do_approx_div_traj: #transf_d == 4 or transf_d == 5 or transf_e == 3 or transf_e == 4 or transf_e == 5:
 		approx_d1,approx_d2,numD21,numD12,pres = approx_div_traj(nTaxa, dis_vec, ext_vec,
 									do_DivdD, do_DivdE, do_varD, do_varE, do_DdE, argsG,
 									r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ, weight_per_taxon,
@@ -3406,6 +3415,9 @@ for it in range(n_generations * len(scal_fac_TI)):
 		transf_e=5
 		do_approx_div_traj = 1
 		ext_vec = ext_rate_vec
+	elif do_DdE and do_varE: # Dispersal dep and temp dep Extinction
+		transf_e = 7
+		do_approx_div_traj = 1
 	elif args.TdE: # Time dep Extinction
 		ext_vec = ext_rate_vec[Q_index,:]
 		ext_vec = ext_vec[0:-1]

@@ -232,6 +232,13 @@ def make_Q_Covar4VDdE(dv_list, ev_list, time_var_d1, time_var_d2, time_var_e1, t
 		idx2 = np.arange(1, len(covar_parE), 2, dtype = int)
 		transf_e = np.array([ev_list[0][0] + np.sum(covar_parE[idx1]*time_var_e1, axis = 1), ev_list[0][1] + np.sum(covar_parE[idx2]*time_var_e2, axis = 1)]).T
 		transf_e[transf_e < 0.0] = 0.0
+	elif transf_e==7: # Combination of environment and dispersal dependent extinction
+		idx1 = np.arange(0, len(covar_parE), 2, dtype = int)
+		idx2 = np.arange(1, len(covar_parE), 2, dtype = int)
+		env_e1 = ev_list[0][0] * exp(np.sum(covar_parE[idx1]*time_var_e1, axis = 1))
+		env_e2 = ev_list[0][1] * exp(np.sum(covar_parE[idx2]*time_var_e2, axis = 1))
+		transf_e = np.array([env_e1 + (covar_par[2]*dis_into_1), env_e2 +(covar_par[3]*dis_into_2)]).T
+		transf_e[transf_e < 0.0] = 0.0
 	else:
 		transf_e = ev_list
 #	Q_list=[]
