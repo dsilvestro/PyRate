@@ -122,6 +122,7 @@ Launch PyRateDES by opening a Terminal window and browsing to the PyRate directo
 The following code produces the DES input files (see Example 1 for the explanation of the arguments).
 
 `python ./PyRateDES2.py -fossil .../example_files/DES_examples/DES_input_data/foss.txt -recent .../example_files/DES_examples/DES_input_data/pres.txt -wd .../example_files/DES_examples -filename Example2 -bin_size 2 -rep 5`
+
 <br>
 
 ## Running a DES analysis
@@ -156,6 +157,7 @@ We can obtain the mean and 95% credible interval of all model parameters of a Ba
 You can include differences in preservation rates across taxa. The command `-mG` specifies a model where the mean sampling rate across all taxa equals q and the heterogeneity is given by a discretized Gamma distribution with *n* categories. The default of four categories (`-ncat 4`) is usually sufficient to account for heterogeneity across lineages and a higher number increases computation time. Incorporating sampling heterogeneity improves the rate estimation. Sampling heterogeneity is computationally inexpensive to infer as it only adds a single free parameter to the model and should therefore be always included in DES models.
 
 `python ./PyRateDES2.py -d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -mG`
+
 <br>
 
 ### Time variable model with rate shifts (Skyline model)
