@@ -136,7 +136,7 @@ The following command executes a DES analysis with dispersal, extinction and sam
 
 `python ./PyRateDES2.py -d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE`
 
-The output file will be named *Carnivora_1_0_TdD_TdE.log* and is saved where the input data was (here .../example_files/DES_examples/Carnivora). The optional `-out`argument allows to add a user-defined name to the output.
+The output file will be named *Carnivora_1_0_TdD_TdE.log* and is saved where the input data was (here: .../example_files/DES_examples/Carnivora). The optional `-out`argument allows to add a user-defined name to the output.
 
 The default settings specify Bayesian inference. We can (and in the cases of more complex models with time-variable rates we should) change the number of MCMC iterations and the sampling frequency. By default PyRateDES will run 100,000 iterations and sample and print the parameters every 100 iterations. Depending on the size of the data set you may have to increase the number iterations to reach convergence (in which case it might be a good idea to sample the chain less frequently to reduce the size of the output files). This is done using the commands `-n`, `-s`, and `-p`:
 
@@ -168,31 +168,37 @@ There are several optional constraints on dispersal, extinction, and preservatio
 
 * `-symd`, `-syme`, and `-symq` constrain rates to be equal between areas. In a skyline model, rates are identical between areas but are allowed to differ among the time-strata defined with `-qtimes`
 
-* `-constr` forces certain rates to be constant across time-strata while others are still allowed to vary over time. Indices define which rates should be constrained to be constant. 1 constrains the dispersal rate from area A to B, 2 dispersal B to A, 3 extinction in A, 4 extinction in B, 5 sampling in A, and 6 sampling in B.
+* `-constr` forces certain rates to be constant across time-strata while others are still allowed to vary over time. Indices define which rates should be constrained to be constant. `-constr 1` constrains the dispersal rate from area A to B, 2 dispersal B to A, 3 extinction in A, 4 extinction in B, 5 sampling in A, and 6 sampling in B. Several constraints can be combined e.g. `-constr 3 5 `.
 
 
 ### Covariate dependent dispersal and extinction models
 
-PyRateDES2.py includes an upgraded version of the original DES model which allows more flexibility in time-variable dispersal and extinction models. You can use a time variable predictor (e.g. sea level or temperature) and model dispersal and/or extinction as a function of the predictor. The predictors should be tab-separated text files located in a seperate directory. You can use the same or different predictors for dispersal and extinction. For instance you can test sea level as a predictor of dispersal and a climate proxy as a predictor for extinction. Several covariates could influence dispersal and/or extinction rates and should be located in the same directory.
+PyRateDES2.py includes an upgraded version of the original DES model which allows more flexibility in time-variable dispersal and extinction models. You can use a time variable predictor (e.g. sea level or temperature) and model dispersal and/or extinction as a function of the predictor. The predictors should be tab-separated text files located in a seperate directory. You can use the same or different predictors for dispersal and extinction. For instance you can test sea level as a predictor of dispersal and a climate proxy as a predictor for extinction. Several covariates could influence dispersal and/or extinction rates and should be located in the same directory. The arguments `-TdD`and `-TdE` should be omitted when covariate effects are inferred.
 
 `python ./PyRateDES2.py d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -varD .../example_files/DES_examples/Carnivora/covariate_dispersal -varE .../example_files/DES_examples/Carnivora/covariate_extinction`
 
-Covariate dependent models can be combined with `-qtimes` to allow sampling rates to vary over time and `-mG` to model heterogeneity in sampling acroos taxa. Moreover, several constraints on the covariate effect are possible.
+Covariate dependent models can be combined with `-qtimes` to allow sampling rates to vary over time and `-mG` to model heterogeneity in sampling acroos taxa. 
 
-* `-symCovD` and `-symCovE` constrain the covariate effect on dispersal and extinction rates to be symmetric for both areas.
+Moreover, several constraints on the covariate effect are possible:
+
+* `-symCovD` and `-symCovE` constrain the covariate effect on dispersal and extinction rates to be symmetric for both areas via indices. E.g. `-symCovD 1` constrains the first covariate to have a symmetric effect on both dispersal rates while `-symCovD 2` applies to the second dispersal covariate.
 
 * `-constrCovD_0` and `-constrCovE_0` set the covariate effect on dispersal or extinction to zero (i.e. no such effect of the covariate) via indices. E.g. `-constrCovD_0 1 4` removes through index 1 the effect of the first covariate on the dispersal rate from area A to B and through index 4 the covariate effect on dispersal from B to A.
 
 
 ### Diversity dependent dispersal and extinction models
 
+Dispersal rate into an area could decline with the increase in diversity of the respective area and extinction rate may increase with the area's diversity. PyRateDES2.py allows to quantify and test these effects with the arguments `-DivdD`for diversity-dependent dispersal and `-DivdE`for diversity-dependent extinction.
 
+`python ./PyRateDES2.py d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -DivdD -DivdE`
 
+A different effect of diversity on extinction is that immigrating taxa drive resident taxa to extinction (e.g. invasion). This effect can be included in the DES model with the argument `-DdE`. Diversity dependent models can be combined with `-qtimes` and `-mG`.
 
+Constraints are possible:
 
+* `-symDivdD` and `-symDivdE` constrain the diversity effect on dispersal and extinction rates to be symmetric for both areas.
 
-
-
+* `-constrDivdD_0` and `-constrDivdE_0` set the diversity effect on dispersal or extinction to zero through indices. E.g. `-constrDivdD_0 2` removes the effect for dispersal from area B to A and `-constrDivdE_0 1` specifies diversity-independent extinction in area A.
 
 
 
