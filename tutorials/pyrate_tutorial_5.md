@@ -184,8 +184,8 @@ Moreover, several constraints on the covariate effect are possible:
 * `-symCovD` and `-symCovE` constrain the covariate effect on dispersal and extinction rates to be symmetric for both areas via indices. E.g. `-symCovD 1` constrains the first covariate to have a symmetric effect on both dispersal rates while `-symCovD 2` applies to the second dispersal covariate.
 
 * `-constrCovD_0` and `-constrCovE_0` set the covariate effect on dispersal or extinction to zero (i.e. no such effect of the covariate) via indices. E.g. `-constrCovD_0 1 4` removes through index 1 the effect of the first covariate on the dispersal rate from area A to B and through index 4 the covariate effect on dispersal from B to A.
-
-
+<br>
+<br>
 ### Diversity dependent dispersal and extinction models
 
 Dispersal rate into an area could decline with the increase in diversity of the respective area and extinction rate may increase with the area's diversity. PyRateDES2.py allows to quantify and test these effects with the arguments `-DivdD`for diversity-dependent dispersal and `-DivdE`for diversity-dependent extinction.
