@@ -11,7 +11,7 @@
 
 ## Input data preparation
 
-The DES model needs a set of replicated input files with the taxon occurrences classified into time-bins and two discrete and predefined areas. The definition of these areas should be guided by their continuity over the study's time frame and should balance taxon occurrences and abiotic factors [(Ree & Smith, 2008)](https://academic.oup.com/sysbio/article/57/1/4/1703014){target="_blank"}. These could be biogeographic regions [(Carrillo *et al.*, 2020)](https://www.pnas.org/content/117/42/26281), insular ecosystems [(Wilke *et al.*, 2020)](https://advances.sciencemag.org/content/6/40/eabb2943), or areas without clearly defined boundaries like the tropics, whose delimitation should involve their changing extent through time [(Raja & Kiessling, 2021)](https://royalsocietypublishing.org/doi/full/10.1098/rspb.2021.0545).
+The DES model needs a set of replicated input files with the taxon occurrences classified into time-bins and two discrete and predefined areas. The definition of these areas should be guided by their continuity over the study's time frame and should balance taxon occurrences and abiotic factors [(Ree & Smith, 2008)](https://academic.oup.com/sysbio/article/57/1/4/1703014). These could be biogeographic regions [(Carrillo *et al.*, 2020)](https://www.pnas.org/content/117/42/26281), insular ecosystems [(Wilke *et al.*, 2020)](https://advances.sciencemag.org/content/6/40/eabb2943), or areas without clearly defined boundaries like the tropics, whose delimitation should involve their changing extent through time [(Raja & Kiessling, 2021)](https://royalsocietypublishing.org/doi/full/10.1098/rspb.2021.0545).
 
 The area-coding can easily be derived from two tab-delimited text files or with the R package [speciesgeocodeR](https://github.com/azizka/speciesgeocodeR). The two text files needed are: 1) a table with the fossil occurrences 2) a table with the recent distribution of all taxa. The distributions can be provide either as discrete areas classification (Example 1) or as occurrence coordinates (Example 2). Replication arises from a uniform resampling of the fossil age estimates between the *earliestAge* and *latestAge* of each fossil.
 
@@ -208,6 +208,6 @@ Constraints are possible:
 
 In addition to covariate and/or diversity effects on dispersal and extinction rates, we can also infer the effect of continuous or categorical traits on these rates.
 
-
+`python ./PyRateDES2.py d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -traitD .../example_files/DES_examples/Carnivora/Body_mass_1.txt`
 
 
