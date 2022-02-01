@@ -122,7 +122,7 @@ Launch PyRateDES by opening a Terminal window and browsing to the PyRate directo
 The following code produces the DES input files (see Example 1 for the explanation of the arguments).
 
 `python ./PyRateDES2.py -fossil .../example_files/DES_examples/DES_input_data/foss.txt -recent .../example_files/DES_examples/DES_input_data/pres.txt -wd .../example_files/DES_examples -filename Example2 -bin_size 2 -rep 5`
-
+<br>
 
 ## Running a DES analysis
 
@@ -149,14 +149,14 @@ The same DES model can be fitted with Maximum likelihood by setting the algorith
 We can obtain the mean and 95% credible interval of all model parameters of a Bayesian analysis by summarizing its output:
 
 `python ./PyRateDES2.py -d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -sum .../example_files/DES_examples/Carnivora/Carnivora_1_0_TdD_TdE.log`
-
+<br>
 
 ### DES analysis with heterogeneity in preservation rates across taxa
 
 You can include differences in preservation rates across taxa. The command `-mG` specifies a model where the mean sampling rate across all taxa equals q and the heterogeneity is given by a discretized Gamma distribution with *n* categories. The default of four categories (`-ncat 4`) is usually sufficient to account for heterogeneity across lineages and a higher number increases computation time. Incorporating sampling heterogeneity improves the rate estimation. Sampling heterogeneity is computationally inexpensive to infer as it only adds a single free parameter to the model and should therefore be always included in DES models.
 
 `python ./PyRateDES2.py -d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -mG`
-
+<br>
 
 ### Time variable model with rate shifts (Skyline model)
 
@@ -169,7 +169,7 @@ There are several optional constraints on dispersal, extinction, and preservatio
 * `-symd`, `-syme`, and `-symq` constrain rates to be equal between areas. In a skyline model, rates are identical between areas but are allowed to differ among the time-strata defined with `-qtimes`
 
 * `-constr` forces certain rates to be constant across time-strata while others are still allowed to vary over time. Indices define which rates should be constrained to be constant. `-constr 1` constrains the dispersal rate from area A to B, 2 dispersal B to A, 3 extinction in A, 4 extinction in B, 5 sampling in A, and 6 sampling in B. Several constraints can be combined e.g. `-constr 3 5 `.
-
+<br>
 
 ### Covariate dependent dispersal and extinction models
 
@@ -184,7 +184,6 @@ Moreover, several constraints on the covariate effect are possible:
 * `-symCovD` and `-symCovE` constrain the covariate effect on dispersal and extinction rates to be symmetric for both areas via indices. E.g. `-symCovD 1` constrains the first covariate to have a symmetric effect on both dispersal rates while `-symCovD 2` applies to the second dispersal covariate.
 
 * `-constrCovD_0` and `-constrCovE_0` set the covariate effect on dispersal or extinction to zero (i.e. no such effect of the covariate) via indices. E.g. `-constrCovD_0 1 4` removes through index 1 the effect of the first covariate on the dispersal rate from area A to B and through index 4 the covariate effect on dispersal from B to A.
-<br>
 <br>
 
 ### Diversity dependent dispersal and extinction models
