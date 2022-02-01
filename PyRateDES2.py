@@ -149,8 +149,8 @@ p.add_argument('-recent',   type=str, help='recent distribution', default="", me
 p.add_argument('-filename', type=str, help='input filename', default="", metavar="")
 p.add_argument('-bin_size', type=float, help='size of the time bins', default=2.5, metavar=2.5)
 p.add_argument('-rep',      type=int, help='replicates', default=1, metavar=1)
-p.add_argument('-taxon',    type=str, help='taxon column within fossil', default="scientificName", metavar="")
-p.add_argument('-area',     type=str, help='area column within fossil', default="higherGeography", metavar="")
+p.add_argument('-taxon',    type=str, help='taxon column within fossil and recent', default="scientificName", metavar="")
+p.add_argument('-area',     type=str, help='area column within fossil and recent', default="higherGeography", metavar="")
 p.add_argument('-age1',     type=str, help='earliest age', default="earliestAge", metavar="")
 p.add_argument('-age2',     type=str, help='latest age', default="latestAge", metavar="")
 p.add_argument('-trim_age', type=float, help='trim DES input to maximum age',  default=[])
@@ -3110,7 +3110,7 @@ if do_DivdD:
 	if len(constrDivdD_0) > 0:
 		b = b[constrDivdD_not0]
 	b = np.max(b)
-	scale_proposal_divdd = b + 0.
+	scale_proposal_divdd = b / 2.# + 0.
 	m_divdd = b
 	M_divdd = np.inf
 	offset_dis_div1 = 0. # Important for data_in_area 2
@@ -3125,7 +3125,7 @@ if do_DivdE:
 	if len(constrDivdE_0) > 0:
 		b = b[constrDivdE_not0 - 2]
 	b = np.max(b)
-	scale_proposal_divde = b + 0.
+	scale_proposal_divde = b / 2.# + 0.
 	m_divde = b
 	M_divde = np.inf
 	offset_ext_div1 = 0.
@@ -3472,13 +3472,17 @@ for it in range(n_generations * len(scal_fac_TI)):
 
 	d12_for_prior = dis_rate_vec[0:d12_prior_idx, 0].flatten()
 	d21_for_prior = dis_rate_vec[0:d21_prior_idx, 1].flatten()
-	if equal_d:
+	if data_in_area == 1: # matters only for Gibbs sampling b/c otherwise prior_exp(d_prior, 1)
+		d12_for_prior = np.array([])
+	if equal_d or data_in_area == 2:
 		d21_for_prior = np.array([])
 	d_prior = np.concatenate((d12_for_prior, d21_for_prior))
 	e1_for_prior = dis_rate_vec[0:e1_prior_idx, 0].flatten()
 	e2_for_prior = dis_rate_vec[0:e2_prior_idx, 1].flatten()
-	if equal_e:
+	if equal_e or data_in_area == 1:
 		e2_for_prior = np.array([])
+	if data_in_area == 2:
+		e1_for_prior = np.array([])
 	e_prior = np.concatenate((e1_for_prior, e2_for_prior))
 	prior = prior_exp(d_prior, prior_exp_rate) + prior_exp(e_prior, prior_exp_rate)
 	
@@ -3525,16 +3529,16 @@ for it in range(n_generations * len(scal_fac_TI)):
 			else: prior += prior_beta(1./covar_par[2:4][idx2_symDivdE], 1., nTaxa/3.)
 		if do_DdE: prior += prior_normal(covar_par[2:4][idx2_symDivdE], 0, 1)
 		if do_varD:
-			if len(constrCovD_0): prior += prior_normal(covar_parD[constrCovD_not0], 0, 1)
+			if len(constrCovD_0) > 0: prior += prior_normal(covar_parD[constrCovD_not0], 0, 1)
 			else: prior += prior_normal(covar_parD[idx2_symCovD], 0, 1)
 		if do_varE: 
-			if len(constrCovE_0): prior += prior_normal(covar_parE[constrCovE_not0], 0, 1)
+			if len(constrCovE_0) > 0: prior += prior_normal(covar_parE[constrCovE_not0], 0, 1)
 			else: prior += prior_normal(covar_parE[idx2_symCovE], 0, 1)
 		if args.lgD:
-			if len(constrCovD_0): prior += prior_normal(x0_logisticD[constrCovD_not0], 0, 1)
+			if len(constrCovD_0) > 0: prior += prior_normal(x0_logisticD[constrCovD_not0], 0, 1)
 			else: prior += prior_normal(x0_logisticD[idx2_symCovD], 0, 1)
 		if args.lgE:
-			if len(constrCovE_0): prior += prior_normal(cx0_logisticE[constrCovE_not0], 0, 1)
+			if len(constrCovE_0) > 0: prior += prior_normal(cx0_logisticE[constrCovE_not0], 0, 1)
 			else: prior += prior_normal(x0_logisticE[idx2_symCovE], 0, 1)
 		if argstraitD != "": prior += prior_normal(trait_parD, 0, 1)
 		if argstraitE != "": prior += prior_normal(trait_parE, 0, 1)

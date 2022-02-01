@@ -10,9 +10,12 @@
 
 
 ## Input data preparation
-The DES model needs a set of replicated input files with the taxon occurrences classified into time-bins and areas. These can easily be derived from two tab-delimited text files or with the R package [speciesgeocodeR](https://github.com/azizka/speciesgeocodeR). The data needed are: 1) a table with the fossil occurrences 2) a table with the recent distribution of all taxa. The distributions can be provide either as discrete areas classification (Example 1) or as occurrence coordinates (Example 2). Replication arises from a uniform resampling of the fossil age estimates between the earliestAge and latestAge of each fossil.
 
-#### Example 1 - Discrete area classification input
+The DES model needs a set of replicated input files with the taxon occurrences classified into time-bins and two discrete and predefined areas. The definition of these areas should be guided by their continuity over the study's time frame and should balance taxon occurrences and abiotic factors [(Ree & Smith, 2008)](https://academic.oup.com/sysbio/article/57/1/4/1703014). These could be biogeographic regions [(Carrillo *et al.*, 2020)](https://www.pnas.org/content/117/42/26281), insular ecosystems [(Wilke *et al.*, 2020)](https://advances.sciencemag.org/content/6/40/eabb2943), or areas without clearly defined boundaries like the tropics, whose delimitation should involve their changing extent through time [(Raja & Kiessling, 2021)](https://royalsocietypublishing.org/doi/full/10.1098/rspb.2021.0545).
+
+The area-coding can easily be derived from two tab-delimited text files or with the R package [speciesgeocodeR](https://github.com/azizka/speciesgeocodeR). The two text files needed are: 1) a table with the fossil occurrences 2) a table with the recent distribution of all taxa. The distributions can be provide either as discrete areas classification (Example 1) or as occurrence coordinates (Example 2). Replication arises from a uniform resampling of the fossil age estimates between the *earliestAge* and *latestAge* of each fossil.
+
+### Example 1 - Discrete area classification input
 
 In the first example the taxon distribution is already available in the areas of interest for the DES analysis (Eurasia and North America). Example input and output files can be found [here](https://github.com/dsilvestro/PyRate/tree/master/example_files/DES_examples/Carnivora). The format of the input data follows the DarwinCore standard. [CarnivoraFossils.txt](https://github.com/dsilvestro/PyRate/blob/master/example_files/DES_examples/Carnivora/CarnivoraFossils.txt) shows the minimum input data for fossil occurrences.
 
@@ -60,14 +63,22 @@ The following code produces the DES input files.
 
 * `-trim_age` is an optional argument to truncate the dataset by an maximum age (e.g. `-trim_age 23.03`. truncates to the Neogene). It omits a fossil when the uniform resampling of the fossil age estimates exceeds the specified age.
 
-* `-data_in_area 1` is an argument to code fossil occurrences for a DES analysis where lineages are only known from a single area.
+* `-taxon` is an optional argument specifying the name of the column with the taxon names in case it is not *scientificName*.
+
+* `-area` is an optional argument specifying the name of the column with the geographic distribution in case it is not *higherGeography*.
+
+* `-age1` is an optional argument specifying the name of the column with the earliest age in case it is not *earliestAge*.
+
+* `-age2` is an optional argument specifying the name of the column with the latest age in case it is not *latestAge*.
+
+* `-data_in_area 1` is an argument to code fossil occurrences for a DES analysis where lineages are only known from a single area.  For instance `python ./PyRateDES2.py -fossil .../example_files/DES_examples/Diatoms_Lake_Ohrid/DiatomFossils.txt -recent .../example_files/DES_examples/Diatoms_Lake_Ohrid/DiatomRecent.txt -wd .../example_files/DES_examples/Diatoms_Lake_Ohrid -filename Diatoms -bin_size 0.5 -rep 10`
 
 * `-plot_raw` is an optional argument to generate a plot in PDF format in `-wd` of the observed diversity trajectories and their 95% credible interval in the two area. This requires that R is installed on your PC to execute the shell command Rscript. If you are using Windows, please make sure that the path to Rscript.exe is included in the PATH environment variables (default in Mac/Linux).
 
 ![Example observed diversity](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/DES_observed_diversity.png)
 
 
-#### Example 2 - Species distributions as coordinates
+### Example 2 - Species distributions as coordinates
 
 Often species distributions are available as coordinates rather than as discrete areas.  Coordinates for the fossil and recent data can be prepared for DES input with the following script using speciesgeocodeR (>= v 1.0-6). Note however, that DES assumes the present data to be complete, so a use of occurrence records for recent data is only for very well samples and curated data. Additionally usually native species ranges should be used (avoiding the anthropogenic influence, which will inflate, or sometimes decrease, the recent distribution of many taxa).
 
@@ -114,51 +125,68 @@ The following code produces the DES input files (see Example 1 for the explanati
 
 
 ## Running a DES analysis
+
+### Basic DES analysis with constant rates
+
 To launch PyRateDES open a Terminal window and browse to the PyRate directory 
 
 `cd /path/to/PyRate`
 
-The following command executes a DES analysis with dispersal, extinction and sampling rates that are constant through time but differ between both areas.
+The following command executes a DES analysis with dispersal, extinction and sampling rates that are constant through time but differ between both areas. The `-TdD` and `-TdE` commands specify time-dependent dispersal and extinction rates, respectively.
 
 `python ./PyRateDES2.py -d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE`
 
-The default settings specify a Bayesian inference. We can (and in the cases of more complex models should) change the number of MCMC iterations and the sampling frequency. By default PyRateDES will run 100,000 iterations and sample and print the parameters every 100 iterations. Depending on the size of the data set you may have to increase the number iterations to reach convergence (in which case it might be a good idea to sample the chain less frequently to reduce the size of the output files). This is done using the commands `-n`, `-s`, and `-p`:
+The output file will be named *Carnivora_1_0_TdD_TdE.log* and is saved where the input data was (here .../example_files/DES_examples/Carnivora). The optional `-out`argument allows to add a user-defined name to the output.
+
+The default settings specify Bayesian inference. We can (and in the cases of more complex models with time-variable rates we should) change the number of MCMC iterations and the sampling frequency. By default PyRateDES will run 100,000 iterations and sample and print the parameters every 100 iterations. Depending on the size of the data set you may have to increase the number iterations to reach convergence (in which case it might be a good idea to sample the chain less frequently to reduce the size of the output files). This is done using the commands `-n`, `-s`, and `-p`:
 
 `python ./PyRateDES2.py -d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -n 500000 -s 1000 -p 10000`
 
+The same DES model can be fitted with Maximum likelihood by setting the algorithm to `-A 3` instead of using the default `-A 0`. This is typically faster than Bayesian inference but does not quantify the uncertainty of the model parameters.
 
-#### Time variable model (rate shifts)
-Launch a maximum likelihood analysis with shifts in preservation, dispersal, and extinction rates at 5.3 and 2.6 Ma.
+`python ./PyRateDES2.py -d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -A 3`
 
-`python ./PyRateDES2.py -d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -A 2 -qtimes 5.3 2.6 -TdD -TdE`
+We can obtain the mean and 95% credible interval of all model parameters of a Bayesian analysis by summarizing its output:
 
-The `-TdD` and `-TdE` commands specify time-dependent dispersal and extinction rates, respectively.
+`python ./PyRateDES2.py -d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -sum .../example_files/DES_examples/Carnivora/Carnivora_1_0_TdD_TdE.log`
 
-The command `-A 2` specifies that you want to use a maximum likelihood algorithm. 
 
-The output files will be saved where the input data was.
+### DES analysis with heterogeneity in preservation rates across taxa
 
-#### Covariate D/E models
-PyRateDES2.py is an upgraded version of the original DES model which allows more flexibility in time-variable dispersal and extinction models.
-You can use a time variable predictor (e.g. sea level or temperature) and model dispersal and/or extinction as an exponential function of the predictor. 
+You can include differences in preservation rates across taxa. The command `-mG` specifies a model where the mean sampling rate across all taxa equals q and the heterogeneity is given by a discretized Gamma distribution with *n* categories. The default of four categories (`-ncat 4`) is usually sufficient to account for heterogeneity across lineages and a higher number increases computation time. Incorporating sampling heterogeneity improves the rate estimation. Sampling heterogeneity is computationally inexpensive to infer as it only adds a single free parameter to the model and should therefore be always included in DES models.
 
-`./PyRateDES2.py -d input_data.txt -A 2 -qtimes 5.3 2.6 -varD predictor_file.txt -varE predictor_file.txt`
+`python ./PyRateDES2.py -d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -mG`
 
-Note that if `predictor_file.txt ` is in not in he same directory as `PyRateDES2.py` you need to specify its full path. The format of the predictor file is a tab-separated text file with column headers as shown in PyRate's repository (`/PhanerozoicTempSmooth.txt`).
 
-#### Mixed D/E models
-You can use different predictors for dispersal and extinction, e.g.
+### Time variable model with rate shifts (Skyline model)
 
-`./PyRateDES2.py -d input_data.txt -A 2 -qtimes 5.3 2.6 -varD predictor_file1.txt -varE predictor_file2.txt`
+Dispersal, extinction, and preservation rates are allowed to shift at discrete moments in time, which are specified with the `-qtimes` argument. These shifts could be e.g. chronostratigraphic stages or series.
 
-For instance you can test sea level as a predictor of dispersal and a climate proxy as a predictor for extinction. 
+`python ./PyRateDES2.py -d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -mG -qtimes 20.43 15.97 13.65 11.63 7.25 5.33 2.58 -n 1000001 -s 1000 -p 1000`
 
-#### DES analysis with heterogeneity in preservation rates across taxa
-You can include differences in preservation rates across taxa. The command `-mG` specifies a model where the mean preservation rate across all taxa equals q and the heterogeneity is given by a discretized Gamma distribution with `-ncat` categories.
+There are several optional constraints on dispersal, extinction, and preservation rates possible.
 
-`./PyRateDES2.py -d input_data.txt -A 2 -mG -ncat 4 -TdD -TdE`
+* `-symd`, `-syme`, and `-symq` constrain rates to be equal between areas. In a skyline model, rates are identical between areas but are allowed to differ among the time-strata defined with `-qtimes`
 
-##### The likelihoods of different models (with different predictors or rate shifts) can be compared to perform model testing, for example using AIC scores. 
+* `-constr` forces certain rates to be constant across time-strata while others are still allowed to vary over time. Indices define which rates should be constrained to be constant. 1 constrains the dispersal rate from area A to B, 2 dispersal B to A, 3 extinction in A, 4 extinction in B, 5 sampling in A, and 6 sampling in B.
+
+
+### Covariate dependent dispersal and extinction models
+
+PyRateDES2.py includes an upgraded version of the original DES model which allows more flexibility in time-variable dispersal and extinction models. You can use a time variable predictor (e.g. sea level or temperature) and model dispersal and/or extinction as a function of the predictor. The predictors should be tab-separated text files located in a seperate directory. You can use the same or different predictors for dispersal and extinction. For instance you can test sea level as a predictor of dispersal and a climate proxy as a predictor for extinction. Several covariates could influence dispersal and/or extinction rates and should be located in the same directory.
+
+`python ./PyRateDES2.py d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -varD .../example_files/DES_examples/Carnivora/covariate_dispersal -varE .../example_files/DES_examples/Carnivora/covariate_extinction`
+
+Covariate dependent models can be combined with `-qtimes` to allow sampling rates to vary over time and `-mG` to model heterogeneity in sampling acroos taxa. Moreover, several constraints on the covariate effect are possible.
+
+* `-symCovD` and `-symCovE` constrain the covariate effect on dispersal and extinction rates to be symmetric for both areas.
+
+* `-constrCovD_0` and `-constrCovE_0` set the covariate effect on dispersal or extinction to zero (i.e. no such effect of the covariate) via indices. E.g. `-constrCovD_0 1 4` removes through index 1 the effect of the first covariate on the dispersal rate from area A to B and through index 4 the covariate effect on dispersal from B to A.
+
+
+### Diversity dependent dispersal and extinction models
+
+
 
 
 
