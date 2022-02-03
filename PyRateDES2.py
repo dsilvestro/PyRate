@@ -1964,8 +1964,8 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 		for i in range(pp_gamma_ncat):
 			sa[i,:] = exp(-bin_size * YangGamma[i] * -log(r_vec[Q_index_first_occ, 1])/bin_size)
 			sb[i,:] = exp(-bin_size * YangGamma[i] * -log(r_vec[Q_index_first_occ, 2])/bin_size)
-		sa = sa * weight_per_taxon.T
-		sb = sb * weight_per_taxon.T
+		sa = sa * weight_per_taxon
+		sb = sb * weight_per_taxon
 #		print("sb", sb)
 		sa = np.nansum(sa, axis = 0)
 		sb = np.nansum(sb, axis = 0)
@@ -2247,7 +2247,7 @@ def get_num_dispersals(dis_rate_vec,r_vec):
 	
 
 # initialize weight per gamma cat per species to estimate diversity trajectory with heterogeneous preservation
-weight_per_taxon = np.ones((nTaxa, pp_gamma_ncat)) / pp_gamma_ncat
+weight_per_taxon = np.ones((pp_gamma_ncat, nTaxa)) / pp_gamma_ncat
 
 
 def get_marginal_traitrate(baserate, nTaxa, pres, traits, cont_trait, cont_trait_par, cat, cat_trait, cat_trait_par):
@@ -2295,7 +2295,7 @@ if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
 
 def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time_var_e2, diversity_d1, diversity_d2, diversity_e1, diversity_e2, dis_into_1, dis_into_2, covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex,Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, bin_last_occ, traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, catE, cat_parE, list_taxa_index, nTaxa):
 	# weight per gamma cat per species: multiply 
-	weight_per_taxon = np.ones((nTaxa, pp_gamma_ncat)) / pp_gamma_ncat
+	weight_per_taxon = np.ones((pp_gamma_ncat, nTaxa)) / pp_gamma_ncat
 	Q_list = np.zeros(1)
 	marginal_rates_temp = np.zeros(1)
 	w_list = np.zeros(1)
@@ -2358,8 +2358,7 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 				lik_vec_max = np.max(lik_vec)
 				lik2 = lik_vec - lik_vec_max
 				lik += log(sum(exp(lik2))/pp_gamma_ncat) + lik_vec_max
-#				weight_per_taxon[l,:] = lik_vec / sum(lik_vec)
-				weight_per_taxon[l,:] = np.exp(lik2) / np.sum(np.exp(lik2))
+				weight_per_taxon[:,l] = np.exp(lik2) / np.sum(np.exp(lik2))
 		#print "lik2", lik
 		
 			
@@ -2391,7 +2390,6 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 			liktmp2 = liktmp - liktmpmax
 			lik = sum(log(sum( exp(liktmp2), axis = 0 )/pp_gamma_ncat)+liktmpmax)
 			weight_per_taxon = liktmp / sum(liktmp, axis = 0)
-			weight_per_taxon = weight_per_taxon.T
 	
 	return lik, weight_per_taxon
 
@@ -2583,7 +2581,7 @@ def lik_opt(x, grad):
 
 	global weight_per_taxon # Dangerous !!! but nlopt seems to allow only one target; hence return lik, weight_per_taxon does not work
 	if weight_per_taxon is False:
-		weight_per_taxon = np.ones((nTaxa, pp_gamma_ncat)) / pp_gamma_ncat
+		weight_per_taxon = np.ones((pp_gamma_ncat, nTaxa)) / pp_gamma_ncat
 	# Only for diversity or dispersal dependence
 	if do_approx_div_traj: #transf_d == 4 or transf_d == 5 or transf_e == 3 or transf_e == 4 or transf_e == 5:
 		approx_d1,approx_d2,numD21,numD12,pres = approx_div_traj(nTaxa, dis_vec, ext_vec,
@@ -2845,7 +2843,7 @@ if args.A == 3:
 	# Maximize likelihood
 	div_iter = 1
 	div_timeout = 1
-	if args.A3set[4] == 1 and any(args.TdD is False or do_DivdD or args.TdE is False or do_DivdE or args.DdE or (data_in_area != 0 and argsG) or argstraitD != "" or argstraitE != "" or argscatD != "" or argscatE != ""):
+	if args.A3set[4] == 1 and any(args.TdD is False or do_DivdD or args.TdE is False or do_DivdE or args.DdE or argstraitD != "" or argstraitE != "" or argscatD != "" or argscatE != ""): # or (data_in_area != 0 and argsG) 
 		print("Optimize only baseline dispersal, extinction and sampling")
 #		args.A3set[2] = args.A3set[2] / 3
 #		args.A3set[3] = args.A3set[3] / 3
@@ -2854,7 +2852,7 @@ if args.A == 3:
 		new_upper_bounds = upper_bounds[:]
 		frombound = int(max(opt_ind_r_vec)) + 1
 		tobound = len(x0)
-		if argsG and data_in_area == 0:
+		if argsG: #  and data_in_area == 0
 			frombound = frombound + 1
 		new_lower_bounds[frombound:tobound] = x0[frombound:tobound]
 		new_upper_bounds[frombound:tobound] = x0[frombound:tobound]
@@ -3772,7 +3770,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	# Log species specific sampling rates
 	if args.log_sp_q_rates and log_to_file == 1:
 		YangGamma = get_gamma_rates(alphaA, YangGammaQuant, pp_gamma_ncat)
-		spq = np.sum(YangGamma * weight_per_taxon, axis = 1)
+		spq = np.sum(YangGamma * weight_per_taxon.T, axis = 1)
 		log_state = [it] + list(spq)
 		spqlog.writerow(log_state)
 		spqfile.flush()
