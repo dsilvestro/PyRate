@@ -312,7 +312,7 @@ def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
         occs_sp_bin.append(h)        
     # resTPPm = est_s_e_q(fossil_complete,occs_sp_bin,model=2,q_shift_times=times_q_shift,exp_se=1,q0_init=[0.5]*(len(times_q_shift)-1))
     aic_temp = calcAICc(resTPPm[0],len(resTPPm[1]),d_size)
-    print("\nFull TPP model")
+    print("Full TPP model")
     print("Lik:", resTPPm[0], "AICs:", aic_temp[0])
     ml_est_rates = abs(np.array(resTPPm[1]))
     print("Q times:",times_q_shift[1:], "\nRates:", ml_est_rates)
