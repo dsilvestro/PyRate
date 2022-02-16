@@ -239,13 +239,14 @@ def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
         return  [mean(tsAvector),mean(teAvector)]
 
     liknhpp_Exp =0
+    mean_rate = abs(resNHPP[1][0])
     for i in range(len(fossil_complete)):
         x = fossil_complete[i]
         #est_s = optim_se_given_q_NHPP(x,resNHPP[1])[1]
-        [ts,te] = get_TSTEvalues(x,q=resNHPP[1],n=10000)
-        liknhpp_Exp += NHPP_lik(x,resNHPP[1],ts,te)
-    liknhpp_Exp = liknhpp_Exp[0]
-    if verbose ==1: print("NHPP* max likelihood:", np.round(liknhpp_Exp,2),"q rate:",abs(resNHPP[1]),"\n")
+        [ts,te] = get_TSTEvalues(x,q=mean_rate,n=10000)
+        liknhpp_Exp += NHPP_lik(x,mean_rate,ts,te)
+    # liknhpp_Exp = liknhpp_Exp[0]
+    if verbose ==1: print("NHPP* max likelihood:", np.round(liknhpp_Exp,2),"q rate:",mean_rate,"\n")
     
     # get AICc scores
     Liks = np.array([resHPPm[0],liknhpp_Exp,resTPPm[0]])
@@ -296,6 +297,54 @@ def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
     """ % (best_model[0], other_models[0], np.round(deltaAICs_[0],3), sig[0], \
                           other_models[1], np.round(deltaAICs_[1],3), sig[1]  ))
     
+    print(
+    """\nTesting the significance of each shift in the TPP model...
+    """
+    )
+    times_q_shift = np.sort(np.array(list(q_shift)+ [ max(max(q_shift),max_time_range_fossils)*10 ] +[0]))[::-1]
+    d_size = len(fossil_complete)
+    
+    # full model
+    occs_sp_bin =list()
+    for i in range(len(fossil_complete)):
+        occs_temp = fossil_complete[i]
+        h = np.histogram(occs_temp[occs_temp>0],bins=sort( times_q_shift ))[0][::-1]
+        occs_sp_bin.append(h)        
+    # resTPPm = est_s_e_q(fossil_complete,occs_sp_bin,model=2,q_shift_times=times_q_shift,exp_se=1,q0_init=[0.5]*(len(times_q_shift)-1))
+    aic_temp = calcAICc(resTPPm[0],len(resTPPm[1]),d_size)
+    print("\nFull TPP model")
+    print("Lik:", resTPPm[0], "AICs:", aic_temp[0])
+    ml_est_rates = abs(np.array(resTPPm[1]))
+    print("Q times:",times_q_shift[1:], "\nRates:", ml_est_rates)
+    
+    # aic_best = aic_temp
+    def remove_one_shift(times_q_shift,ml_est_rates):
+        list_shifts=[]
+        list_rates =[]
+        list_AICs = []
+        for irm in range(1,len(times_q_shift)-1):
+            print("\nRemoving", times_q_shift[irm])
+            times_temp = times_q_shift[times_q_shift != times_q_shift[irm]]
+            occs_sp_bin =list()
+            for i in range(len(fossil_complete)):
+                occs_temp = fossil_complete[i]
+                h = np.histogram(occs_temp[occs_temp>0],bins=sort( times_temp ))[0][::-1]
+                occs_sp_bin.append(h)        
+            # optimize rate
+            q0 = ml_est_rates[ml_est_rates != ml_est_rates[irm]]
+            # print(q0)
+            resTPPm = est_s_e_q(fossil_complete,occs_sp_bin,model=2,q_shift_times=times_temp,exp_se=1,q0_init = q0)
+            aic_temp = calcAICc(resTPPm[0],len(resTPPm[1]),d_size)
+            print("Lik:", resTPPm[0],"AICs:", aic_temp[0])
+            print("Q times:",times_temp[1:], "\nRates:", abs(np.array(resTPPm[1])))
+            list_AICs.append( aic_temp )
+            list_shifts.append( times_temp )
+            list_rates.append( abs(np.array(resTPPm[1])) )
+        
+        return list_AICs[np.argmin(list_AICs)], list_shifts[np.argmin(list_AICs)], list_rates[np.argmin(list_AICs)]
+    
+    # while True:
+    minAIC, bestTimes, bestRates = remove_one_shift(times_q_shift,ml_est_rates)
     
 
 
@@ -306,7 +355,7 @@ def run_model_testing_n_shifts(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
     fossil_complete=[fossil_complete[i] for i in range(len(fossil_complete)) if max(fossil_complete[i])-min(fossil_complete[i])>0.1] # remove too short branches
     
     if len(fossil_complete) > 1:
-        print(("Using",len(fossil_complete),"species for model testing"))
+        pass #print("Using",len(fossil_complete),"species for model testing")
     else:
         sys.exit("The number of lineages meeting the requirements for model testing is insufficient.")
     
@@ -318,6 +367,10 @@ def run_model_testing_n_shifts(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
     else: 
         q_shift = np.array(q_shift)+0
     
+    print(
+    """\nTesting the significance of each shift in the TPP model...
+    """
+    )
     times_q_shift = np.sort(np.array(list(q_shift)+ [ max(max(q_shift),max_time_range_fossils)*10 ] +[0]))[::-1]
     d_size = len(fossil_complete)
     
@@ -327,18 +380,19 @@ def run_model_testing_n_shifts(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
         occs_temp = fossil_complete[i]
         h = np.histogram(occs_temp[occs_temp>0],bins=sort( times_q_shift ))[0][::-1]
         occs_sp_bin.append(h)        
-    resTPPm = est_s_e_q(fossil_complete,occs_sp_bin,model=2,q_shift_times=times_q_shift,exp_se=1,q0_init=[0.5]*(len(times_q_shift)-1))
+    # resTPPm = est_s_e_q(fossil_complete,occs_sp_bin,model=2,q_shift_times=times_q_shift,exp_se=1,q0_init=[0.5]*(len(times_q_shift)-1))
     aic_temp = calcAICc(resTPPm[0],len(resTPPm[1]),d_size)
-    print(("\nLik:", resTPPm[0], "AICs:", aic_temp))
+    print("\nLik:", resTPPm[0], "AICs:", aic_temp[0])
     ml_est_rates = abs(np.array(resTPPm[1]))
-    print(("Q times:",times_q_shift, "Rates:", ml_est_rates))
+    print("Q times:",times_q_shift[1:], "\nRates:", ml_est_rates)
     
-    aic_best = aic_temp
+    # aic_best = aic_temp
     def remove_one_shift(times_q_shift,ml_est_rates):
         list_shifts=[]
         list_rates =[]
         list_AICs = []
         for irm in range(1,len(times_q_shift)-1):
+            print("\nRemoving", times_q_shift[irm])
             times_temp = times_q_shift[times_q_shift != times_q_shift[irm]]
             occs_sp_bin =list()
             for i in range(len(fossil_complete)):
@@ -347,23 +401,23 @@ def run_model_testing_n_shifts(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
                 occs_sp_bin.append(h)        
             # optimize rate
             q0 = ml_est_rates[ml_est_rates != ml_est_rates[irm]]
-            print(q0)
+            # print(q0)
             resTPPm = est_s_e_q(fossil_complete,occs_sp_bin,model=2,q_shift_times=times_temp,exp_se=1,q0_init = q0)
             aic_temp = calcAICc(resTPPm[0],len(resTPPm[1]),d_size)
-            print(("\nLik:", resTPPm[0],"AICs:", aic_temp))
-            print(("Q times:",times_temp, "Rates:", abs(np.array(resTPPm[1]))))
+            print("Lik:", resTPPm[0],"AICs:", aic_temp[0])
+            print("Q times:",times_temp[1:], "\nRates:", abs(np.array(resTPPm[1])))
             list_AICs.append( aic_temp )
             list_shifts.append( times_temp )
             list_rates.append( abs(np.array(resTPPm[1])) )
         
         return list_AICs[np.argmin(list_AICs)], list_shifts[np.argmin(list_AICs)], list_rates[np.argmin(list_AICs)]
     
-    while True:
-        minAIC, bestTimes, bestRates = remove_one_shift(times_q_shift,ml_est_rates)
-        print((minAIC, aic_best))
-        if minAIC - aic_best > 4:
-            print(("break", minAIC, aic_best))
-            #if minAIC < aic_best: 
-            aic_best = minAIC
-            times_q_shift = bestTimes
-            ml_est_rates = bestRates
+    # while True:
+    minAIC, bestTimes, bestRates = remove_one_shift(times_q_shift,ml_est_rates)
+    # print((minAIC, aic_best))
+    # if minAIC - aic_best > 4:
+    #     print("break", minAIC, aic_best)
+    #     #if minAIC < aic_best:
+    #     aic_best = minAIC
+    #     times_q_shift = bestTimes
+    #     ml_est_rates = bestRates

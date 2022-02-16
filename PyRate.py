@@ -4967,14 +4967,15 @@ if args.data_info == 1:
     sys.exit("\n")
 
 # RUN PP-MODEL TEST
-if args.PPmodeltest== 1:
+if args.PPmodeltest:
     self_path = get_self_path()
     pyrate_lib_path = "pyrate_lib"
     sys.path.append(os.path.join(self_path,pyrate_lib_path))
     import PPmodeltest
     if TPP_model== 0: times_q_shift = 0
     PPmodeltest.run_model_testing(fossil,q_shift=times_q_shift,min_n_fossils=2,verbose=1)
-    quit()
+    # PPmodeltest.run_model_testing_n_shifts(fossil,q_shift=times_q_shift,min_n_fossils=2,verbose=1)
+    sys.exit("\ndone.")
 
 
 # CREATE C++ OBJECTS
