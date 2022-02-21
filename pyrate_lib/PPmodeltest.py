@@ -319,9 +319,6 @@ def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
     
     # aic_best = aic_temp
     def remove_one_shift(times_q_shift,ml_est_rates):
-        list_shifts=[]
-        list_rates =[]
-        list_AICs = []
         for irm in range(1,len(times_q_shift)-1):
             print("\nRemoving", times_q_shift[irm])
             times_temp = times_q_shift[times_q_shift != times_q_shift[irm]]
@@ -337,14 +334,8 @@ def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
             aic_temp = calcAICc(resTPPm[0],len(resTPPm[1]),d_size)
             print("Lik:", resTPPm[0],"AICs:", aic_temp[0])
             print("Q times:",times_temp[1:], "\nRates:", abs(np.array(resTPPm[1])))
-            list_AICs.append( aic_temp )
-            list_shifts.append( times_temp )
-            list_rates.append( abs(np.array(resTPPm[1])) )
         
-        return list_AICs[np.argmin(list_AICs)], list_shifts[np.argmin(list_AICs)], list_rates[np.argmin(list_AICs)]
-    
-    # while True:
-    minAIC, bestTimes, bestRates = remove_one_shift(times_q_shift,ml_est_rates)
+    remove_one_shift(times_q_shift,ml_est_rates)
     
 
 
@@ -406,10 +397,11 @@ def run_model_testing_n_shifts(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
             aic_temp = calcAICc(resTPPm[0],len(resTPPm[1]),d_size)
             print("Lik:", resTPPm[0],"AICs:", aic_temp[0])
             print("Q times:",times_temp[1:], "\nRates:", abs(np.array(resTPPm[1])))
-            list_AICs.append( aic_temp )
-            list_shifts.append( times_temp )
+            list_AICs.append( aic_temp[0][0] )
+            list_shifts.append( times_temp[0][0] )
             list_rates.append( abs(np.array(resTPPm[1])) )
         
+        print(list_AICs,list_shifts,list_rates)
         return list_AICs[np.argmin(list_AICs)], list_shifts[np.argmin(list_AICs)], list_rates[np.argmin(list_AICs)]
     
     # while True:
