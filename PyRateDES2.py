@@ -3738,7 +3738,10 @@ for it in range(n_generations * len(scal_fac_TI)):
 		if args.A == 3:
 			num_par = len(x)
 			AIC = 2 * num_par - 2 * likA
-			AICc = AIC + (2 * num_par**2 + 2 * num_par) / (nTaxa - num_par - 1)
+			denom = nTaxa - num_par - 1
+			AICc = "NaN"
+			if denom > 0:
+				AICc = AIC + (2 * num_par**2 + 2 * num_par) / denom
 			log_state = log_state+[num_par, AIC, AICc]
 		wlog.writerow(log_state)
 		logfile.flush()
