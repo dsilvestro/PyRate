@@ -260,7 +260,7 @@ def calc_likelihood_mQ(args):
 	recursive = np.arange(sp_OrigTimeIndex, last_occ)[::-1]
 	for i in recursive:
 		#print "here",i, Q_index[i]
-		Q = Q_list[index_q[i],:].T
+		Q = Q_list[index_q[i],:]
 		r_vec=r_vec_list[index_r[i]]
 		# get time span
 		t=delta_t[i] 
@@ -269,7 +269,7 @@ def calc_likelihood_mQ(args):
 		sign=  sign_list[i]
 		rho_vec= np.prod(abs(sign-r_vec[r_ind]),axis=1)
 		# prob of at least 1  1-exp(-rho_vec*t)
-		Pt= linalg.expm(Q.T *(t))
+		Pt= linalg.expm(Q *(t))
 		condLik_temp= np.dot(PvDes,Pt)
 		PvDes= condLik_temp *rho_vec
 		

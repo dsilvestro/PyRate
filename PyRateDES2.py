@@ -451,7 +451,7 @@ if plot_file != "":
 				par = rtt[:,i]
 				for y in range(lenCI):
 					hpd[[2 * y, 1 + 2 * y],i] = calcHPD(par, plotCI[y])
-			rate_mean = np.mean(rtt, axis = 0)
+			rate_mean = np.median(rtt, axis = 0)
 		else:
 			ncols = shape(rtt)[0]
 			hpd = np.zeros((2, ncols))
@@ -760,6 +760,9 @@ for l in range(nTaxa):
 	rho_at_present_LIST.append(rho_at_present)
 	# INIT PARMS
 	r_vec_indexes,sign_list=build_list_rho_index_vec(obs_area_series[l],nareas,possible_areas)
+#	print("l", l)
+#	print("r_vec_indexes", r_vec_indexes)
+#	print("sign_list", sign_list)
 	r_vec_indexes_LIST.append(r_vec_indexes)
 	sign_list_LIST.append(sign_list)
 #####	
@@ -3475,8 +3478,8 @@ for it in range(n_generations * len(scal_fac_TI)):
 	if equal_d or data_in_area == 2:
 		d21_for_prior = np.array([])
 	d_prior = np.concatenate((d12_for_prior, d21_for_prior))
-	e1_for_prior = dis_rate_vec[0:e1_prior_idx, 0].flatten()
-	e2_for_prior = dis_rate_vec[0:e2_prior_idx, 1].flatten()
+	e1_for_prior = ext_rate_vec[0:e1_prior_idx, 0].flatten()
+	e2_for_prior = ext_rate_vec[0:e2_prior_idx, 1].flatten()
 	if equal_e or data_in_area == 1:
 		e2_for_prior = np.array([])
 	if data_in_area == 2:
