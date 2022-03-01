@@ -150,8 +150,12 @@ def est_s_e_q(fossil_complete,occs_sp_bin,model=0,exp_se=0,q_shift_times=[],q0_i
         else:    q0= np.ones(len(q_shift_times)-1)
     #print q0
     optValues =Fopt(calc_tot_lik_given_q, q0, full_output=1, disp=0)
-    params=abs(array(optValues[0]))
-    lik= -(optValues[1])
+    try:
+        if len(optValues[0]):
+            params=np.abs(np.array(optValues[0]))
+    except:
+        params = np.abs(np.array([optValues[0]]))
+    lik= - optValues[1]
     return [lik, params]
 
 def calcAICc(lik,df,s):
@@ -182,7 +186,7 @@ def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
         q_shift = np.array(q_shift)+0
     
     times_q_shift = np.sort(np.array(list(q_shift)+ [ max(max(q_shift),max_time_range_fossils)*10 ] +[0]))[::-1]
-    #print times_q_shift, [min_time_range_fossils+ (max_time_range_fossils-min_time_range_fossils)/2.]
+    # print(times_q_shift) #, [min_time_range_fossils+ (max_time_range_fossils-min_time_range_fossils)/2.]
     #print np.ones(len(times_q_shift)-1)
 
     occs_sp_bin =list()
@@ -239,13 +243,17 @@ def run_model_testing(Xdata,q_shift=0,min_n_fossils=2,verbose=1):
         return  [mean(tsAvector),mean(teAvector)]
 
     liknhpp_Exp =0
-    mean_rate = abs(resNHPP[1][0])
+    mean_rate = abs(resNHPP[1])
     for i in range(len(fossil_complete)):
         x = fossil_complete[i]
         #est_s = optim_se_given_q_NHPP(x,resNHPP[1])[1]
         [ts,te] = get_TSTEvalues(x,q=mean_rate,n=10000)
         liknhpp_Exp += NHPP_lik(x,mean_rate,ts,te)
-    # liknhpp_Exp = liknhpp_Exp[0]
+    try: # compatibility with older numpy/scipy versions
+        if len(liknhpp_Exp):
+            liknhpp_Exp = liknhpp_Exp[0]
+    except:
+        pass
     if verbose ==1: print("NHPP* max likelihood:", np.round(liknhpp_Exp,2),"q rate:",mean_rate,"\n")
     
     # get AICc scores
