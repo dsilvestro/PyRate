@@ -4,6 +4,7 @@
 #### Contents
 * [Preparing input data for DES analysis](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_5.md#input-data-preparation)
 * [Running a DES analysis](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_5.md#running-a-des-analysis)
+* [Summarizing and plotting the DES output](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_5.md#summarizing-and-plotting-the-des-output)
 
 * [Return to Index](https://github.com/dsilvestro/PyRate/tree/master/tutorials#pyrate-tutorials---index) 
 ***
