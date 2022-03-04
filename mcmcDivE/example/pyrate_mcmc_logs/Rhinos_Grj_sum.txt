@@ -1,0 +1,28 @@
+
+PyRate build v3.0 - 20210903
+
+input: ['mcmcDivE/example/Rhinos.py'] output: mcmcDivE/example/pyrate_mcmc_logs/Rhinos_G
+
+PyRate was called as follows:
+Namespace(A=4, ADE=0, B=1, BDNNconstbaseline=0, BDNNfadlad=0, BDNNmodel=0, BDNNnodes=3, BDNNoutputfun=0, BDNNtimetrait=0, BF=[], FBDrange=0, M=10, N=-1, PPmodeltest=False, S=1000, SE_stats=[], T=1.0, a=0.3, b=0, bdc=False, bound=[inf, 0], cauchy=[-1, -1], check_names='', cite=False, clade=-1, col_tag=[], combLog='', combLogRJ='', d='', data_info=False, discrete=False, dpp_eK=2.0, dpp_f=500, dpp_grid=1.5, dpp_hp=2.0, dpp_nB=0, edgeShift=[inf, 0], eqr=False, fQ=0.5, fR=0.5, fS=0.7, fU=[0.02, 0.18, 0], fast_burnin=0, filter=[inf, 0], filter_taxa='', fixSE='', fixShift='', frac_sampled_singleton=0, ginput='', grid_plot=0, initDiv=0, input_data=['mcmcDivE/example/Rhinos.py'], j=1, k=10, logT=0, log_marginal_rates=-1, ltt=0, mBDI=-1, mBirth=-1, mC=False, mCov=0, mDeath=False, mG=True, mHPP=False, mL=1, mM=1, mPoiD=False, mProb='', min_age_plot=0, min_dt=1.0, multiR=1, n=100000, nT=5, n_prior=100000, ncat=4, out='', p=1000, pC=1, pL=[1.1, 1.1], pM=[1.1, 1.1], pP=[1.5, 1.1], pS=2.5, plot='', plot2='', plot3='', plotQ='', plotRJ='', qFilter=1, qShift='mcmcDivE/example/epochs_q.txt', r=1, reduceLog='', resample=0, rescale=1, restore_mcmc='', rj_Ga=1.5, rj_Gb=3.0, rj_bd_shift=0.5, rj_beta=10, rj_dm=0, rj_pr=1, root_plot=0, s=100, sampling=1.0, se_gibbs=False, seed=-1, singleton=0, sw=100, t=0.03, tC=[0.2, 0.2, 0.15], tHP=[1.2, 1.2], tQ=[1.2, 1.2], tR=1.2, tS=1.0, tT=1.0, tag='', thread=[0, 0], trait=1, trait_file='', translate=0, tree='', twotrait=False, useCPPlib=1, use_DA=False, wd='')
+
+Using Gamma priors on the birth-death rates (G_l[1.1,1.1], G_m[1.1,1.1]).
+
+Using Time-variable Poisson Process of preservation (TPP) at: 33.9 23.03 5.333 2.58 0.0117 
+
+Please cite: 
+Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
+Improved estimation of macroevolutionary rates from fossil data using a Bayesian framework. 
+Paleobiology, doi: 10.1017/pab.2019.23.
+
+
+Feedback and support: pyrate.help@gmail.com
+OS: Darwin 20.6.0
+Python version: 3.8.3 (v3.8.3:6f8c8320e9, May 13 2020, 16:29:34) 
+[Clang 6.0 (clang-600.0.57)]
+
+Numpy version: 1.19.5
+Scipy version: 1.5.4
+
+Random seed: 4296 
+Using module FastPyRateC
