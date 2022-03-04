@@ -48,7 +48,7 @@ To launch PyRateDES open a Terminal window and browse to the PyRate directory
 
 The following code produces the DES input files.
 
-`python ./PyRateDES2.py -fossil .../example_files/DES_examples/Carnivora/CarnivoraFossils.txt -recent .../example_files/DES_examples/Carnivora/CarnivoraRecent.txt -wd .../example_files/DES_examples/Carnivora -filename Carnivora -bin_size 0.5 -rep 10`
+`python ./PyRateDES.py -fossil .../example_files/DES_examples/Carnivora/CarnivoraFossils.txt -recent .../example_files/DES_examples/Carnivora/CarnivoraRecent.txt -wd .../example_files/DES_examples/Carnivora -filename Carnivora -bin_size 0.5 -rep 10`
 
 * `-fossil` is the path to the table with fossil occurrences.
 
@@ -72,7 +72,7 @@ The following code produces the DES input files.
 
 * `-age2` is an optional argument specifying the name of the column with the latest age in case it is not *latestAge*.
 
-* `-data_in_area 1` is an argument to code fossil occurrences for a DES analysis where lineages are only known from a single area.  For instance `python ./PyRateDES2.py -fossil .../example_files/DES_examples/Diatoms_Lake_Ohrid/DiatomFossils.txt -recent .../example_files/DES_examples/Diatoms_Lake_Ohrid/DiatomRecent.txt -wd .../example_files/DES_examples/Diatoms_Lake_Ohrid -filename Diatoms -bin_size 0.5 -rep 10`
+* `-data_in_area 1` is an argument to code fossil occurrences for a DES analysis where lineages are only known from a single area.  For instance `python ./PyRateDES.py -fossil .../example_files/DES_examples/Diatoms_Lake_Ohrid/DiatomFossils.txt -recent .../example_files/DES_examples/Diatoms_Lake_Ohrid/DiatomRecent.txt -wd .../example_files/DES_examples/Diatoms_Lake_Ohrid -filename Diatoms -bin_size 0.5 -rep 10`
 
 * `-plot_raw` is an optional argument to generate a plot in PDF format in `-wd` of the observed diversity trajectories and their 95% credible interval in the two area. This requires that R is installed on your PC to execute the shell command Rscript. If you are using Windows, please make sure that the path to Rscript.exe is included in the PATH environment variables (default in Mac/Linux).
 
@@ -122,11 +122,39 @@ Launch PyRateDES by opening a Terminal window and browsing to the PyRate directo
 
 The following code produces the DES input files (see Example 1 for the explanation of the arguments).
 
-`python ./PyRateDES2.py -fossil .../example_files/DES_examples/DES_input_data/foss.txt -recent .../example_files/DES_examples/DES_input_data/pres.txt -wd .../example_files/DES_examples -filename Example2 -bin_size 2 -rep 5`
+`python ./PyRateDES.py -fossil .../example_files/DES_examples/DES_input_data/foss.txt -recent .../example_files/DES_examples/DES_input_data/pres.txt -wd .../example_files/DES_examples -filename Example2 -bin_size 2 -rep 5`
 
 <br>
 
+### Example 3 - Simulating input data
+
+With the R package [simDES](https://github.com/thauffe/simDES) we can simulate input files for a DES analysis under different scenarios of time-variable dispersal, extinction and sampling rates or with an influence of traits on dispersal and extinction.
+
+```{r, warning = F, echo = F}
+# Install the packages
+library(devtools)
+install_github("thauffe/simDES")
+library(simDES)
+
+# Check the documentation of the main function sim_DES
+?sim_DES
+
+# E.g. simulating 100 lineages over 25 million years with a rate shift 5.3 million years ago and sampling heterogeneity
+Sim <- sim_DES(Time = 25, Step = 0.01, BinSize = 0.25, Nspecies = 100,
+               SimD = c(0.2, 0.1, 0.3, 0.15),
+               SimE = c(0.1, 0.1, 0.05, 0.15),
+               SimQ = c(0.5, 0.4, 0.7, 0.8),
+               Qtimes = 5.3, Ncat = Inf, alpha = 1)
+
+# Write input table
+write.table(Sim[[1]], ".../PyRate/example_files/DES_examples/DES_input_data/sim.txt",
+            sep = "\t", row.names = FALSE, quote = FALSE, na = "NaN")
+```
+<br>
+
 ## Running a DES analysis
+
+PyRateDES requires the Python library *nlopt* for fitting models with Maximum likelihood. It can be installed with `pip install nlopt`.
 
 ### Basic DES analysis with constant rates
 
