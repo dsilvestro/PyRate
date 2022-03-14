@@ -77,3 +77,11 @@ PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-af
 * Stadler T., Gavryushkina A., Warnock R. C., Drummond A. J., Heath T. A. (2018). The fossilized birth-death model for the analysis of stratigraphic range data under different speciation modes. Journal of Theoretical Biology [doi: 10.1016/j.jtbi.2018.03.0](https://www.sciencedirect.com/science/article/pii/S002251931830119X).
 
 * Tutorial in prep. 
+
+
+
+#### The multi-trait extinction model (MTE) is described here:
+
+* Pimiento C., Bacon C. D., Silvestro D., Handy A., Jaramillo C., Zizka A., Meyer X., Antonelli A. (2020) Selective extinction against redundant species buffers functional diversity. Proceedings of the Royal Society B [doi: 10.1098/rspb.2020.1162](https://royalsocietypublishing.org/doi/abs/10.1098/rspb.2020.1162).
+
+* Tutorial in prep., example file [here](https://github.com/dsilvestro/PyRate/blob/master/example_files/Example_data_MTE.txt). 
