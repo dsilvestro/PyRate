@@ -13,6 +13,7 @@ def expFun(z):
 def get_rate_BDNN(rate, x, w, outputfun=0): 
     actfun = [softPlus, expFun][outputfun]
     # n: n species, j: traits, i: nodes
+    # print(x.shape, w[0].shape)
     z = np.einsum('nj,ij->ni', x, w[0])
     z[z < 0] = 0 
     z = np.einsum('ni,i->n', z, w[1])
@@ -233,7 +234,6 @@ def predict_rates_per_species(logfile,
                               rescale_time = 0.015,
                               burnin = 0.25,
                               fixShift = [np.inf,56.0,33.9,23.03,5.333,2.58,0],
-                              time_as_trait = True, 
                               return_post_sample=False,
                               out=""):
     
@@ -247,13 +247,20 @@ def predict_rates_per_species(logfile,
         sys.exit("No traits found")
     n_traits = traits.shape[1]
     # use time as a feature
-    if time_as_trait:   
-        n_traits += 1
     
+    if rescale_time > 0:
+        rescaled_time = rescale_time*time_range
+        time_as_trait = True
+        n_traits += 1
+    elif rescale_time == 0:
+        rescaled_time = 1*time_range
+        time_as_trait = False        
+    else:
+        sys.exit("Option not available")
+
     rate_l2D, rate_m2D, w_lam, w_mu = get_posterior_weigths_BDS(logfile, n_traits, burnin)
     print("N. traits: ", n_traits, rate_l2D.shape)
     
-    rescaled_time = rescale_time*time_range
     
     species_rate_lam = []
     species_rate_mu  = []
@@ -286,7 +293,7 @@ def predict_rates_per_species(logfile,
         # print(lam_matrix.shape)
         lam_matrix_hm =  len(rate_l) / np.sum(1/lam_matrix,axis=0) # np.mean(lam_matrix,axis=0)
         mu_matrix_hm =   len(rate_l) / np.sum(1/mu_matrix,axis=0) # np.mean(mu_matrix,axis=0) 
-        print(time_range[i], "MAX",np.max(lam_matrix_hm), np.median(mu_matrix_hm), lam_matrix_hm.shape)
+        print(time_range[i], "rates",np.median(lam_matrix_hm), np.median(mu_matrix_hm), lam_matrix_hm.shape)
         net_div = lam_matrix - mu_matrix
         div_matrix_hm =  np.mean(net_div,axis=0) 
         
@@ -345,8 +352,33 @@ def predict_rates_per_species(logfile,
                         else:
                             l = [species_traits["Taxon_name"][i]] + ['NA', 'NA'] + list(species_rate_div[i])
                         writer.writerow(l) 
+    
+    print("\nSummary tables with species-specific rates saved in: ")
+    print(wd)
+    print("as:\ntaxon_speciation_rates%s.txt \ntaxon_extinction_rates%s.txt \ntaxon_diversification_rates%s.txt" % \
+    (out, out, out))
+
     if return_post_sample:
         return np.array(rate_samples)
+
+
+def parse_sum_txt_file(fname):
+    # fname = "/Users/dsilvestro/Documents/Projects/Ongoing/Fer_Juan/bdnn_analysis/pyrate_mcmc_logs/Europe_Sites_1_m2_G_BDS_BDNN3_sum.txt"
+    # fname = "/Users/dsilvestro/Documents/Projects/Ongoing/Fer_Juan/bdnn_analysis/pyrate_mcmc_logs/Europe_Sites_1_m3_G_BDS_BDNN3T_sum.txt"
+    with open(fname) as file:
+        lines = file.readlines()    
+    
+    for l in lines:
+        if "fixed times of rate shift: " in l:
+            t_shift = l.split("fixed times of rate shift: ")[1]
+            t_shift = t_shift.split(" ")
+            t_shift = np.array([np.inf] + t_shift[:-1]).astype(float)
+        if "BDNNtimetrait" in l:
+            time_as_trait_tmp = l.split("BDNNtimetrait=")[1]
+            time_as_trait = float(time_as_trait_tmp.split(",")[0])
+    
+    mid_points = -np.diff(t_shift[1:])/2 + t_shift[2:]
+    return t_shift, mid_points, time_as_trait
 
 
 
