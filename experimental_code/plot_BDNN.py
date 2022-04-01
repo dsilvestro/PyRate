@@ -1,6 +1,6 @@
 import numpy as np
 np.set_printoptions(suppress= 1, precision=3)
-import os, csv
+import os, csv, sys
 import pandas as pd
 
 
@@ -243,9 +243,15 @@ def predict_rates_per_species(logfile,
     elif trait_tbl is not None:
         species_traits = trait_tbl
         traits = species_traits.iloc[:,1:]
+        n_traits = traits.shape[1]
+        n_taxa = traits.shape[0]
     else:
-        sys.exit("No traits found")
-    n_traits = traits.shape[1]
+        # sys.exit("No traits found")
+        species_traits = pd.DataFrame([["species"]])
+        species_traits.columns=['Taxon_name']
+        traits = None
+        n_taxa = 1
+        n_traits = 0
     # use time as a feature
     
     if rescale_time > 0:
@@ -271,17 +277,20 @@ def predict_rates_per_species(logfile,
     for i in range(len(rescaled_time)):
         time_i = rescaled_time[i]
         if time_as_trait:
-            trait_tbl_i = 0+np.hstack((traits,time_i * np.ones((traits.shape[0],1))))
+            if traits is not None:
+                trait_tbl_i = 0 + np.hstack((traits,time_i * np.ones((n_taxa,1))))
+            else:
+                trait_tbl_i = 0 + time_i * np.ones((n_taxa,1))
         else:
-            trait_tbl_i = 0+traits
+            trait_tbl_i = 0 + traits
         
         rate_l = rate_l2D[:, np.digitize(time_range[i], fixShift)-1] 
         # print('rate_l', rate_l)
         rate_m = rate_m2D[:, np.digitize(time_range[i], fixShift)-1] 
         # print(np.mean(rate_l), np.mean(rate_m))
             
-        lam_matrix = np.zeros((len(rate_l),traits.shape[0]))
-        mu_matrix = np.zeros((len(rate_l),traits.shape[0]))
+        lam_matrix = np.zeros((len(rate_l),n_taxa))
+        mu_matrix = np.zeros((len(rate_l),n_taxa))
         
         for j in range(len(rate_l)):
             vec_lam_i = get_rate_BDNN(rate_l[j], trait_tbl_i, w_lam[j])
