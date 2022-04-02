@@ -1628,6 +1628,12 @@ def swish_f(z):
     # https://arxiv.org/abs/1710.05941
     z = z * (1 + np.exp(-z))**(-1)
     return z
+
+def sigmoid_f(z):
+    return 1 / (1 + np.exp(-z))
+    
+def tanh_f(z):
+    return np.tanh(z)
     
 def softPlus(z):
     return np.log(np.exp(z) + 1)
@@ -1646,7 +1652,7 @@ def MatrixMultiplication(x1,x2):
 def get_rate_BDNN(rate, x, w): 
     tmp = x+0
     for i in range(len(w)-1):
-        tmp = swish_f(MatrixMultiplication(tmp, w[i]))
+        tmp = tanh_f(MatrixMultiplication(tmp, w[i]))
     
     tmp = MatrixMultiplication(tmp, w[i+1])
     # output
