@@ -6,7 +6,7 @@ import scipy, scipy.stats
 from scipy.special import gamma
 np.set_printoptions(suppress= 1) # prints floats, no scientific notation
 np.set_printoptions(precision=3) # rounds all array elements to 3rd digit
-
+import copy
 # CALC BAYS FACTORS BASED ON PROB pI
 def F(p=0.05, BF_threshold=6):
 	A = exp(BF_threshold/2.)*(p/(1-p))
@@ -238,7 +238,7 @@ for i in unique_trait_comb:
 	unique_trait_comb_name.append(i+"_%s" % (len(trait_comb_all[trait_comb_all==i])))
 
 # init model parameters
-Y_vecA = np.array([np.random.normal(0,0.1,i) for i in trait_categories_list]) #
+Y_vecA = [np.random.normal(0,0.1,i) for i in trait_categories_list]
 I_vecA = np.zeros(n_traits) # trait-specific indicators
 Gamma_b_prior = np.ones(n_traits) # shrinking rate -> larger gamma, larger tau, smaller std normal
 std_HP = np.array([sample_std_hp_gibbs_rate(Y_vecA[i],Gamma_a_prior,Gamma_b_prior[i]) for i in range(n_traits)])  #
@@ -317,7 +317,7 @@ while iteration <= n_iterations:
 	# reset temp values
 	multip,hasting = 0+multipA,0
 	I_vec = I_vecA
-	Y_vec = 0+Y_vecA
+	Y_vec = copy.deepcopy(Y_vecA)
 	
 	#random update
 	# update state-spec Dirichlet multipliers
