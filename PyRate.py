@@ -7,7 +7,7 @@ import importlib.util
 import copy as copy_lib
 
 version= "PyRate"
-build  = "v3.0 - 20211129"
+build  = "v3.1.2 - 20220421"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
@@ -1190,9 +1190,9 @@ def update_rates_sliding_win(L,M,tot_L,mod_d3):
     return Ln,Mn, 1
 
 def update_parameter_normal_vec(oldL,d,f=.25):
-    S = np.shape(oldL)
+    S = oldL.shape
     ii = np.random.normal(0,d,S)
-    ff = np.random.binomial(1,f,S)
+    ff = np.random.binomial(1,np.min([f, 1]),S)
     s= oldL + ii*ff
     return s
 
@@ -1649,22 +1649,22 @@ def MatrixMultiplication(x1,x2):
         z1 += x2[:, 0].T
     return z1
 
-def get_rate_BDNN(rate, x, w): 
+def get_rate_BDNN(rate, x, w, act_f, out_act_f): 
     tmp = x+0
     for i in range(len(w)-1):
-        tmp = tanh_f(MatrixMultiplication(tmp, w[i]))
+        tmp = act_f(MatrixMultiplication(tmp, w[i]))
     
     tmp = MatrixMultiplication(tmp, w[i+1])
     # output
-    rates = ACTFUN(tmp).flatten() * rate #
+    rates = out_act_f(tmp).flatten() * rate #
     return rates
 
 def BDNN_likelihood(arg):
     [ts,te,trait_tbl,rate_l,rate_m,cov_par] = arg
     nn_prm_lam, nn_prm_mu = cov_par[0], cov_par[1]
     s = ts - te
-    lam = get_rate_BDNN(rate_l, trait_tbl[0], nn_prm_lam)
-    mu = get_rate_BDNN(rate_m, trait_tbl[1], nn_prm_mu)
+    lam = get_rate_BDNN(rate_l, trait_tbl[0], nn_prm_lam, hidden_act_f, out_act_f)
+    mu = get_rate_BDNN(rate_m, trait_tbl[1], nn_prm_mu, hidden_act_f, out_act_f)
     likL = np.sum(np.log(lam) - lam*s)
     likM = np.sum(np.log(mu[te>0])) - np.sum(mu*s)
     return likL + likM
@@ -1681,18 +1681,24 @@ def BDNN_partial_lik(arg):
     
     if np.isfinite(indx):
         if par=="l":
-            r = get_rate_BDNN(rate, trait_tbl_NN[0][indx], nn_prm)
+            r = get_rate_BDNN(rate, trait_tbl_NN[0][indx], nn_prm, hidden_act_f, out_act_f)
         else:
-            r = get_rate_BDNN(rate, trait_tbl_NN[1][indx], nn_prm)    
+            r = get_rate_BDNN(rate, trait_tbl_NN[1][indx], nn_prm, hidden_act_f, out_act_f)    
     else:   
         if par=="l":
-            r = get_rate_BDNN(rate, trait_tbl_NN[0], nn_prm)
+            r = get_rate_BDNN(rate, trait_tbl_NN[0], nn_prm, hidden_act_f, out_act_f)
         else:
-            r = get_rate_BDNN(rate, trait_tbl_NN[1], nn_prm)
+            r = get_rate_BDNN(rate, trait_tbl_NN[1], nn_prm, hidden_act_f, out_act_f)
     
     # print(par, r[0].flatten())
     lik= np.sum(log(r[i_events])) + np.sum(-r[n_all_inframe]*n_S) 
     return lik
+
+def get_act_f(i):
+    return [np.abs, softPlus, expFun, relu_f][i]
+def get_hidden_act_f(i):
+    return [tanh_f, relu_f, leaky_relu_f, swish_f, sigmoid_f][i]
+    
 
 def init_weight_prm(n_nodes, n_features, size_output, init_std=0.1, bias_node=0):
     bn, bn2, bn3 = 0, 0, 0
@@ -3734,11 +3740,11 @@ def MCMC(all_arg):
             
             if use_BDNNmodel:
                 if use_time_as_trait:
-                    sp_lam = get_rate_BDNN(LA[0], trait_tbl_NN[0][0], cov_parA[0])
-                    sp_mu = get_rate_BDNN(MA[0], trait_tbl_NN[0][1], cov_parA[1])
+                    sp_lam = get_rate_BDNN(LA[0], trait_tbl_NN[0][0], cov_parA[0], hidden_act_f, out_act_f)
+                    sp_mu = get_rate_BDNN(MA[0], trait_tbl_NN[0][1], cov_parA[1], hidden_act_f, out_act_f)
                 else:
-                    sp_lam = get_rate_BDNN(LA[0], trait_tbl_NN[0], cov_parA[0])
-                    sp_mu = get_rate_BDNN(MA[0], trait_tbl_NN[1], cov_parA[1])
+                    sp_lam = get_rate_BDNN(LA[0], trait_tbl_NN[0], cov_parA[0], hidden_act_f, out_act_f)
+                    sp_mu = get_rate_BDNN(MA[0], trait_tbl_NN[1], cov_parA[1], hidden_act_f, out_act_f)
                 
                 # avg rates across all species
                 log_state += [trait_tbl_NN[0].shape[0] / np.sum(1 / sp_lam),
@@ -3813,6 +3819,17 @@ def MCMC(all_arg):
                 w_marg_ex.writerow(list(MA) + list(timesMA[1:len(timesMA)-1]))
                 marginal_ex_rate_file.flush()
                 os.fsync(marginal_ex_rate_file)
+            elif use_BDNNmodel and use_time_as_trait:
+                sp_lam = [get_rate_BDNN(LA[0], trait_tbl_NN[0][i], cov_parA[0], hidden_act_f, out_act_f)[0] for i in range(len(LA))]
+                sp_mu = [get_rate_BDNN(MA[0], trait_tbl_NN[1][i], cov_parA[1], hidden_act_f, out_act_f)[0] for i in range(len(MA))]
+                w_marg_sp.writerow(sp_lam + list(timesLA[1:len(timesLA)-1]))
+                marginal_sp_rate_file.flush()
+                os.fsync(marginal_sp_rate_file)
+                w_marg_ex.writerow(sp_mu + list(timesMA[1:len(timesMA)-1]))
+                marginal_ex_rate_file.flush()
+                os.fsync(marginal_ex_rate_file)
+                    
+
 
 
 
@@ -3845,1505 +3862,1507 @@ def marginal_likelihood(marginal_file, l, t):
     marginal_file.close()
 
 ########################## PARSE ARGUMENTS #######################################
-p = argparse.ArgumentParser() #description='<input file>')
+if __name__ == '__main__': 
+    p = argparse.ArgumentParser() #description='<input file>')
 
-p.add_argument('-v',         action='version', version=version_details)
-p.add_argument('-seed',      type=int, help='random seed', default=-1,metavar=-1)
-p.add_argument('-useCPPlib', type=int, help='Use C++ library if available (boolean)', default=1,metavar=1)
-p.add_argument('-cite',      help='print PyRate citation', action='store_true', default=False)
-p.add_argument('input_data', metavar='<input file>', type=str,help='Input python file - see template',default=[],nargs='*')
-p.add_argument('-j',         type=int, help='number of data set in input file', default=1, metavar=1)
-p.add_argument('-trait',     type=int, help='number of trait for Cov model', default=1, metavar=1)
-p.add_argument('-logT',      type=int, help='Transform trait (or rates for -plotRJ): 0) False, 1) Ln(x), 2) Log10(x)', default=0, metavar=0)
-p.add_argument("-N",         type=int, help='number of exant species', default=-1)
-p.add_argument("-wd",        type=str, help='path to working directory', default="")
-p.add_argument("-out",       type=str, help='output tag', default="")
-p.add_argument('-singleton', type=float, help='Remove singletons (min no. occurrences)', default=0, metavar=0)
-p.add_argument('-frac_sampled_singleton', type=float, help='Random fraction of singletons not removed', default=0, metavar=0)
-p.add_argument("-rescale",   type=float, help='Rescale data (e.g. -rescale 1000: 1 -> 1000, time unit = 1Ky)', default=1, metavar=1)
-p.add_argument("-translate", type=float, help='Shift data (e.g. -translate 10: 1My -> 10My)', default=0, metavar=0)
-p.add_argument('-d',         type=str,help="Load SE table",metavar='<input file>',default="")
-p.add_argument('-clade',     type=int, help='clade analyzed (set to -1 to analyze all species)', default=-1, metavar=-1)
-p.add_argument('-trait_file',type=str,help="Load trait table",metavar='<input file>',default="")
-p.add_argument('-restore_mcmc',type=str,help="Load mcmc.log file",metavar='<input file>',default="")
-p.add_argument('-filter',     type=float,help="Filter lineages with all occurrences within time range ",default=[inf,0], metavar=inf, nargs=2)
-p.add_argument('-filter_taxa',type=str,help="Filter lineages within list (drop all others) ",default="", metavar="taxa_file")
-p.add_argument('-initDiv',    type=int, help='Number of initial lineages (option only available with -d SE_table or -fixSE)', default=0, metavar=0)
-p.add_argument('-PPmodeltest',help='Likelihood testing among preservation models', action='store_true', default=False)
-p.add_argument('-log_marginal_rates',type=int,help='0) save summary file, default for -A 4; 1) save marginal rate file, default for -A 0,2 ', default=-1,metavar=-1)
-p.add_argument('-log_sp_q_rates',      help='Save species-specific relative preservation rates', action='store_true', default=False)
+    p.add_argument('-v',         action='version', version=version_details)
+    p.add_argument('-seed',      type=int, help='random seed', default=-1,metavar=-1)
+    p.add_argument('-useCPPlib', type=int, help='Use C++ library if available (boolean)', default=1,metavar=1)
+    p.add_argument('-cite',      help='print PyRate citation', action='store_true', default=False)
+    p.add_argument('input_data', metavar='<input file>', type=str,help='Input python file - see template',default=[],nargs='*')
+    p.add_argument('-j',         type=int, help='number of data set in input file', default=1, metavar=1)
+    p.add_argument('-trait',     type=int, help='number of trait for Cov model', default=1, metavar=1)
+    p.add_argument('-logT',      type=int, help='Transform trait (or rates for -plotRJ): 0) False, 1) Ln(x), 2) Log10(x)', default=0, metavar=0)
+    p.add_argument("-N",         type=int, help='number of exant species', default=-1)
+    p.add_argument("-wd",        type=str, help='path to working directory', default="")
+    p.add_argument("-out",       type=str, help='output tag', default="")
+    p.add_argument('-singleton', type=float, help='Remove singletons (min no. occurrences)', default=0, metavar=0)
+    p.add_argument('-frac_sampled_singleton', type=float, help='Random fraction of singletons not removed', default=0, metavar=0)
+    p.add_argument("-rescale",   type=float, help='Rescale data (e.g. -rescale 1000: 1 -> 1000, time unit = 1Ky)', default=1, metavar=1)
+    p.add_argument("-translate", type=float, help='Shift data (e.g. -translate 10: 1My -> 10My)', default=0, metavar=0)
+    p.add_argument('-d',         type=str,help="Load SE table",metavar='<input file>',default="")
+    p.add_argument('-clade',     type=int, help='clade analyzed (set to -1 to analyze all species)', default=-1, metavar=-1)
+    p.add_argument('-trait_file',type=str,help="Load trait table",metavar='<input file>',default="")
+    p.add_argument('-restore_mcmc',type=str,help="Load mcmc.log file",metavar='<input file>',default="")
+    p.add_argument('-filter',     type=float,help="Filter lineages with all occurrences within time range ",default=[inf,0], metavar=inf, nargs=2)
+    p.add_argument('-filter_taxa',type=str,help="Filter lineages within list (drop all others) ",default="", metavar="taxa_file")
+    p.add_argument('-initDiv',    type=int, help='Number of initial lineages (option only available with -d SE_table or -fixSE)', default=0, metavar=0)
+    p.add_argument('-PPmodeltest',help='Likelihood testing among preservation models', action='store_true', default=False)
+    p.add_argument('-log_marginal_rates',type=int,help='0) save summary file, default for -A 4; 1) save marginal rate file, default for -A 0,2 ', default=-1,metavar=-1)
+    p.add_argument('-log_sp_q_rates',      help='Save species-specific relative preservation rates', action='store_true', default=False)
 
-# phylo test
-p.add_argument('-tree',       type=str,help="Tree file (NEXUS format)",default="", metavar="")
-p.add_argument('-sampling',   type=float,help="Taxon sampling (phylogeny)",default=1., metavar=1.)
-p.add_argument('-bdc',      help='Run BDC:Compatible model', action='store_true', default=False)
-p.add_argument('-eqr',      help='Run BDC:Equal rate model', action='store_true', default=False)
+    # phylo test
+    p.add_argument('-tree',       type=str,help="Tree file (NEXUS format)",default="", metavar="")
+    p.add_argument('-sampling',   type=float,help="Taxon sampling (phylogeny)",default=1., metavar=1.)
+    p.add_argument('-bdc',      help='Run BDC:Compatible model', action='store_true', default=False)
+    p.add_argument('-eqr',      help='Run BDC:Equal rate model', action='store_true', default=False)
 
-# PLOTS AND OUTPUT
-p.add_argument('-plot',       metavar='<input file>', type=str,help="RTT plot (type 1): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
-p.add_argument('-plot2',      metavar='<input file>', type=str,help="RTT plot (type 2): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
-p.add_argument('-plot3',      metavar='<input file>', type=str,help="RTT plot for fixed number of shifts: provide 'mcmc.log' file",default="")
-p.add_argument('-plotRJ',     metavar='<input file>', type=str,help="RTT plot for runs with '-log_marginal_rates 0': provide path to 'mcmc.log' files",default="")
-p.add_argument('-n_prior',     type=int,help="n. samples from the prior to compute Bayes factors",default=100000)
-p.add_argument('-plotQ',      metavar='<input file>', type=str,help="Plot preservation rates through time: provide 'mcmc.log' file and '-qShift' argument ",default="")
-p.add_argument('-grid_plot',  type=float, help='Plot resolution in Myr (only for plot3 and plotRJ commands). If set to 0: 100 equal time bins', default=0, metavar=0)
-p.add_argument('-root_plot',  type=float, help='User-defined root age for RTT plots', default=0, metavar=0)
-p.add_argument('-min_age_plot',type=float, help='User-defined minimum age for RTT plots (only with plotRJ option)', default=0, metavar=0)
-p.add_argument('-tag',        metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted (-plot and -plot2) or summarized in SE table (-ginput)",default="")
-p.add_argument('-ltt',        type=int,help='1) Plot lineages-through-time; 2) plot Log10(LTT)', default=0, metavar=0)
-p.add_argument('-mProb',      type=str,help="Input 'mcmc.log' file",default="")
-p.add_argument('-BF',         type=str,help="Input 'marginal_likelihood.txt' files",metavar='<2 input files>',nargs='+',default=[])
-p.add_argument("-data_info",  help='Summary information about an input data', action='store_true', default=False)
-p.add_argument('-SE_stats',   type=str,help="Calculate and plot stats from SE table:",metavar='<extinction rate at the present, bin_size, #_simulations>',nargs='+',default=[])
-p.add_argument('-ginput',     type=str,help='generate SE table from *mcmc.log files', default="", metavar="<path_to_mcmc.log>")
-p.add_argument('-combLog',    type=str,help='Combine (and resample) log files', default="", metavar="<path_to_log_files>")
-p.add_argument('-combLogRJ',  type=str,help='Combine (and resample) all log files form RJMCMC', default="", metavar="<path_to_log_files>")
-p.add_argument('-resample',   type=int,help='Number of samples for each log file (-combLog). Use 0 to keep all samples. ', default=0, metavar=0)
-p.add_argument('-col_tag',    type=str,help='Columns to be combined using combLog', default=[], metavar="column names",nargs='+')
-p.add_argument('-check_names',type=str,help='Automatic check for typos in taxa names (provide SpeciesList file)', default="", metavar="<*_SpeciesList.txt file>")
-p.add_argument('-reduceLog',  type=str,help='Reduce file size (mcmc.log) to quickly assess convergence', default="", metavar="<*_mcmc.log file>")
+    # PLOTS AND OUTPUT
+    p.add_argument('-plot',       metavar='<input file>', type=str,help="RTT plot (type 1): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
+    p.add_argument('-plot2',      metavar='<input file>', type=str,help="RTT plot (type 2): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
+    p.add_argument('-plot3',      metavar='<input file>', type=str,help="RTT plot for fixed number of shifts: provide 'mcmc.log' file",default="")
+    p.add_argument('-plotRJ',     metavar='<input file>', type=str,help="RTT plot for runs with '-log_marginal_rates 0': provide path to 'mcmc.log' files",default="")
+    p.add_argument('-n_prior',     type=int,help="n. samples from the prior to compute Bayes factors",default=100000)
+    p.add_argument('-plotQ',      metavar='<input file>', type=str,help="Plot preservation rates through time: provide 'mcmc.log' file and '-qShift' argument ",default="")
+    p.add_argument('-grid_plot',  type=float, help='Plot resolution in Myr (only for plot3 and plotRJ commands). If set to 0: 100 equal time bins', default=0, metavar=0)
+    p.add_argument('-root_plot',  type=float, help='User-defined root age for RTT plots', default=0, metavar=0)
+    p.add_argument('-min_age_plot',type=float, help='User-defined minimum age for RTT plots (only with plotRJ option)', default=0, metavar=0)
+    p.add_argument('-tag',        metavar='<*tag*.log>', type=str,help="Tag identifying files to be combined and plotted (-plot and -plot2) or summarized in SE table (-ginput)",default="")
+    p.add_argument('-ltt',        type=int,help='1) Plot lineages-through-time; 2) plot Log10(LTT)', default=0, metavar=0)
+    p.add_argument('-mProb',      type=str,help="Input 'mcmc.log' file",default="")
+    p.add_argument('-BF',         type=str,help="Input 'marginal_likelihood.txt' files",metavar='<2 input files>',nargs='+',default=[])
+    p.add_argument("-data_info",  help='Summary information about an input data', action='store_true', default=False)
+    p.add_argument('-SE_stats',   type=str,help="Calculate and plot stats from SE table:",metavar='<extinction rate at the present, bin_size, #_simulations>',nargs='+',default=[])
+    p.add_argument('-ginput',     type=str,help='generate SE table from *mcmc.log files', default="", metavar="<path_to_mcmc.log>")
+    p.add_argument('-combLog',    type=str,help='Combine (and resample) log files', default="", metavar="<path_to_log_files>")
+    p.add_argument('-combLogRJ',  type=str,help='Combine (and resample) all log files form RJMCMC', default="", metavar="<path_to_log_files>")
+    p.add_argument('-resample',   type=int,help='Number of samples for each log file (-combLog). Use 0 to keep all samples. Number of ts/te estimates (-ginput)', default=0, metavar=0)
+    p.add_argument('-col_tag',    type=str,help='Columns to be combined using combLog', default=[], metavar="column names",nargs='+')
+    p.add_argument('-check_names',type=str,help='Automatic check for typos in taxa names (provide SpeciesList file)', default="", metavar="<*_SpeciesList.txt file>")
+    p.add_argument('-reduceLog',  type=str,help='Reduce file size (mcmc.log) to quickly assess convergence', default="", metavar="<*_mcmc.log file>")
 
-# MCMC SETTINGS
-p.add_argument('-n',      type=int, help='mcmc generations',default=10000000, metavar=10000000)
-p.add_argument('-s',      type=int, help='sample freq.', default=1000, metavar=1000)
-p.add_argument('-p',      type=int, help='print freq.',  default=1000, metavar=1000)
-p.add_argument('-b',      type=float, help='burnin', default=0, metavar=0)
-p.add_argument('-fast_burnin',      type=float, help='n. fast-burnin generations', default=0, metavar=0)
-p.add_argument('-thread', type=int, help='no. threads used for BD and NHPP likelihood respectively (set to 0 to bypass multi-threading)', default=[0,0], metavar=4, nargs=2)
+    # MCMC SETTINGS
+    p.add_argument('-n',      type=int, help='mcmc generations',default=10000000, metavar=10000000)
+    p.add_argument('-s',      type=int, help='sample freq.', default=1000, metavar=1000)
+    p.add_argument('-p',      type=int, help='print freq.',  default=1000, metavar=1000)
+    p.add_argument('-b',      type=float, help='burnin', default=0, metavar=0)
+    p.add_argument('-fast_burnin',      type=float, help='n. fast-burnin generations', default=0, metavar=0)
+    p.add_argument('-thread', type=int, help='no. threads used for BD and NHPP likelihood respectively (set to 0 to bypass multi-threading)', default=[0,0], metavar=4, nargs=2)
 
-# MCMC ALGORITHMS
-p.add_argument('-A',        type=int, help='0) parameter estimation, 1) marginal likelihood, 2) BDMCMC, 3) DPP, 4) RJMCMC', default=4, metavar=4)
-p.add_argument("-use_DA",   help='Use data augmentation for NHPP likelihood opf extant taxa', action='store_true', default=False)
-p.add_argument('-r',        type=int,   help='MC3 - no. MCMC chains', default=1, metavar=1)
-p.add_argument('-t',        type=float, help='MC3 - temperature', default=.03, metavar=.03)
-p.add_argument('-sw',       type=float, help='MC3 - swap frequency', default=100, metavar=100)
-p.add_argument('-M',        type=int,   help='BDMCMC/RJMCMC - frequency of model update', default=10, metavar=10)
-p.add_argument('-B',        type=int,   help='BDMCMC - birth rate', default=1, metavar=1)
-p.add_argument('-T',        type=float, help='BDMCMC - time of model update', default=1.0, metavar=1.0)
-p.add_argument('-S',        type=int,   help='BDMCMC - start model update', default=1000, metavar=1000)
-p.add_argument('-k',        type=int,   help='TI - no. scaling factors', default=10, metavar=10)
-p.add_argument('-a',        type=float, help='TI - shape beta distribution', default=.3, metavar=.3)
-p.add_argument('-dpp_f',    type=float, help='DPP - frequency ', default=500, metavar=500)
-p.add_argument('-dpp_hp',   type=float, help='DPP - shape of gamma HP on concentration parameter', default=2., metavar=2.)
-p.add_argument('-dpp_eK',   type=float, help='DPP - expected number of rate categories', default=2., metavar=2.)
-p.add_argument('-dpp_grid', type=float, help='DPP - size of time bins',default=1.5, metavar=1.5)
-p.add_argument('-dpp_nB',   type=float, help='DPP - number of time bins',default=0, metavar=0)
-p.add_argument('-rj_pr',       type=float, help='RJ - proposal (0: Gamma, 1: Weighted mean) ', default=1, metavar=1)
-p.add_argument('-rj_Ga',       type=float, help='RJ - shape of gamma proposal (if rj_pr 0)', default=1.5, metavar=1.5)
-p.add_argument('-rj_Gb',       type=float, help='RJ - rate of gamma proposal (if rj_pr 0)',  default=3., metavar=3.)
-p.add_argument('-rj_beta',     type=float, help='RJ - shape of beta multiplier (if rj_pr 1)',default=10, metavar=10)
-p.add_argument('-rj_dm',       type=float, help='RJ - allow double moves (0: no, 1: yes)',default=0, metavar=0)
-p.add_argument('-rj_bd_shift', type=float, help='RJ - 0: only sample shifts in speciation; 1: only sample shifts in extinction',default=0.5, metavar=0.5)
-p.add_argument('-se_gibbs',    help='Use aprroximate S/E Gibbs sampler', action='store_true', default=False)
+    # MCMC ALGORITHMS
+    p.add_argument('-A',        type=int, help='0) parameter estimation, 1) marginal likelihood, 2) BDMCMC, 3) DPP, 4) RJMCMC', default=4, metavar=4)
+    p.add_argument("-use_DA",   help='Use data augmentation for NHPP likelihood opf extant taxa', action='store_true', default=False)
+    p.add_argument('-r',        type=int,   help='MC3 - no. MCMC chains', default=1, metavar=1)
+    p.add_argument('-t',        type=float, help='MC3 - temperature', default=.03, metavar=.03)
+    p.add_argument('-sw',       type=float, help='MC3 - swap frequency', default=100, metavar=100)
+    p.add_argument('-M',        type=int,   help='BDMCMC/RJMCMC - frequency of model update', default=10, metavar=10)
+    p.add_argument('-B',        type=int,   help='BDMCMC - birth rate', default=1, metavar=1)
+    p.add_argument('-T',        type=float, help='BDMCMC - time of model update', default=1.0, metavar=1.0)
+    p.add_argument('-S',        type=int,   help='BDMCMC - start model update', default=1000, metavar=1000)
+    p.add_argument('-k',        type=int,   help='TI - no. scaling factors', default=10, metavar=10)
+    p.add_argument('-a',        type=float, help='TI - shape beta distribution', default=.3, metavar=.3)
+    p.add_argument('-dpp_f',    type=float, help='DPP - frequency ', default=500, metavar=500)
+    p.add_argument('-dpp_hp',   type=float, help='DPP - shape of gamma HP on concentration parameter', default=2., metavar=2.)
+    p.add_argument('-dpp_eK',   type=float, help='DPP - expected number of rate categories', default=2., metavar=2.)
+    p.add_argument('-dpp_grid', type=float, help='DPP - size of time bins',default=1.5, metavar=1.5)
+    p.add_argument('-dpp_nB',   type=float, help='DPP - number of time bins',default=0, metavar=0)
+    p.add_argument('-rj_pr',       type=float, help='RJ - proposal (0: Gamma, 1: Weighted mean) ', default=1, metavar=1)
+    p.add_argument('-rj_Ga',       type=float, help='RJ - shape of gamma proposal (if rj_pr 0)', default=1.5, metavar=1.5)
+    p.add_argument('-rj_Gb',       type=float, help='RJ - rate of gamma proposal (if rj_pr 0)',  default=3., metavar=3.)
+    p.add_argument('-rj_beta',     type=float, help='RJ - shape of beta multiplier (if rj_pr 1)',default=10, metavar=10)
+    p.add_argument('-rj_dm',       type=float, help='RJ - allow double moves (0: no, 1: yes)',default=0, metavar=0)
+    p.add_argument('-rj_bd_shift', type=float, help='RJ - 0: only sample shifts in speciation; 1: only sample shifts in extinction',default=0.5, metavar=0.5)
+    p.add_argument('-se_gibbs',    help='Use aprroximate S/E Gibbs sampler', action='store_true', default=False)
 
-# PRIORS
-p.add_argument('-pL',      type=float, help='Prior - speciation rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.1, 1.1], metavar=1.1, nargs=2)
-p.add_argument('-pM',      type=float, help='Prior - extinction rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.1, 1.1], metavar=1.1, nargs=2)
-p.add_argument('-pP',      type=float, help='Prior - preservation rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.5, 1.1], metavar=1.5, nargs=2)
-p.add_argument('-pS',      type=float, help='Prior - time frames (Dirichlet <shape>)', default=2.5, metavar=2.5)
-p.add_argument('-pC',      type=float, help='Prior - Covar parameters (Normal <standard deviation>) | (if pC=0 -> sd estimated)', default=1, metavar=1)
-p.add_argument("-cauchy",  type=float, help='Prior - use hyper priors on sp/ex rates (if 0 -> estimated)', default=[-1, -1], metavar=-1, nargs=2)
-p.add_argument("-min_dt",  type=float, help='Prior - minimum allowed distance between rate shifts', default=1., metavar=1)
+    # PRIORS
+    p.add_argument('-pL',      type=float, help='Prior - speciation rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.1, 1.1], metavar=1.1, nargs=2)
+    p.add_argument('-pM',      type=float, help='Prior - extinction rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.1, 1.1], metavar=1.1, nargs=2)
+    p.add_argument('-pP',      type=float, help='Prior - preservation rate (Gamma <shape, rate>) | (if shape=n,rate=0 -> rate estimated)', default=[1.5, 1.1], metavar=1.5, nargs=2)
+    p.add_argument('-pS',      type=float, help='Prior - time frames (Dirichlet <shape>)', default=2.5, metavar=2.5)
+    p.add_argument('-pC',      type=float, help='Prior - Covar parameters (Normal <standard deviation>) | (if pC=0 -> sd estimated)', default=1, metavar=1)
+    p.add_argument("-cauchy",  type=float, help='Prior - use hyper priors on sp/ex rates (if 0 -> estimated)', default=[-1, -1], metavar=-1, nargs=2)
+    p.add_argument("-min_dt",  type=float, help='Prior - minimum allowed distance between rate shifts', default=1., metavar=1)
 
-# MODEL
-p.add_argument("-mHPP",    help='Model - Homogeneous Poisson process of preservation', action='store_true', default=False)
-#p.add_argument("-TPP_model",help='Model - Poisson process of preservation with shifts', action='store_true', default=False)
-p.add_argument('-mL',      type=int, help='Model - no. (starting) time frames (speciation)', default=1, metavar=1)
-p.add_argument('-mM',      type=int, help='Model - no. (starting) time frames (extinction)', default=1, metavar=1)
-p.add_argument('-mC',      help='Model - constrain time frames (l,m)', action='store_true', default=False)
-p.add_argument('-mCov',    type=int, help='COVAR model: 1) speciation, 2) extinction, 3) speciation & extinction, 4) preservation, 5) speciation & extinction & preservation', default=0, metavar=0)
-p.add_argument("-mG",      help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
-p.add_argument('-mPoiD',   help='Poisson-death diversification model', action='store_true', default=False)
-p.add_argument('-mBirth',  type=float, help='Birth model with fix extinction rate', default= -1, metavar= -1)
-p.add_argument('-mDeath',  help='Pure-death model', action='store_true', default=False)
-p.add_argument("-mBDI",    type=int, help='BDI sub-model - 0) birth-death, 1) immigration-death', default=-1, metavar=-1)
-p.add_argument("-ncat",    type=int, help='Model - Number of categories for Gamma heterogeneity', default=4, metavar=4)
-p.add_argument('-fixShift',metavar='<input file>', type=str,help="Input tab-delimited file",default="")
-p.add_argument('-qShift',  metavar='<input file>', type=str,help="Poisson process of preservation with shifts (Input tab-delimited file)",default="")
-p.add_argument('-fixSE',   metavar='<input file>', type=str,help="Input mcmc.log file",default="")
-p.add_argument('-ADE',     type=int, help='ADE model: 0) no age dependence 1) estimated age dep', default=0, metavar=0)
-p.add_argument('-discrete',help='Discrete-trait-dependent BD model (requires -trait_file)', action='store_true', default=False)
-p.add_argument('-twotrait',help='Discrete-trait-dependent extinction + Covar', action='store_true', default=False)
-p.add_argument('-bound',   type=float, help='Bounded BD model', default=[np.inf, 0], metavar=0, nargs=2)
-p.add_argument('-edgeShift',type=float, help='Fixed times of shifts at the edges (when -mL/-mM > 3)', default=[np.inf, 0], metavar=0, nargs=2)
-p.add_argument('-qFilter', type=int, help='if set to zero all shifts in preservation rates are kept, even if outside observed timerange', default=1, metavar=1)
-p.add_argument('-FBDrange', type=int, help='use FBDrange likelihood (experimental)', default=0, metavar=0)
-p.add_argument('-BDNNmodel', type=int, help='use BD-NN model (requires trait_file)', default=0, metavar=0)
-p.add_argument('-BDNNnodes', type=int, help='number of BD-NN nodes', nargs='+',default=[])
-p.add_argument('-BDNNfadlad', type=float, help='if > 0 include FAD LAD as traits (rescaled i.e. FAD * BDNNfadlad)', default=0, metavar=0)
-p.add_argument('-BDNNtimetrait', type=float, help='if > 0 use (rescaled) time as a trait (only with -fixedShift option). if = -1 auto-rescaled', default=0, metavar=0)
-p.add_argument('-BDNNconstbaseline', type=int, help='constant baseline rates (only with -fixedShift option AND time as a trait)', default=0, metavar=0)
-p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) softPlus, 1) exp', default=0, metavar=0)
+    # MODEL
+    p.add_argument("-mHPP",    help='Model - Homogeneous Poisson process of preservation', action='store_true', default=False)
+    #p.add_argument("-TPP_model",help='Model - Poisson process of preservation with shifts', action='store_true', default=False)
+    p.add_argument('-mL',      type=int, help='Model - no. (starting) time frames (speciation)', default=1, metavar=1)
+    p.add_argument('-mM',      type=int, help='Model - no. (starting) time frames (extinction)', default=1, metavar=1)
+    p.add_argument('-mC',      help='Model - constrain time frames (l,m)', action='store_true', default=False)
+    p.add_argument('-mCov',    type=int, help='COVAR model: 1) speciation, 2) extinction, 3) speciation & extinction, 4) preservation, 5) speciation & extinction & preservation', default=0, metavar=0)
+    p.add_argument("-mG",      help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
+    p.add_argument('-mPoiD',   help='Poisson-death diversification model', action='store_true', default=False)
+    p.add_argument('-mBirth',  type=float, help='Birth model with fix extinction rate', default= -1, metavar= -1)
+    p.add_argument('-mDeath',  help='Pure-death model', action='store_true', default=False)
+    p.add_argument("-mBDI",    type=int, help='BDI sub-model - 0) birth-death, 1) immigration-death', default=-1, metavar=-1)
+    p.add_argument("-ncat",    type=int, help='Model - Number of categories for Gamma heterogeneity', default=4, metavar=4)
+    p.add_argument('-fixShift',metavar='<input file>', type=str,help="Input tab-delimited file",default="")
+    p.add_argument('-qShift',  metavar='<input file>', type=str,help="Poisson process of preservation with shifts (Input tab-delimited file)",default="")
+    p.add_argument('-fixSE',   metavar='<input file>', type=str,help="Input mcmc.log file",default="")
+    p.add_argument('-ADE',     type=int, help='ADE model: 0) no age dependence 1) estimated age dep', default=0, metavar=0)
+    p.add_argument('-discrete',help='Discrete-trait-dependent BD model (requires -trait_file)', action='store_true', default=False)
+    p.add_argument('-twotrait',help='Discrete-trait-dependent extinction + Covar', action='store_true', default=False)
+    p.add_argument('-bound',   type=float, help='Bounded BD model', default=[np.inf, 0], metavar=0, nargs=2)
+    p.add_argument('-edgeShift',type=float, help='Fixed times of shifts at the edges (when -mL/-mM > 3)', default=[np.inf, 0], metavar=0, nargs=2)
+    p.add_argument('-qFilter', type=int, help='if set to zero all shifts in preservation rates are kept, even if outside observed timerange', default=1, metavar=1)
+    p.add_argument('-FBDrange', type=int, help='use FBDrange likelihood (experimental)', default=0, metavar=0)
+    p.add_argument('-BDNNmodel', type=int, help='use BD-NN model (requires trait_file)', default=0, metavar=0)
+    p.add_argument('-BDNNnodes', type=int, help='number of BD-NN nodes', nargs='+',default=[])
+    p.add_argument('-BDNNfadlad', type=float, help='if > 0 include FAD LAD as traits (rescaled i.e. FAD * BDNNfadlad)', default=0, metavar=0)
+    p.add_argument('-BDNNtimetrait', type=float, help='if > 0 use (rescaled) time as a trait (only with -fixedShift option). if = -1 auto-rescaled', default=0, metavar=0)
+    p.add_argument('-BDNNconstbaseline', type=int, help='constant baseline rates (only with -fixedShift option AND time as a trait)', default=0, metavar=0)
+    p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) abs, 1) softPlus, 2) exp', default=0, metavar=0)
+    p.add_argument('-BDNNactfun', type=int, help='Activation function hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid', default=0, metavar=0)
+
+    # TUNING
+    p.add_argument('-tT',     type=float, help='Tuning - window size (ts, te)', default=1., metavar=1.)
+    p.add_argument('-nT',     type=int,   help='Tuning - max number updated values (ts, te)', default=5, metavar=5)
+    p.add_argument('-tQ',     type=float, help='Tuning - window sizes (q/alpha: 1.2 1.2)', default=[1.2,1.2], nargs=2)
+    p.add_argument('-tR',     type=float, help='Tuning - window size (rates)', default=1.2, metavar=1.2)
+    p.add_argument('-tS',     type=float, help='Tuning - window size (time of shift)', default=1., metavar=1.)
+    p.add_argument('-fR',     type=float, help='Tuning - fraction of updated values (rates)', default=.5, metavar=.5)
+    p.add_argument('-fS',     type=float, help='Tuning - fraction of updated values (shifts)', default=.7, metavar=.7)
+    p.add_argument('-fQ',     type=float, help='Tuning - fraction of updated values (q rates, TPP)', default=.5, metavar=.5)
+    p.add_argument('-tC',     type=float, help='Tuning - window sizes cov parameters (l,m,q)', default=[.2, .2, .15], nargs=3)
+    p.add_argument('-fU',     type=float, help='Tuning - update freq. (q: .02, l/m: .18, cov: .08)', default=[.02, .18, .08], nargs=3)
+    p.add_argument('-multiR', type=int,   help='Tuning - Proposals for l/m: 0) sliding win 1) muliplier ', default=1, metavar=1)
+    p.add_argument('-tHP',    type=float, help='Tuning - window sizes hyperpriors on l and m', default=[1.2, 1.2], nargs=2)
+
+    args = p.parse_args()
+    t1=time.time()
+
+    if args.seed==-1:
+        rseed=np.random.randint(0,9999)
+    else: rseed=args.seed
+    rand.seed(rseed)  # set as argument/ use get seed function to get it and save it to sum.txt file
+    random.seed(rseed)
+    np.random.seed(rseed)
+
+    FBDrange = args.FBDrange
+    # 1: OCCS model 2: FALA model
 
 
+    if args.useCPPlib==1 and hasFoundPyRateC == 1:
+        #print("Loaded module FastPyRateC")
+        CPPlib="\nUsing module FastPyRateC"
+    else:
+        hasFoundPyRateC= 0
+        CPPlib=""
 
-# TUNING
-p.add_argument('-tT',     type=float, help='Tuning - window size (ts, te)', default=1., metavar=1.)
-p.add_argument('-nT',     type=int,   help='Tuning - max number updated values (ts, te)', default=5, metavar=5)
-p.add_argument('-tQ',     type=float, help='Tuning - window sizes (q/alpha: 1.2 1.2)', default=[1.2,1.2], nargs=2)
-p.add_argument('-tR',     type=float, help='Tuning - window size (rates)', default=1.2, metavar=1.2)
-p.add_argument('-tS',     type=float, help='Tuning - window size (time of shift)', default=1., metavar=1.)
-p.add_argument('-fR',     type=float, help='Tuning - fraction of updated values (rates)', default=.5, metavar=.5)
-p.add_argument('-fS',     type=float, help='Tuning - fraction of updated values (shifts)', default=.7, metavar=.7)
-p.add_argument('-fQ',     type=float, help='Tuning - fraction of updated values (q rates, TPP)', default=.5, metavar=.5)
-p.add_argument('-tC',     type=float, help='Tuning - window sizes cov parameters (l,m,q)', default=[.2, .2, .15], nargs=3)
-p.add_argument('-fU',     type=float, help='Tuning - update freq. (q: .02, l/m: .18, cov: .08)', default=[.02, .18, .08], nargs=3)
-p.add_argument('-multiR', type=int,   help='Tuning - Proposals for l/m: 0) sliding win 1) muliplier ', default=1, metavar=1)
-p.add_argument('-tHP',    type=float, help='Tuning - window sizes hyperpriors on l and m', default=[1.2, 1.2], nargs=2)
+    if args.cite:
+        sys.exit(citation)
+    ############################ MODEL SETTINGS ############################
+    # PRIORS
+    L_lam_r,L_lam_m = args.pL # shape and rate parameters of Gamma prior on sp rates
+    M_lam_r,M_lam_m = args.pM # shape and rate parameters of Gamma prior on ex rates
+    lam_s = args.pS                              # shape parameter dirichlet prior on time frames
+    pert_prior = [args.pP[0],args.pP[1]] # gamma prior on foss. rate; beta on mode PERT distribution
+    covar_prior_fixed=args.pC # std of normal prior on th covariance parameters
 
-args = p.parse_args()
-t1=time.time()
+    # MODEL
+    time_framesL=args.mL          # no. (starting) time frames (lambda)
+    time_framesM=args.mM          # no. (starting) time frames (mu)
+    constrain_time_frames=args.mC # True/False
+    pp_gamma_ncat=args.ncat              # args.ncat
+    if args.mG:             # number of gamma categories
+        argsG = 1
+        YangGammaQuant=(np.linspace(0,1,pp_gamma_ncat+1)-np.linspace(0,1,pp_gamma_ncat+1)[1]/2)[1:]
+    else: argsG = 0
+    model_cov=args.mCov           # boolean 0: no covariance 1: covariance (speciation,extinction) 2: covariance (speciation,extinction,preservation)
 
-if args.seed==-1:
-    rseed=np.random.randint(0,9999)
-else: rseed=args.seed
-rand.seed(rseed)  # set as argument/ use get seed function to get it and save it to sum.txt file
-random.seed(rseed)
-np.random.seed(rseed)
-
-FBDrange = args.FBDrange
-# 1: OCCS model 2: FALA model
-
-
-if args.useCPPlib==1 and hasFoundPyRateC == 1:
-    #print("Loaded module FastPyRateC")
-    CPPlib="\nUsing module FastPyRateC"
-else:
-    hasFoundPyRateC= 0
-    CPPlib=""
-
-if args.cite:
-    sys.exit(citation)
-############################ MODEL SETTINGS ############################
-# PRIORS
-L_lam_r,L_lam_m = args.pL # shape and rate parameters of Gamma prior on sp rates
-M_lam_r,M_lam_m = args.pM # shape and rate parameters of Gamma prior on ex rates
-lam_s = args.pS                              # shape parameter dirichlet prior on time frames
-pert_prior = [args.pP[0],args.pP[1]] # gamma prior on foss. rate; beta on mode PERT distribution
-covar_prior_fixed=args.pC # std of normal prior on th covariance parameters
-
-# MODEL
-time_framesL=args.mL          # no. (starting) time frames (lambda)
-time_framesM=args.mM          # no. (starting) time frames (mu)
-constrain_time_frames=args.mC # True/False
-pp_gamma_ncat=args.ncat              # args.ncat
-if args.mG:             # number of gamma categories
-    argsG = 1
-    YangGammaQuant=(np.linspace(0,1,pp_gamma_ncat+1)-np.linspace(0,1,pp_gamma_ncat+1)[1]/2)[1:]
-else: argsG = 0
-model_cov=args.mCov           # boolean 0: no covariance 1: covariance (speciation,extinction) 2: covariance (speciation,extinction,preservation)
-
-sp_specific_q_rates = args.log_sp_q_rates
-if sp_specific_q_rates:
-    if argsG == 0 or args.qShift == "":
-        sys.exit("option only available with TPP + Gamma model")
+    sp_specific_q_rates = args.log_sp_q_rates
+    if sp_specific_q_rates:
+        if argsG == 0 or args.qShift == "":
+            sys.exit("option only available with TPP + Gamma model")
     
 
-if args.mHPP: argsHPP=1
-else: argsHPP=0
-############################ MCMC SETTINGS ############################
-# GENERAL SETTINGS
-TDI=args.A                  # 0: parameter estimation, 1: thermodynamic integration, 2: BD-MCMC
-if constrain_time_frames == 1 or args.fixShift != "":
-    if TDI in [2,4]:
-        # print("\nConstrained shift times (-mC,-fixShift) cannot be used with BD/RJ MCMC alorithms. Using standard MCMC instead.\n")
+    if args.mHPP: argsHPP=1
+    else: argsHPP=0
+    ############################ MCMC SETTINGS ############################
+    # GENERAL SETTINGS
+    TDI=args.A                  # 0: parameter estimation, 1: thermodynamic integration, 2: BD-MCMC
+    if constrain_time_frames == 1 or args.fixShift != "":
+        if TDI in [2,4]:
+            # print("\nConstrained shift times (-mC,-fixShift) cannot be used with BD/RJ MCMC alorithms. Using standard MCMC instead.\n")
+            TDI = 0
+    if args.ADE>=1 and TDI>1:
+        # print("\nADE models (-ADE 1) cannot be used with BD/RJ MCMC alorithms. Using standard MCMC instead.\n")
         TDI = 0
-if args.ADE>=1 and TDI>1:
-    # print("\nADE models (-ADE 1) cannot be used with BD/RJ MCMC alorithms. Using standard MCMC instead.\n")
-    TDI = 0
-mcmc_gen=args.n             # no. total mcmc generations
-sample_freq=args.s
-print_freq=args.p
-burnin=args.b
-num_processes = args.thread[0]    # BDlik
-num_processes_ts = args.thread[1] # NHPPlik
-if num_processes+num_processes_ts==0: use_seq_lik = 1
-if use_seq_lik == 1: num_processes,num_processes_ts=0,0
-min_allowed_t=args.min_dt
+    mcmc_gen=args.n             # no. total mcmc generations
+    sample_freq=args.s
+    print_freq=args.p
+    burnin=args.b
+    num_processes = args.thread[0]    # BDlik
+    num_processes_ts = args.thread[1] # NHPPlik
+    if num_processes+num_processes_ts==0: use_seq_lik = 1
+    if use_seq_lik == 1: num_processes,num_processes_ts=0,0
+    min_allowed_t=args.min_dt
 
-# RJ arguments
-addrm_proposal_RJ = args.rj_pr      # 0: random Gamma; 1: weighted mean
-shape_gamma_RJ    = args.rj_Ga
-rate_gamma_RJ     = args.rj_Gb
-shape_beta_RJ     = args.rj_beta
-if addrm_proposal_RJ == 0:
-    add_shift_RJ    = add_shift_RJ_rand_gamma
-    remove_shift_RJ = remove_shift_RJ_rand_gamma
-elif addrm_proposal_RJ == 1:
-    add_shift_RJ    = add_shift_RJ_weighted_mean
-    remove_shift_RJ = remove_shift_RJ_weighted_mean
-allow_double_move = args.rj_dm
+    # RJ arguments
+    addrm_proposal_RJ = args.rj_pr      # 0: random Gamma; 1: weighted mean
+    shape_gamma_RJ    = args.rj_Ga
+    rate_gamma_RJ     = args.rj_Gb
+    shape_beta_RJ     = args.rj_beta
+    if addrm_proposal_RJ == 0:
+        add_shift_RJ    = add_shift_RJ_rand_gamma
+        remove_shift_RJ = remove_shift_RJ_rand_gamma
+    elif addrm_proposal_RJ == 1:
+        add_shift_RJ    = add_shift_RJ_weighted_mean
+        remove_shift_RJ = remove_shift_RJ_weighted_mean
+    allow_double_move = args.rj_dm
 
 
 
-# TUNING
-d1=args.tT                     # win-size (ts, te)
-frac1= args.nT                 # max number updated values (ts, te)
-d2=args.tQ                     # win-sizes (q,alpha)
-d3=args.tR                     # win-size (rates)
-f_rate=args.fR                 # fraction of updated values (rates)
-d4=args.tS                     # win-size (time of shift)
-f_shift=args.fS                # update frequency (time of shift) || will turn into 0 when no rate shifts
-f_qrate_update =args.fQ        # update frequency (preservation rates under TPP model)
-freq_list=args.fU              # generate update frequencies by parm category
-d5=args.tC                     # win-size (cov)
-d_hyperprior=np.array(args.tHP)          # win-size hyper-priors onf l/m (or W_scale)
-if model_cov==0: freq_list[2]=0
-f_update_se=1-sum(freq_list)
-if frac1==0: f_update_se=0
-[f_update_q,f_update_lm,f_update_cov]=f_update_se+np.cumsum(array(freq_list))
+    # TUNING
+    d1=args.tT                     # win-size (ts, te)
+    frac1= args.nT                 # max number updated values (ts, te)
+    d2=args.tQ                     # win-sizes (q,alpha)
+    d3=args.tR                     # win-size (rates)
+    f_rate=args.fR                 # fraction of updated values (rates)
+    d4=args.tS                     # win-size (time of shift)
+    f_shift=args.fS                # update frequency (time of shift) || will turn into 0 when no rate shifts
+    f_qrate_update =args.fQ        # update frequency (preservation rates under TPP model)
+    freq_list=args.fU              # generate update frequencies by parm category
+    d5=args.tC                     # win-size (cov)
+    d_hyperprior=np.array(args.tHP)          # win-size hyper-priors onf l/m (or W_scale)
+    if model_cov==0: freq_list[2]=0
+    f_update_se=1-sum(freq_list)
+    if frac1==0: f_update_se=0
+    [f_update_q,f_update_lm,f_update_cov]=f_update_se+np.cumsum(array(freq_list))
 
 
-if args.se_gibbs: 
-    use_gibbs_se_sampling = 1
-else: use_gibbs_se_sampling = 0
+    if args.se_gibbs: 
+        use_gibbs_se_sampling = 1
+    else: use_gibbs_se_sampling = 0
 
-fast_burnin =args.fast_burnin
-
-
-multiR = args.multiR
-if multiR==0:
-    update_rates =  update_rates_sliding_win
-else:
-    update_rates = update_rates_multiplier
-    d3 = max(args.tR,1.01) # avoid win size < 1
+    fast_burnin =args.fast_burnin
 
 
-if args.ginput != "" or args.check_names != "" or args.reduceLog != "":
-    try:
-        import pyrate_lib.lib_DD_likelihood
-        import pyrate_lib.lib_utilities
-        import pyrate_lib.check_species_names
-    except:
-        sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
-        You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
-
-    if args.ginput != "":
-        n_samples = np.max([args.resample,1])
-        pyrate_lib.lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=-1,burnin=int(burnin)+1, n_samples=n_samples)
-    elif args.check_names != "":
-        SpeciesList_file = args.check_names
-        pyrate_lib.check_species_names.run_name_check(SpeciesList_file)
-    elif args.reduceLog != "":
-        pyrate_lib.lib_utilities.reduce_log_file(args.reduceLog,max(1,int(args.b)))
-    quit()
+    multiR = args.multiR
+    if multiR==0:
+        update_rates =  update_rates_sliding_win
+    else:
+        update_rates = update_rates_multiplier
+        d3 = max(args.tR,1.01) # avoid win size < 1
 
 
-if args.use_DA: use_DA = 1
-else: use_DA = 0
+    if args.ginput != "" or args.check_names != "" or args.reduceLog != "":
+        try:
+            import pyrate_lib.lib_DD_likelihood
+            import pyrate_lib.lib_utilities
+            import pyrate_lib.check_species_names
+        except:
+            sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
+            You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
+
+        if args.ginput != "":
+            n_samples = np.max([args.resample,1])
+            pyrate_lib.lib_utilities.write_ts_te_table(args.ginput, tag=args.tag, clade=-1,burnin=int(burnin)+1, n_samples=n_samples)
+        elif args.check_names != "":
+            SpeciesList_file = args.check_names
+            pyrate_lib.check_species_names.run_name_check(SpeciesList_file)
+        elif args.reduceLog != "":
+            pyrate_lib.lib_utilities.reduce_log_file(args.reduceLog,max(1,int(args.b)))
+        quit()
+
+
+    if args.use_DA: use_DA = 1
+    else: use_DA = 0
 
 
 
-# freq update CovPar
-if model_cov==0: f_cov_par= [0  ,0  ,0 ]
-if model_cov==1: f_cov_par= [1  ,0  ,0 ]
-if model_cov==2: f_cov_par= [0  ,1  ,0 ]
-if model_cov==3: f_cov_par= [.5 ,1  ,0 ]
-if model_cov==4: f_cov_par= [0  ,0  ,1 ]
-if model_cov==5: f_cov_par= [.33,.66,1 ]
-use_BDNNmodel = args.BDNNmodel
+    # freq update CovPar
+    if model_cov==0: f_cov_par= [0  ,0  ,0 ]
+    if model_cov==1: f_cov_par= [1  ,0  ,0 ]
+    if model_cov==2: f_cov_par= [0  ,1  ,0 ]
+    if model_cov==3: f_cov_par= [.5 ,1  ,0 ]
+    if model_cov==4: f_cov_par= [0  ,0  ,1 ]
+    if model_cov==5: f_cov_par= [.33,.66,1 ]
+    use_BDNNmodel = args.BDNNmodel
 
-if covar_prior_fixed==0: est_COVAR_prior = 1
-else: est_COVAR_prior = 0
+    if covar_prior_fixed==0: est_COVAR_prior = 1
+    else: est_COVAR_prior = 0
 
-if args.fixShift != "" or TDI==3:     # fix times of rate shift or DPP
-    try:
-        try: fixed_times_of_shift=sort(np.loadtxt(args.fixShift))[::-1]
-        except: fixed_times_of_shift=np.array([np.loadtxt(args.fixShift)])
-        f_shift=0
-        time_framesL=len(fixed_times_of_shift)+1
-        time_framesM=len(fixed_times_of_shift)+1
-        min_allowed_t=0
-        fix_Shift = 1
-    except:
-        if TDI==3:
-            fixed_times_of_shift=np.arange(0,10000,args.dpp_grid)[::-1] # run fixed_times_of_shift[fixed_times_of_shift<max(FA)] below
-            fixed_times_of_shift=fixed_times_of_shift[:-1]              # after loading input file
+    if args.fixShift != "" or TDI==3:     # fix times of rate shift or DPP
+        try:
+            try: fixed_times_of_shift=sort(np.loadtxt(args.fixShift))[::-1]
+            except: fixed_times_of_shift=np.array([np.loadtxt(args.fixShift)])
             f_shift=0
             time_framesL=len(fixed_times_of_shift)+1
             time_framesM=len(fixed_times_of_shift)+1
             min_allowed_t=0
             fix_Shift = 1
-        else:
-            msg = "\nError in the input file %s.\n" % (args.fixShift)
-            sys.exit(msg)
-else:
-    fixed_times_of_shift=[]
-    fix_Shift = 0
-
-if args.edgeShift[0] != np.inf or args.edgeShift[1] != 0:
-    edgeShifts = []
-    if args.edgeShift[0] != np.inf: # max boundary
-        edgeShifts.append(args.edgeShift[0])
-        fix_edgeShift = 2
-        min_allowed_n_rates = 2
-    if args.edgeShift[1] != 0: # min boundary
-        edgeShifts.append(args.edgeShift[1])
-        fix_edgeShift = 3
-        min_allowed_n_rates = 2
-    if len(edgeShifts)==2: # min and max boundaries
-        fix_edgeShift = 1
-        min_allowed_n_rates = 3
-    time_framesL = max(min_allowed_n_rates,args.mL) # change number of starting rates based on edgeShifts
-    time_framesM = max(min_allowed_n_rates,args.mM) # change number of starting rates based on edgeShifts
-    edgeShifts = np.array(edgeShifts)*args.rescale+args.translate
-else:
-    fix_edgeShift = 0
-    min_allowed_n_rates = 1
-
-# BDMCMC & MCMC SETTINGS
-runs=args.r              # no. parallel MCMCs (MC3)
-if runs>1 and TDI>0:
-    print("\nWarning: MC3 algorithm is not available for TI and BDMCMC. Using a single chain instead.\n")
-    runs,TDI=1,0
-num_proc = runs          # processors MC3
-temp_pr=args.t           # temperature MC3
-IT=args.sw
-freq_Alg_3_1=args.M      # frequency of model update
-birthRate=args.B         # birthRate (=Poisson prior)
-len_cont_time=args.T     # length continuous time of model update
-start_Alg_3_1=args.S     # start sampling model after
-
-
-if runs==1 or use_seq_lik == 1:
-    IT=mcmc_gen
-
-if TDI==1:                # Xie et al. 2011; Baele et al. 2012
-    K=args.k-1.        # K+1 categories
-    k=array(list(range(int(K+1))))
-    beta=k/K
-    alpha=args.a            # categories are beta distributed
-    temperatures=list(beta**(1./alpha))
-    temperatures[0]+= small_number # avoid exactly 0 temp
-    temperatures.reverse()
-    if multiR==0: # tune win sizes only if sliding win proposals
-        list_d3=sort(exp(temperatures))**2.5*d3+(exp(1-array(temperatures))-1)*d3
-    else:
-        list_d3=np.repeat(d3,len(temperatures))
-    list_d4=sort(exp(temperatures))**1.5*d4+exp(1-array(temperatures))-1
-else:
-    temperatures=[1]
-    list_d3=[d3]
-    list_d4=[d4]
-
-# ARGS DPP
-freq_dpp       = args.dpp_f
-hp_gamma_shape = args.dpp_hp
-target_k       = args.dpp_eK
-
-############### PLOT RTT
-path_dir_log_files=""
-if args.plot != "":
-    path_dir_log_files=args.plot
-    plot_type=1
-elif args.plot2 != "":
-    path_dir_log_files=args.plot2
-    plot_type=2
-elif args.plot3 != "":
-    path_dir_log_files=args.plot3
-    plot_type=3
-elif args.plotRJ != "":
-    path_dir_log_files=args.plotRJ
-    plot_type=4
-elif args.plotQ != "":
-    path_dir_log_files=args.plotQ
-    plot_type=5
-print(args.plotQ)
-
-list_files_BF=sort(args.BF)
-file_stem=args.tag
-root_plot=args.root_plot
-grid_plot = args.grid_plot
-if path_dir_log_files != "":
-    self_path = get_self_path()
-    if plot_type>=3:
-        import pyrate_lib.lib_DD_likelihood as lib_DD_likelihood
-        import pyrate_lib.lib_utilities as lib_utilities
-        import pyrate_lib.rtt_plot_bds as rtt_plot_bds
-        if plot_type==3:
-            if grid_plot==0: grid_plot=1
-            rtt_plot_bds.RTTplot_high_res(path_dir_log_files,grid_plot,int(burnin),root_plot)
-        elif plot_type==4:
-            rtt_plot_bds = rtt_plot_bds.plot_marginal_rates(path_dir_log_files,name_tag=file_stem,bin_size=grid_plot,
-                    burnin=burnin,min_age=args.min_age_plot,max_age=root_plot,logT=args.logT,n_reps=args.n_prior)
-        elif plot_type== 5:
-            rtt_plot_bds = rtt_plot_bds.RTTplot_Q(path_dir_log_files,args.qShift,burnin=burnin,max_age=root_plot)
-        #except: sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
-        #You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
-
-    else:
-        #path_dir_log_files=sort(path_dir_log_files)
-        # plot each file separately
-        print(root_plot)
-        if file_stem == "":
-            path_dir_log_files = os.path.abspath(path_dir_log_files)
-            direct="%s/*marginal_rates.log" % path_dir_log_files
-            files=glob.glob(direct)
-            files=sort(files)
-            if len(files)==0:
-                if 2>1: #try:
-                    name_file = os.path.splitext(os.path.basename(str(path_dir_log_files)))[0]
-                    path_dir_log_files = os.path.dirname(str(path_dir_log_files))
-                    name_file = name_file.split("marginal_rates")[0]
-                    one_file= 1
-                    plot_RTT(path_dir_log_files, burnin, name_file,one_file,root_plot,plot_type)
-                #except: sys.exit("\nFile or directory not recognized.\n")
+        except:
+            if TDI==3:
+                fixed_times_of_shift=np.arange(0,10000,args.dpp_grid)[::-1] # run fixed_times_of_shift[fixed_times_of_shift<max(FA)] below
+                fixed_times_of_shift=fixed_times_of_shift[:-1]              # after loading input file
+                f_shift=0
+                time_framesL=len(fixed_times_of_shift)+1
+                time_framesM=len(fixed_times_of_shift)+1
+                min_allowed_t=0
+                fix_Shift = 1
             else:
-                for f in files:
-                    name_file = os.path.splitext(os.path.basename(f))[0]
-                    name_file = name_file.split("marginal_rates")[0]
-                    one_file = 0
-                    plot_RTT(path_dir_log_files, burnin, name_file,one_file,root_plot,plot_type)
+                msg = "\nError in the input file %s.\n" % (args.fixShift)
+                sys.exit(msg)
+    else:
+        fixed_times_of_shift=[]
+        fix_Shift = 0
+
+    if args.edgeShift[0] != np.inf or args.edgeShift[1] != 0:
+        edgeShifts = []
+        if args.edgeShift[0] != np.inf: # max boundary
+            edgeShifts.append(args.edgeShift[0])
+            fix_edgeShift = 2
+            min_allowed_n_rates = 2
+        if args.edgeShift[1] != 0: # min boundary
+            edgeShifts.append(args.edgeShift[1])
+            fix_edgeShift = 3
+            min_allowed_n_rates = 2
+        if len(edgeShifts)==2: # min and max boundaries
+            fix_edgeShift = 1
+            min_allowed_n_rates = 3
+        time_framesL = max(min_allowed_n_rates,args.mL) # change number of starting rates based on edgeShifts
+        time_framesM = max(min_allowed_n_rates,args.mM) # change number of starting rates based on edgeShifts
+        edgeShifts = np.array(edgeShifts)*args.rescale+args.translate
+    else:
+        fix_edgeShift = 0
+        min_allowed_n_rates = 1
+
+    # BDMCMC & MCMC SETTINGS
+    runs=args.r              # no. parallel MCMCs (MC3)
+    if runs>1 and TDI>0:
+        print("\nWarning: MC3 algorithm is not available for TI and BDMCMC. Using a single chain instead.\n")
+        runs,TDI=1,0
+    num_proc = runs          # processors MC3
+    temp_pr=args.t           # temperature MC3
+    IT=args.sw
+    freq_Alg_3_1=args.M      # frequency of model update
+    birthRate=args.B         # birthRate (=Poisson prior)
+    len_cont_time=args.T     # length continuous time of model update
+    start_Alg_3_1=args.S     # start sampling model after
+
+
+    if runs==1 or use_seq_lik == 1:
+        IT=mcmc_gen
+
+    if TDI==1:                # Xie et al. 2011; Baele et al. 2012
+        K=args.k-1.        # K+1 categories
+        k=array(list(range(int(K+1))))
+        beta=k/K
+        alpha=args.a            # categories are beta distributed
+        temperatures=list(beta**(1./alpha))
+        temperatures[0]+= small_number # avoid exactly 0 temp
+        temperatures.reverse()
+        if multiR==0: # tune win sizes only if sliding win proposals
+            list_d3=sort(exp(temperatures))**2.5*d3+(exp(1-array(temperatures))-1)*d3
         else:
-            one_file = 0
-            plot_RTT(path_dir_log_files, burnin, file_stem,one_file,root_plot,plot_type)
-    quit()
-elif args.mProb != "": calc_model_probabilities(args.mProb,burnin)
-elif len(list_files_BF):
-    print(list_files_BF[0])
-    if len(list_files_BF)==1: calc_BFlist(list_files_BF[0])
-    else: calc_BF(list_files_BF[0],list_files_BF[1])
-        #
-    #    sys.exit("\n2 '*marginal_likelihood.txt' files required.\n")
-    quit()
-elif args.combLog != "": # COMBINE LOG FILES
-    comb_log_files(args.combLog,burnin,args.tag,resample=args.resample,col_tag=args.col_tag)
-    sys.exit("\n")
-elif args.combLogRJ != "": # COMBINE LOG FILES
-    comb_log_files_smart(args.combLogRJ,burnin,args.tag,resample=args.resample,col_tag=args.col_tag)
-    sys.exit("\n")
-elif len(args.input_data)==0 and args.d == "": sys.exit("\nInput file required. Use '-h' for command list.\n")
+            list_d3=np.repeat(d3,len(temperatures))
+        list_d4=sort(exp(temperatures))**1.5*d4+exp(1-array(temperatures))-1
+    else:
+        temperatures=[1]
+        list_d3=[d3]
+        list_d4=[d4]
 
-use_se_tbl = 0
-if args.d != "":
-    use_se_tbl = 1
-    se_tbl_file  = args.d
+    # ARGS DPP
+    freq_dpp       = args.dpp_f
+    hp_gamma_shape = args.dpp_hp
+    target_k       = args.dpp_eK
 
-if len(args.SE_stats)>0:
-    if use_se_tbl == 0: sys.exit("\nProvide an SE table using command -d\n")
-    #if len(args.SE_stats)<1: sys.exit("\nExtinction rate at the present\n")
-    #else:
-    try: EXT_RATE  = float(args.SE_stats[0])
-    except: EXT_RATE = 0
-    if EXT_RATE==0: print("\nExtinction rate set to 0: using estimator instead.\n")
-    if len(args.SE_stats)>1: step_size = args.SE_stats[1]
-    else: step_size = 1
-    if len(args.SE_stats)>2: no_sim_ex_time = args.SE_stats[2]
-    else: no_sim_ex_time = 100
-    plot_tste_stats(se_tbl_file, EXT_RATE, step_size,no_sim_ex_time,burnin,args.rescale)
-    quit()
+    ############### PLOT RTT
+    path_dir_log_files=""
+    if args.plot != "":
+        path_dir_log_files=args.plot
+        plot_type=1
+    elif args.plot2 != "":
+        path_dir_log_files=args.plot2
+        plot_type=2
+    elif args.plot3 != "":
+        path_dir_log_files=args.plot3
+        plot_type=3
+    elif args.plotRJ != "":
+        path_dir_log_files=args.plotRJ
+        plot_type=4
+    elif args.plotQ != "":
+        path_dir_log_files=args.plotQ
+        plot_type=5
+    print(args.plotQ)
 
-if args.ltt>0:
+    list_files_BF=sort(args.BF)
+    file_stem=args.tag
+    root_plot=args.root_plot
     grid_plot = args.grid_plot
-    if grid_plot==0: grid_plot=0.1
-    plot_ltt(se_tbl_file,plot_type=args.ltt,rescale=args.rescale, step_size=grid_plot)
+    if path_dir_log_files != "":
+        self_path = get_self_path()
+        if plot_type>=3:
+            import pyrate_lib.lib_DD_likelihood as lib_DD_likelihood
+            import pyrate_lib.lib_utilities as lib_utilities
+            import pyrate_lib.rtt_plot_bds as rtt_plot_bds
+            if plot_type==3:
+                if grid_plot==0: grid_plot=1
+                rtt_plot_bds.RTTplot_high_res(path_dir_log_files,grid_plot,int(burnin),root_plot)
+            elif plot_type==4:
+                rtt_plot_bds = rtt_plot_bds.plot_marginal_rates(path_dir_log_files,name_tag=file_stem,bin_size=grid_plot,
+                        burnin=burnin,min_age=args.min_age_plot,max_age=root_plot,logT=args.logT,n_reps=args.n_prior)
+            elif plot_type== 5:
+                rtt_plot_bds = rtt_plot_bds.RTTplot_Q(path_dir_log_files,args.qShift,burnin=burnin,max_age=root_plot)
+            #except: sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
+            #You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
 
-twotraitBD = 0
-if args.twotrait == 1:
-    twotraitBD = 1
-
-############################ LOAD INPUT DATA ############################
-match_taxa_trait = 0
-if use_se_tbl==0:
-    input_file_raw = os.path.basename(args.input_data[0])
-    input_file = os.path.splitext(input_file_raw)[0]  # file name without extension
-
-    if args.wd=="":
-        output_wd = os.path.dirname(args.input_data[0])
-        if output_wd=="": output_wd= get_self_path()
-    else: output_wd=args.wd
-
-    print("\n",input_file, args.input_data, "\n")
-    try: 
-        test_spec = importlib.util.spec_from_file_location(input_file,args.input_data[0])
-        input_data_module = importlib.util.module_from_spec(test_spec)
-        test_spec.loader.exec_module(input_data_module)
-    except(IOError): sys.exit("\nInput file required. Use '-h' for command list.\n")
-
-    j=max(args.j-1,0)
-    try: fossil_complete=input_data_module.get_data(j)
-    except(IndexError):
-        fossil_complete=input_data_module.get_data(0)
-        print(("Warning: data set number %s not found. Using the first data set instead." % (args.j)))
-        j=0
-
-    if args.filter_taxa != "":
-        list_included_taxa = [line.rstrip() for line in open(args.filter_taxa)]
-        print("Included taxa:")
-
-    fossil=list()
-    have_record=list()
-    singletons_excluded = list()
-    taxa_included = list()
-    for i in range(len(fossil_complete)):
-        if len(fossil_complete[i])==1 and fossil_complete[i][0]==0: pass # exclude taxa with no fossils
-
-        elif max(fossil_complete[i]) > max(args.filter) or min(fossil_complete[i]) < min(args.filter):
-            print("excluded taxon with age range:",round(max(fossil_complete[i]),3), round(min(fossil_complete[i]),3))
-
-        elif args.singleton == -1: # exclude extant taxa (if twotraitBD == 1: extant (re)moved later)
-            if min(fossil_complete[i])==0 and twotraitBD == 0: singletons_excluded.append(i)
-            else:
-                have_record.append(i)
-                fossil.append(fossil_complete[i]*args.rescale+args.translate)
-                taxa_included.append(i)
-
-        elif args.translate < 0: # exclude recent taxa after 'translating' records towards zero
-            if max(fossil_complete[i]*args.rescale+args.translate)<=0: singletons_excluded.append(i)
-            else:
-                have_record.append(i)
-                fossil_occ_temp = fossil_complete[i]*args.rescale+args.translate
-                fossil_occ_temp[fossil_occ_temp<0] = 0.0
-                fossil.append(np.unique(fossil_occ_temp[fossil_occ_temp>=0]))
-                taxa_included.append(i)
-
-
-        elif args.singleton > 0: # min number of occurrences
-            if len(fossil_complete[i]) <= args.singleton and np.random.random() >= args.frac_sampled_singleton:
-                singletons_excluded.append(i)
-            else:
-                have_record.append(i) # some (extant) species may have trait value but no fossil record
-                fossil.append(fossil_complete[i]*args.rescale+args.translate)
-                taxa_included.append(i)
-        elif args.filter_taxa != "": # keep only taxa within list
-            taxa_names_temp=input_data_module.get_taxa_names()
-            if taxa_names_temp[i] in list_included_taxa:
-                have_record.append(i) # some (extant) species may have trait value but no fossil record
-                fossil.append(fossil_complete[i]*args.rescale+args.translate)
-                taxa_included.append(i)
-                print(taxa_names_temp[i])
-            else: singletons_excluded.append(i)
         else:
-            have_record.append(i) # some (extant) species may have trait value but no fossil record
-            fossil.append(fossil_complete[i]*args.rescale+args.translate)
-            taxa_included.append(i)
-    if len(singletons_excluded)>0 and args.data_info == 0: print("The analysis includes %s species (%s were excluded)" % (len(fossil),len(singletons_excluded)))
-    else: print("\nThe analysis includes %s species (%s were excluded)" % (len(fossil),len(fossil_complete)-len(fossil)))
-    out_name=input_data_module.get_out_name(j) +args.out
+            #path_dir_log_files=sort(path_dir_log_files)
+            # plot each file separately
+            print(root_plot)
+            if file_stem == "":
+                path_dir_log_files = os.path.abspath(path_dir_log_files)
+                direct="%s/*marginal_rates.log" % path_dir_log_files
+                files=glob.glob(direct)
+                files=sort(files)
+                if len(files)==0:
+                    if 2>1: #try:
+                        name_file = os.path.splitext(os.path.basename(str(path_dir_log_files)))[0]
+                        path_dir_log_files = os.path.dirname(str(path_dir_log_files))
+                        name_file = name_file.split("marginal_rates")[0]
+                        one_file= 1
+                        plot_RTT(path_dir_log_files, burnin, name_file,one_file,root_plot,plot_type)
+                    #except: sys.exit("\nFile or directory not recognized.\n")
+                else:
+                    for f in files:
+                        name_file = os.path.splitext(os.path.basename(f))[0]
+                        name_file = name_file.split("marginal_rates")[0]
+                        one_file = 0
+                        plot_RTT(path_dir_log_files, burnin, name_file,one_file,root_plot,plot_type)
+            else:
+                one_file = 0
+                plot_RTT(path_dir_log_files, burnin, file_stem,one_file,root_plot,plot_type)
+        quit()
+    elif args.mProb != "": calc_model_probabilities(args.mProb,burnin)
+    elif len(list_files_BF):
+        print(list_files_BF[0])
+        if len(list_files_BF)==1: calc_BFlist(list_files_BF[0])
+        else: calc_BF(list_files_BF[0],list_files_BF[1])
+            #
+        #    sys.exit("\n2 '*marginal_likelihood.txt' files required.\n")
+        quit()
+    elif args.combLog != "": # COMBINE LOG FILES
+        comb_log_files(args.combLog,burnin,args.tag,resample=args.resample,col_tag=args.col_tag)
+        sys.exit("\n")
+    elif args.combLogRJ != "": # COMBINE LOG FILES
+        comb_log_files_smart(args.combLogRJ,burnin,args.tag,resample=args.resample,col_tag=args.col_tag)
+        sys.exit("\n")
+    elif len(args.input_data)==0 and args.d == "": sys.exit("\nInput file required. Use '-h' for command list.\n")
 
-    try:
-        taxa_names=input_data_module.get_taxa_names()
-        match_taxa_trait = 1
-    except(AttributeError):
-        taxa_names=list()
-        for i in range(len(fossil)): taxa_names.append("taxon_%s" % (i))
+    use_se_tbl = 0
+    if args.d != "":
+        use_se_tbl = 1
+        se_tbl_file  = args.d
 
-    #print singletons_excluded
-    taxa_included = np.array(taxa_included)
-    taxa_names = np.array(taxa_names)
-    taxa_names = taxa_names[taxa_included]
+    if len(args.SE_stats)>0:
+        if use_se_tbl == 0: sys.exit("\nProvide an SE table using command -d\n")
+        #if len(args.SE_stats)<1: sys.exit("\nExtinction rate at the present\n")
+        #else:
+        try: EXT_RATE  = float(args.SE_stats[0])
+        except: EXT_RATE = 0
+        if EXT_RATE==0: print("\nExtinction rate set to 0: using estimator instead.\n")
+        if len(args.SE_stats)>1: step_size = args.SE_stats[1]
+        else: step_size = 1
+        if len(args.SE_stats)>2: no_sim_ex_time = args.SE_stats[2]
+        else: no_sim_ex_time = 100
+        plot_tste_stats(se_tbl_file, EXT_RATE, step_size,no_sim_ex_time,burnin,args.rescale)
+        quit()
 
-    FA,LO,N=np.zeros(len(fossil)),np.zeros(len(fossil)),np.zeros(len(fossil))
-    array_all_fossils = []
-    for i in range(len(fossil)):
-        FA[i]=max(fossil[i])
-        LO[i]=min(fossil[i])
-        N[i]=len(fossil[i])
-        array_all_fossils = array_all_fossils + list(fossil[i])
-    array_all_fossils = np.array(array_all_fossils)
+    if args.ltt>0:
+        grid_plot = args.grid_plot
+        if grid_plot==0: grid_plot=0.1
+        plot_ltt(se_tbl_file,plot_type=args.ltt,rescale=args.rescale, step_size=grid_plot)
 
-else:
-    print(se_tbl_file)
-    t_file=np.loadtxt(se_tbl_file, skiprows=1)
-    print(np.shape(t_file))
-    j=max(args.j-1,0)
-    FA=t_file[:,2+2*j]*args.rescale+args.translate
-    LO=t_file[:,3+2*j]*args.rescale+args.translate
-    focus_clade=args.clade
-    clade_ID=t_file[:,0].astype(int)
-    if focus_clade>=0: FA,LO=FA[clade_ID==focus_clade],LO[clade_ID==focus_clade]
-    print(j, len(FA), "species")
-    fix_SE= 1
-    fixed_ts, fixed_te=FA, LO
-    output_wd = os.path.dirname(se_tbl_file)
-    if output_wd=="": output_wd= get_self_path()
-    out_name="%s_%s_%s"  % (os.path.splitext(os.path.basename(se_tbl_file))[0],j,args.out)
-    if focus_clade>=0: out_name+= "_c%s" % (focus_clade)
+    twotraitBD = 0
+    if args.twotrait == 1:
+        twotraitBD = 1
 
-if args.restore_mcmc != "":
-    restore_init_values = get_init_values(args.restore_mcmc,taxa_names)
-    restore_chain = 1
-else: restore_chain = 0
-
-
-if args.se_gibbs: 
-    if argsHPP == 1:
-        times_q_shift = np.array([np.max(FA), 0])
-
-
-###### SET UP BD MODEL WITH STARTING NUMBER OF LINEAGES > 1
-no_starting_lineages = args.initDiv
-max_age_fixed_ts = max(FA)
-
-if no_starting_lineages>0:
+    ############################ LOAD INPUT DATA ############################
+    match_taxa_trait = 0
     if use_se_tbl==0:
-        sys.exit("Starting lineages > 1 only allowed with -d option")
-    if model_cov>=1:
-        sys.exit("Starting lineages > 1 only allowed with -d option")
-    #print sort(fixed_ts)
-    fixed_ts_ordered = np.sort(fixed_ts+0.)[::-1]
-    fixed_ts_ordered_not_speciation = fixed_ts_ordered[0:no_starting_lineages]
-    ind = np.array([i for i in range(len(fixed_ts)) if fixed_ts[i] in fixed_ts_ordered_not_speciation])
-    fixed_ts[ind] = max_age_fixed_ts
-    #print sort(fixed_ts)
+        input_file_raw = os.path.basename(args.input_data[0])
+        input_file = os.path.splitext(input_file_raw)[0]  # file name without extension
 
-################
+        if args.wd=="":
+            output_wd = os.path.dirname(args.input_data[0])
+            if output_wd=="": output_wd= get_self_path()
+        else: output_wd=args.wd
 
-if argsG == 1: out_name += "_G"
-if args.se_gibbs: out_name += "_seGibbs"
+        print("\n",input_file, args.input_data, "\n")
+        try: 
+            test_spec = importlib.util.spec_from_file_location(input_file,args.input_data[0])
+            input_data_module = importlib.util.module_from_spec(test_spec)
+            test_spec.loader.exec_module(input_data_module)
+        except(IOError): sys.exit("\nInput file required. Use '-h' for command list.\n")
 
-############################ SET BIRTH-DEATH MODEL ############################
+        j=max(args.j-1,0)
+        try: fossil_complete=input_data_module.get_data(j)
+        except(IndexError):
+            fossil_complete=input_data_module.get_data(0)
+            print(("Warning: data set number %s not found. Using the first data set instead." % (args.j)))
+            j=0
 
-# Number of extant taxa (user specified)
-if args.N > -1: tot_extant=args.N
-else: tot_extant = -1
+        if args.filter_taxa != "":
+            list_included_taxa = [line.rstrip() for line in open(args.filter_taxa)]
+            print("Included taxa:")
+
+        fossil=list()
+        have_record=list()
+        singletons_excluded = list()
+        taxa_included = list()
+        for i in range(len(fossil_complete)):
+            if len(fossil_complete[i])==1 and fossil_complete[i][0]==0: pass # exclude taxa with no fossils
+
+            elif max(fossil_complete[i]) > max(args.filter) or min(fossil_complete[i]) < min(args.filter):
+                print("excluded taxon with age range:",round(max(fossil_complete[i]),3), round(min(fossil_complete[i]),3))
+
+            elif args.singleton == -1: # exclude extant taxa (if twotraitBD == 1: extant (re)moved later)
+                if min(fossil_complete[i])==0 and twotraitBD == 0: singletons_excluded.append(i)
+                else:
+                    have_record.append(i)
+                    fossil.append(fossil_complete[i]*args.rescale+args.translate)
+                    taxa_included.append(i)
+
+            elif args.translate < 0: # exclude recent taxa after 'translating' records towards zero
+                if max(fossil_complete[i]*args.rescale+args.translate)<=0: singletons_excluded.append(i)
+                else:
+                    have_record.append(i)
+                    fossil_occ_temp = fossil_complete[i]*args.rescale+args.translate
+                    fossil_occ_temp[fossil_occ_temp<0] = 0.0
+                    fossil.append(np.unique(fossil_occ_temp[fossil_occ_temp>=0]))
+                    taxa_included.append(i)
 
 
-if len(fixed_times_of_shift)>0:
-    fixed_times_of_shift=fixed_times_of_shift[fixed_times_of_shift<max(FA)]
-    # fixed number of dpp bins
-    if args.dpp_nB>0:
-        t_bin_set = np.linspace(0,max(FA),args.dpp_nB+1)[::-1]
-        fixed_times_of_shift = t_bin_set[1:len(t_bin_set)-1]
-    time_framesL=len(fixed_times_of_shift)+1
-    time_framesM=len(fixed_times_of_shift)+1
-    # estimate DPP hyperprior
-    hp_gamma_rate  = get_rate_HP(time_framesL,target_k,hp_gamma_shape)
+            elif args.singleton > 0: # min number of occurrences
+                if len(fossil_complete[i]) <= args.singleton and np.random.random() >= args.frac_sampled_singleton:
+                    singletons_excluded.append(i)
+                else:
+                    have_record.append(i) # some (extant) species may have trait value but no fossil record
+                    fossil.append(fossil_complete[i]*args.rescale+args.translate)
+                    taxa_included.append(i)
+            elif args.filter_taxa != "": # keep only taxa within list
+                taxa_names_temp=input_data_module.get_taxa_names()
+                if taxa_names_temp[i] in list_included_taxa:
+                    have_record.append(i) # some (extant) species may have trait value but no fossil record
+                    fossil.append(fossil_complete[i]*args.rescale+args.translate)
+                    taxa_included.append(i)
+                    print(taxa_names_temp[i])
+                else: singletons_excluded.append(i)
+            else:
+                have_record.append(i) # some (extant) species may have trait value but no fossil record
+                fossil.append(fossil_complete[i]*args.rescale+args.translate)
+                taxa_included.append(i)
+        if len(singletons_excluded)>0 and args.data_info == 0: print("The analysis includes %s species (%s were excluded)" % (len(fossil),len(singletons_excluded)))
+        else: print("\nThe analysis includes %s species (%s were excluded)" % (len(fossil),len(fossil_complete)-len(fossil)))
+        out_name=input_data_module.get_out_name(j) +args.out
 
+        try:
+            taxa_names=input_data_module.get_taxa_names()
+            match_taxa_trait = 1
+        except(AttributeError):
+            taxa_names=list()
+            for i in range(len(fossil)): taxa_names.append("taxon_%s" % (i))
 
+        #print singletons_excluded
+        taxa_included = np.array(taxa_included)
+        taxa_names = np.array(taxa_names)
+        taxa_names = taxa_names[taxa_included]
 
-if args.fixSE != "" or use_se_tbl==1:          # fix TS, TE
-    if use_se_tbl==1: pass
+        FA,LO,N=np.zeros(len(fossil)),np.zeros(len(fossil)),np.zeros(len(fossil))
+        array_all_fossils = []
+        for i in range(len(fossil)):
+            FA[i]=max(fossil[i])
+            LO[i]=min(fossil[i])
+            N[i]=len(fossil[i])
+            array_all_fossils = array_all_fossils + list(fossil[i])
+        array_all_fossils = np.array(array_all_fossils)
+
     else:
-        fix_SE=1
-        fixed_ts, fixed_te= calc_ts_te(args.fixSE, burnin=args.b)
-else: fix_SE=0
+        print(se_tbl_file)
+        t_file=np.loadtxt(se_tbl_file, skiprows=1)
+        print(np.shape(t_file))
+        j=max(args.j-1,0)
+        FA=t_file[:,2+2*j]*args.rescale+args.translate
+        LO=t_file[:,3+2*j]*args.rescale+args.translate
+        focus_clade=args.clade
+        clade_ID=t_file[:,0].astype(int)
+        if focus_clade>=0: FA,LO=FA[clade_ID==focus_clade],LO[clade_ID==focus_clade]
+        print(j, len(FA), "species")
+        fix_SE= 1
+        fixed_ts, fixed_te=FA, LO
+        output_wd = os.path.dirname(se_tbl_file)
+        if output_wd=="": output_wd= get_self_path()
+        out_name="%s_%s_%s"  % (os.path.splitext(os.path.basename(se_tbl_file))[0],j,args.out)
+        if focus_clade>=0: out_name+= "_c%s" % (focus_clade)
 
-if args.discrete == 1: useDiscreteTraitModel = 1
-else: useDiscreteTraitModel = 0
+    if args.restore_mcmc != "":
+        restore_init_values = get_init_values(args.restore_mcmc,taxa_names)
+        restore_chain = 1
+    else: restore_chain = 0
 
-useBounded_BD = 0
-if args.bound[0] != np.inf or args.bound[1] != 0:
-    useBounded_BD = 1
-boundMax = max(args.bound) # if not specified it is set to Inf
-boundMin = min(args.bound) # if not specified it is set to 0
 
-# Get trait values (COVAR and DISCRETE models)
-if model_cov>=1 or useDiscreteTraitModel == 1 or useBounded_BD == 1:
-    if 2>1: #try:
-        if args.trait_file != "": # Use trait file
+    if args.se_gibbs: 
+        if argsHPP == 1:
+            times_q_shift = np.array([np.max(FA), 0])
+
+
+    ###### SET UP BD MODEL WITH STARTING NUMBER OF LINEAGES > 1
+    no_starting_lineages = args.initDiv
+    max_age_fixed_ts = max(FA)
+
+    if no_starting_lineages>0:
+        if use_se_tbl==0:
+            sys.exit("Starting lineages > 1 only allowed with -d option")
+        if model_cov>=1:
+            sys.exit("Starting lineages > 1 only allowed with -d option")
+        #print sort(fixed_ts)
+        fixed_ts_ordered = np.sort(fixed_ts+0.)[::-1]
+        fixed_ts_ordered_not_speciation = fixed_ts_ordered[0:no_starting_lineages]
+        ind = np.array([i for i in range(len(fixed_ts)) if fixed_ts[i] in fixed_ts_ordered_not_speciation])
+        fixed_ts[ind] = max_age_fixed_ts
+        #print sort(fixed_ts)
+
+    ################
+
+    if argsG == 1: out_name += "_G"
+    if args.se_gibbs: out_name += "_seGibbs"
+
+    ############################ SET BIRTH-DEATH MODEL ############################
+
+    # Number of extant taxa (user specified)
+    if args.N > -1: tot_extant=args.N
+    else: tot_extant = -1
+
+
+    if len(fixed_times_of_shift)>0:
+        fixed_times_of_shift=fixed_times_of_shift[fixed_times_of_shift<max(FA)]
+        # fixed number of dpp bins
+        if args.dpp_nB>0:
+            t_bin_set = np.linspace(0,max(FA),args.dpp_nB+1)[::-1]
+            fixed_times_of_shift = t_bin_set[1:len(t_bin_set)-1]
+        time_framesL=len(fixed_times_of_shift)+1
+        time_framesM=len(fixed_times_of_shift)+1
+        # estimate DPP hyperprior
+        hp_gamma_rate  = get_rate_HP(time_framesL,target_k,hp_gamma_shape)
+
+
+
+    if args.fixSE != "" or use_se_tbl==1:          # fix TS, TE
+        if use_se_tbl==1: pass
+        else:
+            fix_SE=1
+            fixed_ts, fixed_te= calc_ts_te(args.fixSE, burnin=args.b)
+    else: fix_SE=0
+
+    if args.discrete == 1: useDiscreteTraitModel = 1
+    else: useDiscreteTraitModel = 0
+
+    useBounded_BD = 0
+    if args.bound[0] != np.inf or args.bound[1] != 0:
+        useBounded_BD = 1
+    boundMax = max(args.bound) # if not specified it is set to Inf
+    boundMin = min(args.bound) # if not specified it is set to 0
+
+    # Get trait values (COVAR and DISCRETE models)
+    if model_cov>=1 or useDiscreteTraitModel == 1 or useBounded_BD == 1:
+        if 2>1: #try:
+            if args.trait_file != "": # Use trait file
+                traitfile=open(args.trait_file, 'r')
+
+                L=traitfile.readlines()
+                head= L[0].split()
+
+                if useBounded_BD == 1: # columns: taxon_name, SP, EX (SP==1 if speciate in window)
+                    trait_val=[l.split()[1:3] for l in L][1:]
+                else:
+                    if len(head)==2: col=1
+                    elif len(head)==3: col=2 ####  CHECK HERE: WITH BOUNDED-BD 3 columns but two traits!
+                    else: sys.exit("\nNo trait data found!")
+                    trait_val=[l.split()[col] for l in L][1:]
+
+                if useBounded_BD == 1:
+                    trait_values = np.array(trait_val)
+                    trait_values = trait_values.astype(float)
+                else:
+                    trait_values = np.zeros(len(trait_val))
+                    trait_count = 0
+                    for i in range(len(trait_val)):
+                        try:
+                            trait_values[i] = float(trait_val[i])
+                            trait_count+=1
+                        except:
+                            trait_values[i] = np.nan
+                    if trait_count==0: sys.exit("\nNo trait data found.")
+
+                if match_taxa_trait == 1:
+                    trait_taxa=np.array([l.split()[0] for l in L][1:])
+                    #print taxa_names
+                    #print sort(trait_taxa)
+                    matched_trait_values = []
+                    for i in range(len(taxa_names)):
+                        taxa_name=taxa_names[i]
+                        matched_val = trait_values[trait_taxa==taxa_name]
+                        if len(matched_val)>0:
+                            matched_trait_values.append(matched_val[0])
+                            print("matched taxon: %s\t%s\t%s" % (taxa_name, matched_val[0], max(fossil[i])-min(fossil[i])))
+                        else:
+                            if useBounded_BD == 1: # taxa not specified originate/go_extinct in window
+                                matched_trait_values.append([1,1])
+                            else:
+                                matched_trait_values.append(np.nan)
+                            #print taxa_name, "did not have data"
+                    trait_values= np.array(matched_trait_values)
+                    #print trait_values
+
+            else:             # Trait data from .py file
+                trait_values=input_data_module.get_continuous(max(args.trait-1,0))
+            #
+            if twotraitBD == 1:
+                trait_values=input_data_module.get_continuous(0)
+                discrete_trait=input_data_module.get_continuous(1)
+                discrete_trait=discrete_trait[taxa_included]
+
+                #print discrete_trait
+                #print len(np.isfinite(discrete_trait).nonzero()[0])
+                if args.singleton == -1:
+                    ind_extant_sp =(LO==0).nonzero()[0]
+                    print("Treating %s extant taxa as missing discrete data" % (len(ind_extant_sp)))
+                    #temp_trait = discrete_trait+0 #np.zeros(len(discrete_trait))*discrete_trait
+                    discrete_trait[ind_extant_sp]=np.nan
+                    #discrete_trait = temp_trait
+                    #print len(np.isfinite(discrete_trait).nonzero()[0])
+                    #print discrete_trait
+
+            if model_cov>=1:
+                if args.logT==0: pass
+                elif args.logT==1: trait_values = log(trait_values)
+                else: trait_values = np.log10(trait_values)
+        #except: sys.exit("\nTrait data not found! Check input file.\n")
+
+        if model_cov>=1:
+            # Mid point age of each lineage
+            if use_se_tbl==1: MidPoints = (fixed_ts+fixed_te)/2.
+            else:
+                MidPoints=np.zeros(len(fossil_complete))
+                for i in range(len(fossil_complete)):
+                    MidPoints[i]=np.mean([max(fossil_complete[i]),min(fossil_complete[i])])
+
+            try: 
+                MidPoints = MidPoints[taxa_included]
+            except: 
+                print("\nAssuming taxa in the same order in the tste file and in the trait file!\n")
+                taxa_names = ["taxon_%s" % i for i in range(len(trait_values))]
+                have_record = np.ones(len(trait_values))
+            # fit linear regression (for species with trait value - even if without fossil data)
+            print(len(trait_values), len(np.isfinite(trait_values)), len(taxa_names), len(MidPoints), len(have_record))
+            slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(MidPoints[np.isfinite(trait_values)],trait_values[np.isfinite(trait_values)])
+
+            #
+            ind_nan_trait= (np.isfinite(trait_values)== 0).nonzero()
+            meanGAUScomplete=np.zeros(len(MidPoints))
+            meanGAUScomplete[ind_nan_trait] = slope*MidPoints[ind_nan_trait] + intercept
+
+            if use_se_tbl==1 or args.trait_file != "": meanGAUS= meanGAUScomplete
+            else:
+                trait_values= trait_values[np.array(have_record)]
+                meanGAUS= meanGAUScomplete[np.array(have_record)]
+
+            sdGAUS = std_err
+            regression_trait= "\n\nEstimated linear trend trait-value: \nslope=%s; sd. error= %s (intercept= %s; R2= %s; P-value= %s\nTrait data for %s of %s taxa)" \
+            % (round(slope,2), round(std_err,2), round(intercept,2), round(r_value,2), round(p_value,2), len(trait_values)-len(ind_nan_trait[0]), len(trait_values))
+            print(regression_trait)
+
+            #print trait_values
+            parGAUS=scipy.stats.norm.fit(trait_values[np.isfinite(trait_values)]) # fit normal distribution
+            #global con_trait
+            con_trait=seed_missing(trait_values,meanGAUS,sdGAUS) # fill the gaps (missing data)
+            #print con_trait
+            if est_COVAR_prior == 1: out_name += "_COVhp"
+            else: out_name += "_COV"
+
+        if useDiscreteTraitModel == 1:
+            if twotraitBD == 0:
+                discrete_trait = trait_values
+            ind_nan_trait= (np.isfinite(discrete_trait)== 0).nonzero()
+            regression_trait= "\n\nDiscrete trait data for %s of %s taxa" \
+            % (len(trait_values)-len(ind_nan_trait[0]), len(trait_values))
+            print(regression_trait)
+        else: print("\n")
+
+
+    if useDiscreteTraitModel == 1:
+        ind_trait_species = discrete_trait
+        print(ind_trait_species)
+        ind_trait_species[np.isnan(ind_trait_species)]=np.nanmax(ind_trait_species)+1
+        print(ind_trait_species)
+        ind_trait_species = ind_trait_species.astype(int)
+        len_trait_values = len(np.unique(discrete_trait))
+        lengths_B_events=[]
+        lengths_D_events=[]
+        for i in range(len_trait_values):
+            lengths_B_events.append(len(discrete_trait[discrete_trait==i]))
+            lo_temp = LO[discrete_trait==i]
+            lengths_D_events.append(len(lo_temp[lo_temp>0]))
+        lengths_B_events = np.array([sum(lengths_B_events)]) # ASSUME CONST BIRTH RATE
+        #lengths_B_events = np.array(lengths_D_events)
+        lengths_D_events = np.array(lengths_D_events)
+        #ind_trait_species = ind_trait_species-ind_trait_species
+        print(lengths_B_events, lengths_D_events)
+        obs_S = [sum(FA[ind_trait_species==i]-LO[ind_trait_species==i]) for i in range(len(lengths_B_events))]
+        print(obs_S)
+        TDI = 0
+
+    use_poiD=args.mPoiD
+    if use_poiD == 1:
+        BPD_partial_lik = PoiD_partial_lik
+        PoiD_const = - (sum(log(np.arange(1,len(FA)+1))))
+    elif useBounded_BD == 1:
+        BPD_partial_lik = BD_partial_lik_bounded
+        PoiD_const = 0
+        SP_in_window = (trait_values[:,0]==1).nonzero()[0]
+        EX_in_window = (trait_values[:,1]==1).nonzero()[0]
+        SP_not_in_window = (trait_values[:,0]==0).nonzero()[0]
+        EX_not_in_window = (trait_values[:,1]==0).nonzero()[0]
+        #print SP_in_window, EX_in_window
+        ###### NEXT: change function update_ts_te() so that only SP/EX_in_win are updated
+        # make sure the starting points are set to win boundaries for the other species and
+        # within boundaries for SP/EX_in_win
+        argsHPP = 1 # only HPP can be used with bounded BD
+    else:
+        BPD_partial_lik = BD_partial_lik
+        PoiD_const = 0
+        SP_in_window = np.arange(len(FA)) # all ts/te can be updated
+        EX_in_window = np.arange(len(LO))
+        SP_not_in_window = []
+        EX_not_in_window = []
+
+    if args.mDeath == 1: use_Death_model = 1
+    else: use_Death_model= 0
+
+    if args.mBirth >= 0:
+        use_Birth_model = 1
+        init_M_rate = args.mBirth
+    else:
+        use_Birth_model = 0
+
+
+    # USE BDI subMODELS
+    model_BDI=args.mBDI
+    if model_BDI >=0:
+        try: ts,te = fixed_ts, fixed_te
+        except: sys.exit("\nYou must use options -fixSE or -d to run BDI submodels.")
+        z=np.zeros(len(te))+2
+        z[te==0] = 3
+        te_orig = te+0.
+        te= te[te>0]  # ignore extant
+        z = z[z==2]   # ignore extant
+        all_events_temp= np.array([np.concatenate((ts,te),axis=0),np.concatenate((np.zeros(len(ts))+1,z),axis=0)])
+        idx = np.argsort(all_events_temp[0])[::-1] # get indexes of sorted events
+        all_events_array=all_events_temp[:,idx] # sort by time of event
+        #print all_events_array
+        all_events = all_events_array[0,:]
+        dT_events= -(np.diff(np.append(all_events,0)))
+
+        #div_trajectory =get_DT(np.append(all_events,0),ts,te_orig)
+        #div_trajectory =div_trajectory[1:]
+        div_traj = np.zeros(len(ts)+len(te))
+        current_div,j = 0,0
+        for i in all_events_array[1]:
+            if i == 1: current_div+=1
+            if i == 2: current_div-=1
+            div_traj[j] = current_div
+            j+=1
+
+        #j=0
+        #for i in all_events_array[0]:
+        #    print i, "\t", div_trajectory[j],  "\t", div_traj[j], "\t",dT_events[j]
+        #    j+=1
+        div_trajectory=div_traj
+        #print div_traj
+        BPD_partial_lik = BDI_partial_lik
+        if model_BDI==0: out_name += "BD"
+        if model_BDI==1: out_name += "ID"
+        if TDI<2: out_name = "%s%s%s" % (out_name,time_framesL,time_framesM)
+
+
+    # SET UO AGE DEP. EXTINCTION MODEL
+    use_ADE_model = 0
+    if args.ADE == 1:
+        use_ADE_model = 1
+        BPD_partial_lik = BD_age_partial_lik
+        out_name += "_ADE"
+        argsHPP = 1
+
+    if args.ADE == 2:
+        use_ADE_model = 2
+        BPD_partial_lik = BD_age_partial_lik
+        out_name += "_CorrBD"
+        argsHPP = 1
+
+    est_hyperP = 0
+    use_cauchy = 0
+    fix_hyperP = 0
+    if sum(args.cauchy) >= 0:
+        hypP_par = np.ones(2)
+        use_cauchy = 1
+        est_hyperP = 1
+        if sum(args.cauchy) > 0:
+            fix_hyperP = 1
+            hypP_par = np.array(args.cauchy) # scale of Cauchy distribution
+    else:
+        hypP_par = np.array([L_lam_m,M_lam_m]) # rate of Gamma distribution
+        if min([L_lam_m,M_lam_m])==0:
+            est_hyperP = 1
+            hypP_par = np.ones(2)
+
+    if use_ADE_model >= 1:
+        hypP_par[1]=0.1
+        tot_extant = -1
+        d_hyperprior[0]=1 # first hyper-prior on sp.rates is not used under ADE, thus not updated (multiplier update =1)
+
+    qFilter=args.qFilter # if set to zero all times of shifts (and preservation rates) are kept, even if they don't have occurrences
+    if args.qShift != "":
+        try: times_q_shift=np.sort(np.loadtxt(args.qShift))[::-1]*args.rescale + args.translate
+        except: times_q_shift=np.array([np.loadtxt(args.qShift)])*args.rescale + args.translate
+        # filter qShift times based on observed time frame
+        if qFilter == 1:
+            times_q_shift=times_q_shift[times_q_shift<max(FA)]
+            times_q_shift=list(times_q_shift[times_q_shift>min(LO)])
+        else: # q outside observed range (sampled from the prior)
+            times_q_shift = list(times_q_shift)
+        time_framesQ=len(times_q_shift)+1
+        occs_sp_bin =list()
+        temp_times_q_shift = np.array(list(times_q_shift)+[max(FA)+1]+[0])
+        for i in range(len(fossil)):
+            occs_temp = fossil[i]
+            h = np.histogram(occs_temp[occs_temp>0],bins=sort( temp_times_q_shift ))[0][::-1]
+            occs_sp_bin.append(h)
+        argsHPP = 1
+        TPP_model = 1
+        print(times_q_shift, max(FA), min(LO))
+    else: TPP_model = 0
+
+
+    if fix_Shift == 1 and use_ADE_model == 0: est_hyperP = 1
+    # define hyper-prior function for BD rates
+    if tot_extant==-1 or TDI ==3 or use_poiD == 1:
+        if use_ADE_model == 0 and fix_Shift == 1 and TDI < 3 and use_cauchy == 1:
+            if est_hyperP == 0 or fix_hyperP == 1:
+                prior_setting= "Using Cauchy priors on the birth-death rates (C_l[0,%s],C_l[0,%s]).\n" % (hypP_par[0],hypP_par[1])
+            else:
+                    prior_setting= "Using Cauchy priors on the birth-death rates (C_l[0,est],C_l[0,est]).\n"
+            get_hyper_priorBD = HPBD1 # cauchy with hyper-priors
+        else:
+            if est_hyperP == 0:
+                prior_setting= "Using Gamma priors on the birth-death rates (G_l[%s,%s], G_m[%s,%s]).\n" % (L_lam_r,hypP_par[0],M_lam_r,hypP_par[1])
+            else:
+                prior_setting= "Using Gamma priors on the birth-death rates (G_l[%s,est], G_m[%s,est]).\n" % (L_lam_r,M_lam_r)
+            get_hyper_priorBD = HPBD2 # gamma
+    else:
+        prior_setting= "Priors on the birth-death rates based on extant diversity (N = %s).\n" % (tot_extant)
+        get_hyper_priorBD = HPBD3 # based on no. extant
+    print(prior_setting)
+
+    if use_poiD == 1:
+        if model_cov>=1:
+            print("PoiD not available with trait correlation. Using BD instead.")
+            BPD_partial_lik = BD_partial_lik
+            PoiD_const = 0
+        if fix_SE== 0:
+            print("PoiD not available with SE estimation. Using BD instead.")
+            BPD_partial_lik = BD_partial_lik
+            PoiD_const = 0
+        if hasFoundPyRateC:
+            print("PoiD not available using FastPyRateC library. Using Python version instead.")
+            hasFoundPyRateC = 0
+
+
+    use_time_as_trait = args.BDNNtimetrait
+    bdnn_const_baseline = args.BDNNconstbaseline
+    out_act_f = get_act_f(args.BDNNoutputfun)
+    hidden_act_f = get_hidden_act_f(args.BDNNactfun)
+    
+    
+    if use_BDNNmodel:
+        # model_cov = 6
+        f_cov_par = [0.4, 0.5,0.9,1]
+        f_update_se = 0.6
+    
+        if bdnn_const_baseline:
+            [f_update_q,f_update_lm,f_update_cov]=f_update_se+ np.array([0.1, 0,1-f_update_se])
+        else:
+            # print([f_update_q,f_update_lm,f_update_cov])
+            [f_update_q,f_update_lm,f_update_cov]=f_update_se+ np.array([0.1, 0.15,1-f_update_se])
+            # print([f_update_q,f_update_lm,f_update_cov])
+
+        n_BDNN_nodes = args.BDNNnodes
+    
+        # load trait data
+        if args.trait_file != "":
             traitfile=open(args.trait_file, 'r')
 
             L=traitfile.readlines()
             head= L[0].split()
 
-            if useBounded_BD == 1: # columns: taxon_name, SP, EX (SP==1 if speciate in window)
-                trait_val=[l.split()[1:3] for l in L][1:]
+            trait_val=[l.split() for l in L][1:]
+
+            trait_values = np.array(trait_val)
+
+            trait_taxa=np.array([l.split()[0] for l in L][1:])
+            matched_trait_values = []
+            for i in range(len(taxa_names)):
+                taxa_name=taxa_names[i]
+                matched_val = trait_values[trait_taxa==taxa_name]
+                if len(matched_val)>0:
+                    matched_trait_values.append(matched_val[0, 1:].astype(float))
+                    # print("matched taxon: %s\t%s\t%s" % (taxa_name, matched_val[0], np.max(fossil[i])-np.min(fossil[i])))
+                else:
+                    matched_trait_values.append(np.nan)
+                    sys.exit( "Species %s did not have data" % taxa_name)
+            trait_values= np.array(matched_trait_values)    
+        else:
+            trait_values = None
+        n_taxa = len(FA)
+    
+        time_vec = np.sort(np.array([np.max(FA), np.min(LO)] + list(fixed_times_of_shift)))[::-1]
+        if args.BDNNtimetrait:
+            if args.BDNNtimetrait == -1:
+                rescaled_time = time_vec/np.max(time_vec)
+                args.BDNNtimetrait = 1/np.max(time_vec)
             else:
-                if len(head)==2: col=1
-                elif len(head)==3: col=2 ####  CHECK HERE: WITH BOUNDED-BD 3 columns but two traits!
-                else: sys.exit("\nNo trait data found!")
-                trait_val=[l.split()[col] for l in L][1:]
-
-            if useBounded_BD == 1:
-                trait_values = np.array(trait_val)
-                trait_values = trait_values.astype(float)
-            else:
-                trait_values = np.zeros(len(trait_val))
-                trait_count = 0
-                for i in range(len(trait_val)):
-                    try:
-                        trait_values[i] = float(trait_val[i])
-                        trait_count+=1
-                    except:
-                        trait_values[i] = np.nan
-                if trait_count==0: sys.exit("\nNo trait data found.")
-
-            if match_taxa_trait == 1:
-                trait_taxa=np.array([l.split()[0] for l in L][1:])
-                #print taxa_names
-                #print sort(trait_taxa)
-                matched_trait_values = []
-                for i in range(len(taxa_names)):
-                    taxa_name=taxa_names[i]
-                    matched_val = trait_values[trait_taxa==taxa_name]
-                    if len(matched_val)>0:
-                        matched_trait_values.append(matched_val[0])
-                        print("matched taxon: %s\t%s\t%s" % (taxa_name, matched_val[0], max(fossil[i])-min(fossil[i])))
-                    else:
-                        if useBounded_BD == 1: # taxa not specified originate/go_extinct in window
-                            matched_trait_values.append([1,1])
-                        else:
-                            matched_trait_values.append(np.nan)
-                        #print taxa_name, "did not have data"
-                trait_values= np.array(matched_trait_values)
-                #print trait_values
-
-        else:             # Trait data from .py file
-            trait_values=input_data_module.get_continuous(max(args.trait-1,0))
-        #
-        if twotraitBD == 1:
-            trait_values=input_data_module.get_continuous(0)
-            discrete_trait=input_data_module.get_continuous(1)
-            discrete_trait=discrete_trait[taxa_included]
-
-            #print discrete_trait
-            #print len(np.isfinite(discrete_trait).nonzero()[0])
-            if args.singleton == -1:
-                ind_extant_sp =(LO==0).nonzero()[0]
-                print("Treating %s extant taxa as missing discrete data" % (len(ind_extant_sp)))
-                #temp_trait = discrete_trait+0 #np.zeros(len(discrete_trait))*discrete_trait
-                discrete_trait[ind_extant_sp]=np.nan
-                #discrete_trait = temp_trait
-                #print len(np.isfinite(discrete_trait).nonzero()[0])
-                #print discrete_trait
-
-        if model_cov>=1:
-            if args.logT==0: pass
-            elif args.logT==1: trait_values = log(trait_values)
-            else: trait_values = np.log10(trait_values)
-    #except: sys.exit("\nTrait data not found! Check input file.\n")
-
-    if model_cov>=1:
-        # Mid point age of each lineage
-        if use_se_tbl==1: MidPoints = (fixed_ts+fixed_te)/2.
+                rescaled_time = time_vec*args.BDNNtimetrait
+            print("rescaled times", rescaled_time, len(rescaled_time))
         else:
-            MidPoints=np.zeros(len(fossil_complete))
-            for i in range(len(fossil_complete)):
-                MidPoints[i]=np.mean([max(fossil_complete[i]),min(fossil_complete[i])])
-
-        try: 
-            MidPoints = MidPoints[taxa_included]
-        except: 
-            print("\nAssuming taxa in the same order in the tste file and in the trait file!\n")
-            taxa_names = ["taxon_%s" % i for i in range(len(trait_values))]
-            have_record = np.ones(len(trait_values))
-        # fit linear regression (for species with trait value - even if without fossil data)
-        print(len(trait_values), len(np.isfinite(trait_values)), len(taxa_names), len(MidPoints), len(have_record))
-        slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(MidPoints[np.isfinite(trait_values)],trait_values[np.isfinite(trait_values)])
-
-        #
-        ind_nan_trait= (np.isfinite(trait_values)== 0).nonzero()
-        meanGAUScomplete=np.zeros(len(MidPoints))
-        meanGAUScomplete[ind_nan_trait] = slope*MidPoints[ind_nan_trait] + intercept
-
-        if use_se_tbl==1 or args.trait_file != "": meanGAUS= meanGAUScomplete
-        else:
-            trait_values= trait_values[np.array(have_record)]
-            meanGAUS= meanGAUScomplete[np.array(have_record)]
-
-        sdGAUS = std_err
-        regression_trait= "\n\nEstimated linear trend trait-value: \nslope=%s; sd. error= %s (intercept= %s; R2= %s; P-value= %s\nTrait data for %s of %s taxa)" \
-        % (round(slope,2), round(std_err,2), round(intercept,2), round(r_value,2), round(p_value,2), len(trait_values)-len(ind_nan_trait[0]), len(trait_values))
-        print(regression_trait)
-
-        #print trait_values
-        parGAUS=scipy.stats.norm.fit(trait_values[np.isfinite(trait_values)]) # fit normal distribution
-        #global con_trait
-        con_trait=seed_missing(trait_values,meanGAUS,sdGAUS) # fill the gaps (missing data)
-        #print con_trait
-        if est_COVAR_prior == 1: out_name += "_COVhp"
-        else: out_name += "_COV"
-
-    if useDiscreteTraitModel == 1:
-        if twotraitBD == 0:
-            discrete_trait = trait_values
-        ind_nan_trait= (np.isfinite(discrete_trait)== 0).nonzero()
-        regression_trait= "\n\nDiscrete trait data for %s of %s taxa" \
-        % (len(trait_values)-len(ind_nan_trait[0]), len(trait_values))
-        print(regression_trait)
-    else: print("\n")
-
-
-if useDiscreteTraitModel == 1:
-    ind_trait_species = discrete_trait
-    print(ind_trait_species)
-    ind_trait_species[np.isnan(ind_trait_species)]=np.nanmax(ind_trait_species)+1
-    print(ind_trait_species)
-    ind_trait_species = ind_trait_species.astype(int)
-    len_trait_values = len(np.unique(discrete_trait))
-    lengths_B_events=[]
-    lengths_D_events=[]
-    for i in range(len_trait_values):
-        lengths_B_events.append(len(discrete_trait[discrete_trait==i]))
-        lo_temp = LO[discrete_trait==i]
-        lengths_D_events.append(len(lo_temp[lo_temp>0]))
-    lengths_B_events = np.array([sum(lengths_B_events)]) # ASSUME CONST BIRTH RATE
-    #lengths_B_events = np.array(lengths_D_events)
-    lengths_D_events = np.array(lengths_D_events)
-    #ind_trait_species = ind_trait_species-ind_trait_species
-    print(lengths_B_events, lengths_D_events)
-    obs_S = [sum(FA[ind_trait_species==i]-LO[ind_trait_species==i]) for i in range(len(lengths_B_events))]
-    print(obs_S)
-    TDI = 0
-
-use_poiD=args.mPoiD
-if use_poiD == 1:
-    BPD_partial_lik = PoiD_partial_lik
-    PoiD_const = - (sum(log(np.arange(1,len(FA)+1))))
-elif useBounded_BD == 1:
-    BPD_partial_lik = BD_partial_lik_bounded
-    PoiD_const = 0
-    SP_in_window = (trait_values[:,0]==1).nonzero()[0]
-    EX_in_window = (trait_values[:,1]==1).nonzero()[0]
-    SP_not_in_window = (trait_values[:,0]==0).nonzero()[0]
-    EX_not_in_window = (trait_values[:,1]==0).nonzero()[0]
-    #print SP_in_window, EX_in_window
-    ###### NEXT: change function update_ts_te() so that only SP/EX_in_win are updated
-    # make sure the starting points are set to win boundaries for the other species and
-    # within boundaries for SP/EX_in_win
-    argsHPP = 1 # only HPP can be used with bounded BD
-else:
-    BPD_partial_lik = BD_partial_lik
-    PoiD_const = 0
-    SP_in_window = np.arange(len(FA)) # all ts/te can be updated
-    EX_in_window = np.arange(len(LO))
-    SP_not_in_window = []
-    EX_not_in_window = []
-
-if args.mDeath == 1: use_Death_model = 1
-else: use_Death_model= 0
-
-if args.mBirth >= 0:
-    use_Birth_model = 1
-    init_M_rate = args.mBirth
-else:
-    use_Birth_model = 0
-
-
-# USE BDI subMODELS
-model_BDI=args.mBDI
-if model_BDI >=0:
-    try: ts,te = fixed_ts, fixed_te
-    except: sys.exit("\nYou must use options -fixSE or -d to run BDI submodels.")
-    z=np.zeros(len(te))+2
-    z[te==0] = 3
-    te_orig = te+0.
-    te= te[te>0]  # ignore extant
-    z = z[z==2]   # ignore extant
-    all_events_temp= np.array([np.concatenate((ts,te),axis=0),np.concatenate((np.zeros(len(ts))+1,z),axis=0)])
-    idx = np.argsort(all_events_temp[0])[::-1] # get indexes of sorted events
-    all_events_array=all_events_temp[:,idx] # sort by time of event
-    #print all_events_array
-    all_events = all_events_array[0,:]
-    dT_events= -(np.diff(np.append(all_events,0)))
-
-    #div_trajectory =get_DT(np.append(all_events,0),ts,te_orig)
-    #div_trajectory =div_trajectory[1:]
-    div_traj = np.zeros(len(ts)+len(te))
-    current_div,j = 0,0
-    for i in all_events_array[1]:
-        if i == 1: current_div+=1
-        if i == 2: current_div-=1
-        div_traj[j] = current_div
-        j+=1
-
-    #j=0
-    #for i in all_events_array[0]:
-    #    print i, "\t", div_trajectory[j],  "\t", div_traj[j], "\t",dT_events[j]
-    #    j+=1
-    div_trajectory=div_traj
-    #print div_traj
-    BPD_partial_lik = BDI_partial_lik
-    if model_BDI==0: out_name += "BD"
-    if model_BDI==1: out_name += "ID"
-    if TDI<2: out_name = "%s%s%s" % (out_name,time_framesL,time_framesM)
-
-
-# SET UO AGE DEP. EXTINCTION MODEL
-use_ADE_model = 0
-if args.ADE == 1:
-    use_ADE_model = 1
-    BPD_partial_lik = BD_age_partial_lik
-    out_name += "_ADE"
-    argsHPP = 1
-
-if args.ADE == 2:
-    use_ADE_model = 2
-    BPD_partial_lik = BD_age_partial_lik
-    out_name += "_CorrBD"
-    argsHPP = 1
-
-est_hyperP = 0
-use_cauchy = 0
-fix_hyperP = 0
-if sum(args.cauchy) >= 0:
-    hypP_par = np.ones(2)
-    use_cauchy = 1
-    est_hyperP = 1
-    if sum(args.cauchy) > 0:
-        fix_hyperP = 1
-        hypP_par = np.array(args.cauchy) # scale of Cauchy distribution
-else:
-    hypP_par = np.array([L_lam_m,M_lam_m]) # rate of Gamma distribution
-    if min([L_lam_m,M_lam_m])==0:
-        est_hyperP = 1
-        hypP_par = np.ones(2)
-
-if use_ADE_model >= 1:
-    hypP_par[1]=0.1
-    tot_extant = -1
-    d_hyperprior[0]=1 # first hyper-prior on sp.rates is not used under ADE, thus not updated (multiplier update =1)
-
-qFilter=args.qFilter # if set to zero all times of shifts (and preservation rates) are kept, even if they don't have occurrences
-if args.qShift != "":
-    try: times_q_shift=np.sort(np.loadtxt(args.qShift))[::-1]*args.rescale + args.translate
-    except: times_q_shift=np.array([np.loadtxt(args.qShift)])*args.rescale + args.translate
-    # filter qShift times based on observed time frame
-    if qFilter == 1:
-        times_q_shift=times_q_shift[times_q_shift<max(FA)]
-        times_q_shift=list(times_q_shift[times_q_shift>min(LO)])
-    else: # q outside observed range (sampled from the prior)
-        times_q_shift = list(times_q_shift)
-    time_framesQ=len(times_q_shift)+1
-    occs_sp_bin =list()
-    temp_times_q_shift = np.array(list(times_q_shift)+[max(FA)+1]+[0])
-    for i in range(len(fossil)):
-        occs_temp = fossil[i]
-        h = np.histogram(occs_temp[occs_temp>0],bins=sort( temp_times_q_shift ))[0][::-1]
-        occs_sp_bin.append(h)
-    argsHPP = 1
-    TPP_model = 1
-    print(times_q_shift, max(FA), min(LO))
-else: TPP_model = 0
-
-
-if fix_Shift == 1 and use_ADE_model == 0: est_hyperP = 1
-# define hyper-prior function for BD rates
-if tot_extant==-1 or TDI ==3 or use_poiD == 1:
-    if use_ADE_model == 0 and fix_Shift == 1 and TDI < 3 and use_cauchy == 1:
-        if est_hyperP == 0 or fix_hyperP == 1:
-            prior_setting= "Using Cauchy priors on the birth-death rates (C_l[0,%s],C_l[0,%s]).\n" % (hypP_par[0],hypP_par[1])
-        else:
-                prior_setting= "Using Cauchy priors on the birth-death rates (C_l[0,est],C_l[0,est]).\n"
-        get_hyper_priorBD = HPBD1 # cauchy with hyper-priors
-    else:
-        if est_hyperP == 0:
-            prior_setting= "Using Gamma priors on the birth-death rates (G_l[%s,%s], G_m[%s,%s]).\n" % (L_lam_r,hypP_par[0],M_lam_r,hypP_par[1])
-        else:
-            prior_setting= "Using Gamma priors on the birth-death rates (G_l[%s,est], G_m[%s,est]).\n" % (L_lam_r,M_lam_r)
-        get_hyper_priorBD = HPBD2 # gamma
-else:
-    prior_setting= "Priors on the birth-death rates based on extant diversity (N = %s).\n" % (tot_extant)
-    get_hyper_priorBD = HPBD3 # based on no. extant
-print(prior_setting)
-
-if use_poiD == 1:
-    if model_cov>=1:
-        print("PoiD not available with trait correlation. Using BD instead.")
-        BPD_partial_lik = BD_partial_lik
-        PoiD_const = 0
-    if fix_SE== 0:
-        print("PoiD not available with SE estimation. Using BD instead.")
-        BPD_partial_lik = BD_partial_lik
-        PoiD_const = 0
-    if hasFoundPyRateC:
-        print("PoiD not available using FastPyRateC library. Using Python version instead.")
-        hasFoundPyRateC = 0
-
-
-use_time_as_trait = args.BDNNtimetrait
-bdnn_const_baseline = args.BDNNconstbaseline
-ACTFUN = [softPlus, expFun, np.abs][args.BDNNoutputfun]
-if use_BDNNmodel:
-    # model_cov = 6
-    f_cov_par = [0.4, 0.5,0.9,1]
-    f_update_se = 0.6
+            rescaled_time = []
     
-    if bdnn_const_baseline:
-        [f_update_q,f_update_lm,f_update_cov]=f_update_se+ np.array([0.1, 0,1-f_update_se])
-    else:
-        # print([f_update_q,f_update_lm,f_update_cov])
-        [f_update_q,f_update_lm,f_update_cov]=f_update_se+ np.array([0.1, 0.15,1-f_update_se])
-        # print([f_update_q,f_update_lm,f_update_cov])
-
-    n_BDNN_nodes = args.BDNNnodes
+        trait_tbl_NN, cov_par_init_NN = init_trait_and_weights(trait_values,
+                                                               n_BDNN_nodes,
+                                                               bias_node=True, 
+                                                               fadlad=args.BDNNfadlad,
+                                                               use_time_as_trait=use_time_as_trait,
+                                                               fixed_times_of_shift=rescaled_time,
+                                                               n_taxa=n_taxa)
+        cov_par_init_NN.append(0) # cov_par_init_NN[2] = covar prm for preseravtion rate (currently not used)
     
-    # load trait data
-    if args.trait_file != "":
-        traitfile=open(args.trait_file, 'r')
-
-        L=traitfile.readlines()
-        head= L[0].split()
-
-        trait_val=[l.split() for l in L][1:]
-
-        trait_values = np.array(trait_val)
-
-        trait_taxa=np.array([l.split()[0] for l in L][1:])
-        matched_trait_values = []
-        for i in range(len(taxa_names)):
-            taxa_name=taxa_names[i]
-            matched_val = trait_values[trait_taxa==taxa_name]
-            if len(matched_val)>0:
-                matched_trait_values.append(matched_val[0, 1:].astype(float))
-                # print("matched taxon: %s\t%s\t%s" % (taxa_name, matched_val[0], np.max(fossil[i])-np.min(fossil[i])))
-            else:
-                matched_trait_values.append(np.nan)
-                sys.exit( "Species %s did not have data" % taxa_name)
-        trait_values= np.array(matched_trait_values)    
-    else:
-        trait_values = None
-    n_taxa = len(FA)
+        if False:
+            print(rescaled_time)    
+            for i in trait_tbl_NN[0]:
+                print(i[0,:] )
     
-    time_vec = np.sort(np.array([np.max(FA), np.min(LO)] + list(fixed_times_of_shift)))[::-1]
-    if args.BDNNtimetrait:
-        if args.BDNNtimetrait == -1:
-            rescaled_time = time_vec/np.max(time_vec)
-            args.BDNNtimetrait = 1/np.max(time_vec)
-        else:
-            rescaled_time = time_vec*args.BDNNtimetrait
-        print("rescaled times", rescaled_time, len(rescaled_time))
-    else:
-        rescaled_time = []
-    
-    trait_tbl_NN, cov_par_init_NN = init_trait_and_weights(trait_values,
-                                                           n_BDNN_nodes,
-                                                           bias_node=True, 
-                                                           fadlad=args.BDNNfadlad,
-                                                           use_time_as_trait=use_time_as_trait,
-                                                           fixed_times_of_shift=rescaled_time,
-                                                           n_taxa=n_taxa)
-    cov_par_init_NN.append(0) # cov_par_init_NN[2] = covar prm for preseravtion rate (currently not used)
-    
-    if False:
-        print(rescaled_time)    
-        for i in trait_tbl_NN[0]:
-            print(i[0,:] )
-    
-    if TDI == 0 and len(fixed_times_of_shift) == 0:
-        log_per_species_rates = True
-    else: 
-        log_per_species_rates = False    
-
-
-
-##### SETFREQ OF PROPOSING B/D shifts (RJMCMC)
-sample_shift_mu = args.rj_bd_shift # 0: updates only lambda; 1: only mu; default: 0.5
-
-
-
-#### ANALYZE PHYLOGENY
-analyze_tree = 0
-if args.tree != "":
-    try:
-        import dendropy
-    except:
-        sys.exit("Library 'dendropy' not found!\n")
-    try:
-        tree_list = dendropy.TreeList.get_from_path(args.tree, schema="nexus", preserve_underscores= 1)
-        tree=tree_list[0]
-        tree.resolve_polytomies(update_bipartitions= 1)
-        #tree_node_ages = sort(tree.calc_node_ages(ultrametricity_precision=0.001,is_return_internal_node_ages_only= 1))[::-1]
-        tree.calc_node_ages(ultrametricity_precision=0.001) #
-        nd= tree.ageorder_node_iter(include_leaves=False, filter_fn=None, descending= 1)
-        ages=list()
-        for n, node in enumerate(nd): ages.append(node.age)
-        tree_node_ages = sort(np.array(ages))[::-1]
-    except:
-        sys.exit("Tree format not recognized (NEXUS file required). \n")
-    tree_sampling_frac = args.sampling
-    analyze_tree = 1
-    if args.bdc: analyze_tree = 2
-    if args.eqr: analyze_tree = 3
-
-    if fix_Shift == 1:
-        import pyrate_lib.phylo_bds_likelihood as phylo_bds_likelihood
-        analyze_tree = 4
-        treeBDlikelihoodSkyLine = phylo_bds_likelihood.TreePar_LikShifts
-        # args = (x,t,l,mu,sampling,posdiv=0,survival=1,groups=0)
-        tree_node_ages = np.sort(tree_node_ages)
-        phylo_times_of_shift = np.sort(np.array(list(fixed_times_of_shift) + [0]))
-        tree_sampling_frac = np.array([tree_sampling_frac] + list(np.ones(len(fixed_times_of_shift))))
-        # print(phylo_times_of_shift)
-        # print(tree_node_ages)
-        if args.bdc: 
-            print("Using BDC Skyline model")
-            args_bdc = 1
+        if TDI == 0 and len(fixed_times_of_shift) == 0:
+            log_per_species_rates = True
         else: 
-            print("Using Skyline independent model")
-            args_bdc = 0
-        # print tree_sampling_frac
-        #quit()
-
-
-    TDI = 0
+            log_per_species_rates = False    
 
 
 
-
-# GET DATA SUMMARY INFO
-if args.data_info == 1:
-    print("\nDATA SUMMARY\n")
-    if len(singletons_excluded)>0: print("%s taxa excluded" % (len(singletons_excluded)))
-    print("%s taxa included in the analysis" % (len(fossil)))
-    one_occ_sp,all_occ,extant_sp,n_occs_list  = 0,0,0,list()
-    for i in fossil:
-        if len(i[i>0])==1: one_occ_sp+=1
-        all_occ += len(i[i>0])
-        n_occs_list.append(len(i[i>0]))
-        if min(i)==0: extant_sp+=1
-    print("%s taxa have a single occurrence, %s taxa are extant" % (one_occ_sp,extant_sp))
-    j=0
-    m_ages,M_ages=[],[]
-    while True:
-        try: fossil_complete=input_data_module.get_data(j)
-        except(IndexError): break
-        min_age, max_age = np.inf, 0
-        sp_indtemp = 0
-        for i in fossil_complete:
-            if sp_indtemp in taxa_included:
-                a,b = min(i[i>0]), max(i)
-                if a < min_age: min_age=a
-                if b > max_age: max_age=b
-            sp_indtemp+=1
-        m_ages.append(min_age)
-        M_ages.append(max_age)
-        j+=1
-    print("%s fossil occurrences (%s replicates), ranging from %s (+/- %s) to %s (+/- %s) Ma\n" % \
-    (all_occ, j, round(mean(M_ages),3), round(std(M_ages),3),round(mean(m_ages),3), round(std(m_ages),3)))
-    # print species FA,LO
-    print("Taxon\tFA\tLA")
-    for i in range(len(fossil)):
-        foss_temp = fossil[i]
-        if min(foss_temp)==0: status_temp="extant"
-        else: status_temp=""
-        print("%s\t%s\t%s\t%s" % (taxa_names[i], round(max(foss_temp),3),round(min(foss_temp[foss_temp>0]),3),status_temp))
-
-    # print histogram
-    n_occs_list = np.array(n_occs_list)
-    hist = np.histogram(n_occs_list,bins = np.arange(np.max(n_occs_list)+1)+1)[0]
-    hist2 = hist.astype(float)/max(hist) * 50
-    #print "occs.\ttaxa\thistogram"
-    #for i in range(len(hist)): print "%s\t%s\t%s" % (i+1,int(hist[i]),"*"*int(hist2[i]))
-    sys.exit("\n")
-
-# RUN PP-MODEL TEST
-if args.PPmodeltest:
-    self_path = get_self_path()
-    pyrate_lib_path = "pyrate_lib"
-    sys.path.append(os.path.join(self_path,pyrate_lib_path))
-    import PPmodeltest
-    if TPP_model== 0: times_q_shift = 0
-    PPmodeltest.run_model_testing(fossil,q_shift=times_q_shift,min_n_fossils=2,verbose=1)
-    # PPmodeltest.run_model_testing_n_shifts(fossil,q_shift=times_q_shift,min_n_fossils=2,verbose=1)
-    sys.exit("\ndone.")
+    ##### SETFREQ OF PROPOSING B/D shifts (RJMCMC)
+    sample_shift_mu = args.rj_bd_shift # 0: updates only lambda; 1: only mu; default: 0.5
 
 
-# CREATE C++ OBJECTS
-if hasFoundPyRateC:
-    if use_se_tbl==1:
-        pass
-    else:
-        fossilForPyRateC = [ f.tolist() for f in fossil ]
-        PyRateC_setFossils(fossilForPyRateC) # saving all fossil data as C vector
+
+    #### ANALYZE PHYLOGENY
+    analyze_tree = 0
+    if args.tree != "":
+        try:
+            import dendropy
+        except:
+            sys.exit("Library 'dendropy' not found!\n")
+        try:
+            tree_list = dendropy.TreeList.get_from_path(args.tree, schema="nexus", preserve_underscores= 1)
+            tree=tree_list[0]
+            tree.resolve_polytomies(update_bipartitions= 1)
+            #tree_node_ages = sort(tree.calc_node_ages(ultrametricity_precision=0.001,is_return_internal_node_ages_only= 1))[::-1]
+            tree.calc_node_ages(ultrametricity_precision=0.001) #
+            nd= tree.ageorder_node_iter(include_leaves=False, filter_fn=None, descending= 1)
+            ages=list()
+            for n, node in enumerate(nd): ages.append(node.age)
+            tree_node_ages = sort(np.array(ages))[::-1]
+        except:
+            sys.exit("Tree format not recognized (NEXUS file required). \n")
+        tree_sampling_frac = args.sampling
+        analyze_tree = 1
+        if args.bdc: analyze_tree = 2
+        if args.eqr: analyze_tree = 3
+
+        if fix_Shift == 1:
+            import pyrate_lib.phylo_bds_likelihood as phylo_bds_likelihood
+            analyze_tree = 4
+            treeBDlikelihoodSkyLine = phylo_bds_likelihood.TreePar_LikShifts
+            # args = (x,t,l,mu,sampling,posdiv=0,survival=1,groups=0)
+            tree_node_ages = np.sort(tree_node_ages)
+            phylo_times_of_shift = np.sort(np.array(list(fixed_times_of_shift) + [0]))
+            tree_sampling_frac = np.array([tree_sampling_frac] + list(np.ones(len(fixed_times_of_shift))))
+            # print(phylo_times_of_shift)
+            # print(tree_node_ages)
+            if args.bdc: 
+                print("Using BDC Skyline model")
+                args_bdc = 1
+            else: 
+                print("Using Skyline independent model")
+                args_bdc = 0
+            # print tree_sampling_frac
+            #quit()
+
+
+        TDI = 0
+
+
+
+
+    # GET DATA SUMMARY INFO
+    if args.data_info == 1:
+        print("\nDATA SUMMARY\n")
+        if len(singletons_excluded)>0: print("%s taxa excluded" % (len(singletons_excluded)))
+        print("%s taxa included in the analysis" % (len(fossil)))
+        one_occ_sp,all_occ,extant_sp,n_occs_list  = 0,0,0,list()
+        for i in fossil:
+            if len(i[i>0])==1: one_occ_sp+=1
+            all_occ += len(i[i>0])
+            n_occs_list.append(len(i[i>0]))
+            if min(i)==0: extant_sp+=1
+        print("%s taxa have a single occurrence, %s taxa are extant" % (one_occ_sp,extant_sp))
+        j=0
+        m_ages,M_ages=[],[]
+        while True:
+            try: fossil_complete=input_data_module.get_data(j)
+            except(IndexError): break
+            min_age, max_age = np.inf, 0
+            sp_indtemp = 0
+            for i in fossil_complete:
+                if sp_indtemp in taxa_included:
+                    a,b = min(i[i>0]), max(i)
+                    if a < min_age: min_age=a
+                    if b > max_age: max_age=b
+                sp_indtemp+=1
+            m_ages.append(min_age)
+            M_ages.append(max_age)
+            j+=1
+        print("%s fossil occurrences (%s replicates), ranging from %s (+/- %s) to %s (+/- %s) Ma\n" % \
+        (all_occ, j, round(mean(M_ages),3), round(std(M_ages),3),round(mean(m_ages),3), round(std(m_ages),3)))
+        # print species FA,LO
+        print("Taxon\tFA\tLA")
+        for i in range(len(fossil)):
+            foss_temp = fossil[i]
+            if min(foss_temp)==0: status_temp="extant"
+            else: status_temp=""
+            print("%s\t%s\t%s\t%s" % (taxa_names[i], round(max(foss_temp),3),round(min(foss_temp[foss_temp>0]),3),status_temp))
+
+        # print histogram
+        n_occs_list = np.array(n_occs_list)
+        hist = np.histogram(n_occs_list,bins = np.arange(np.max(n_occs_list)+1)+1)[0]
+        hist2 = hist.astype(float)/max(hist) * 50
+        #print "occs.\ttaxa\thistogram"
+        #for i in range(len(hist)): print "%s\t%s\t%s" % (i+1,int(hist[i]),"*"*int(hist2[i]))
+        sys.exit("\n")
+
+    # RUN PP-MODEL TEST
+    if args.PPmodeltest:
+        self_path = get_self_path()
+        pyrate_lib_path = "pyrate_lib"
+        sys.path.append(os.path.join(self_path,pyrate_lib_path))
+        import PPmodeltest
+        if TPP_model== 0: times_q_shift = 0
+        PPmodeltest.run_model_testing(fossil,q_shift=times_q_shift,min_n_fossils=2,verbose=1)
+        # PPmodeltest.run_model_testing_n_shifts(fossil,q_shift=times_q_shift,min_n_fossils=2,verbose=1)
+        sys.exit("\ndone.")
+
+
+    # CREATE C++ OBJECTS
+    if hasFoundPyRateC:
+        if use_se_tbl==1:
+            pass
+        else:
+            fossilForPyRateC = [ f.tolist() for f in fossil ]
+            PyRateC_setFossils(fossilForPyRateC) # saving all fossil data as C vector
 
         
-        fossilForPyRateC = [ f.tolist() for f in fossil ]
-        PyRateC_setFossils(fossilForPyRateC) # saving all fossil data as C vector
+            fossilForPyRateC = [ f.tolist() for f in fossil ]
+            PyRateC_setFossils(fossilForPyRateC) # saving all fossil data as C vector
 
-    if args.qShift != "":  # q_shift times
-        tmpEpochs = np.sort(np.array(list(times_q_shift)+[max(FA)+1]+[0]))[::-1]
-        PyRateC_initEpochs(tmpEpochs)
+        if args.qShift != "":  # q_shift times
+            tmpEpochs = np.sort(np.array(list(times_q_shift)+[max(FA)+1]+[0]))[::-1]
+            PyRateC_initEpochs(tmpEpochs)
 
-############################ MCMC OUTPUT ############################
-try: os.mkdir(output_wd)
-except(OSError): pass
-if output_wd !="":
-    path_dir = os.path.join(output_wd, "pyrate_mcmc_logs") 
-else: path_dir = "pyrate_mcmc_logs"
+    ############################ MCMC OUTPUT ############################
+    try: os.mkdir(output_wd)
+    except(OSError): pass
+    if output_wd !="":
+        path_dir = os.path.join(output_wd, "pyrate_mcmc_logs") 
+    else: path_dir = "pyrate_mcmc_logs"
 
-folder_name="pyrate_mcmc_logs"
-try: os.mkdir(path_dir)
-except(OSError): pass
+    folder_name="pyrate_mcmc_logs"
+    try: os.mkdir(path_dir)
+    except(OSError): pass
 
-suff_out=out_name
-if args.eqr: suff_out+= "_EQR"
-elif args.bdc: suff_out+= "_BDC"
-else:
-    if TDI<=1: 
-        if use_ADE_model >= 1:
-            suff_out+= "_ADE"
-        elif len(fixed_times_of_shift) > 0:
-            suff_out+= "_BDS"
-        else:
-            suff_out+= "BD%s-%s" % (args.mL,args.mM)
-    if TDI==1: suff_out+= "_TI"
-    if TDI==3: suff_out+= "dpp"
-    if TDI==4: suff_out+= "rj"
-
-if use_BDNNmodel:
-    suff_out+= "_BDNN_"
-    suff_out+="_".join(map(str, n_BDNN_nodes))
-    if use_time_as_trait:
-        suff_out+= "T"
-    if bdnn_const_baseline:
-        suff_out+= "c"
-
-
-# OUTPUT 0 SUMMARY AND SETTINGS
-o0 = "\n%s build %s\n" % (version, build)
-o1 = "\ninput: %s output: %s/%s" % (args.input_data, path_dir, out_name)
-o2 = "\n\nPyRate was called as follows:\n%s\n" % (args)
-if model_cov>=1 or useDiscreteTraitModel == 1: o2 += regression_trait
-if TDI==3: o2 += "\n\nHyper-prior on concentration parameter (Gamma shape, rate): %s, %s\n" % (hp_gamma_shape, hp_gamma_rate)
-if len(fixed_times_of_shift)>0:
-    o2 += "\nUsing birth-death model with fixed times of rate shift: "
-    for i in fixed_times_of_shift: o2 += "%s " % (i)
-o2+= "\n"+prior_setting
-
-if use_se_tbl != 1:
-    if argsHPP == 1:
-        if TPP_model == 0:
-            o2+="Using Homogeneous Poisson Process of preservation (HPP)."
-        else:
-            o2 += "\nUsing Time-variable Poisson Process of preservation (TPP) at: "
-            for i in times_q_shift: o2 += "%s " % (i)
-
-    else: o2+="Using Non-Homogeneous Poisson Process of preservation (NHPP)."
-
-version_notes="""\n
-Please cite: \n%s\n
-Feedback and support: pyrate.help@gmail.com
-OS: %s %s
-Python version: %s\n
-Numpy version: %s
-Scipy version: %s\n
-Random seed: %s %s
-""" % (citation,platform.system(), platform.release(), sys.version, np.version.version, scipy.version.version,rseed,CPPlib)
-
-
-
-o=''.join([o0,o1,o2,version_notes])
-out_sum = "%s/%s_sum.txt" % (path_dir,suff_out)
-sumfile = open(out_sum , "w")
-sumfile.writelines(o)
-sumfile.close()
-
-# OUTPUT 1 LOG MCMC
-out_log = "%s/%s_mcmc.log" % (path_dir, suff_out) #(path_dir, output_file, out_run)
-logfile = open(out_log , "w")
-if fix_SE == 0:
-    if TPP_model == 0:
-        head="it\tposterior\tprior\tPP_lik\tBD_lik\tq_rate\talpha\t"
+    suff_out=out_name
+    if args.eqr: suff_out+= "_EQR"
+    elif args.bdc: suff_out+= "_BDC"
     else:
-        head="it\tposterior\tprior\tPP_lik\tBD_lik\t"
-        for i in range(time_framesQ): head += "q_%s\t" % (i)
-        head += "alpha\t"
-        if pert_prior[1]==0: head +="hypQ\t"
-else:
-    head="it\tposterior\tprior\tBD_lik\t"
+        if TDI<=1: 
+            if use_ADE_model >= 1:
+                suff_out+= "_ADE"
+            elif len(fixed_times_of_shift) > 0:
+                suff_out+= "_BDS"
+            else:
+                suff_out+= "BD%s-%s" % (args.mL,args.mM)
+        if TDI==1: suff_out+= "_TI"
+        if TDI==3: suff_out+= "dpp"
+        if TDI==4: suff_out+= "rj"
 
-if model_cov>=1:
-    head += "cov_sp\tcov_ex\tcov_q\t"
-    if est_COVAR_prior == 1: head+="cov_hp\t"
-if TDI<2:
-    head += "root_age\tdeath_age\t"
-    if TDI==1: head += "beta\t"
-    if est_hyperP == 1:
-        head += "hypL\thypM\t"
+    if use_BDNNmodel:
+        suff_out+= "_BDNN_"
+        suff_out+="_".join(map(str, n_BDNN_nodes))
+        if use_time_as_trait:
+            suff_out+= "T"
+        if bdnn_const_baseline:
+            suff_out+= "c"
 
-    if use_BDNNmodel and bdnn_const_baseline:
-        head += "lambda_0\tmu_0\t"
-    elif use_ADE_model == 0 and useDiscreteTraitModel == 0:
-        for i in range(time_framesL): head += "lambda_%s\t" % (i)
-        for i in range(time_framesM): head += "mu_%s\t" % (i)
-    elif use_ADE_model >= 1:
-        if use_ADE_model == 1:
-            head+="w_shape\t"
-            for i in range(time_framesM): head += "w_scale_%s\t" % (i)
-        elif use_ADE_model == 2:
-            head+="corr_lambda\t"
-            for i in range(time_framesM): head += "corr_mu_%s\t" % (i)
-        for i in range(time_framesM): head += "mean_longevity_%s\t" % (i)
-    elif useDiscreteTraitModel == 1:
-        for i in range(len(lengths_B_events)): head += "lambda_%s\t" % (i)
-        for i in range(len(lengths_D_events)): head += "mu_%s\t" % (i)
 
-    if fix_Shift== 0:
-        for i in range(1,time_framesL): head += "shift_sp_%s\t" % (i)
-        for i in range(1,time_framesM): head += "shift_ex_%s\t" % (i)
+    # OUTPUT 0 SUMMARY AND SETTINGS
+    o0 = "\n%s build %s\n" % (version, build)
+    o1 = "\ninput: %s output: %s/%s" % (args.input_data, path_dir, out_name)
+    o2 = "\n\nPyRate was called as follows:\n%s\n" % (args)
+    if model_cov>=1 or useDiscreteTraitModel == 1: o2 += regression_trait
+    if TDI==3: o2 += "\n\nHyper-prior on concentration parameter (Gamma shape, rate): %s, %s\n" % (hp_gamma_shape, hp_gamma_rate)
+    if len(fixed_times_of_shift)>0:
+        o2 += "\nUsing birth-death model with fixed times of rate shift: "
+        for i in fixed_times_of_shift: o2 += "%s " % (i)
+    o2+= "\n"+prior_setting
 
-    if analyze_tree >=1:
-        if analyze_tree==4:
-            head += "tree_lik\t"
-            for i in range(time_framesL): head += "tree_sp_%s\t" % (i)
-            for i in range(time_framesL): head += "tree_ex_%s\t" % (i)
+    if use_se_tbl != 1:
+        if argsHPP == 1:
+            if TPP_model == 0:
+                o2+="Using Homogeneous Poisson Process of preservation (HPP)."
+            else:
+                o2 += "\nUsing Time-variable Poisson Process of preservation (TPP) at: "
+                for i in times_q_shift: o2 += "%s " % (i)
+
+        else: o2+="Using Non-Homogeneous Poisson Process of preservation (NHPP)."
+
+    version_notes="""\n
+    Please cite: \n%s\n
+    Feedback and support: pyrate.help@gmail.com
+    OS: %s %s
+    Python version: %s\n
+    Numpy version: %s
+    Scipy version: %s\n
+    Random seed: %s %s
+    """ % (citation,platform.system(), platform.release(), sys.version, np.version.version, scipy.version.version,rseed,CPPlib)
+
+
+
+    o=''.join([o0,o1,o2,version_notes])
+    out_sum = "%s/%s_sum.txt" % (path_dir,suff_out)
+    sumfile = open(out_sum , "w")
+    sumfile.writelines(o)
+    sumfile.close()
+
+    # OUTPUT 1 LOG MCMC
+    out_log = "%s/%s_mcmc.log" % (path_dir, suff_out) #(path_dir, output_file, out_run)
+    logfile = open(out_log , "w")
+    if fix_SE == 0:
+        if TPP_model == 0:
+            head="it\tposterior\tprior\tPP_lik\tBD_lik\tq_rate\talpha\t"
         else:
-            head += "tree_lik\ttree_sp\ttree_ex\t"
+            head="it\tposterior\tprior\tPP_lik\tBD_lik\t"
+            for i in range(time_framesQ): head += "q_%s\t" % (i)
+            head += "alpha\t"
+            if pert_prior[1]==0: head +="hypQ\t"
+    else:
+        head="it\tposterior\tprior\tBD_lik\t"
 
-elif TDI == 2: head+="k_birth\tk_death\troot_age\tdeath_age\t"
-elif TDI == 3: head+="k_birth\tk_death\tDPP_alpha_L\tDPP_alpha_M\troot_age\tdeath_age\t"
-elif TDI == 4: head+="k_birth\tk_death\tRJ_hp\troot_age\tdeath_age\t"
+    if model_cov>=1:
+        head += "cov_sp\tcov_ex\tcov_q\t"
+        if est_COVAR_prior == 1: head+="cov_hp\t"
+    if TDI<2:
+        head += "root_age\tdeath_age\t"
+        if TDI==1: head += "beta\t"
+        if est_hyperP == 1:
+            head += "hypL\thypM\t"
+
+        if use_BDNNmodel and bdnn_const_baseline:
+            head += "lambda_0\tmu_0\t"
+        elif use_ADE_model == 0 and useDiscreteTraitModel == 0:
+            for i in range(time_framesL): head += "lambda_%s\t" % (i)
+            for i in range(time_framesM): head += "mu_%s\t" % (i)
+        elif use_ADE_model >= 1:
+            if use_ADE_model == 1:
+                head+="w_shape\t"
+                for i in range(time_framesM): head += "w_scale_%s\t" % (i)
+            elif use_ADE_model == 2:
+                head+="corr_lambda\t"
+                for i in range(time_framesM): head += "corr_mu_%s\t" % (i)
+            for i in range(time_framesM): head += "mean_longevity_%s\t" % (i)
+        elif useDiscreteTraitModel == 1:
+            for i in range(len(lengths_B_events)): head += "lambda_%s\t" % (i)
+            for i in range(len(lengths_D_events)): head += "mu_%s\t" % (i)
+
+        if fix_Shift== 0:
+            for i in range(1,time_framesL): head += "shift_sp_%s\t" % (i)
+            for i in range(1,time_framesM): head += "shift_ex_%s\t" % (i)
+
+        if analyze_tree >=1:
+            if analyze_tree==4:
+                head += "tree_lik\t"
+                for i in range(time_framesL): head += "tree_sp_%s\t" % (i)
+                for i in range(time_framesL): head += "tree_ex_%s\t" % (i)
+            else:
+                head += "tree_lik\ttree_sp\ttree_ex\t"
+
+    elif TDI == 2: head+="k_birth\tk_death\troot_age\tdeath_age\t"
+    elif TDI == 3: head+="k_birth\tk_death\tDPP_alpha_L\tDPP_alpha_M\troot_age\tdeath_age\t"
+    elif TDI == 4: head+="k_birth\tk_death\tRJ_hp\troot_age\tdeath_age\t"
 
 
-if useDiscreteTraitModel == 1:
-    for i in range(len(lengths_B_events)): head += "S_%s\t" % (i)
-head += "tot_length"
-head=head.split('\t')
-if use_se_tbl == 0: tot_number_of_species = len(taxa_names)
+    if useDiscreteTraitModel == 1:
+        for i in range(len(lengths_B_events)): head += "S_%s\t" % (i)
+    head += "tot_length"
+    head=head.split('\t')
+    if use_se_tbl == 0: tot_number_of_species = len(taxa_names)
 
-if use_BDNNmodel:
-    head += ["lambda_avg","mu_avg"]
-    # weights lam
-    for i in range(len(cov_par_init_NN[0])):
-        head += ["w_lam_%s_%s" % (i, j) for j in range(cov_par_init_NN[0][i].size)]
-    # weights mu
-    for i in range(len(cov_par_init_NN[1])):
-        head += ["w_mu_%s_%s" % (i, j) for j in range(cov_par_init_NN[1][i].size)]
-
-
-
-if fix_SE == 0:
-    for i in taxa_names: head.append("%s_TS" % (i))
-    for i in taxa_names: head.append("%s_TE" % (i))
-wlog=csv.writer(logfile, delimiter='\t')
-wlog.writerow(head)
-
-#logfile.writelines(head)
-logfile.flush()
-os.fsync(logfile)
-
-# OUTPUT 2 MARGINAL RATES
-if args.log_marginal_rates == -1: # default values
-    if TDI==4 or use_ADE_model != 0 or use_BDNNmodel==1: log_marginal_rates_to_file = 0
-    else: log_marginal_rates_to_file = 1
-else:
-    log_marginal_rates_to_file = args.log_marginal_rates
-
-# save regular marginal rate file
-if TDI!=1 and use_ADE_model == 0 and useDiscreteTraitModel == 0 and log_marginal_rates_to_file==1: # (path_dir, output_file, out_run)
-    if useBounded_BD == 1: max_marginal_frame = boundMax+1
-    else: max_marginal_frame = max(FA)
-    marginal_frames= array([int(fabs(i-int(max_marginal_frame))) for i in range(int(max_marginal_frame)+1)])
-    if log_marginal_rates_to_file==1:
-        out_log_marginal = "%s/%s_marginal_rates.log" % (path_dir, suff_out)
-        marginal_file = open(out_log_marginal , "w")
-        head="it\t"
-        for i in range(int(max_marginal_frame)+1): head += "l_%s\t" % i #int(fabs(int(max(FA))))
-        for i in range(int(max_marginal_frame)+1): head += "m_%s\t" % i #int(fabs(int(max(FA))))
-        for i in range(int(max_marginal_frame)+1): head += "r_%s\t" % i #int(fabs(int(max(FA))))
-        head=head.split('\t')
-        wmarg=csv.writer(marginal_file, delimiter='\t')
-        wmarg.writerow(head)
-        marginal_file.flush()
-        os.fsync(marginal_file)
-
-# save files with sp/ex rates and times of shift
-elif log_marginal_rates_to_file == 0 and use_BDNNmodel == 0:
-    marginal_sp_rate_file_name = "%s/%s_sp_rates.log" % (path_dir, suff_out)
-    marginal_sp_rate_file = open(marginal_sp_rate_file_name , "w")
-    w_marg_sp=csv.writer(marginal_sp_rate_file, delimiter='\t')
-    marginal_sp_rate_file.flush()
-    os.fsync(marginal_sp_rate_file)
-    marginal_ex_rate_file_name = "%s/%s_ex_rates.log" % (path_dir, suff_out)
-    marginal_ex_rate_file = open(marginal_ex_rate_file_name , "w")
-    w_marg_ex=csv.writer(marginal_ex_rate_file, delimiter='\t')
-    marginal_ex_rate_file.flush()
-    os.fsync(marginal_ex_rate_file)
-    marginal_frames=0
-
-# OUTPUT 3 MARGINAL LIKELIHOOD
-elif TDI==1:
-    out_log_marginal_lik = "%s/%s_marginal_likelihood.txt" % (path_dir, suff_out)
-    marginal_file = open(out_log_marginal_lik , "w")
-    marginal_file.writelines(o)
-    marginal_frames=0
-else: marginal_frames=0
-
-if fix_SE == 1 and fix_Shift == 1:
-    time_frames  = sort(np.array(list(fixed_times_of_shift) + [0,max(fixed_ts)]))
-    B = sort(time_frames)+0.000001 # add small number to avoid counting extant species as extinct
-    ss1 = np.histogram(fixed_ts,bins=B)[0][::-1]
-    ss1[0] = ss1[0]-no_starting_lineages
-    ee2 = np.histogram(fixed_te,bins=B)[0][::-1]
-    len_SS1,len_EE1 = list(),list()
-    S_time_frame =list()
-    time_frames = time_frames[::-1]
-    for i in range(len(time_frames)-1):
-        up, lo = time_frames[i], time_frames[i+1]
-        len_SS1.append(ss1[i])
-        len_EE1.append(ee2[i])
-        inTS = np.fmin(fixed_ts,up)
-        inTE = np.fmax(fixed_te,lo)
-        temp_S = inTS-inTE
-        S_time_frame.append(sum(temp_S[temp_S>0]))
-
-    len_SS1 = np.array(len_SS1)
-    len_EE1 = np.array(len_EE1)
-    S_time_frame = np.array(S_time_frame)
-
-# OUTPUT 4 PER-SPECIES RATES
-if use_BDNNmodel and log_per_species_rates:
-    species_rate_file_name = "%s/%s_per_species_rates.log" % (path_dir, suff_out)
-    head = ["iteration"]
-    for i in taxa_names: head.append("%s_lam" % (i))
-    for i in taxa_names: head.append("%s_mu" % (i))
-    species_rate_file = open(species_rate_file_name , "w")
-    species_rate_writer=csv.writer(species_rate_file, delimiter='\t')
-    species_rate_writer.writerow(head)
-    species_rate_file.flush()
-
-# OUTPUT 5 species-specific (relative) preservation rate
-if sp_specific_q_rates:
-    sp_q_marg_rate_file_name = "%s/%s_species_q_rates.log" % (path_dir, suff_out)
-    head = ["iteration", "alpha"]
-    for i in taxa_names: head.append("%s_rel_q" % (i))
-    sp_q_marg_rate_file = open(sp_q_marg_rate_file_name , "w")
-    sp_q_marg=csv.writer(sp_q_marg_rate_file, delimiter='\t')
-    sp_q_marg.writerow(head)
-    sp_q_marg_rate_file.flush()
+    if use_BDNNmodel:
+        head += ["lambda_avg","mu_avg"]
+        # weights lam
+        for i in range(len(cov_par_init_NN[0])):
+            head += ["w_lam_%s_%s" % (i, j) for j in range(cov_par_init_NN[0][i].size)]
+        # weights mu
+        for i in range(len(cov_par_init_NN[1])):
+            head += ["w_mu_%s_%s" % (i, j) for j in range(cov_par_init_NN[1][i].size)]
 
 
 
+    if fix_SE == 0:
+        for i in taxa_names: head.append("%s_TS" % (i))
+        for i in taxa_names: head.append("%s_TE" % (i))
+    wlog=csv.writer(logfile, delimiter='\t')
+    wlog.writerow(head)
 
-########################## START MCMC ####################################
-if burnin<1 and burnin>0:
-    burnin = int(burnin*mcmc_gen)
+    #logfile.writelines(head)
+    logfile.flush()
+    os.fsync(logfile)
 
-def start_MCMC(run):
-    # marginal_file is either for rates or for lik
-    return MCMC([0,run, IT, sample_freq, print_freq, temperatures, burnin, marginal_frames, list()])
+    # OUTPUT 2 MARGINAL RATES
+    if args.log_marginal_rates == -1: # default values
+        if TDI==4 or use_ADE_model != 0 or use_BDNNmodel==1: log_marginal_rates_to_file = 0
+        else: log_marginal_rates_to_file = 1
+    else:
+        log_marginal_rates_to_file = args.log_marginal_rates
 
-# Metropolis-coupled MCMC (Altekar, et al. 2004)
-if use_seq_lik == 0 and runs>1:
-    marginal_frames= array([int(fabs(i-int(max(FA)))) for i in range(int(max(FA))+1)])
-    pool = mcmcMPI(num_proc)
-    res = pool.map(start_MCMC, list(range(runs)))
-    current_it=0
-    swap_rate, attempts=0, 0
-    while current_it<mcmc_gen:
-        n1=np.random.randint(0,runs-1,2)
-        temp=1./(1+n1*temp_pr)
-        [j,k]=n1
-        #print "try: ", current_it, j,k #, res[j] #[2],res[0][2], res[1][2],res[2][2]
-        r=(res[k][2]*temp[0]+res[j][2]*temp[1]) - (res[j][2]*temp[0]+res[k][2]*temp[1])
-        if r>=log(random.random()) and j != k:
+    # save regular marginal rate file
+    if TDI!=1 and use_ADE_model == 0 and useDiscreteTraitModel == 0 and log_marginal_rates_to_file==1: # (path_dir, output_file, out_run)
+        if useBounded_BD == 1: max_marginal_frame = boundMax+1
+        else: max_marginal_frame = max(FA)
+        marginal_frames= array([int(fabs(i-int(max_marginal_frame))) for i in range(int(max_marginal_frame)+1)])
+        if log_marginal_rates_to_file==1:
+            out_log_marginal = "%s/%s_marginal_rates.log" % (path_dir, suff_out)
+            marginal_file = open(out_log_marginal , "w")
+            head="it\t"
+            for i in range(int(max_marginal_frame)+1): head += "l_%s\t" % i #int(fabs(int(max(FA))))
+            for i in range(int(max_marginal_frame)+1): head += "m_%s\t" % i #int(fabs(int(max(FA))))
+            for i in range(int(max_marginal_frame)+1): head += "r_%s\t" % i #int(fabs(int(max(FA))))
+            head=head.split('\t')
+            wmarg=csv.writer(marginal_file, delimiter='\t')
+            wmarg.writerow(head)
+            marginal_file.flush()
+            os.fsync(marginal_file)
+
+    # save files with sp/ex rates and times of shift
+    elif log_marginal_rates_to_file == 0 or use_BDNNmodel == 1 and use_time_as_trait:
+        marginal_sp_rate_file_name = "%s/%s_sp_rates.log" % (path_dir, suff_out)
+        marginal_sp_rate_file = open(marginal_sp_rate_file_name , "w")
+        w_marg_sp=csv.writer(marginal_sp_rate_file, delimiter='\t')
+        marginal_sp_rate_file.flush()
+        os.fsync(marginal_sp_rate_file)
+        marginal_ex_rate_file_name = "%s/%s_ex_rates.log" % (path_dir, suff_out)
+        marginal_ex_rate_file = open(marginal_ex_rate_file_name , "w")
+        w_marg_ex=csv.writer(marginal_ex_rate_file, delimiter='\t')
+        marginal_ex_rate_file.flush()
+        os.fsync(marginal_ex_rate_file)
+        marginal_frames=0
+
+    # OUTPUT 3 MARGINAL LIKELIHOOD
+    elif TDI==1:
+        out_log_marginal_lik = "%s/%s_marginal_likelihood.txt" % (path_dir, suff_out)
+        marginal_file = open(out_log_marginal_lik , "w")
+        marginal_file.writelines(o)
+        marginal_frames=0
+    else: marginal_frames=0
+
+    if fix_SE == 1 and fix_Shift == 1:
+        time_frames  = sort(np.array(list(fixed_times_of_shift) + [0,max(fixed_ts)]))
+        B = sort(time_frames)+0.000001 # add small number to avoid counting extant species as extinct
+        ss1 = np.histogram(fixed_ts,bins=B)[0][::-1]
+        ss1[0] = ss1[0]-no_starting_lineages
+        ee2 = np.histogram(fixed_te,bins=B)[0][::-1]
+        len_SS1,len_EE1 = list(),list()
+        S_time_frame =list()
+        time_frames = time_frames[::-1]
+        for i in range(len(time_frames)-1):
+            up, lo = time_frames[i], time_frames[i+1]
+            len_SS1.append(ss1[i])
+            len_EE1.append(ee2[i])
+            inTS = np.fmin(fixed_ts,up)
+            inTE = np.fmax(fixed_te,lo)
+            temp_S = inTS-inTE
+            S_time_frame.append(sum(temp_S[temp_S>0]))
+
+        len_SS1 = np.array(len_SS1)
+        len_EE1 = np.array(len_EE1)
+        S_time_frame = np.array(S_time_frame)
+
+    # OUTPUT 4 PER-SPECIES RATES
+    if use_BDNNmodel and log_per_species_rates:
+        species_rate_file_name = "%s/%s_per_species_rates.log" % (path_dir, suff_out)
+        head = ["iteration"]
+        for i in taxa_names: head.append("%s_lam" % (i))
+        for i in taxa_names: head.append("%s_mu" % (i))
+        species_rate_file = open(species_rate_file_name , "w")
+        species_rate_writer=csv.writer(species_rate_file, delimiter='\t')
+        species_rate_writer.writerow(head)
+        species_rate_file.flush()
+
+    # OUTPUT 5 species-specific (relative) preservation rate
+    if sp_specific_q_rates:
+        sp_q_marg_rate_file_name = "%s/%s_species_q_rates.log" % (path_dir, suff_out)
+        head = ["iteration", "alpha"]
+        for i in taxa_names: head.append("%s_rel_q" % (i))
+        sp_q_marg_rate_file = open(sp_q_marg_rate_file_name , "w")
+        sp_q_marg=csv.writer(sp_q_marg_rate_file, delimiter='\t')
+        sp_q_marg.writerow(head)
+        sp_q_marg_rate_file.flush()
+
+
+
+
+    ########################## START MCMC ####################################
+    if burnin<1 and burnin>0:
+        burnin = int(burnin*mcmc_gen)
+
+    def start_MCMC(run):
+        # marginal_file is either for rates or for lik
+        return MCMC([0,run, IT, sample_freq, print_freq, temperatures, burnin, marginal_frames, list()])
+
+    # Metropolis-coupled MCMC (Altekar, et al. 2004)
+    if use_seq_lik == 0 and runs>1:
+        marginal_frames= array([int(fabs(i-int(max(FA)))) for i in range(int(max(FA))+1)])
+        pool = mcmcMPI(num_proc)
+        res = pool.map(start_MCMC, list(range(runs)))
+        current_it=0
+        swap_rate, attempts=0, 0
+        while current_it<mcmc_gen:
+            n1=np.random.randint(0,runs-1,2)
+            temp=1./(1+n1*temp_pr)
+            [j,k]=n1
+            #print "try: ", current_it, j,k #, res[j] #[2],res[0][2], res[1][2],res[2][2]
+            r=(res[k][2]*temp[0]+res[j][2]*temp[1]) - (res[j][2]*temp[0]+res[k][2]*temp[1])
+            if r>=log(random.random()) and j != k:
+                args=list()
+                best,ind=res[1][2],0
+                #print current_it, "swap %s with chain %s [%s / %s] temp. [%s / %s]" % (j, k, res[j][2],res[k][2], temp[0],temp[1])
+                swap_rate+=1
+                res_temp1=res[j]
+                res_temp2=res[k]
+                res[j]=res_temp2
+                res[k]=res_temp1
+            current_it=res[0][0]
+            res[0][0]=0
             args=list()
-            best,ind=res[1][2],0
-            #print current_it, "swap %s with chain %s [%s / %s] temp. [%s / %s]" % (j, k, res[j][2],res[k][2], temp[0],temp[1])
-            swap_rate+=1
-            res_temp1=res[j]
-            res_temp2=res[k]
-            res[j]=res_temp2
-            res[k]=res_temp1
-        current_it=res[0][0]
-        res[0][0]=0
-        args=list()
-        for i in range(runs):
-            seed=0
-            args.append([current_it,i, current_it+IT, sample_freq, print_freq, temperatures, burnin, marginal_frames, res[i]])
-        res = pool.map(MCMC, args)
-        #except: print current_it,i, current_it+IT
-        attempts+=1.
-        #if attempts % 100 ==0:
-        #    print "swap freq.", swap_rate/attempts
-        #    for i in range(runs): print "chain", i, "post:", res[i][2], sum(res[i][5]-res[i][6])
+            for i in range(runs):
+                seed=0
+                args.append([current_it,i, current_it+IT, sample_freq, print_freq, temperatures, burnin, marginal_frames, res[i]])
+            res = pool.map(MCMC, args)
+            #except: print current_it,i, current_it+IT
+            attempts+=1.
+            #if attempts % 100 ==0:
+            #    print "swap freq.", swap_rate/attempts
+            #    for i in range(runs): print "chain", i, "post:", res[i][2], sum(res[i][5]-res[i][6])
 
-else:
-    if runs>1: print("\nWarning: MC3 algorithm requires multi-threading.\nUsing standard (BD)MCMC algorithm instead.\n")
-    res=start_MCMC(0)
-print("\nfinished at:", time.ctime(), "\nelapsed time:", round(time.time()-t1,2), "\n")
-logfile.close()
+    else:
+        if runs>1: print("\nWarning: MC3 algorithm requires multi-threading.\nUsing standard (BD)MCMC algorithm instead.\n")
+        res=start_MCMC(0)
+    print("\nfinished at:", time.ctime(), "\nelapsed time:", round(time.time()-t1,2), "\n")
+    logfile.close()
 
-quit()
