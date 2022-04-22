@@ -1656,7 +1656,7 @@ def get_rate_BDNN(rate, x, w, act_f, out_act_f):
     
     tmp = MatrixMultiplication(tmp, w[i+1])
     # output
-    rates = out_act_f(tmp).flatten() * rate #
+    rates = out_act_f(tmp).flatten() * rate + small_number #
     return rates
 
 def BDNN_likelihood(arg):
