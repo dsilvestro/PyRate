@@ -3991,7 +3991,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNfadlad', type=float, help='if > 0 include FAD LAD as traits (rescaled i.e. FAD * BDNNfadlad)', default=0, metavar=0)
     p.add_argument('-BDNNtimetrait', type=float, help='if > 0 use (rescaled) time as a trait (only with -fixedShift option). if = -1 auto-rescaled', default=0, metavar=0)
     p.add_argument('-BDNNconstbaseline', type=int, help='constant baseline rates (only with -fixedShift option AND time as a trait)', default=0, metavar=0)
-    p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) abs, 1) softPlus, 2) exp', default=0, metavar=0)
+    p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) abs, 1) softPlus, 2) exp, 3) relu', default=0, metavar=0)
     p.add_argument('-BDNNactfun', type=int, help='Activation function hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid', default=0, metavar=0)
 
     # TUNING
