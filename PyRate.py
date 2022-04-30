@@ -1680,7 +1680,7 @@ def MatrixMultiplication(x1,x2):
     if x1.shape[1] == x2.shape[1]:
         z1 = np.einsum('nj,ij->ni', x1, x2)
     else:
-        z1 = np.einsum('nj,ij->ni', x1, x2[:, 1:])
+        z1 = np.einsum('nj,ij->ni', x1, x2[:, 1:]) # w/ bias node
         z1 += x2[:, 0].T
     return z1
 
@@ -3545,8 +3545,10 @@ def MCMC(all_arg):
         if model_cov >0: prior+=np.sum(prior_normal(cov_par,covar_prior))
         
         if use_BDNNmodel:
-            prior +=  np.sum([np.sum(prior_normal(cov_par[0][i],1)) for i in range(len(cov_par[0]))])
-            prior +=  np.sum([np.sum(prior_normal(cov_par[1][i],1)) for i in range(len(cov_par[1]))])
+            # print(cov_par[0][-1].shape, cov_par[0][-1], cov_par_tmp[0][-1], cov_par[1][-1], cov_par_tmp[1][-1])
+            # print(prior_bdnn_w_sd)
+            prior +=  np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[0]))])
+            prior +=  np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[1]))])
             
 
         # exponential prior on root age
@@ -5019,6 +5021,9 @@ if __name__ == '__main__':
                                                                fixed_times_of_shift=rescaled_time,
                                                                n_taxa=n_taxa)
         cov_par_init_NN.append(0) # cov_par_init_NN[2] = covar prm for preseravtion rate (currently not used)
+        prior_bdnn_w_sd = [np.ones(cov_par_init_NN[0][i].shape) for i in range(len(cov_par_init_NN[0]))]
+        prior_bdnn_w_sd[-1][0][0] = 10 # prior on bias weight
+        
     
         if False:
             print(rescaled_time)    
