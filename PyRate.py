@@ -1277,6 +1277,41 @@ def update_ts_te(ts, te, d1, sample_extinction=1):
     return tsn,ten
 
 
+def update_ts_te_indicator(ts, te, d1, sample_extinction=1):
+    tsn, ten= zeros(len(ts))+ts, zeros(len(te))+te
+    f1=np.random.randint(1,frac1) #int(frac1*len(FA)) #-np.random.randint(0,frac1*len(FA)-1))
+    ind=np.random.choice(SP_in_window,f1) # update only values in SP/EX_in_window
+    tsn[ind] = ts[ind] + (np.random.uniform(0,1,len(ind))-.5)*d1
+    M = np.inf #boundMax
+    tsn[tsn>M]=M-(tsn[tsn>M]-M)
+    m = FA + 0
+    tsn[tsn<m]=(m[tsn<m]-tsn[tsn<m])+m[tsn<m]
+    tsn[tsn>M] = ts[tsn>M]
+    if sample_extinction:
+        # if np.random.random() < 0.5:
+        ind=np.random.choice(EX_in_window,f1)
+        ten[ind] = LO[ind] + LO[ind] * np.random.uniform(0, 0.1)
+        M = LO
+        ten[ten>M]=M[ten>M]-(ten[ten>M]-M[ten>M])
+        m = 0 #boundMin
+        ten[ten<m]=(m-ten[ten<m])+m
+        ten[ten>M] = te[ten>M]
+        ten[LO==0]=0                                     # indices of LO==0 (extant species)
+        # else:
+        # add rnd indicators
+        p_vec = np.exp(LO) / np.sum(np.exp(LO))
+        p_vec[LO == 0] = 0
+        p_vec = (p_vec / np.sum(p_vec)) ** 0.1
+        # print(p_vec / np.sum(p_vec))
+        ind_swap = np.random.choice(range(len(ten)), p = p_vec / np.sum(p_vec), size=1, replace=False)
+        ten[ind_swap] *=0
+            # ten[ind_swap] = 0
+    S= tsn-ten
+    # if min(S)<=0: print(S)
+    tsn[SP_not_in_window] = max([boundMax, max(tsn[SP_in_window])])
+    ten[EX_not_in_window] = min([boundMin, min(ten[EX_in_window])])
+    return tsn,ten
+
 #### GIBBS SAMPLER S/E
 def draw_se_gibbs(fa,la,q_rates_L,q_rates_M,q_times):
     t = np.sort(np.array([fa, la] + list(q_times)))[::-1]
@@ -3038,7 +3073,11 @@ def MCMC(all_arg):
             if FBDrange == 3:
                 ts,te=update_ts_te(tsA,teA,mod_d1,sample_extinction=0)
             else:
-                ts,te=update_ts_te(tsA,teA,mod_d1)
+                if edge_indicator and it > 10000:
+                    ts,te = update_ts_te_indicator(tsA,teA,mod_d1)
+                else:
+                    ts,te=update_ts_te(tsA,teA,mod_d1)
+                
             if use_gibbs_se_sampling or it < fast_burnin:
                 if sum(timesL[1:-1])==np.sum(times_q_shift):
                     ts,te = gibbs_update_ts_te(q_ratesA+LA,q_ratesA+MA,np.sort(np.array([np.inf,0]+times_q_shift))[::-1])
@@ -3300,8 +3339,7 @@ def MCMC(all_arg):
                 prior = np.sum(prior_gamma(q_rates,pert_prior[0],post_rate_prm_Gq)) + prior_uniform(alpha_pp_gamma,0,20)
         else: prior = prior_gamma(q_rates[1],pert_prior[0],pert_prior[1]) + prior_uniform(q_rates[0],0,20)
         if est_hyperP == 1: prior += ( prior_uniform(hyperP[0],0,20)+prior_uniform(hyperP[1],0,20) ) # hyperprior on BD rates
-
-
+        
         ### DPP begin
         if TDI==3:
             likBDtemp=0
@@ -3608,7 +3646,7 @@ def MCMC(all_arg):
             try: l=[round(y, 2) for y in [PostA, likA, priorA, SA]]
             except:
                 print("An error occurred.")
-                print(PostA,Post,lik, prior, prior_root_age(max(ts),max(FA),max(FA)), priorBD, max(ts),max(FA))
+                print(PostA,Post,lik, prior, prior_root_age(np.max(ts),np.max(FA),np.max(FA)), priorBD, np.max(ts),np.max(FA))
                 print(prior_gamma(q_rates[1],pert_prior[0],pert_prior[1]) + prior_uniform(q_rates[0],0,20))
                 quit()
             if it>burnin and n_proc==0:
@@ -3617,6 +3655,8 @@ def MCMC(all_arg):
                 if TDI==1: print_out+=" beta: %s" % (round(temperature,4))
                 if TDI in [2,3,4]: print_out+=" k: %s" % (len(LA)+len(MA))
                 print(print_out)
+                if edge_indicator:
+                    print("\t Extant: %s of which added: %s; observed: %s" % (len(teA[teA == 0]), len(teA[teA == 0]) - len(LO[LO == 0]), len(LO[LO == 0])))
                 if analyze_tree >=1:
                     print("\ttree lik:", np.round(tree_likA,2)) 
                 #if TDI==1: print "\tpower posteriors:", marginal_lik[0:10], "..."
@@ -3655,8 +3695,8 @@ def MCMC(all_arg):
                     print("\tts:", tsA[0:5], "...")
                     print("\tte:", teA[0:5], "...")
                 if use_BDNNmodel:
-                    print(cov_parA[0][0].flatten(), cov_parA[1][0].flatten())
-                    print(cov_parA[0][-1].flatten(), cov_parA[1][-1].flatten())
+                    print("\tbdnn-lam:",[np.round(np.mean(cov_parA[0][i]), 2) for i in range(len(cov_par_init_NN[0]))])
+                    print("\tbdnn-mu: ",[np.round(np.mean(cov_parA[1][i]), 2) for i in range(len(cov_par_init_NN[0]))])
             if it<=burnin and n_proc==0: print(("\n%s*\tpost: %s lik: %s prior: %s tot length %s" \
             % (it, l[0], l[1], l[2], l[3])))
 
@@ -3675,6 +3715,8 @@ def MCMC(all_arg):
             if model_cov>=1:
                 log_state += cov_parA[0], cov_parA[1],cov_parA[2]
                 if est_COVAR_prior == 1: log_state += [covar_prior]
+            if edge_indicator:
+                log_state.append(len(teA[teA == 0]) - len(LO[LO == 0]))
 
             if TDI<2: # normal MCMC or MCMC-TI
                 log_state += s_max,np.min(teA)
@@ -3742,6 +3784,7 @@ def MCMC(all_arg):
                 if use_time_as_trait:
                     sp_lam = get_rate_BDNN(LA[0], trait_tbl_NN[0][0], cov_parA[0], hidden_act_f, out_act_f)
                     sp_mu = get_rate_BDNN(MA[0], trait_tbl_NN[0][1], cov_parA[1], hidden_act_f, out_act_f)
+                    # print(sp_lam.shape, trait_tbl_NN[0].shape, len(trait_tbl_NN))
                 else:
                     sp_lam = get_rate_BDNN(LA[0], trait_tbl_NN[0], cov_parA[0], hidden_act_f, out_act_f)
                     sp_mu = get_rate_BDNN(MA[0], trait_tbl_NN[1], cov_parA[1], hidden_act_f, out_act_f)
@@ -3762,9 +3805,9 @@ def MCMC(all_arg):
                 # log_state += list(cov_parA[0][0].flatten()) + list(cov_parA[0][1])
                 # # weights mu
                 # log_state += list(cov_parA[1][0].flatten()) + list(cov_parA[1][1])
-                if TDI == 0 and log_per_species_rates:
-                    species_rate_writer.writerow([it]+list(sp_lam)+list(sp_mu))
-                    species_rate_file.flush()
+                #if TDI == 0 and log_per_species_rates:
+                #    species_rate_writer.writerow([it]+list(sp_lam)+list(sp_mu))
+                #    species_rate_file.flush()
             
             if sp_specific_q_rates:
                 sp_q_rates = []
@@ -3820,20 +3863,42 @@ def MCMC(all_arg):
                 marginal_ex_rate_file.flush()
                 os.fsync(marginal_ex_rate_file)
             elif use_BDNNmodel and use_time_as_trait:
-                sp_lam = [get_rate_BDNN(LA[0], trait_tbl_NN[0][i], cov_parA[0], hidden_act_f, out_act_f)[0] for i in range(len(LA))]
-                sp_mu = [get_rate_BDNN(MA[0], trait_tbl_NN[1][i], cov_parA[1], hidden_act_f, out_act_f)[0] for i in range(len(MA))]
+                # logs rates through time as with RJMCMC output
+                # len(LA) == number of time bins
+                # takes get_rate_BDNN(...)[0] <- only first species: all the same w/o traits (TODO: change to h-mean)
+                sp_lam = [get_rate_BDNN(LA[i], trait_tbl_NN[0][i], cov_parA[0], hidden_act_f, out_act_f)[0] for i in range(len(LA))]
+                sp_mu = [get_rate_BDNN(MA[i], trait_tbl_NN[1][i], cov_parA[1], hidden_act_f, out_act_f)[0] for i in range(len(MA))]
                 w_marg_sp.writerow(sp_lam + list(timesLA[1:len(timesLA)-1]))
                 marginal_sp_rate_file.flush()
                 os.fsync(marginal_sp_rate_file)
                 w_marg_ex.writerow(sp_mu + list(timesMA[1:len(timesMA)-1]))
                 marginal_ex_rate_file.flush()
                 os.fsync(marginal_ex_rate_file)
-                    
-
-
-
-
-
+                
+            # get time-trait dependent rate at ts (speciation) and te (extinction) | (only works with bdnn_const_baseline)
+            if use_BDNNmodel and bdnn_const_baseline and log_per_species_rates:
+                # print(trait_tbl_NN[0].shape) # <- shape: time bins x species x (traits + rescaled_time)
+                rescaled_ts = tsA * BDNNtimetrait_rescaler
+                rescaled_te = teA * BDNNtimetrait_rescaler
+                
+                sp_lam_vec = np.zeros(len(tsA))
+                sp_mu_vec = np.zeros(len(tsA))
+                for i in range(len(tsA)):
+                    trait_tbl_sp_i_lam = trait_tbl_NN[0][0,i,:] + 0
+                    # print(trait_tbl_sp_i)
+                    # print(BDNNtimetrait_rescaler)
+                    trait_tbl_sp_i_lam[-1] = rescaled_ts[i]
+                    # print(trait_tbl_sp_i_lam, tsA[i])
+                    trait_tbl_sp_i_mu = trait_tbl_NN[1][0,i,:] + 0
+                    trait_tbl_sp_i_mu[-1] = rescaled_te[i]
+                    # print(trait_tbl_sp_i_mu, teA[i])
+                    # get sp-specific rates: using '1' as baseline rate (only works with bdnn_const_baseline)
+                    sp_lam_vec[i] = get_rate_BDNN(1, np.array([trait_tbl_sp_i_lam]), cov_parA[0], hidden_act_f, out_act_f)
+                    sp_mu_vec[i] =  get_rate_BDNN(1, np.array([trait_tbl_sp_i_mu]), cov_parA[1], hidden_act_f, out_act_f)
+                species_rate_writer.writerow([it] + list(sp_lam_vec) + list(sp_mu_vec))
+                species_rate_file.flush()
+                os.fsync(species_rate_file)
+        
         it += 1
     if TDI==1 and n_proc==0: marginal_likelihood(marginal_file, marginal_lik, temperatures)
     if use_seq_lik == 0:
@@ -3889,7 +3954,8 @@ if __name__ == '__main__':
     p.add_argument('-initDiv',    type=int, help='Number of initial lineages (option only available with -d SE_table or -fixSE)', default=0, metavar=0)
     p.add_argument('-PPmodeltest',help='Likelihood testing among preservation models', action='store_true', default=False)
     p.add_argument('-log_marginal_rates',type=int,help='0) save summary file, default for -A 4; 1) save marginal rate file, default for -A 0,2 ', default=-1,metavar=-1)
-    p.add_argument('-log_sp_q_rates',      help='Save species-specific relative preservation rates', action='store_true', default=False)
+    p.add_argument('-log_sp_q_rates', help='Save species-specific relative preservation rates', action='store_true', default=False)
+    p.add_argument("-drop_zero",  type=float, help='remove 0s from occs data (set to 1 to drop all)', default=0, metavar=0)
 
     # phylo test
     p.add_argument('-tree',       type=str,help="Tree file (NEXUS format)",default="", metavar="")
@@ -3993,6 +4059,8 @@ if __name__ == '__main__':
     p.add_argument('-BDNNconstbaseline', type=int, help='constant baseline rates (only with -fixedShift option AND time as a trait)', default=0, metavar=0)
     p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) abs, 1) softPlus, 2) exp, 3) relu', default=0, metavar=0)
     p.add_argument('-BDNNactfun', type=int, help='Activation function hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid', default=0, metavar=0)
+    p.add_argument("-edge_indicator",      help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
+    
 
     # TUNING
     p.add_argument('-tT',     type=float, help='Tuning - window size (ts, te)', default=1., metavar=1.)
@@ -4055,6 +4123,7 @@ if __name__ == '__main__':
         if argsG == 0 or args.qShift == "":
             sys.exit("option only available with TPP + Gamma model")
     
+    edge_indicator = args.edge_indicator
 
     if args.mHPP: argsHPP=1
     else: argsHPP=0
@@ -4165,8 +4234,11 @@ if __name__ == '__main__':
 
     if args.fixShift != "" or TDI==3:     # fix times of rate shift or DPP
         try:
-            try: fixed_times_of_shift=sort(np.loadtxt(args.fixShift))[::-1]
-            except: fixed_times_of_shift=np.array([np.loadtxt(args.fixShift)])
+            try: 
+                fixed_times_of_shift = np.sort(np.loadtxt(args.fixShift))[::-1]
+            except: 
+                fixed_times_of_shift = np.array([np.loadtxt(args.fixShift)])
+            fixed_times_of_shift = fixed_times_of_shift[fixed_times_of_shift > 0]
             f_shift=0
             time_framesL=len(fixed_times_of_shift)+1
             time_framesM=len(fixed_times_of_shift)+1
@@ -4187,6 +4259,18 @@ if __name__ == '__main__':
     else:
         fixed_times_of_shift=[]
         fix_Shift = 0
+        
+    if args.BDNNtimetrait != 0 and args.BDNNmodel > 0 and fix_Shift == 0:
+        # use 1myr bins by default
+        f_shift=0
+        fixed_times_of_shift = np.arange(1, 1000)[::-1]
+        time_framesL=len(fixed_times_of_shift)+1
+        time_framesM=len(fixed_times_of_shift)+1
+        min_allowed_t=0
+        fix_Shift = 1
+        TDI = 0
+        
+        
 
     if args.edgeShift[0] != np.inf or args.edgeShift[1] != 0:
         edgeShifts = []
@@ -4387,7 +4471,16 @@ if __name__ == '__main__':
         if args.filter_taxa != "":
             list_included_taxa = [line.rstrip() for line in open(args.filter_taxa)]
             print("Included taxa:")
-
+        
+        if args.drop_zero > 0:
+            rns_nms = np.random.random(len(fossil_complete))
+            count = 0
+            for i in range(len(fossil_complete)):
+                if rns_nms[i] < args.drop_zero:
+                    tmp = fossil_complete[i] + 0
+                    fossil_complete[i] = tmp[tmp > 0]
+                    count += 1    
+            print("Removed extant taxa:", count)
         fossil=list()
         have_record=list()
         singletons_excluded = list()
@@ -4909,10 +5002,11 @@ if __name__ == '__main__':
         time_vec = np.sort(np.array([np.max(FA), np.min(LO)] + list(fixed_times_of_shift)))[::-1]
         if args.BDNNtimetrait:
             if args.BDNNtimetrait == -1:
-                rescaled_time = time_vec/np.max(time_vec)
-                args.BDNNtimetrait = 1/np.max(time_vec)
+                BDNNtimetrait_rescaler = 1 / np.max(time_vec)
+                args.BDNNtimetrait = BDNNtimetrait_rescaler
             else:
-                rescaled_time = time_vec*args.BDNNtimetrait
+                BDNNtimetrait_rescaler = args.BDNNtimetrait
+            rescaled_time = time_vec * BDNNtimetrait_rescaler
             print("rescaled times", rescaled_time, len(rescaled_time))
         else:
             rescaled_time = []
@@ -4931,7 +5025,7 @@ if __name__ == '__main__':
             for i in trait_tbl_NN[0]:
                 print(i[0,:] )
     
-        if TDI == 0 and len(fixed_times_of_shift) == 0:
+        if bdnn_const_baseline:
             log_per_species_rates = True
         else: 
             log_per_species_rates = False    
@@ -5157,6 +5251,8 @@ if __name__ == '__main__':
     if model_cov>=1:
         head += "cov_sp\tcov_ex\tcov_q\t"
         if est_COVAR_prior == 1: head+="cov_hp\t"
+    if edge_indicator:
+        head += "pI\t"
     if TDI<2:
         head += "root_age\tdeath_age\t"
         if TDI==1: head += "beta\t"
