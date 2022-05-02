@@ -3725,7 +3725,8 @@ def MCMC(all_arg):
                 if TDI==1: log_state += [temperature]
                 if est_hyperP == 1: log_state += list(hyperPA)
                 if use_BDNNmodel and bdnn_const_baseline:
-                    log_state.append(LA[0])
+                    pass
+                #     log_state.append(LA[0])
                 elif use_ADE_model == 0:
                     log_state += list(LA)
                 elif use_ADE_model == 1:
@@ -3743,7 +3744,7 @@ def MCMC(all_arg):
                     log_state+= list(corrSPrate)
 
                 if use_BDNNmodel and bdnn_const_baseline:
-                    log_state.append(MA[0])
+                    pass # log_state.append(MA[0])
                 elif use_ADE_model <= 1:
                     log_state += list(MA) # This is W_scale in the case of ADE models
                 if use_ADE_model == 2:
@@ -3783,17 +3784,17 @@ def MCMC(all_arg):
             log_state += [SA]
             
             if use_BDNNmodel:
-                if use_time_as_trait:
-                    sp_lam = get_rate_BDNN(LA[0], trait_tbl_NN[0][0], cov_parA[0], hidden_act_f, out_act_f)
-                    sp_mu = get_rate_BDNN(MA[0], trait_tbl_NN[0][1], cov_parA[1], hidden_act_f, out_act_f)
-                    # print(sp_lam.shape, trait_tbl_NN[0].shape, len(trait_tbl_NN))
-                else:
-                    sp_lam = get_rate_BDNN(LA[0], trait_tbl_NN[0], cov_parA[0], hidden_act_f, out_act_f)
-                    sp_mu = get_rate_BDNN(MA[0], trait_tbl_NN[1], cov_parA[1], hidden_act_f, out_act_f)
-                
-                # avg rates across all species
-                log_state += [trait_tbl_NN[0].shape[0] / np.sum(1 / sp_lam),
-                              trait_tbl_NN[1].shape[0] / np.sum(1 / sp_mu)]
+                # if use_time_as_trait:
+                #     sp_lam = get_rate_BDNN(LA[0], trait_tbl_NN[0][0], cov_parA[0], hidden_act_f, out_act_f)
+                #     sp_mu = get_rate_BDNN(MA[0], trait_tbl_NN[0][1], cov_parA[1], hidden_act_f, out_act_f)
+                #     # print(sp_lam.shape, trait_tbl_NN[0].shape, len(trait_tbl_NN))
+                # else:
+                #     sp_lam = get_rate_BDNN(LA[0], trait_tbl_NN[0], cov_parA[0], hidden_act_f, out_act_f)
+                #     sp_mu = get_rate_BDNN(MA[0], trait_tbl_NN[1], cov_parA[1], hidden_act_f, out_act_f)
+                # 
+                # # avg rates across all species
+                # log_state += [trait_tbl_NN[0].shape[0] / np.sum(1 / sp_lam),
+                #               trait_tbl_NN[1].shape[0] / np.sum(1 / sp_mu)]
                 
                 # weights lam
                 for i in range(len(cov_par_init_NN[0])):
@@ -4603,6 +4604,12 @@ if __name__ == '__main__':
 
     if argsG == 1: out_name += "_G"
     if args.se_gibbs: out_name += "_seGibbs"
+    
+    use_time_as_trait = args.BDNNtimetrait
+    bdnn_const_baseline = args.BDNNconstbaseline
+    out_act_f = get_act_f(args.BDNNoutputfun)
+    hidden_act_f = get_hidden_act_f(args.BDNNactfun)
+    
 
     ############################ SET BIRTH-DEATH MODEL ############################
 
@@ -4920,7 +4927,10 @@ if __name__ == '__main__':
     else: TPP_model = 0
 
 
-    if fix_Shift == 1 and use_ADE_model == 0: est_hyperP = 1
+    if fix_Shift == 1 and use_ADE_model == 0: 
+        est_hyperP = 1
+    if args.BDNNtimetrait != 0 and args.BDNNmodel > 0 and bdnn_const_baseline:
+        est_hyperP = 0
     # define hyper-prior function for BD rates
     if tot_extant==-1 or TDI ==3 or use_poiD == 1:
         if use_ADE_model == 0 and fix_Shift == 1 and TDI < 3 and use_cauchy == 1:
@@ -4931,7 +4941,10 @@ if __name__ == '__main__':
             get_hyper_priorBD = HPBD1 # cauchy with hyper-priors
         else:
             if est_hyperP == 0:
-                prior_setting= "Using Gamma priors on the birth-death rates (G_l[%s,%s], G_m[%s,%s]).\n" % (L_lam_r,hypP_par[0],M_lam_r,hypP_par[1])
+                if use_BDNNmodel:
+                    prior_setting= ""
+                else:
+                    prior_setting= "Using Gamma priors on the birth-death rates (G_l[%s,%s], G_m[%s,%s]).\n" % (L_lam_r,hypP_par[0],M_lam_r,hypP_par[1])
             else:
                 prior_setting= "Using Gamma priors on the birth-death rates (G_l[%s,est], G_m[%s,est]).\n" % (L_lam_r,M_lam_r)
             get_hyper_priorBD = HPBD2 # gamma
@@ -4952,13 +4965,6 @@ if __name__ == '__main__':
         if hasFoundPyRateC:
             print("PoiD not available using FastPyRateC library. Using Python version instead.")
             hasFoundPyRateC = 0
-
-
-    use_time_as_trait = args.BDNNtimetrait
-    bdnn_const_baseline = args.BDNNconstbaseline
-    out_act_f = get_act_f(args.BDNNoutputfun)
-    hidden_act_f = get_hidden_act_f(args.BDNNactfun)
-    
     
     if use_BDNNmodel:
         # model_cov = 6
@@ -5265,7 +5271,7 @@ if __name__ == '__main__':
             head += "hypL\thypM\t"
 
         if use_BDNNmodel and bdnn_const_baseline:
-            head += "lambda_0\tmu_0\t"
+            pass #head += "lambda_avg\tmu_avg\t"
         elif use_ADE_model == 0 and useDiscreteTraitModel == 0:
             for i in range(time_framesL): head += "lambda_%s\t" % (i)
             for i in range(time_framesM): head += "mu_%s\t" % (i)
@@ -5305,7 +5311,7 @@ if __name__ == '__main__':
     if use_se_tbl == 0: tot_number_of_species = len(taxa_names)
 
     if use_BDNNmodel:
-        head += ["lambda_avg","mu_avg"]
+        # head += ["lambda_avg","mu_avg"]
         # weights lam
         for i in range(len(cov_par_init_NN[0])):
             head += ["w_lam_%s_%s" % (i, j) for j in range(cov_par_init_NN[0][i].size)]
