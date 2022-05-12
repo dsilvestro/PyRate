@@ -48,6 +48,9 @@ PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-af
 
 * Silvestro D., Zizka A., Bacon C. D., Cascales-Minana B., Salamin N., Antonelli, A. (2016) Fossil Biogeography: A new model to infer dispersal, extinction and sampling from paleontological data. Philosophical Transactions of the Royal Society B [371:20150225](http://rstb.royalsocietypublishing.org/content/371/1691/20150225).
 
+* Hauffe T., Pires M.M., Quental T.B., Wilke T., Silvestro, D. (2022) A quantitative framework to infer the effect of traits, diversity and environment on dispersal and extinction rates from fossils. Methods in Ecology and Evolution
+[doi:10.1111/2041-210X.13845](https://onlinelibrary.wiley.com/doi/abs/10.1111/2041-210X.13845)
+
 * See tutorial [5](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_5.md)
 
 

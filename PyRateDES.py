@@ -124,6 +124,8 @@ p.add_argument('-logTraitD', type=int, help='Transform dispersal traits by takin
 p.add_argument('-logTraitE', type=int, help='Transform extinction traits by taking logarithm 1) yes 0) no', default=1, metavar=1, nargs='+')
 p.add_argument('-catD', type=str, help='Categorical file Dispersal (e.g. a trait or a clade)', default="", metavar="")
 p.add_argument('-catE', type=str, help='Categorical file Extinction (e.g. a trait or a clade)', default="", metavar="")
+p.add_argument('-traitS', type=str, help='Trait file sampling', default="", metavar="")
+p.add_argument('-logTraitS', type=int, help='Transform sampling traits by taking logarithm 1) yes 0) no', default=1, metavar=1, nargs='+')
 
 ### summary
 p.add_argument('-sum',      type=str, help='Summarize results (provide log file)',  default="", metavar="log file")
@@ -361,6 +363,7 @@ argstraitE = args.traitE
 argscatD = args.catD
 argscatE = args.catE
 data_in_area = args.data_in_area
+argstraitS = args.traitS
 
 # if args.const==1:
 # 	equal_d = True # this makes them symmatric not equal!
@@ -695,6 +698,7 @@ else:
 	if argstraitE != "": model_tag+= "_TraitE"
 	if argscatD != "": model_tag+= "_CatD"
 	if argscatE != "": model_tag+= "_CatE"
+	if argstraitS != "": model_tag+= "_TraitS"
 	if argsG is True: model_tag+= "_G"
 	if args.A == 2: model_tag+= "_Ml"
 	if args.A == 3: model_tag+= "_Mlsbplx"
@@ -1220,6 +1224,20 @@ catD_not_baseline = np.isin(np.arange(0, len(unique_catD)), catD_baseline) == Fa
 catE_not_baseline = np.isin(np.arange(0, len(unique_catE)), catE_baseline) == False
 hp_catD_A = np.ones(len(num_catD))
 hp_catE_A = np.ones(len(num_catE))
+
+# Trait effect on sampling rates
+traitS = np.ones((len(taxa_input), 1))
+do_traitS = False
+if argstraitS != "":
+	traitS = read_trait(argstraitS, taxa_input)
+	traitS_untrans = traitS
+	traitS, log_transfTraitS = logtransf_traits(traitS, args.logTraitS)
+	names_traitS = np.loadtxt(argstraitS, dtype = str, delimiter = '\t')[0,1:]
+	do_traitS = True
+num_traitS = traitS.shape[1]
+trait_parS_A = np.zeros(num_traitS)
+range_traitS = np.max(traitS, axis = 0) - np.min(traitS, axis = 0)
+bound_traitS = (1. + small_number) / (range_traitS + small_number) * bound_covar
 
 # DIVERSITY TRAJECTORIES
 # area 1
@@ -1798,6 +1816,7 @@ if do_DivdD or do_DivdE:
 		for i in range(max_slices): head+= "\tcarrying_capacity_t%s" % (i)
 for i in range(num_traitD): head+= "\tk%s_d" % (i + 1)
 for i in range(num_traitE): head+= "\tk%s_e" % (i + 1)
+for i in range(num_traitS): head+= "\tk%s_s" % (i + 1)
 if any(num_catD > 0):
 	for i in range(len(num_catD)):
 		catD_y = np.unique(catD[:,i]).astype(int)
@@ -2296,7 +2315,7 @@ def lik_DES_taxon(args):
 if use_seq_lik is True: num_processes=0
 if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
 
-def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time_var_e2, diversity_d1, diversity_d2, diversity_e1, diversity_e2, dis_into_1, dis_into_2, covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex,Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, bin_last_occ, traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, catE, cat_parE, list_taxa_index, nTaxa):
+def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time_var_e2, diversity_d1, diversity_d2, diversity_e1, diversity_e2, dis_into_1, dis_into_2, covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex,Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, bin_last_occ, traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, catE, cat_parE, do_traitS, trait_parS, traitS, list_taxa_index, nTaxa):
 	# weight per gamma cat per species: multiply 
 	weight_per_taxon = np.ones((pp_gamma_ncat, nTaxa)) / pp_gamma_ncat
 	Q_list = np.zeros(1)
@@ -2339,17 +2358,38 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 		lik = 0
 		if argsG is False:
 			for l in list_taxa_index:
-				lik += lik_DES_taxon([l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp,
-							delta_t, r_vec, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
+				r_vec2 = np.copy(r_vec)
+				if do_traitS:
+					idx_r_vec2 = [1,2]
+					#-log(r_vec2[:,idx_r_vec2])/bin_size
+					#r_vec2 = r_vec * np.exp(np.sum(trait_parS * traitS[l])) # Bad with ML
+					r_vec2_rate = -log(r_vec2[:,idx_r_vec2])/bin_size
+					r_vec2_rate = r_vec2_rate * np.exp(np.sum(trait_parS * traitS[l]))
+					r_vec2[:,idx_r_vec2] = np.exp(-bin_size * r_vec2_rate)
+#					print(l)
+#					print(r_vec2)
+				lik_tmp = lik_DES_taxon([l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp,
+							delta_t, r_vec2, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
 							traits, cat, use_Pade_approx])
+				lik += lik_tmp
+#				lik += lik_DES_taxon([l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp,
+#							delta_t, r_vec2, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
+#							traits, cat, use_Pade_approx])
 		else:
 			for l in list_taxa_index:
 				YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
 				lik_vec = np.zeros(pp_gamma_ncat)
-				for i in range(pp_gamma_ncat): 
-					r_vec_Gamma = exp(-bin_size * YangGamma[i] * -log(r_vec)/bin_size) # convert to probability scale
+				r_vec2 = np.copy(r_vec)
+				if do_traitS:
+					idx_r_vec2 = [1,2]
+					r_vec2[:,idx_r_vec2] = np.exp(-bin_size * np.exp(np.sum(trait_parS * traitS[l])) * -log(r_vec2[:,idx_r_vec2])/bin_size)
+				for i in range(pp_gamma_ncat):
+#					print("r_vec:", r_vec)
+					r_vec_Gamma = exp(-bin_size * YangGamma[i] * -log(r_vec2)/bin_size) # convert to probability scale
 					r_vec_Gamma[:,0] = 0
 					r_vec_Gamma[:,3] = 1
+#					print(l)
+#					print(r_vec_Gamma)
 					if args.data_in_area == 1:
 						r_vec_Gamma[:,2] = small_number
 					elif args.data_in_area == 2:
@@ -2358,6 +2398,7 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 							r_vec_Gamma, # Only difference to homogeneous sampling
 							rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
 							traits, cat, use_Pade_approx])
+#				print(lik_vec)
 				lik_vec_max = np.max(lik_vec)
 				lik2 = lik_vec - lik_vec_max
 				lik += log(sum(exp(lik2))/pp_gamma_ncat) + lik_vec_max
@@ -2570,10 +2611,13 @@ def lik_opt(x, grad):
 	# Trait-dependence
 	trait_parD = np.zeros(num_traitD) + 0.
 	trait_parE = np.zeros(num_traitE) + 0.
+	trait_parS = np.zeros(num_traitS) + 0.
 	if argstraitD != "":
 		trait_parD = x[opt_ind_trait_dis]
 	if argstraitE != "":
 		trait_parE = x[opt_ind_trait_ext]
+	if do_traitS:
+		trait_parS = x[opt_ind_trait_samp]
 	# Categories
 	cat_parD = np.ones(len(unique_catD))
 	cat_parE = np.ones(len(unique_catE))
@@ -2626,7 +2670,8 @@ def lik_opt(x, grad):
 						offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 						rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST,OrigTimeIndex,
 						Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, bin_last_occ,
-						traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, catE, cat_parE, list_taxa_index, nTaxa)
+						traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, catE, cat_parE, do_traitS, trait_parS, traitS,
+						list_taxa_index, nTaxa)
 	else:
 		lik = -np.inf#1e15
 	print("lik", lik, x)
@@ -2817,6 +2862,12 @@ if args.A == 3:
 		x0 = np.concatenate((x0, np.zeros(num_traitE)), axis = None)
 		lower_bounds = lower_bounds + (-bound_traitE).tolist()
 		upper_bounds = upper_bounds + (bound_traitE).tolist()
+	if do_traitS:
+		opt_ind_trait_samp = np.arange(ind_counter, ind_counter + num_traitS)
+		ind_counter += num_traitS
+		x0 = np.concatenate((x0, np.zeros(num_traitS)), axis = None)
+		lower_bounds = lower_bounds + (-bound_traitS).tolist()
+		upper_bounds = upper_bounds + (bound_traitS).tolist()
 	# Categories
 	if argscatD != "":
 		len_catD = len(unique_catD) - len(num_catD) # Deviation from a common mean
@@ -2846,7 +2897,7 @@ if args.A == 3:
 	# Maximize likelihood
 	div_iter = 1
 	div_timeout = 1
-	if args.A3set[4] == 1 and any(args.TdD is False or do_DivdD or args.TdE is False or do_DivdE or args.DdE or argstraitD != "" or argstraitE != "" or argscatD != "" or argscatE != ""): # or (data_in_area != 0 and argsG) 
+	if args.A3set[4] == 1 and any(args.TdD is False or do_DivdD or args.TdE is False or do_DivdE or args.DdE or argstraitD != "" or argstraitE != "" or argscatD != "" or argscatE != "" or argstraitS != ""): # or (data_in_area != 0 and argsG) 
 		print("Optimize only baseline dispersal, extinction and sampling")
 #		args.A3set[2] = args.A3set[2] / 3
 #		args.A3set[3] = args.A3set[3] / 3
@@ -3083,6 +3134,8 @@ if args.A == 3:
 		trait_parD_A = x[opt_ind_trait_dis]
 	if argstraitE != "":
 		trait_parE_A = x[opt_ind_trait_ext]
+	if do_traitS:
+		trait_parS_A = x[opt_ind_trait_samp]
 	# Categories
 	if argscatD != "":
 		cat_parD_A[catD_not_baseline] = x[opt_ind_cat_dis]
@@ -3145,6 +3198,11 @@ if argstraitE != "":
 	f_traitE = 1. / num_traitE
 	m_a_e = -np.max(bound_traitE)
 	M_a_e = np.max(bound_traitE)
+if do_traitS:
+	scale_proposal_a_q = np.mean(bound_traitS)/3.
+	f_traitS = 1. / num_traitS
+	m_a_s = -np.max(bound_traitS)
+	M_a_s = np.max(bound_traitS)
 if argscatD != "":
 	f_catD = 1. / cat_parD_A.shape[0]
 if argscatE != "":
@@ -3168,6 +3226,9 @@ if argstraitD != "":
 	len_r += 1
 if argstraitE != "":
 	r_idx_traitE = len_r
+	len_r += 1
+if do_traitS:
+	r_idx_traitS = len_r
 	len_r += 1
 if argscatD != "":
 	r_idx_catD = len_r
@@ -3197,6 +3258,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	trait_parE = trait_parE_A + 0.
 	cat_parD = cat_parD_A + 0.
 	cat_parE = cat_parE_A + 0.
+	trait_parS = trait_parS_A
 	r_vec = r_vec_A + 0.
 	x0_logistic = x0_logistic_A + 0.
 	x0_logisticD = x0_logisticD_A + 0.
@@ -3235,13 +3297,16 @@ for it in range(n_generations * len(scal_fac_TI)):
 					covar_parE = update_parameter_uni_2d_freq(covar_parE_A, d=0.1*scale_proposal_e, f = f_varE, m = m_e, M = M_e)
 				if args.lgE and r[r_idx_varE] >= .5: # update logistic mid point
 					x0_logisticE = update_parameter_uni_2d_freq(x0_logisticE_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)
-		elif r[2] < .5 and (argstraitD != "" or argstraitE != "" or argscatD != "" or argscatE != ""): # update traits
+		elif r[2] < .5 and (argstraitD != "" or argstraitE != "" or argscatD != "" or argscatE != "" or do_traitS): # update traits
 			if argstraitD != "":
 				if r[r_idx_traitD] < .5:
 					trait_parD = update_parameter_uni_2d_freq(trait_parD_A, d=0.1*scale_proposal_a_d, f = f_traitD, m = m_a_d, M = M_a_d)
 			if argstraitE != "":
 				if r[r_idx_traitE] >= .5:
 					trait_parE = update_parameter_uni_2d_freq(trait_parE_A, d=0.1*scale_proposal_a_e, f = f_traitE, m = m_a_e, M = M_a_e)
+			if do_traitS:
+				if r[r_idx_traitS] >= .5:
+					trait_parS = update_parameter_uni_2d_freq(trait_parS_A, d=0.1*scale_proposal_a_q, f = f_traitS, m = m_a_s, M = M_a_s)
 			if argscatD != "":
 				if r[r_idx_catD] >= .5:
 					cat_parD = update_parameter_uni_2d_freq(cat_parD_A, d = 0.5, f = f_catD, m = -3., M = 5.)
@@ -3279,13 +3344,16 @@ for it in range(n_generations * len(scal_fac_TI)):
 					covar_parE = update_parameter_uni_2d_freq(covar_parE_A, d=0.1*scale_proposal_e, f = f_varE, m = m_e, M = M_e)
 				if args.lgE and r[r_idx_varE] >= .5: # update logistic mid point
 					x0_logisticE = update_parameter_uni_2d_freq(x0_logisticE_A,d=0.1*scale_proposal,f=0.5,m=-3,M=3)
-		elif r[2] < .5 and (argstraitD != "" or argstraitE != "" or argscatD != "" or argscatE != ""): # update traits
+		elif r[2] < .5 and (argstraitD != "" or argstraitE != "" or argscatD != "" or argscatE != "" or do_traitS): # update traits
 			if argstraitD != "":
 				if r[r_idx_traitD] < .5:
 					trait_parD = update_parameter_uni_2d_freq(trait_parD_A, d=0.1*scale_proposal_a_d, f = f_traitD, m = m_a_d, M = M_a_d)
 			if argstraitE != "":
 				if r[r_idx_traitE] >= .5:
 					trait_parE = update_parameter_uni_2d_freq(trait_parE_A, d=0.1*scale_proposal_a_e, f = f_traitE, m = m_a_e, M = M_a_e)
+			if do_traitS:
+				if r[r_idx_traitS] >= .5:
+					trait_parS = update_parameter_uni_2d_freq(trait_parS_A, d=0.1*scale_proposal_a_q, f = f_traitS, m = m_a_s, M = M_a_s)
 			if argscatD != "":
 				if r[r_idx_catD] >= .5:
 					cat_parD = update_parameter_uni_2d_freq(cat_parD_A, d = 0.5, f = f_catD, m = -3., M = 5.)
@@ -3469,7 +3537,8 @@ for it in range(n_generations * len(scal_fac_TI)):
 					offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
 					rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST,OrigTimeIndex,
 					Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, bin_last_occ,
-					traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, catE, cat_parE, list_taxa_index, nTaxa)
+					traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, catE, cat_parE, do_traitS, trait_parS, traitS,
+					list_taxa_index, nTaxa)
 
 	d12_for_prior = dis_rate_vec[0:d12_prior_idx, 0].flatten()
 	d21_for_prior = dis_rate_vec[0:d21_prior_idx, 1].flatten()
@@ -3543,6 +3612,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 			else: prior += prior_normal(x0_logisticE[idx2_symCovE], 0, 1)
 		if argstraitD != "": prior += prior_normal(trait_parD, 0, 1)
 		if argstraitE != "": prior += prior_normal(trait_parE, 0, 1)
+		if do_traitS: prior += prior_normal(trait_parS, 0, 1)
 		if argscatD != "":
 			for i in range(len(cat_parD_idx)):
 				cat_parD_prior = cat_parD[cat_parD_idx[i][np.isin(cat_parD_idx[i], catD_baseline[i]) == False]]
@@ -3594,6 +3664,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		cat_parE_A = cat_parE
 		hp_catD_A = hp_catD
 		hp_catE_A = hp_catE
+		trait_parS_A = trait_parS
 		x0_logisticD_A = x0_logisticD
 		x0_logisticE_A = x0_logisticE
 		marginal_rates_A = marginal_rates_temp
@@ -3625,6 +3696,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		print("\ta extinction:", covar_parE_A)
 		print("\tcont trait dispersal:", trait_parD_A)
 		print("\tcont trait extinction:", trait_parE_A)
+		print("\tcont trait sampling:", trait_parS_A)
 		print("\tcat dispersal:", np.exp(cat_parD_A))
 		print("\tcat extinction:", np.exp(cat_parE_A))
 	if it % sampling_freq == 0 and it >= burnin and runMCMC == 1:
@@ -3734,6 +3806,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 			log_state = log_state + list(np.exp(cat_parD_A)) + list(hp_catD_A)
 		if argscatE != "":
 			log_state = log_state + list(np.exp(cat_parE_A)) + list(hp_catE_A)
+		log_state = log_state + list(trait_parS_A)
 		log_state = log_state+[prior_exp_rate]+[scal_fac_TI[scal_fac_ind]]
 		if args.A == 3:
 			num_par = len(x)
