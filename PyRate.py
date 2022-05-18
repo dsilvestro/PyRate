@@ -214,13 +214,12 @@ def calc_model_probabilities(f,burnin):
 def calc_ts_te(f, burnin):
     if f=="null": return FA,LO
     else:
-        t_file=np.genfromtxt(f, delimiter='\t', dtype=None)
-        shape_f=list(shape(t_file))
-        if len(shape_f)==1: sys.exit("\nNot enough samples in the log file!\n")
-        if shape_f[1]<10: sys.exit("\nNot enough samples in the log file!\n")
-
-        ind_start=np.where(t_file[0]=="tot_length")[0][0]
-        indexes= np.array([ind_start+1, ind_start+(shape_f[1]-ind_start)/2])
+        t_file=np.loadtxt(f, skiprows=1)
+        head = np.array(next(open(f)).split())
+        # if t_file.shape[0]==1: sys.exit("\nNot enough samples in the log file!\n")
+        # if shape_f[1]<10: sys.exit("\nNot enough samples in the log file!\n")
+        ind_start=np.where(head=="tot_length")[0][0]
+        indexes= np.array([ind_start+1, ind_start+(t_file.shape[1]-ind_start)/2]).astype(int)
         # fixes the case of missing empty column at the end of each row
         if t_file[0,-1] != "False":
             indexes = indexes+np.array([0,1])
@@ -228,12 +227,12 @@ def calc_ts_te(f, burnin):
         ind_te0 = indexes[1]
 
         meanTS,meanTE=list(),list()
-        burnin=check_burnin(burnin, shape_f[0])
+        burnin=check_burnin(burnin, t_file.shape[0])
         burnin+=1
         j=0
-        for i in arange(ind_ts0,ind_te0):
-            meanTS.append(mean(t_file[burnin:shape_f[0],i].astype(float)))
-            meanTE.append(mean(t_file[burnin:shape_f[0],ind_te0+j].astype(float)))
+        for i in range(ind_ts0,ind_te0):
+            meanTS.append(np.mean(t_file[burnin:,i]))
+            meanTE.append(np.mean(t_file[burnin:,ind_te0+j]))
             j+=1
         return array(meanTS),array(meanTE)
 
@@ -3524,8 +3523,16 @@ def MCMC(all_arg):
         elif FBDrange:
             likBDtemp = 0 # alrady included in lik_fossil
 
+        preburnin = 0
+        if it < preburnin:
+            bd_tempering = 5
+        elif it == preburnin:
+            bd_tempering = 1
+            accept_it = 1
+        elif it > preburnin:
+            accept_it = 0
 
-        lik= np.sum(lik_fossil) + np.sum(likBDtemp) + PoiD_const
+        lik= np.sum(lik_fossil) + np.sum(likBDtemp) * bd_tempering + PoiD_const
 
         maxTs= np.max(ts)
         minTe= np.min(te)
@@ -3606,6 +3613,7 @@ def MCMC(all_arg):
         else:
             tempMC3=1
             lik_alter=(np.sum(lik_fossil)+ PoiD_const) + (np.sum(likBDtemp)+ PoiD_const)*temperature
+        
         Post=lik_alter+prior+tree_lik
         accept_it = 0
         if it==0:
@@ -3712,13 +3720,13 @@ def MCMC(all_arg):
         elif it % sample_freq ==0 and it>=burnin or it==0 and it>=burnin:
             s_max=np.max(tsA)
             if fix_SE == 0:
-                if TPP_model == 0: log_state = [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA), q_ratesA[1], q_ratesA[0]]
+                if TPP_model == 0: log_state = [it,PostA, priorA, sum(lik_fossilA), (likA-sum(lik_fossilA))/bd_tempering, q_ratesA[1], q_ratesA[0]]
                 else:
-                    log_state= [it,PostA, priorA, sum(lik_fossilA), likA-sum(lik_fossilA)] + list(q_ratesA) + [alpha_pp_gammaA]
+                    log_state= [it,PostA, priorA, sum(lik_fossilA), (likA-sum(lik_fossilA))/bd_tempering] + list(q_ratesA) + [alpha_pp_gammaA]
                     if pert_prior[1]==0:
                         log_state += [post_rate_prm_Gq]
             else:
-                log_state= [it,PostA, priorA, likA-sum(lik_fossilA)]
+                log_state= [it,PostA, priorA, (likA-sum(lik_fossilA))/bd_tempering]
 
             if model_cov>=1:
                 log_state += cov_parA[0], cov_parA[1],cov_parA[2]
@@ -4068,6 +4076,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNconstbaseline', type=int, help='constant baseline rates (only with -fixedShift option AND time as a trait)', default=0, metavar=0)
     p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) abs, 1) softPlus, 2) exp, 3) relu', default=0, metavar=0)
     p.add_argument('-BDNNactfun', type=int, help='Activation function hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid', default=0, metavar=0)
+    p.add_argument('-BDNNprior', type=float, help='sd normal prior', default=1, metavar=1)
     p.add_argument("-edge_indicator",      help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
     
 
@@ -4187,7 +4196,7 @@ if __name__ == '__main__':
     f_update_se=1-sum(freq_list)
     if frac1==0: f_update_se=0
     [f_update_q,f_update_lm,f_update_cov]=f_update_se+np.cumsum(array(freq_list))
-
+    print("f_update_se", f_update_se)
 
     if args.se_gibbs: 
         use_gibbs_se_sampling = 1
@@ -5033,8 +5042,8 @@ if __name__ == '__main__':
                                                                fixed_times_of_shift=rescaled_time,
                                                                n_taxa=n_taxa)
         cov_par_init_NN.append(0) # cov_par_init_NN[2] = covar prm for preseravtion rate (currently not used)
-        prior_bdnn_w_sd = [np.ones(cov_par_init_NN[0][i].shape) for i in range(len(cov_par_init_NN[0]))]
-        prior_bdnn_w_sd[-1][0][0] = 10 # prior on bias weight
+        prior_bdnn_w_sd = [np.ones(cov_par_init_NN[0][i].shape) * args.BDNNprior for i in range(len(cov_par_init_NN[0]))] 
+        prior_bdnn_w_sd[-1][0][0] = prior_bdnn_w_sd[-1][0][0] * 10 # prior on bias weight
         
     
         if False:
