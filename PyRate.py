@@ -1667,6 +1667,11 @@ def swish_f(z):
 def sigmoid_f(z):
     return 1 / (1 + np.exp(-z))
     
+def sigmoid_rate(z):
+    pr = 1 / (1 + np.exp(-z))
+    rate = - np.log(1 - pr)
+    return rate
+    
 def tanh_f(z):
     return np.tanh(z)
     
@@ -1730,7 +1735,8 @@ def BDNN_partial_lik(arg):
     return lik
 
 def get_act_f(i):
-    return [np.abs, softPlus, expFun, relu_f][i]
+    return [np.abs, softPlus, expFun, relu_f, sigmoid_f, sigmoid_rate][i]
+
 def get_hidden_act_f(i):
     return [tanh_f, relu_f, leaky_relu_f, swish_f, sigmoid_f][i]
     
