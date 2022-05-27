@@ -1405,15 +1405,18 @@ try:
             return PyRateC_getLogGammaPDF(L, a, 1./b)#scipy.stats.gamma.logpdf(L, a, scale=1./b,loc=0)
         else:
             return scipy.stats.gamma.logpdf(L, a, scale=1./b,loc=0)
-    def prior_normal(L,sd):
-        return scipy.stats.norm.logpdf(L,loc=0,scale=sd)
+    def prior_normal(L,sd, mu=0):
+        return scipy.stats.norm.logpdf(L,loc=mu,scale=sd)
     def prior_cauchy(x,s):
         return scipy.stats.cauchy.logpdf(x,scale=s,loc=0)
 except(AttributeError): # for older versions of scipy
     def prior_gamma(L,a,b):
         return (a-1)*log(L)+(-b*L)-(log(b)*(-a)+ log(gamma(a)))
-    def prior_normal(L,sd):
-        return -(L**2/(2*sd**2)) - log(sd*sqrt(2*np.pi))
+    def prior_normal(L,sd, mu=0):
+        if mu != 0:
+            sys.exit("Scipy required")
+        else:             
+            return -(L**2/(2*sd**2)) - log(sd*sqrt(2*np.pi))
     def prior_cauchy(x,s):
         return -log(np.pi*s * (1+ (x/s)**2))
 
@@ -1647,6 +1650,34 @@ def BD_partial_lik_bounded(arg):
         #print par, len(i_events), len(te)
         lik= log(rate)*len(i_events) -rate*sum(n_S) #log(rate)*len(i_events) +sum(-rate*n_S)
     return lik
+
+def BD_partial_lik_lithology(arg):
+    [ts,te,up,lo,rate,par, cov_par,_]=arg
+    n_all_inframe, n_S = get_sp_in_frame_br_length(ts,te,up,lo)
+    # print(par, "n_all_inframe, n_S", len(n_all_inframe), np.sum(n_S))
+    # indexes of the species within time frame
+    ID_focal_lithology, ID_other_lithology, 
+    
+    if par=="l":
+        i_events=np.intersect1d((ts[SP_in_window] <= up).nonzero()[0], (ts[SP_in_window] > lo).nonzero()[0])
+        # br length only computed based on other lithologies
+        n_all_inframe, n_S = get_sp_in_frame_br_length(ts[ID_other_lithology],te[ID_other_lithology],up,lo)
+    else:
+        i_events=np.intersect1d((te[EX_in_window] <= up).nonzero()[0], (te[EX_in_window] > lo).nonzero()[0])
+        # br length only computed based on focal lithology
+        n_all_inframe, n_S = get_sp_in_frame_br_length(ts[ID_focal_lithology],te[ID_focal_lithology],up,lo)
+    
+    # print(par, "n_all_inframe, n_S", len(n_all_inframe), np.sum(n_S))
+    # print(len(ts[SP_not_in_window]), len(te[ID_focal_lithology]), len(i_events))
+
+    if cov_par !=0: # covaring model: $r$ is vector of rates tranformed by trait
+        r=exp(log(rate)+cov_par*(con_trait-parGAUS[0])) # exp(log(rate)+cov_par*(con_trait-mean(con_trait[all_inframe])))
+        lik= sum(log(r[i_events])) + np.sum(-r[n_all_inframe]*n_S) #, cov_par
+    else:           # constant rate model
+        #print par, len(i_events), len(te)
+        lik= log(rate)*len(i_events) -rate * np.sum(n_S) #log(rate)*len(i_events) +sum(-rate*n_S)
+    return lik
+
 
 
 # BD-NN model
@@ -3525,10 +3556,22 @@ def MCMC(all_arg):
 
         preburnin = 0
         if it < preburnin:
-            bd_tempering = 5
+            bd_tempering = 3
+            # prior_bdnn_w_sd = prior_bdnn_w_sd
         elif it == preburnin:
             bd_tempering = 1
             accept_it = 1
+            if preburnin:
+                print("mu_empirical_prior BEFORE", 0)
+                print("prior_bdnn_w_sd BEFORE", prior_bdnn_w_sd) 
+                mu_empirical_prior = cov_parA
+                for i in range(len(prior_bdnn_w_sd)):
+                    prior_bdnn_w_sd[i] = 1
+                
+                # u = [i*0+0.1 for i in prior_bdnn_w_sd]
+                # prior_bdnn_w_sd = u
+                print("mu_empirical_prior", mu_empirical_prior)
+                print("prior_bdnn_w_sd", prior_bdnn_w_sd) 
         elif it > preburnin:
             accept_it = 0
 
@@ -3560,8 +3603,12 @@ def MCMC(all_arg):
         if use_BDNNmodel:
             # print(cov_par[0][-1].shape, cov_par[0][-1], cov_par_tmp[0][-1], cov_par[1][-1], cov_par_tmp[1][-1])
             # print(prior_bdnn_w_sd)
-            prior +=  np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[0]))])
-            prior +=  np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[1]))])
+            if preburnin and it >= preburnin:
+                prior +=  np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i], mu=mu_empirical_prior[0][i])) for i in range(len(cov_par[0]))])
+                prior +=  np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i], mu=mu_empirical_prior[1][i])) for i in range(len(cov_par[1]))])
+            else:
+                prior +=  np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[0]))])
+                prior +=  np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[1]))])
             
 
         # exponential prior on root age
@@ -4066,6 +4113,7 @@ if __name__ == '__main__':
     p.add_argument('-discrete',help='Discrete-trait-dependent BD model (requires -trait_file)', action='store_true', default=False)
     p.add_argument('-twotrait',help='Discrete-trait-dependent extinction + Covar', action='store_true', default=False)
     p.add_argument('-bound',   type=float, help='Bounded BD model', default=[np.inf, 0], metavar=0, nargs=2)
+    p.add_argument('-partialBD', help='Partial BD model (with -d)', action='store_true', default=False)
     p.add_argument('-edgeShift',type=float, help='Fixed times of shifts at the edges (when -mL/-mM > 3)', default=[np.inf, 0], metavar=0, nargs=2)
     p.add_argument('-qFilter', type=int, help='if set to zero all shifts in preservation rates are kept, even if outside observed timerange', default=1, metavar=1)
     p.add_argument('-FBDrange', type=int, help='use FBDrange likelihood (experimental)', default=0, metavar=0)
@@ -4235,8 +4283,7 @@ if __name__ == '__main__':
 
     if args.use_DA: use_DA = 1
     else: use_DA = 0
-
-
+    useBounded_BD = 0
 
     # freq update CovPar
     if model_cov==0: f_cov_par= [0  ,0  ,0 ]
@@ -4463,6 +4510,7 @@ if __name__ == '__main__':
 
     ############################ LOAD INPUT DATA ############################
     match_taxa_trait = 0
+    use_partial_BD = args.partialBD
     if use_se_tbl==0:
         input_file_raw = os.path.basename(args.input_data[0])
         input_file = os.path.splitext(input_file_raw)[0]  # file name without extension
@@ -4570,6 +4618,37 @@ if __name__ == '__main__':
             array_all_fossils = array_all_fossils + list(fossil[i])
         array_all_fossils = np.array(array_all_fossils)
 
+    # """
+    # use_se_trait_id_tbl
+    # """
+    elif use_partial_BD:
+        # use_se_trait_id_tbl_file = "/Users/dsilvestro/Software/PyRate/example_files/lithology_example.txt"
+        t_file=np.loadtxt(se_tbl_file, skiprows=1)
+        FA=t_file[:,1]*args.rescale+args.translate
+        LO=t_file[:,2]*args.rescale+args.translate
+        fix_SE= 1
+        fixed_ts, fixed_te=FA, LO
+        output_wd = os.path.dirname(se_tbl_file)
+        if output_wd=="": output_wd= get_self_path()
+        out_name="%s_%s"  % (os.path.splitext(os.path.basename(se_tbl_file))[0],args.out)
+        # speciations excluding other lithologies and beginning and end of cores
+        # lith in focus: t_file[:,5] = 1
+        # t_file[:,3] == 0 when start of the core
+        # t_file[:,4] == 0 when end of the core
+        SP_in_window = (t_file[:,5] * t_file[:,3]==1).nonzero()[0]     
+        EX_in_window = (t_file[:,5] * t_file[:,4]==1).nonzero()[0] 
+        # extinctions excluding other lithologies and beginning and end of cores
+        SP_not_in_window = (t_file[:,5] * t_file[:,3]==0).nonzero()[0]
+        EX_not_in_window = (t_file[:,5] * t_file[:,4]==0).nonzero()[0]
+        ID_focal_lithology = np.where(t_file[:,5] > 0)[0]
+        ID_other_lithology = np.where(t_file[:,5] == 0)[0]
+        BPD_partial_lik = BD_partial_lik_lithology
+        PoiD_const = 0
+        use_se_tbl = 1
+        hasFoundPyRateC= 0
+        print(SP_not_in_window, t_file.shape)
+        print(EX_not_in_window)
+        
     else:
         print(se_tbl_file)
         t_file=np.loadtxt(se_tbl_file, skiprows=1)
@@ -4656,7 +4735,6 @@ if __name__ == '__main__':
     if args.discrete == 1: useDiscreteTraitModel = 1
     else: useDiscreteTraitModel = 0
 
-    useBounded_BD = 0
     if args.bound[0] != np.inf or args.bound[1] != 0:
         useBounded_BD = 1
     boundMax = max(args.bound) # if not specified it is set to Inf
@@ -4812,12 +4890,12 @@ if __name__ == '__main__':
         TDI = 0
 
     use_poiD=args.mPoiD
+    PoiD_const = 0
     if use_poiD == 1:
         BPD_partial_lik = PoiD_partial_lik
         PoiD_const = - (sum(log(np.arange(1,len(FA)+1))))
     elif useBounded_BD == 1:
         BPD_partial_lik = BD_partial_lik_bounded
-        PoiD_const = 0
         SP_in_window = (trait_values[:,0]==1).nonzero()[0]
         EX_in_window = (trait_values[:,1]==1).nonzero()[0]
         SP_not_in_window = (trait_values[:,0]==0).nonzero()[0]
@@ -4827,9 +4905,10 @@ if __name__ == '__main__':
         # make sure the starting points are set to win boundaries for the other species and
         # within boundaries for SP/EX_in_win
         argsHPP = 1 # only HPP can be used with bounded BD
+    elif use_partial_BD:
+        pass
     else:
         BPD_partial_lik = BD_partial_lik
-        PoiD_const = 0
         SP_in_window = np.arange(len(FA)) # all ts/te can be updated
         EX_in_window = np.arange(len(LO))
         SP_not_in_window = []
@@ -5044,6 +5123,10 @@ if __name__ == '__main__':
         cov_par_init_NN.append(0) # cov_par_init_NN[2] = covar prm for preseravtion rate (currently not used)
         prior_bdnn_w_sd = [np.ones(cov_par_init_NN[0][i].shape) * args.BDNNprior for i in range(len(cov_par_init_NN[0]))] 
         prior_bdnn_w_sd[-1][0][0] = prior_bdnn_w_sd[-1][0][0] * 10 # prior on bias weight
+        prior_bdnn_w_sd[0][:,-1] = prior_bdnn_w_sd[0][:,-1] * 10
+        print("prior_bdnn_w_sd\n",prior_bdnn_w_sd[0])
+        print([i.shape for i in prior_bdnn_w_sd])
+        # quit()
         
     
         if False:
@@ -5441,7 +5524,7 @@ if __name__ == '__main__':
 
     ########################## START MCMC ####################################
     if burnin<1 and burnin>0:
-        burnin = int(burnin*mcmc_gen)
+        burnin = int(burnin*mcmc_gen)    
 
     def start_MCMC(run):
         # marginal_file is either for rates or for lik
