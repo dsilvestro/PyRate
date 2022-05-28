@@ -3460,14 +3460,34 @@ def MCMC(all_arg):
 
                     else:
                         if num_processes==0:
+                            if TDI == 4 and use_BDNNmodel:
+                                args = []
+                                rj_ind = 0  
+                                for temp_l in range(len(fixed_times_of_shift_bdnn)-1):
+                                    if fixed_times_of_shift_bdnn[temp_l + 1] < timesL[rj_ind + 1]:
+                                        rj_ind += 1
+                                    up, lo = fixed_times_of_shift_bdnn[temp_l], fixed_times_of_shift_bdnn[temp_l+1]
+                                    l = L[rj_ind]
+                                    # print(l, up, lo, fixed_times_of_shift_bdnn[temp_l+1], timesL[rj_ind])
+                                    args.append([ts, te, up, lo, l, 'l', cov_par[0],1])
+                                rj_ind = 0 
+                                # print("timesM", timesM, M)
+                                for temp_m in range(len(fixed_times_of_shift_bdnn)-1):
+                                    if fixed_times_of_shift_bdnn[temp_m + 1] < timesM[rj_ind + 1]:
+                                        rj_ind += 1
+                                    up, lo = fixed_times_of_shift_bdnn[temp_m], fixed_times_of_shift_bdnn[temp_m+1]
+                                    m = M[rj_ind]
+                                    # print(m, up, lo, fixed_times_of_shift_bdnn[temp_m+1], timesM[rj_ind])
+                                    args.append([ts, te, up, lo, m, 'm', cov_par[1],1])                                
+                                
                             likBDtemp=np.zeros(len(args))
-                            i=0
+                            # i=0
                             for i in range(len(args)):
                                 if use_BDNNmodel:
                                     likBDtemp[i] = BDNN_partial_lik(args[i])
                                 else:
                                     likBDtemp[i] = BPD_partial_lik(args[i])
-                                i+=1
+                                # i+=1
                         # multi-thread computation of lik and prior (rates)
                         else: likBDtemp = array(pool_lik.map(BPD_partial_lik, args))
                     
@@ -3524,7 +3544,34 @@ def MCMC(all_arg):
                         # -min(te))*(len(L)-1+len(M)-1))-(get_hyper_priorBD(timesLA,timesMA,LA,MA,T,hyperP)+(-log(max(tsA)\
                         # -min(teA))*(len(LA)-1+len(MA)-1))), len(L),len(M)
                 elif TDI == 4 and use_BDNNmodel > 0:
-                    sys.exit("RJMCMC not allowed with BD-NN model!")
+                    stop_update = 0
+                    L,timesL,M,timesM,hasting = RJMCMC([LA,MA, timesLA, timesMA,maxFA,minLA])
+                    #print  L,timesL,M,timesM #,hasting
+                    args = []
+                    rj_ind = 0  
+                    for temp_l in range(len(fixed_times_of_shift_bdnn)-1):
+                        if fixed_times_of_shift_bdnn[temp_l + 1] < timesL[rj_ind + 1]:
+                            rj_ind += 1
+                        up, lo = fixed_times_of_shift_bdnn[temp_l], fixed_times_of_shift_bdnn[temp_l+1]
+                        l = L[rj_ind]
+                        # print(l, up, lo, fixed_times_of_shift_bdnn[temp_l+1], timesL[rj_ind])
+                        args.append([ts, te, up, lo, l, 'l', cov_par[0],1])
+                    rj_ind = 0 
+                    for temp_m in range(len(fixed_times_of_shift_bdnn)-1):
+                        if fixed_times_of_shift_bdnn[temp_m + 1] < timesM[rj_ind + 1]:
+                            rj_ind += 1
+                        up, lo = fixed_times_of_shift_bdnn[temp_m], fixed_times_of_shift_bdnn[temp_m+1]
+                        m = M[rj_ind]
+                        # print(m, up, lo, fixed_times_of_shift_bdnn[temp_m+1], timesM[rj_ind])
+                        args.append([ts, te, up, lo, m, 'm', cov_par[1],1])
+                    
+                    likBDtemp=np.zeros(len(args))
+                    i=0
+                    for i in range(len(args)):
+                        likBDtemp[i] = BDNN_partial_lik(args[i])
+                    # print(LA)
+                    # print(likBDtemp)
+                    # sys.exit("RJMCMC not allowed with BD-NN model!")
 
                 # NHPP Lik: needs to be recalculated after Alg 3.1 or RJ (but only if NHPP+DA)
                 if fix_SE == 0 and TPP_model == 0 and argsHPP == 0 and use_DA == 1:
@@ -4325,16 +4372,23 @@ if __name__ == '__main__':
         fixed_times_of_shift=[]
         fix_Shift = 0
         
+    fixed_times_of_shift_bdnn = []
     if args.BDNNtimetrait != 0 and args.BDNNmodel > 0 and fix_Shift == 0:
-        # use 1myr bins by default
-        f_shift=0
-        fixed_times_of_shift = np.arange(1, 1000)[::-1]
-        time_framesL=len(fixed_times_of_shift)+1
-        time_framesM=len(fixed_times_of_shift)+1
-        min_allowed_t=0
-        fix_Shift = 1
-        TDI = 0
-        
+        if args.A == 4:
+            fixed_times_of_shift_bdnn = np.arange(1, 1000)[::-1]        
+            time_framesL_bdnn=len(fixed_times_of_shift_bdnn)+1
+            time_framesM_bdnn=len(fixed_times_of_shift_bdnn)+1
+            TDI = 4
+        else:
+            # use 1myr bins by default
+            f_shift=0
+            fixed_times_of_shift = np.arange(1, 1000)[::-1]
+            time_framesL=len(fixed_times_of_shift)+1
+            time_framesM=len(fixed_times_of_shift)+1
+            min_allowed_t=0
+            fix_Shift = 1
+            TDI = 0
+
         
 
     if args.edgeShift[0] != np.inf or args.edgeShift[1] != 0:
@@ -4711,6 +4765,8 @@ if __name__ == '__main__':
     if args.N > -1: tot_extant=args.N
     else: tot_extant = -1
 
+    if len(fixed_times_of_shift_bdnn) > 0:
+        fixed_times_of_shift_bdnn=fixed_times_of_shift_bdnn[fixed_times_of_shift_bdnn < np.max(FA)]
 
     if len(fixed_times_of_shift)>0:
         fixed_times_of_shift=fixed_times_of_shift[fixed_times_of_shift<max(FA)]
@@ -5101,7 +5157,11 @@ if __name__ == '__main__':
             trait_values = None
         n_taxa = len(FA)
     
-        time_vec = np.sort(np.array([np.max(FA), np.min(LO)] + list(fixed_times_of_shift)))[::-1]
+        
+        if len(fixed_times_of_shift_bdnn) > 0:
+            time_vec = np.sort(np.array([np.max(FA), np.min(LO)] + list(fixed_times_of_shift_bdnn)))[::-1]
+        else:
+            time_vec = np.sort(np.array([np.max(FA), np.min(LO)] + list(fixed_times_of_shift)))[::-1]
         if args.BDNNtimetrait:
             if args.BDNNtimetrait == -1:
                 BDNNtimetrait_rescaler = 1 / np.max(time_vec)
@@ -5525,6 +5585,8 @@ if __name__ == '__main__':
     ########################## START MCMC ####################################
     if burnin<1 and burnin>0:
         burnin = int(burnin*mcmc_gen)    
+
+    print("TDI", TDI)
 
     def start_MCMC(run):
         # marginal_file is either for rates or for lik
