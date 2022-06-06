@@ -4179,7 +4179,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNfadlad', type=float, help='if > 0 include FAD LAD as traits (rescaled i.e. FAD * BDNNfadlad)', default=0, metavar=0)
     p.add_argument('-BDNNtimetrait', type=float, help='if > 0 use (rescaled) time as a trait (only with -fixedShift option). if = -1 auto-rescaled', default=0, metavar=0)
     p.add_argument('-BDNNconstbaseline', type=int, help='constant baseline rates (only with -fixedShift option AND time as a trait)', default=0, metavar=0)
-    p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) abs, 1) softPlus, 2) exp, 3) relu 4) sigmoid_rate', default=0, metavar=0)
+    p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) abs, 1) softPlus, 2) exp, 3) relu 4) sigmoid 5) sigmoid_rate', default=0, metavar=0)
     p.add_argument('-BDNNactfun', type=int, help='Activation function hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid', default=0, metavar=0)
     p.add_argument('-BDNNprior', type=float, help='sd normal prior', default=1, metavar=1)
     p.add_argument("-edge_indicator",      help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
@@ -5182,6 +5182,7 @@ if __name__ == '__main__':
             print("rescaled times", rescaled_time, len(rescaled_time))
         else:
             rescaled_time = []
+            BDNNtimetrait_rescaler = 1
     
         trait_tbl_NN, cov_par_init_NN = init_trait_and_weights(trait_values,
                                                                n_BDNN_nodes,
