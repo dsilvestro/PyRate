@@ -5431,6 +5431,8 @@ if __name__ == '__main__':
             suff_out+= "T"
         if bdnn_const_baseline:
             suff_out+= "c"
+        if block_nn_model:
+            suff_out+= "b"
 
 
     # OUTPUT 0 SUMMARY AND SETTINGS
