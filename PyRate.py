@@ -1772,7 +1772,36 @@ def get_act_f(i):
 def get_hidden_act_f(i):
     return [tanh_f, relu_f, leaky_relu_f, swish_f, sigmoid_f][i]
     
+def create_mask(w_layers, indx_input_list, nodes_per_feature_list):
+    m_layers = []
+    for w in w_layers:
+        indx_features = indx_input_list[len(m_layers)]
+        nodes_per_feature = nodes_per_feature_list[len(m_layers)]
+        # print("\nw_layers", w)
+        if len(indx_features) == 0:
+            # fully connect
+            m = np.ones(w.shape)
+        else:
+            m = np.zeros(w.shape)
+            max_indx_rows = 0
+            j = 0
+            for i in range(len(indx_features)):
+                # print(i, indx_features)
+                if i > 0:
+                    if indx_features[i] != indx_features[i - 1]:
+                        j += 1
+                        indx_rows = np.arange(nodes_per_feature[j]) + max_indx_rows
+                else:
+                    indx_rows = np.arange(nodes_per_feature[j])
+                indx_cols = np.repeat(i, nodes_per_feature[j])
+                m[indx_rows, indx_cols] = 1
+                # indx_cols2 = np.repeat(indx_features[i], nodes_per_feature[j])
+                # m[indx_rows, indx_cols2] = 1
+                max_indx_rows = np.max(indx_rows) + 1
 
+        m_layers.append(m)
+    return m_layers
+    
 def init_weight_prm(n_nodes, n_features, size_output, init_std=0.1, bias_node=0):
     bn, bn2, bn3 = 0, 0, 0
     if bias_node:
@@ -3186,6 +3215,10 @@ def MCMC(all_arg):
                 cov_par[0][rnd_layer]=update_parameter_normal_vec(cov_parA[0][rnd_layer],d=0.05,f= .1 * len(cov_parA[0][rnd_layer])) 
                 # update layers D rate
                 cov_par[1][rnd_layer]=update_parameter_normal_vec(cov_parA[1][rnd_layer],d=0.05,f= .1 * len(cov_parA[1][rnd_layer])) 
+                if BDNN_MASK:
+                    for i_layer in range(len(cov_parA[0])):
+                        cov_par[0][i_layer] *= BDNN_MASK[i_layer]
+                        cov_par[1][i_layer] *= BDNN_MASK[i_layer]
             else:
                 rcov=np.random.random()
                 if est_COVAR_prior == 1 and rcov<0.05:
@@ -4182,6 +4215,8 @@ if __name__ == '__main__':
     p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) abs, 1) softPlus, 2) exp, 3) relu 4) sigmoid 5) sigmoid_rate', default=0, metavar=0)
     p.add_argument('-BDNNactfun', type=int, help='Activation function hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid', default=0, metavar=0)
     p.add_argument('-BDNNprior', type=float, help='sd normal prior', default=1, metavar=1)
+    p.add_argument('-BDNNblockmodel',help='Block NN model', action='store_true', default=False)
+    
     p.add_argument("-edge_indicator",      help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
     
 
@@ -4301,7 +4336,7 @@ if __name__ == '__main__':
     f_update_se=1-sum(freq_list)
     if frac1==0: f_update_se=0
     [f_update_q,f_update_lm,f_update_cov]=f_update_se+np.cumsum(array(freq_list))
-    print("f_update_se", f_update_se)
+    # print("f_update_se", f_update_se)
 
     if args.se_gibbs: 
         use_gibbs_se_sampling = 1
@@ -4392,9 +4427,9 @@ if __name__ == '__main__':
         else:
             # use 1myr bins by default
             f_shift=0
-            fixed_times_of_shift = np.arange(1, 1000)[::-1]
-            time_framesL=len(fixed_times_of_shift)+1
-            time_framesM=len(fixed_times_of_shift)+1
+            fixed_times_of_shift_bdnn = np.arange(1, 1000)[::-1]
+            time_framesL_bdnn=len(fixed_times_of_shift_bdnn)+1
+            time_framesM_bdnn=len(fixed_times_of_shift_bdnn)+1
             min_allowed_t=0
             fix_Shift = 1
             TDI = 0
@@ -4767,7 +4802,7 @@ if __name__ == '__main__':
     bdnn_const_baseline = args.BDNNconstbaseline
     out_act_f = get_act_f(args.BDNNoutputfun)
     hidden_act_f = get_hidden_act_f(args.BDNNactfun)
-    
+    block_nn_model = args.BDNNblockmodel 
 
     ############################ SET BIRTH-DEATH MODEL ############################
 
@@ -5183,7 +5218,10 @@ if __name__ == '__main__':
         else:
             rescaled_time = []
             BDNNtimetrait_rescaler = 1
-    
+            
+        if block_nn_model:
+            n_BDNN_nodes = [8, 2]
+        
         trait_tbl_NN, cov_par_init_NN = init_trait_and_weights(trait_values,
                                                                n_BDNN_nodes,
                                                                bias_node=True, 
@@ -5191,13 +5229,35 @@ if __name__ == '__main__':
                                                                use_time_as_trait=use_time_as_trait,
                                                                fixed_times_of_shift=rescaled_time,
                                                                n_taxa=n_taxa)
-        cov_par_init_NN.append(0) # cov_par_init_NN[2] = covar prm for preseravtion rate (currently not used)
+        cov_par_init_NN.append(0) # cov_par_init_NN[2] = covar prm for preservation rate (currently not used)
         prior_bdnn_w_sd = [np.ones(cov_par_init_NN[0][i].shape) * args.BDNNprior for i in range(len(cov_par_init_NN[0]))] 
         # prior_bdnn_w_sd[-1][0][0] = prior_bdnn_w_sd[-1][0][0] * 10 # prior on bias weight
         # prior_bdnn_w_sd[0][:,-1] = prior_bdnn_w_sd[0][:,-1] * 10
         # print("prior_bdnn_w_sd\n",prior_bdnn_w_sd[0])
         # print([i.shape for i in prior_bdnn_w_sd])
-    
+        
+        #---
+        if block_nn_model:
+            indx_input_list_1 = np.zeros(trait_values.shape[1] + 1) # add +1 for time
+            indx_input_list_1[-1] = 1 # different block for time
+            indx_input_list_2 = [0, 0, 0, 0, 1, 1, 1, 1]
+        
+            print(cov_par_init_NN[0], trait_values.shape,len(cov_par_init_NN[0]))
+            BDNN_MASK = create_mask(cov_par_init_NN[0],
+                               indx_input_list=[indx_input_list_1, indx_input_list_2, []],
+                               nodes_per_feature_list=[[4, 4], [1, 1, 1], []])
+            # create_mask(w_layers, indx_input_list, nodes_per_feature_list)
+            print(BDNN_MASK)
+            
+            for i_layer in range(len(cov_par_init_NN[0])):
+                cov_par_init_NN[0][i_layer] *= BDNN_MASK[i_layer]
+                cov_par_init_NN[1][i_layer] *= BDNN_MASK[i_layer]
+            
+            print(cov_par_init_NN)
+            
+        else:
+            BDNN_MASK = None
+        #---
         if False:
             print(rescaled_time)    
             for i in trait_tbl_NN[0]:
@@ -5595,7 +5655,7 @@ if __name__ == '__main__':
     if burnin<1 and burnin>0:
         burnin = int(burnin*mcmc_gen)    
 
-    print("TDI", TDI)
+    # print("TDI", TDI)
 
     def start_MCMC(run):
         # marginal_file is either for rates or for lik
