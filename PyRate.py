@@ -7,7 +7,7 @@ import importlib.util
 import copy as copy_lib
 
 version= "PyRate"
-build  = "v3.1.3 - 20220531"
+build  = "v3.1.3 - 20220621"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
@@ -4430,6 +4430,7 @@ if __name__ == '__main__':
             fixed_times_of_shift_bdnn = np.arange(1, 1000)[::-1]
             time_framesL_bdnn=len(fixed_times_of_shift_bdnn)+1
             time_framesM_bdnn=len(fixed_times_of_shift_bdnn)+1
+            fixed_times_of_shift = fixed_times_of_shift_bdnn
             min_allowed_t=0
             fix_Shift = 1
             TDI = 0
@@ -5220,6 +5221,7 @@ if __name__ == '__main__':
             BDNNtimetrait_rescaler = 1
             
         if block_nn_model:
+            # n_BDNN_nodes = [2, 2]
             n_BDNN_nodes = [8, 2]
         
         trait_tbl_NN, cov_par_init_NN = init_trait_and_weights(trait_values,
@@ -5235,17 +5237,22 @@ if __name__ == '__main__':
         # prior_bdnn_w_sd[0][:,-1] = prior_bdnn_w_sd[0][:,-1] * 10
         # print("prior_bdnn_w_sd\n",prior_bdnn_w_sd[0])
         # print([i.shape for i in prior_bdnn_w_sd])
-        
+        # for i in trait_tbl_NN[0]:
+        #     print(i.shape, i[10,:])
+        # quit()
         #---
         if block_nn_model:
             indx_input_list_1 = np.zeros(trait_values.shape[1] + 1) # add +1 for time
             indx_input_list_1[-1] = 1 # different block for time
+            # indx_input_list_2 = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
             indx_input_list_2 = [0, 0, 0, 0, 1, 1, 1, 1]
+            # indx_input_list_2 = [0, 1]
         
             print(cov_par_init_NN[0], trait_values.shape,len(cov_par_init_NN[0]))
             BDNN_MASK = create_mask(cov_par_init_NN[0],
                                indx_input_list=[indx_input_list_1, indx_input_list_2, []],
-                               nodes_per_feature_list=[[4, 4], [1, 1, 1], []])
+                               # nodes_per_feature_list=[[1, 1], [1, 1], []])
+                               nodes_per_feature_list=[[4, 4], [1, 1], []])
             # create_mask(w_layers, indx_input_list, nodes_per_feature_list)
             print(BDNN_MASK)
             
