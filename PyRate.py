@@ -7,7 +7,7 @@ import importlib.util
 import copy as copy_lib
 
 version= "PyRate"
-build  = "v3.1.3 - 20220621"
+build  = "v3.1.3 - 20220701"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
@@ -1372,9 +1372,6 @@ def gibbs_update_ts_te(q_rates_L,q_rates_M,q_time_frames):
         new_te.append(e)
     return np.array(new_ts), np.array(new_te)
 
-
-
-
 def seed_missing(x,m,s): # assigns random normally distributed trait values to missing data
     return np.isnan(x)*np.random.normal(m,s)+np.nan_to_num(x)
 
@@ -1387,7 +1384,6 @@ def cond_alpha_proposal(hp_gamma_shape,hp_gamma_rate,current_alpha,k,n):
     if (u / (1.0-u)) < x: new_alpha = np.random.gamma( (hp_gamma_shape+k), (1./(hp_gamma_rate-np.log(eta))) )
     else: new_alpha = np.random.gamma( (hp_gamma_shape+k-1.), 1./(hp_gamma_rate-np.log(eta)) )
     return new_alpha
-
 
 def get_post_sd(N,HP_shape=2,HP_rate=2,mean_Norm=0): # get sd of Normal from sample N and hyperprior G(a,b)
     n= len(N)
@@ -1856,8 +1852,6 @@ def init_trait_and_weights(trait_tbl,nodes,bias_node=False,fadlad=0.1,
         for i in w_lam:
             print(i.shape)
     
-        
-            
     return [trait_tbl_lam,trait_tbl_mu], [w_lam,w_mu]
 
    
@@ -5220,9 +5214,6 @@ if __name__ == '__main__':
             rescaled_time = []
             BDNNtimetrait_rescaler = 1
             
-        if block_nn_model:
-            # n_BDNN_nodes = [2, 2]
-            n_BDNN_nodes = [8, 2]
         
         trait_tbl_NN, cov_par_init_NN = init_trait_and_weights(trait_values,
                                                                n_BDNN_nodes,
@@ -5245,16 +5236,26 @@ if __name__ == '__main__':
             indx_input_list_1 = np.zeros(trait_values.shape[1] + 1) # add +1 for time
             indx_input_list_1[-1] = 1 # different block for time
             # indx_input_list_2 = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-            indx_input_list_2 = [0, 0, 0, 0, 1, 1, 1, 1]
+            indx_input_list_2 =  [0, 0, 0, 0, 1, 1, 1, 1]
+            nodes_traits = int(n_BDNN_nodes[0] / 2)
+            nodes_time = n_BDNN_nodes[0] - nodes_traits
+            indx_input_list_2 = np.concatenate((np.zeros(nodes_traits),np.ones(nodes_time))).astype(int)  
+            nodes_per_feature_list = [list(np.unique(indx_input_list_2, return_counts=True)[1])]
+            if len(n_BDNN_nodes) == 2:
+                nodes_traits = int(n_BDNN_nodes[1] / 2)
+                nodes_time = n_BDNN_nodes[1] - nodes_traits
+                nodes_per_feature_list.append([nodes_traits, nodes_time])
+            nodes_per_feature_list.append([])
+            
             # indx_input_list_2 = [0, 1]
         
             print(cov_par_init_NN[0], trait_values.shape,len(cov_par_init_NN[0]))
             BDNN_MASK = create_mask(cov_par_init_NN[0],
                                indx_input_list=[indx_input_list_1, indx_input_list_2, []],
                                # nodes_per_feature_list=[[1, 1], [1, 1], []])
-                               nodes_per_feature_list=[[4, 4], [1, 1], []])
+                               nodes_per_feature_list=nodes_per_feature_list) # [[4, 4], [1, 1], []]
             # create_mask(w_layers, indx_input_list, nodes_per_feature_list)
-            print(BDNN_MASK)
+            [print("\n", i) for i in BDNN_MASK]
             
             for i_layer in range(len(cov_par_init_NN[0])):
                 cov_par_init_NN[0][i_layer] *= BDNN_MASK[i_layer]
