@@ -7,7 +7,7 @@ import importlib.util
 import copy as copy_lib
 
 version= "PyRate"
-build  = "v3.1.3 - 20220701"
+build  = "v3.1.3 - 20220717"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
@@ -5233,10 +5233,10 @@ if __name__ == '__main__':
         # quit()
         #---
         if block_nn_model:
+            # mask block - 1st layer
             indx_input_list_1 = np.zeros(trait_values.shape[1] + 1) # add +1 for time
             indx_input_list_1[-1] = 1 # different block for time
-            # indx_input_list_2 = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-            indx_input_list_2 =  [0, 0, 0, 0, 1, 1, 1, 1]
+            # mask block - 2nd layer (equal split trait, time)
             nodes_traits = int(n_BDNN_nodes[0] / 2)
             nodes_time = n_BDNN_nodes[0] - nodes_traits
             indx_input_list_2 = np.concatenate((np.zeros(nodes_traits),np.ones(nodes_time))).astype(int)  
@@ -5249,7 +5249,7 @@ if __name__ == '__main__':
             
             # indx_input_list_2 = [0, 1]
         
-            print(cov_par_init_NN[0], trait_values.shape,len(cov_par_init_NN[0]))
+            # print(cov_par_init_NN[0], trait_values.shape,len(cov_par_init_NN[0]))
             BDNN_MASK = create_mask(cov_par_init_NN[0],
                                indx_input_list=[indx_input_list_1, indx_input_list_2, []],
                                # nodes_per_feature_list=[[1, 1], [1, 1], []])
@@ -5257,11 +5257,6 @@ if __name__ == '__main__':
             # create_mask(w_layers, indx_input_list, nodes_per_feature_list)
             [print("\n", i) for i in BDNN_MASK]
             
-            for i_layer in range(len(cov_par_init_NN[0])):
-                cov_par_init_NN[0][i_layer] *= BDNN_MASK[i_layer]
-                cov_par_init_NN[1][i_layer] *= BDNN_MASK[i_layer]
-            
-            print(cov_par_init_NN)
             
         else:
             BDNN_MASK = None
@@ -5275,6 +5270,22 @@ if __name__ == '__main__':
         log_per_species_rates = True
         # else:
         # log_per_species_rates = False
+        
+        n_prm = 0
+        n_free_prm = 0
+        bdnn_settings = ""
+        for i_layer in range(len(cov_par_init_NN[0])):
+            if BDNN_MASK:
+                cov_par_init_NN[0][i_layer] *= BDNN_MASK[i_layer]
+                cov_par_init_NN[1][i_layer] *= BDNN_MASK[i_layer]
+            n_prm += cov_par_init_NN[0][i_layer].size
+            n_free_prm += np.sum(cov_par_init_NN[0][i_layer] != 0)
+            bdnn_settings = bdnn_settings + "\n %s" % str(cov_par_init_NN[0][i_layer].shape)
+        
+        #print(cov_par_init_NN)
+        bdnn_settings = "\n\nUsing BDNN model\nN. free parameters: %s \nN. parameters: %s\n%s\n" % (n_prm, n_free_prm, bdnn_settings)
+        print(bdnn_settings)
+        
 
 
 
@@ -5463,6 +5474,9 @@ if __name__ == '__main__':
                 for i in times_q_shift: o2 += "%s " % (i)
 
         else: o2+="Using Non-Homogeneous Poisson Process of preservation (NHPP)."
+        
+    if use_BDNNmodel:
+        o2 += bdnn_settings
 
     version_notes="""\n
     Please cite: \n%s\n
