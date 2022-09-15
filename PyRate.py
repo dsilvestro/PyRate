@@ -859,8 +859,10 @@ def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type=""):
         if len(col_tag) == 0:
             if j==0:
                 head_temp = np.array(next(open(f)).split())
+                q_not_ind = np.array([i for i in range(len(head)) if "q_" not in head[i]])
+                q_ind = np.array([i for i in range(len(head)) if "q_" in head[i]])
                 if len(q_ind)>0:
-                    head_temp = np.delete(head_temp,2)
+                    head_temp = head_temp[q_not_ind]
                     head_temp = np.insert(head_temp,q_ind[0],"mean_q")
                 tbl_header=""
                 for i in head_temp: tbl_header = tbl_header + i  + "\t"
