@@ -7,7 +7,7 @@ import importlib.util
 import copy as copy_lib
 
 version= "PyRate"
-build  = "v3.1.3 - 20220717"
+build  = "v3.1.3 - 20220926"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
@@ -1856,8 +1856,6 @@ def init_trait_and_weights(trait_tbl,nodes,bias_node=False,fadlad=0.1,
     
     return [trait_tbl_lam,trait_tbl_mu], [w_lam,w_mu]
 
-   
-
 def init_cov_par(trait_tbl, n_nodes_lam, n_nodes_mu):
     # lam
     trait_tbl.shape[0]
@@ -1865,6 +1863,48 @@ def init_cov_par(trait_tbl, n_nodes_lam, n_nodes_mu):
 def rescale_trait_tbl(trait_tbl):
     # fixd rescaling for lat/lon, time 
     pass
+
+def load_pkl(file_name):
+    import pickle
+    with open(file_name, "rb") as f:
+        return pickle.load(f)
+        
+def bdnn_read_mcmc_file(mcmc_file):
+    import pandas as pd
+    m = pd.read_csv(mcmc_file, delimiter='\t')
+    w_sp_indx = np.array([i for i in range(len(m.columns)) if 'w_lam_' in m.columns[i]])
+    w_ex_indx = np.array([i for i in range(len(m.columns)) if 'w_mu_' in m.columns[i]])
+    np_m = m.to_numpy()
+    burnin = int(0.1 * np_m.shape[0])
+    w_sp = np_m[burnin:,w_sp_indx]
+    w_ex = np_m[burnin:,w_ex_indx]
+    return w_sp, w_ex
+
+def bdnn_reshape_w(posterior_w, bdnn_obj):
+    w_list = []
+    for w in posterior_w:
+        c = 0
+        w_sample = []
+        for i in range(len(bdnn_obj.bdnn_settings['layers_sizes'])):
+            w_layer = w[c:c+bdnn_obj.bdnn_settings['layers_sizes'][i]].reshape(bdnn_obj.bdnn_settings['layers_shapes'][i])
+            c += bdnn_obj.bdnn_settings['layers_sizes'][i]
+            w_sample.append(w_layer)
+            # print(w_layer.shape)        
+        w_list.append(w_sample)
+    return w_list
+
+def bdnn_parse_results(mcmc_file, pkl_file):
+    ob = load_pkl(pkl_file)
+    w_sp, w_ex = bdnn_read_mcmc_file(mcmc_file)
+    post_w_sp = bdnn_reshape_w(w_sp, ob)
+    post_w_ex = bdnn_reshape_w(w_ex, ob)
+    return ob, post_w_sp, post_w_ex
+    
+def bdnn_time_rescaler(x, bdnn_obj):  
+    return x * bdnn_obj.bdnn_settings['time_rescaler']
+
+               
+
 
 
 # ADE model
@@ -4039,6 +4079,7 @@ def MCMC(all_arg):
                     # print(trait_tbl_sp_i_mu, teA[i])
                     # get sp-specific rates: using '1' as baseline rate (only works with bdnn_const_baseline)
                     if bdnn_const_baseline:
+                        # print("bdnn_const_baseline", np.array([trait_tbl_sp_i_lam]).shape, [cov_parA[0][i].shape for i in range(3)])
                         sp_lam_vec[i] = get_rate_BDNN(1, np.array([trait_tbl_sp_i_lam]), cov_parA[0], hidden_act_f, out_act_f)
                         sp_mu_vec[i] =  get_rate_BDNN(1, np.array([trait_tbl_sp_i_mu]), cov_parA[1], hidden_act_f, out_act_f)
                     else:
@@ -4075,6 +4116,24 @@ def marginal_likelihood(marginal_file, l, t):
     o= "\n Marginal likelihood: %s\n\nlogL: %s\nbeta: %s" % (mL,l,t)
     marginal_file.writelines(o)
     marginal_file.close()
+    
+    
+# bdnn class
+class bdnn():
+    def __init__(self,
+                 bdnn_settings=None,
+                 weights=None,
+                 trait_tbls=None):
+        self.bdnn_settings = bdnn_settings
+        self.v = version + build
+        self.weights = weights
+        self.trait_tbls = trait_tbls
+    
+    def func(self, x="f"):
+        print(x)
+    
+    def reset(self):
+        self.f = func
 
 ########################## PARSE ARGUMENTS #######################################
 if __name__ == '__main__': 
@@ -5454,277 +5513,305 @@ if __name__ == '__main__':
             suff_out+= "c"
         if block_nn_model:
             suff_out+= "b"
-
-
-    # OUTPUT 0 SUMMARY AND SETTINGS
-    o0 = "\n%s build %s\n" % (version, build)
-    o1 = "\ninput: %s output: %s/%s" % (args.input_data, path_dir, out_name)
-    o2 = "\n\nPyRate was called as follows:\n%s\n" % (args)
-    if model_cov>=1 or useDiscreteTraitModel == 1: o2 += regression_trait
-    if TDI==3: o2 += "\n\nHyper-prior on concentration parameter (Gamma shape, rate): %s, %s\n" % (hp_gamma_shape, hp_gamma_rate)
-    if len(fixed_times_of_shift)>0:
-        o2 += "\nUsing birth-death model with fixed times of rate shift: "
-        for i in fixed_times_of_shift: o2 += "%s " % (i)
-    o2+= "\n"+prior_setting
-
-    if use_se_tbl != 1:
-        if argsHPP == 1:
-            if TPP_model == 0:
-                o2+="Using Homogeneous Poisson Process of preservation (HPP)."
-            else:
-                o2 += "\nUsing Time-variable Poisson Process of preservation (TPP) at: "
-                for i in times_q_shift: o2 += "%s " % (i)
-
-        else: o2+="Using Non-Homogeneous Poisson Process of preservation (NHPP)."
         
-    if use_BDNNmodel:
-        o2 += bdnn_settings
+        # save BDNN object
+        bdnn_dict = {
+            'layers_shapes': [cov_par_init_NN[0][i_layer].shape for i_layer in range(len(cov_par_init_NN[0]))],
+            'layers_sizes': [cov_par_init_NN[0][i_layer].size for i_layer in range(len(cov_par_init_NN[0]))],
+            'mask': BDNN_MASK,
+            'fixed_times_of_shift_bdnn': fixed_times_of_shift_bdnn,
+            'use_time_as_trait': use_time_as_trait, 
+            'time_rescaler': BDNNtimetrait_rescaler, 
+            'bdnn_const_baseline': bdnn_const_baseline,
+            'out_act_f': out_act_f,
+            'hidden_act_f': hidden_act_f,
+            'block_nn_model': block_nn_model
+        
+        
+        }
+    
+        obj = bdnn(bdnn_settings=bdnn_dict,
+                   weights=cov_par_init_NN,
+                   trait_tbls=trait_tbl_NN)
 
-    version_notes="""\n
-    Please cite: \n%s\n
-    Feedback and support: pyrate.help@gmail.com
-    OS: %s %s
-    Python version: %s\n
-    Numpy version: %s
-    Scipy version: %s\n
-    Random seed: %s %s
-    """ % (citation,platform.system(), platform.release(), sys.version, np.version.version, scipy.version.version,rseed,CPPlib)
+        print("obj.bdnn_settings", obj.bdnn_settings, cov_par_init_NN)
+        out_file = "%s/%s.pkl" % (path_dir,suff_out)
+        import pickle 
+        with open(out_file, 'wb') as output:  # Overwrites any existing file.
+            pickle.dump(obj, output, pickle.HIGHEST_PROTOCOL)
+        print("\n\nBDNN object saved as:", out_file, "\n")
+        # sys.exit()
+    
+
+    
+    if mcmc_gen > 0:
+        # OUTPUT 0 SUMMARY AND SETTINGS
+        o0 = "\n%s build %s\n" % (version, build)
+        o1 = "\ninput: %s output: %s/%s" % (args.input_data, path_dir, out_name)
+        o2 = "\n\nPyRate was called as follows:\n%s\n" % (args)
+        if model_cov>=1 or useDiscreteTraitModel == 1: o2 += regression_trait
+        if TDI==3: o2 += "\n\nHyper-prior on concentration parameter (Gamma shape, rate): %s, %s\n" % (hp_gamma_shape, hp_gamma_rate)
+        if len(fixed_times_of_shift)>0:
+            o2 += "\nUsing birth-death model with fixed times of rate shift: "
+            for i in fixed_times_of_shift: o2 += "%s " % (i)
+        o2+= "\n"+prior_setting
+
+        if use_se_tbl != 1:
+            if argsHPP == 1:
+                if TPP_model == 0:
+                    o2+="Using Homogeneous Poisson Process of preservation (HPP)."
+                else:
+                    o2 += "\nUsing Time-variable Poisson Process of preservation (TPP) at: "
+                    for i in times_q_shift: o2 += "%s " % (i)
+
+            else: o2+="Using Non-Homogeneous Poisson Process of preservation (NHPP)."
+        
+        if use_BDNNmodel:
+            o2 += bdnn_settings
+
+        version_notes="""\n
+        Please cite: \n%s\n
+        Feedback and support: pyrate.help@gmail.com
+        OS: %s %s
+        Python version: %s\n
+        Numpy version: %s
+        Scipy version: %s\n
+        Random seed: %s %s
+        """ % (citation,platform.system(), platform.release(), sys.version, np.version.version, scipy.version.version,rseed,CPPlib)
 
 
 
-    o=''.join([o0,o1,o2,version_notes])
-    out_sum = "%s/%s_sum.txt" % (path_dir,suff_out)
-    sumfile = open(out_sum , "w")
-    sumfile.writelines(o)
-    sumfile.close()
+        o=''.join([o0,o1,o2,version_notes])
+        out_sum = "%s/%s_sum.txt" % (path_dir,suff_out)
+        sumfile = open(out_sum , "w")
+        sumfile.writelines(o)
+        sumfile.close()
 
-    # OUTPUT 1 LOG MCMC
-    out_log = "%s/%s_mcmc.log" % (path_dir, suff_out) #(path_dir, output_file, out_run)
-    logfile = open(out_log , "w")
-    if fix_SE == 0:
-        if TPP_model == 0:
-            head="it\tposterior\tprior\tPP_lik\tBD_lik\tq_rate\talpha\t"
-        else:
-            head="it\tposterior\tprior\tPP_lik\tBD_lik\t"
-            for i in range(time_framesQ): head += "q_%s\t" % (i)
-            head += "alpha\t"
-            if pert_prior[1]==0: head +="hypQ\t"
-    else:
-        head="it\tposterior\tprior\tBD_lik\t"
-
-    if model_cov>=1:
-        head += "cov_sp\tcov_ex\tcov_q\t"
-        if est_COVAR_prior == 1: head+="cov_hp\t"
-    if edge_indicator:
-        head += "pI\t"
-    if TDI<2:
-        head += "root_age\tdeath_age\t"
-        if TDI==1: head += "beta\t"
-        if est_hyperP == 1:
-            head += "hypL\thypM\t"
-
-        if use_BDNNmodel and bdnn_const_baseline:
-            pass #head += "lambda_avg\tmu_avg\t"
-        elif use_ADE_model == 0 and useDiscreteTraitModel == 0:
-            for i in range(time_framesL): head += "lambda_%s\t" % (i)
-            for i in range(time_framesM): head += "mu_%s\t" % (i)
-        elif use_ADE_model >= 1:
-            if use_ADE_model == 1:
-                head+="w_shape\t"
-                for i in range(time_framesM): head += "w_scale_%s\t" % (i)
-            elif use_ADE_model == 2:
-                head+="corr_lambda\t"
-                for i in range(time_framesM): head += "corr_mu_%s\t" % (i)
-            for i in range(time_framesM): head += "mean_longevity_%s\t" % (i)
-        elif useDiscreteTraitModel == 1:
-            for i in range(len(lengths_B_events)): head += "lambda_%s\t" % (i)
-            for i in range(len(lengths_D_events)): head += "mu_%s\t" % (i)
-
-        if fix_Shift== 0:
-            for i in range(1,time_framesL): head += "shift_sp_%s\t" % (i)
-            for i in range(1,time_framesM): head += "shift_ex_%s\t" % (i)
-
-        if analyze_tree >=1:
-            if analyze_tree==4:
-                head += "tree_lik\t"
-                for i in range(time_framesL): head += "tree_sp_%s\t" % (i)
-                for i in range(time_framesL): head += "tree_ex_%s\t" % (i)
+        # OUTPUT 1 LOG MCMC
+        out_log = "%s/%s_mcmc.log" % (path_dir, suff_out) #(path_dir, output_file, out_run)
+        logfile = open(out_log , "w")
+        if fix_SE == 0:
+            if TPP_model == 0:
+                head="it\tposterior\tprior\tPP_lik\tBD_lik\tq_rate\talpha\t"
             else:
-                head += "tree_lik\ttree_sp\ttree_ex\t"
+                head="it\tposterior\tprior\tPP_lik\tBD_lik\t"
+                for i in range(time_framesQ): head += "q_%s\t" % (i)
+                head += "alpha\t"
+                if pert_prior[1]==0: head +="hypQ\t"
+        else:
+            head="it\tposterior\tprior\tBD_lik\t"
 
-    elif TDI == 2: head+="k_birth\tk_death\troot_age\tdeath_age\t"
-    elif TDI == 3: head+="k_birth\tk_death\tDPP_alpha_L\tDPP_alpha_M\troot_age\tdeath_age\t"
-    elif TDI == 4: head+="k_birth\tk_death\tRJ_hp\troot_age\tdeath_age\t"
+        if model_cov>=1:
+            head += "cov_sp\tcov_ex\tcov_q\t"
+            if est_COVAR_prior == 1: head+="cov_hp\t"
+        if edge_indicator:
+            head += "pI\t"
+        if TDI<2:
+            head += "root_age\tdeath_age\t"
+            if TDI==1: head += "beta\t"
+            if est_hyperP == 1:
+                head += "hypL\thypM\t"
+
+            if use_BDNNmodel and bdnn_const_baseline:
+                pass #head += "lambda_avg\tmu_avg\t"
+            elif use_ADE_model == 0 and useDiscreteTraitModel == 0:
+                for i in range(time_framesL): head += "lambda_%s\t" % (i)
+                for i in range(time_framesM): head += "mu_%s\t" % (i)
+            elif use_ADE_model >= 1:
+                if use_ADE_model == 1:
+                    head+="w_shape\t"
+                    for i in range(time_framesM): head += "w_scale_%s\t" % (i)
+                elif use_ADE_model == 2:
+                    head+="corr_lambda\t"
+                    for i in range(time_framesM): head += "corr_mu_%s\t" % (i)
+                for i in range(time_framesM): head += "mean_longevity_%s\t" % (i)
+            elif useDiscreteTraitModel == 1:
+                for i in range(len(lengths_B_events)): head += "lambda_%s\t" % (i)
+                for i in range(len(lengths_D_events)): head += "mu_%s\t" % (i)
+
+            if fix_Shift== 0:
+                for i in range(1,time_framesL): head += "shift_sp_%s\t" % (i)
+                for i in range(1,time_framesM): head += "shift_ex_%s\t" % (i)
+
+            if analyze_tree >=1:
+                if analyze_tree==4:
+                    head += "tree_lik\t"
+                    for i in range(time_framesL): head += "tree_sp_%s\t" % (i)
+                    for i in range(time_framesL): head += "tree_ex_%s\t" % (i)
+                else:
+                    head += "tree_lik\ttree_sp\ttree_ex\t"
+
+        elif TDI == 2: head+="k_birth\tk_death\troot_age\tdeath_age\t"
+        elif TDI == 3: head+="k_birth\tk_death\tDPP_alpha_L\tDPP_alpha_M\troot_age\tdeath_age\t"
+        elif TDI == 4: head+="k_birth\tk_death\tRJ_hp\troot_age\tdeath_age\t"
 
 
-    if useDiscreteTraitModel == 1:
-        for i in range(len(lengths_B_events)): head += "S_%s\t" % (i)
-    head += "tot_length"
-    head=head.split('\t')
-    if use_se_tbl == 0: tot_number_of_species = len(taxa_names)
+        if useDiscreteTraitModel == 1:
+            for i in range(len(lengths_B_events)): head += "S_%s\t" % (i)
+        head += "tot_length"
+        head=head.split('\t')
+        if use_se_tbl == 0: tot_number_of_species = len(taxa_names)
 
-    if use_BDNNmodel:
-        # head += ["lambda_avg","mu_avg"]
-        # weights lam
-        for i in range(len(cov_par_init_NN[0])):
-            head += ["w_lam_%s_%s" % (i, j) for j in range(cov_par_init_NN[0][i].size)]
-        # weights mu
-        for i in range(len(cov_par_init_NN[1])):
-            head += ["w_mu_%s_%s" % (i, j) for j in range(cov_par_init_NN[1][i].size)]
-
-
-
-    if fix_SE == 0:
-        for i in taxa_names: head.append("%s_TS" % (i))
-        for i in taxa_names: head.append("%s_TE" % (i))
-    wlog=csv.writer(logfile, delimiter='\t')
-    wlog.writerow(head)
-
-    #logfile.writelines(head)
-    logfile.flush()
-    os.fsync(logfile)
-
-    # OUTPUT 2 MARGINAL RATES
-    if args.log_marginal_rates == -1: # default values
-        if TDI==4 or use_ADE_model != 0 or use_BDNNmodel==1: log_marginal_rates_to_file = 0
-        else: log_marginal_rates_to_file = 1
-    else:
-        log_marginal_rates_to_file = args.log_marginal_rates
-
-    # save regular marginal rate file
-    if TDI!=1 and use_ADE_model == 0 and useDiscreteTraitModel == 0 and log_marginal_rates_to_file==1: # (path_dir, output_file, out_run)
-        if useBounded_BD == 1: max_marginal_frame = boundMax+1
-        else: max_marginal_frame = max(FA)
-        marginal_frames= array([int(fabs(i-int(max_marginal_frame))) for i in range(int(max_marginal_frame)+1)])
-        if log_marginal_rates_to_file==1:
-            out_log_marginal = "%s/%s_marginal_rates.log" % (path_dir, suff_out)
-            marginal_file = open(out_log_marginal , "w")
-            head="it\t"
-            for i in range(int(max_marginal_frame)+1): head += "l_%s\t" % i #int(fabs(int(max(FA))))
-            for i in range(int(max_marginal_frame)+1): head += "m_%s\t" % i #int(fabs(int(max(FA))))
-            for i in range(int(max_marginal_frame)+1): head += "r_%s\t" % i #int(fabs(int(max(FA))))
-            head=head.split('\t')
-            wmarg=csv.writer(marginal_file, delimiter='\t')
-            wmarg.writerow(head)
-            marginal_file.flush()
-            os.fsync(marginal_file)
-
-    # save files with sp/ex rates and times of shift
-    elif log_marginal_rates_to_file == 0 or use_BDNNmodel == 1 and use_time_as_trait:
-        marginal_sp_rate_file_name = "%s/%s_sp_rates.log" % (path_dir, suff_out)
-        marginal_sp_rate_file = open(marginal_sp_rate_file_name , "w")
-        w_marg_sp=csv.writer(marginal_sp_rate_file, delimiter='\t')
-        marginal_sp_rate_file.flush()
-        os.fsync(marginal_sp_rate_file)
-        marginal_ex_rate_file_name = "%s/%s_ex_rates.log" % (path_dir, suff_out)
-        marginal_ex_rate_file = open(marginal_ex_rate_file_name , "w")
-        w_marg_ex=csv.writer(marginal_ex_rate_file, delimiter='\t')
-        marginal_ex_rate_file.flush()
-        os.fsync(marginal_ex_rate_file)
-        marginal_frames=0
-
-    # OUTPUT 3 MARGINAL LIKELIHOOD
-    elif TDI==1:
-        out_log_marginal_lik = "%s/%s_marginal_likelihood.txt" % (path_dir, suff_out)
-        marginal_file = open(out_log_marginal_lik , "w")
-        marginal_file.writelines(o)
-        marginal_frames=0
-    else: marginal_frames=0
-
-    if fix_SE == 1 and fix_Shift == 1:
-        time_frames  = sort(np.array(list(fixed_times_of_shift) + [0,max(fixed_ts)]))
-        B = sort(time_frames)+0.000001 # add small number to avoid counting extant species as extinct
-        ss1 = np.histogram(fixed_ts,bins=B)[0][::-1]
-        ss1[0] = ss1[0]-no_starting_lineages
-        ee2 = np.histogram(fixed_te,bins=B)[0][::-1]
-        len_SS1,len_EE1 = list(),list()
-        S_time_frame =list()
-        time_frames = time_frames[::-1]
-        for i in range(len(time_frames)-1):
-            up, lo = time_frames[i], time_frames[i+1]
-            len_SS1.append(ss1[i])
-            len_EE1.append(ee2[i])
-            inTS = np.fmin(fixed_ts,up)
-            inTE = np.fmax(fixed_te,lo)
-            temp_S = inTS-inTE
-            S_time_frame.append(sum(temp_S[temp_S>0]))
-
-        len_SS1 = np.array(len_SS1)
-        len_EE1 = np.array(len_EE1)
-        S_time_frame = np.array(S_time_frame)
-
-    # OUTPUT 4 PER-SPECIES RATES
-    if use_BDNNmodel and log_per_species_rates:
-        species_rate_file_name = "%s/%s_per_species_rates.log" % (path_dir, suff_out)
-        head = ["iteration"]
-        for i in taxa_names: head.append("%s_lam" % (i))
-        for i in taxa_names: head.append("%s_mu" % (i))
-        species_rate_file = open(species_rate_file_name , "w")
-        species_rate_writer=csv.writer(species_rate_file, delimiter='\t')
-        species_rate_writer.writerow(head)
-        species_rate_file.flush()
-
-    # OUTPUT 5 species-specific (relative) preservation rate
-    if sp_specific_q_rates:
-        sp_q_marg_rate_file_name = "%s/%s_species_q_rates.log" % (path_dir, suff_out)
-        head = ["iteration", "alpha"]
-        for i in taxa_names: head.append("%s_rel_q" % (i))
-        sp_q_marg_rate_file = open(sp_q_marg_rate_file_name , "w")
-        sp_q_marg=csv.writer(sp_q_marg_rate_file, delimiter='\t')
-        sp_q_marg.writerow(head)
-        sp_q_marg_rate_file.flush()
+        if use_BDNNmodel:
+            # head += ["lambda_avg","mu_avg"]
+            # weights lam
+            for i in range(len(cov_par_init_NN[0])):
+                head += ["w_lam_%s_%s" % (i, j) for j in range(cov_par_init_NN[0][i].size)]
+            # weights mu
+            for i in range(len(cov_par_init_NN[1])):
+                head += ["w_mu_%s_%s" % (i, j) for j in range(cov_par_init_NN[1][i].size)]
 
 
 
+        if fix_SE == 0:
+            for i in taxa_names: head.append("%s_TS" % (i))
+            for i in taxa_names: head.append("%s_TE" % (i))
+        wlog=csv.writer(logfile, delimiter='\t')
+        wlog.writerow(head)
 
-    ########################## START MCMC ####################################
-    if burnin<1 and burnin>0:
-        burnin = int(burnin*mcmc_gen)    
+        #logfile.writelines(head)
+        logfile.flush()
+        os.fsync(logfile)
 
-    # print("TDI", TDI)
+        # OUTPUT 2 MARGINAL RATES
+        if args.log_marginal_rates == -1: # default values
+            if TDI==4 or use_ADE_model != 0 or use_BDNNmodel==1: log_marginal_rates_to_file = 0
+            else: log_marginal_rates_to_file = 1
+        else:
+            log_marginal_rates_to_file = args.log_marginal_rates
 
-    def start_MCMC(run):
-        # marginal_file is either for rates or for lik
-        return MCMC([0,run, IT, sample_freq, print_freq, temperatures, burnin, marginal_frames, list()])
+        # save regular marginal rate file
+        if TDI!=1 and use_ADE_model == 0 and useDiscreteTraitModel == 0 and log_marginal_rates_to_file==1: # (path_dir, output_file, out_run)
+            if useBounded_BD == 1: max_marginal_frame = boundMax+1
+            else: max_marginal_frame = max(FA)
+            marginal_frames= array([int(fabs(i-int(max_marginal_frame))) for i in range(int(max_marginal_frame)+1)])
+            if log_marginal_rates_to_file==1:
+                out_log_marginal = "%s/%s_marginal_rates.log" % (path_dir, suff_out)
+                marginal_file = open(out_log_marginal , "w")
+                head="it\t"
+                for i in range(int(max_marginal_frame)+1): head += "l_%s\t" % i #int(fabs(int(max(FA))))
+                for i in range(int(max_marginal_frame)+1): head += "m_%s\t" % i #int(fabs(int(max(FA))))
+                for i in range(int(max_marginal_frame)+1): head += "r_%s\t" % i #int(fabs(int(max(FA))))
+                head=head.split('\t')
+                wmarg=csv.writer(marginal_file, delimiter='\t')
+                wmarg.writerow(head)
+                marginal_file.flush()
+                os.fsync(marginal_file)
 
-    # Metropolis-coupled MCMC (Altekar, et al. 2004)
-    if use_seq_lik == 0 and runs>1:
-        marginal_frames= array([int(fabs(i-int(max(FA)))) for i in range(int(max(FA))+1)])
-        pool = mcmcMPI(num_proc)
-        res = pool.map(start_MCMC, list(range(runs)))
-        current_it=0
-        swap_rate, attempts=0, 0
-        while current_it<mcmc_gen:
-            n1=np.random.randint(0,runs-1,2)
-            temp=1./(1+n1*temp_pr)
-            [j,k]=n1
-            #print "try: ", current_it, j,k #, res[j] #[2],res[0][2], res[1][2],res[2][2]
-            r=(res[k][2]*temp[0]+res[j][2]*temp[1]) - (res[j][2]*temp[0]+res[k][2]*temp[1])
-            if r>=log(random.random()) and j != k:
+        # save files with sp/ex rates and times of shift
+        elif log_marginal_rates_to_file == 0 or use_BDNNmodel == 1 and use_time_as_trait:
+            marginal_sp_rate_file_name = "%s/%s_sp_rates.log" % (path_dir, suff_out)
+            marginal_sp_rate_file = open(marginal_sp_rate_file_name , "w")
+            w_marg_sp=csv.writer(marginal_sp_rate_file, delimiter='\t')
+            marginal_sp_rate_file.flush()
+            os.fsync(marginal_sp_rate_file)
+            marginal_ex_rate_file_name = "%s/%s_ex_rates.log" % (path_dir, suff_out)
+            marginal_ex_rate_file = open(marginal_ex_rate_file_name , "w")
+            w_marg_ex=csv.writer(marginal_ex_rate_file, delimiter='\t')
+            marginal_ex_rate_file.flush()
+            os.fsync(marginal_ex_rate_file)
+            marginal_frames=0
+
+        # OUTPUT 3 MARGINAL LIKELIHOOD
+        elif TDI==1:
+            out_log_marginal_lik = "%s/%s_marginal_likelihood.txt" % (path_dir, suff_out)
+            marginal_file = open(out_log_marginal_lik , "w")
+            marginal_file.writelines(o)
+            marginal_frames=0
+        else: marginal_frames=0
+
+        if fix_SE == 1 and fix_Shift == 1:
+            time_frames  = sort(np.array(list(fixed_times_of_shift) + [0,max(fixed_ts)]))
+            B = sort(time_frames)+0.000001 # add small number to avoid counting extant species as extinct
+            ss1 = np.histogram(fixed_ts,bins=B)[0][::-1]
+            ss1[0] = ss1[0]-no_starting_lineages
+            ee2 = np.histogram(fixed_te,bins=B)[0][::-1]
+            len_SS1,len_EE1 = list(),list()
+            S_time_frame =list()
+            time_frames = time_frames[::-1]
+            for i in range(len(time_frames)-1):
+                up, lo = time_frames[i], time_frames[i+1]
+                len_SS1.append(ss1[i])
+                len_EE1.append(ee2[i])
+                inTS = np.fmin(fixed_ts,up)
+                inTE = np.fmax(fixed_te,lo)
+                temp_S = inTS-inTE
+                S_time_frame.append(sum(temp_S[temp_S>0]))
+
+            len_SS1 = np.array(len_SS1)
+            len_EE1 = np.array(len_EE1)
+            S_time_frame = np.array(S_time_frame)
+
+        # OUTPUT 4 PER-SPECIES RATES
+        if use_BDNNmodel and log_per_species_rates:
+            species_rate_file_name = "%s/%s_per_species_rates.log" % (path_dir, suff_out)
+            head = ["iteration"]
+            for i in taxa_names: head.append("%s_lam" % (i))
+            for i in taxa_names: head.append("%s_mu" % (i))
+            species_rate_file = open(species_rate_file_name , "w")
+            species_rate_writer=csv.writer(species_rate_file, delimiter='\t')
+            species_rate_writer.writerow(head)
+            species_rate_file.flush()
+
+        # OUTPUT 5 species-specific (relative) preservation rate
+        if sp_specific_q_rates:
+            sp_q_marg_rate_file_name = "%s/%s_species_q_rates.log" % (path_dir, suff_out)
+            head = ["iteration", "alpha"]
+            for i in taxa_names: head.append("%s_rel_q" % (i))
+            sp_q_marg_rate_file = open(sp_q_marg_rate_file_name , "w")
+            sp_q_marg=csv.writer(sp_q_marg_rate_file, delimiter='\t')
+            sp_q_marg.writerow(head)
+            sp_q_marg_rate_file.flush()
+    
+
+        ########################## START MCMC ####################################
+        if burnin<1 and burnin>0:
+            burnin = int(burnin*mcmc_gen)    
+
+        # print("TDI", TDI)
+
+        def start_MCMC(run):
+            # marginal_file is either for rates or for lik
+            return MCMC([0,run, IT, sample_freq, print_freq, temperatures, burnin, marginal_frames, list()])
+
+        # Metropolis-coupled MCMC (Altekar, et al. 2004)
+        if use_seq_lik == 0 and runs>1:
+            marginal_frames= array([int(fabs(i-int(max(FA)))) for i in range(int(max(FA))+1)])
+            pool = mcmcMPI(num_proc)
+            res = pool.map(start_MCMC, list(range(runs)))
+            current_it=0
+            swap_rate, attempts=0, 0
+            while current_it<mcmc_gen:
+                n1=np.random.randint(0,runs-1,2)
+                temp=1./(1+n1*temp_pr)
+                [j,k]=n1
+                #print "try: ", current_it, j,k #, res[j] #[2],res[0][2], res[1][2],res[2][2]
+                r=(res[k][2]*temp[0]+res[j][2]*temp[1]) - (res[j][2]*temp[0]+res[k][2]*temp[1])
+                if r>=log(random.random()) and j != k:
+                    args=list()
+                    best,ind=res[1][2],0
+                    #print current_it, "swap %s with chain %s [%s / %s] temp. [%s / %s]" % (j, k, res[j][2],res[k][2], temp[0],temp[1])
+                    swap_rate+=1
+                    res_temp1=res[j]
+                    res_temp2=res[k]
+                    res[j]=res_temp2
+                    res[k]=res_temp1
+                current_it=res[0][0]
+                res[0][0]=0
                 args=list()
-                best,ind=res[1][2],0
-                #print current_it, "swap %s with chain %s [%s / %s] temp. [%s / %s]" % (j, k, res[j][2],res[k][2], temp[0],temp[1])
-                swap_rate+=1
-                res_temp1=res[j]
-                res_temp2=res[k]
-                res[j]=res_temp2
-                res[k]=res_temp1
-            current_it=res[0][0]
-            res[0][0]=0
-            args=list()
-            for i in range(runs):
-                seed=0
-                args.append([current_it,i, current_it+IT, sample_freq, print_freq, temperatures, burnin, marginal_frames, res[i]])
-            res = pool.map(MCMC, args)
-            #except: print current_it,i, current_it+IT
-            attempts+=1.
-            #if attempts % 100 ==0:
-            #    print "swap freq.", swap_rate/attempts
-            #    for i in range(runs): print "chain", i, "post:", res[i][2], sum(res[i][5]-res[i][6])
+                for i in range(runs):
+                    seed=0
+                    args.append([current_it,i, current_it+IT, sample_freq, print_freq, temperatures, burnin, marginal_frames, res[i]])
+                res = pool.map(MCMC, args)
+                #except: print current_it,i, current_it+IT
+                attempts+=1.
+                #if attempts % 100 ==0:
+                #    print "swap freq.", swap_rate/attempts
+                #    for i in range(runs): print "chain", i, "post:", res[i][2], sum(res[i][5]-res[i][6])
 
-    else:
-        if runs>1: print("\nWarning: MC3 algorithm requires multi-threading.\nUsing standard (BD)MCMC algorithm instead.\n")
-        res=start_MCMC(0)
-    print("\nfinished at:", time.ctime(), "\nelapsed time:", round(time.time()-t1,2), "\n")
-    logfile.close()
+        else:
+            if runs>1: print("\nWarning: MC3 algorithm requires multi-threading.\nUsing standard (BD)MCMC algorithm instead.\n")
+            res=start_MCMC(0)
+        print("\nfinished at:", time.ctime(), "\nelapsed time:", round(time.time()-t1,2), "\n")
+        logfile.close()
 
