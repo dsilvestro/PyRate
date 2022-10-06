@@ -80,7 +80,36 @@ Canis\_latrans | extant | 0.3 | 4.9  | 4
 Canis\_latrans | extant | 1.8 | 4.9  | 5
 Canis\_thooides | extinct | 1.8 | 4.9  | 5
 
-*pyrate_utilities.r* (`extract.ages()`) will automatically resample fossil ages by site when a column named "Site" is included in the input table. **We thank Peter Wagner and Juan Cantalapiedra for input on this!**
+*pyrate_utilities.r* (`extract.ages()`) will automatically resample fossil ages by site when a column named "Site" is included in the input table. Thanks to Peter Wagner and Juan Cantalapiedra for input on this!
+
+
+***
+
+# Check species names for typos and inconsistent spelling
+
+PyRte implements an algorithm to check for inconsistent spelling in species names (expected format: *Genus\_species*) as these can occur frequently especially in large datasets and hamper the accuracy of the analysis. This is implemented in the function `-check_names`, which requires a text file containing one species name for each row. The function can use directly text file (\*\_SpeciesList.txt) generated in the steps described above while preparing yRate's input files.
+
+The function is called as follows:
+
+ `python PyRate.py  -check_names .../PBDB_dataset_TaxonList.txt` 
+ 
+This returns a table saved in a text file with plausible typos. Ranks 0 and 1 indicate the most likely cases of misspellings, whereas ranks 2 and 3 are most likely truly different names. 
+**NOTE that this algorithm does NOT check for synonyms!**
+
+The output table may look like this: 
+
+| taxon1 | taxon2 | rank |
+| ------------- |-------------| :-----:| 
+Adocus_parvus | Adocus_pravus | 0
+Testudo_annae | Testudo_nanus | 0
+Trionyx_pliocaenicus | Trionyx_pliocenicus | 0
+Testudo_aralensis | Testudo_tarakliensis | 1
+Cyclanorbis_turkanensis | Cyclanorbis_urahensis | 2
+Geochelone_eocaenica | Neochelys_eocaenica | 2
+Megalochelys_sivalensis | Melanochelys_sivalensis | 2
+
+It is up to the researcher to double check these possible inconsistencies and fix the names in their dataset accordingly. 
+
 
 ***
 # Estimation of speciation and extinction rates through time

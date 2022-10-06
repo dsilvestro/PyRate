@@ -6,6 +6,7 @@
 ### Preparing the input files
 * [Generate PyRate input file (option 1)](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#generate-pyrate-input-file-option-1)  
 * [Generate PyRate input file (option 2)](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#generate-pyrate-input-file-option-2)  
+* [Check species list for inconsistent spelling and typos](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#check-species-names-for-typos-and-inconsistent-spelling)  
 
 ---
 ### Estimating speciation and extinction rates through time
