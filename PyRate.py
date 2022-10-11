@@ -48,6 +48,12 @@ except(ImportError):
     sys.exit("\nError: scipy library not found.\nYou can install scipy using: 'pip install scipy'\n")
 
 try:
+    import pandas as pd
+except(ImportError):
+    print("\nWarning: pandas library not found.\nYou can install pandas using: 'pip install pandas'\n")
+
+
+try:
     import multiprocessing, _thread
     import multiprocessing.pool
     class NoDaemonProcess(multiprocessing.Process):
@@ -1870,7 +1876,6 @@ def load_pkl(file_name):
         return pickle.load(f)
         
 def bdnn_read_mcmc_file(mcmc_file):
-    import pandas as pd
     m = pd.read_csv(mcmc_file, delimiter='\t')
     w_sp_indx = np.array([i for i in range(len(m.columns)) if 'w_lam_' in m.columns[i]])
     w_ex_indx = np.array([i for i in range(len(m.columns)) if 'w_mu_' in m.columns[i]])
@@ -4123,11 +4128,15 @@ class bdnn():
     def __init__(self,
                  bdnn_settings=None,
                  weights=None,
-                 trait_tbls=None):
+                 trait_tbls=None,
+                 sp_fad_lad=None,
+                 occ_data=None):
         self.bdnn_settings = bdnn_settings
         self.v = version + build
         self.weights = weights
         self.trait_tbls = trait_tbls
+        self.sp_fad_lad = sp_fad_lad
+        self.occ_data = occ_data  
     
     def func(self, x="f"):
         print(x)
@@ -5529,10 +5538,22 @@ if __name__ == '__main__':
         
         
         }
-    
+        
+        
+        # store fad/lad 
+        sp_fad_lad = []
+        for i in range(len(fossil)):
+            foss_temp = fossil[i]
+            sp_fad_lad.append([taxa_names[i], np.max(foss_temp), np.min(foss_temp)])
+        
+        sp_fad_lad = pd.DataFrame(sp_fad_lad)
+        sp_fad_lad.columns = ["Taxon", "FAD", "LAD"]
+        
         obj = bdnn(bdnn_settings=bdnn_dict,
                    weights=cov_par_init_NN,
-                   trait_tbls=trait_tbl_NN)
+                   trait_tbls=trait_tbl_NN,
+                   sp_fad_lad=sp_fad_lad,
+                   occ_data=fossil)
 
         print("obj.bdnn_settings", obj.bdnn_settings, cov_par_init_NN)
         out_file = "%s/%s.pkl" % (path_dir,suff_out)
