@@ -4316,7 +4316,8 @@ if __name__ == '__main__':
     p.add_argument('-BDNNactfun', type=int, help='Activation function hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid', default=0, metavar=0)
     p.add_argument('-BDNNprior', type=float, help='sd normal prior', default=1, metavar=1)
     p.add_argument('-BDNNblockmodel',help='Block NN model', action='store_true', default=False)
-    p.add_argument('-BDNNtimevar', type=str, help='Time variable file (e.g. PhanerozoicTempSmooth.txt)', default="", metavar="")
+    p.add_argument('-BDNNtimevar', type=str, help='Time variable file (e.g. PhanerozoicTempSmooth.txt), several variable in different columns possible', default="", metavar="")
+    p.add_argument('-BDNNpklfile', type=str, help='Load BDNN pickle file', default="", metavar="")
     
     p.add_argument("-edge_indicator",      help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
     
@@ -5327,63 +5328,87 @@ if __name__ == '__main__':
         if bdnn_timevar:
              time_var = get_binned_time_variable(time_vec, bdnn_timevar, args.rescale)
 
-        trait_tbl_NN, cov_par_init_NN = init_trait_and_weights(trait_values,
-                                                               time_var,
-                                                               n_BDNN_nodes,
-                                                               bias_node=True, 
-                                                               fadlad=args.BDNNfadlad,
-                                                               use_time_as_trait=use_time_as_trait,
-                                                               fixed_times_of_shift=rescaled_time,
-                                                               n_taxa=n_taxa)
-        cov_par_init_NN.append(0) # cov_par_init_NN[2] = covar prm for preservation rate (currently not used)
-        prior_bdnn_w_sd = [np.ones(cov_par_init_NN[0][i].shape) * args.BDNNprior for i in range(len(cov_par_init_NN[0]))] 
-        # prior_bdnn_w_sd[-1][0][0] = prior_bdnn_w_sd[-1][0][0] * 10 # prior on bias weight
-        # prior_bdnn_w_sd[0][:,-1] = prior_bdnn_w_sd[0][:,-1] * 10
-        # print("prior_bdnn_w_sd\n",prior_bdnn_w_sd[0])
-        # print([i.shape for i in prior_bdnn_w_sd])
-        # for i in trait_tbl_NN[0]:
-        #     print(i.shape, i[10,:])
-        # quit()
-        #---
-        if block_nn_model:
-            # mask block - 1st layer
-            indx_input_list_1 = np.zeros(trait_values.shape[1] + 1) # add +1 for time
-            indx_input_list_1[-1] = 1 # different block for time
-            # mask block - 2nd layer (equal split trait, time)
-            nodes_traits = int(n_BDNN_nodes[0] / 2)
-            nodes_time = n_BDNN_nodes[0] - nodes_traits
-            indx_input_list_2 = np.concatenate((np.zeros(nodes_traits),np.ones(nodes_time))).astype(int)  
-            nodes_per_feature_list = [list(np.unique(indx_input_list_2, return_counts=True)[1])]
-            if len(n_BDNN_nodes) == 2:
-                nodes_traits = int(n_BDNN_nodes[1] / 2)
-                nodes_time = n_BDNN_nodes[1] - nodes_traits
-                nodes_per_feature_list.append([nodes_traits, nodes_time])
-            nodes_per_feature_list.append([])
-            
-            # indx_input_list_2 = [0, 1]
-        
-            # print(cov_par_init_NN[0], trait_values.shape,len(cov_par_init_NN[0]))
-            BDNN_MASK = create_mask(cov_par_init_NN[0],
-                               indx_input_list=[indx_input_list_1, indx_input_list_2, []],
-                               # nodes_per_feature_list=[[1, 1], [1, 1], []])
-                               nodes_per_feature_list=nodes_per_feature_list) # [[4, 4], [1, 1], []]
-            # create_mask(w_layers, indx_input_list, nodes_per_feature_list)
-            [print("\n", i) for i in BDNN_MASK]
-            
-            
+        if args.BDNNpklfile:
+            print("loading BDNN pickle")
+            bdnn_pkl = load_pkl(args.BDNNpklfile)
+            trait_tbl_NN = [bdnn_pkl.trait_tbls[0], bdnn_pkl.trait_tbls[1]]
+            cov_par_init_NN = bdnn_pkl.weights
+            prior_bdnn_w_sd = [np.ones(cov_par_init_NN[0][i].shape) * args.BDNNprior for i in range(len(cov_par_init_NN[0]))]
+            # settings
+            BDNN_MASK = bdnn_pkl.bdnn_settings['block_nn_model']
+#            {'layers_shapes': [(16, 5), (8, 16), (1, 9)],
+#            'layers_sizes': [80, 128, 9],
+#            'mask': None,
+#            'fixed_times_of_shift_bdnn': array([38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22,
+#                   21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10,  9,  8,  7,  6,  5,
+#                    4,  3,  2,  1]),
+#            'use_time_as_trait': 0,
+#            'time_rescaler': 0.025660052899225454,
+#            'bdnn_const_baseline': 1,
+#            'out_act_f': <function PyRate.expFun(z)>,
+#            'hidden_act_f': <function PyRate.tanh_f(z)>,
+#            'block_nn_model': False}
+#            n_prm = bdnn_pkl.bdnn_settings
+#            n_free_prm = 
+#            log_per_species_rates = True
         else:
-            BDNN_MASK = None
+            trait_tbl_NN, cov_par_init_NN = init_trait_and_weights(trait_values,
+                                                                   time_var,
+                                                                   n_BDNN_nodes,
+                                                                   bias_node=True, 
+                                                                   fadlad=args.BDNNfadlad,
+                                                                   use_time_as_trait=use_time_as_trait,
+                                                                   fixed_times_of_shift=rescaled_time,
+                                                                   n_taxa=n_taxa)
+            cov_par_init_NN.append(0) # cov_par_init_NN[2] = covar prm for preservation rate (currently not used)
+            prior_bdnn_w_sd = [np.ones(cov_par_init_NN[0][i].shape) * args.BDNNprior for i in range(len(cov_par_init_NN[0]))] 
+            # prior_bdnn_w_sd[-1][0][0] = prior_bdnn_w_sd[-1][0][0] * 10 # prior on bias weight
+            # prior_bdnn_w_sd[0][:,-1] = prior_bdnn_w_sd[0][:,-1] * 10
+            # print("prior_bdnn_w_sd\n",prior_bdnn_w_sd[0])
+            # print([i.shape for i in prior_bdnn_w_sd])
+            # for i in trait_tbl_NN[0]:
+            #     print(i.shape, i[10,:])
+            # quit()
+            #---
+            if block_nn_model:
+                # mask block - 1st layer
+                indx_input_list_1 = np.zeros(trait_values.shape[1] + 1) # add +1 for time
+                indx_input_list_1[-1] = 1 # different block for time
+                # mask block - 2nd layer (equal split trait, time)
+                nodes_traits = int(n_BDNN_nodes[0] / 2)
+                nodes_time = n_BDNN_nodes[0] - nodes_traits
+                indx_input_list_2 = np.concatenate((np.zeros(nodes_traits),np.ones(nodes_time))).astype(int)  
+                nodes_per_feature_list = [list(np.unique(indx_input_list_2, return_counts=True)[1])]
+                if len(n_BDNN_nodes) == 2:
+                    nodes_traits = int(n_BDNN_nodes[1] / 2)
+                    nodes_time = n_BDNN_nodes[1] - nodes_traits
+                    nodes_per_feature_list.append([nodes_traits, nodes_time])
+                nodes_per_feature_list.append([])
+            
+                # indx_input_list_2 = [0, 1]
+        
+                # print(cov_par_init_NN[0], trait_values.shape,len(cov_par_init_NN[0]))
+                BDNN_MASK = create_mask(cov_par_init_NN[0],
+                                   indx_input_list=[indx_input_list_1, indx_input_list_2, []],
+                                   # nodes_per_feature_list=[[1, 1], [1, 1], []])
+                                   nodes_per_feature_list=nodes_per_feature_list) # [[4, 4], [1, 1], []]
+                # create_mask(w_layers, indx_input_list, nodes_per_feature_list)
+                [print("\n", i) for i in BDNN_MASK]
+            
+            
+            else:
+                BDNN_MASK = None
         #---
-        if False:
-            print(rescaled_time)    
-            for i in trait_tbl_NN[0]:
-                print(i[0,:] )
+            if False:
+                print(rescaled_time)    
+                for i in trait_tbl_NN[0]:
+                    print(i[0,:] )
     
         # if bdnn_const_baseline:
         log_per_species_rates = True
         # else:
         # log_per_species_rates = False
-        
+    
         n_prm = 0
         n_free_prm = 0
         bdnn_settings = ""
@@ -5394,11 +5419,11 @@ if __name__ == '__main__':
             n_prm += cov_par_init_NN[0][i_layer].size
             n_free_prm += np.sum(cov_par_init_NN[0][i_layer] != 0)
             bdnn_settings = bdnn_settings + "\n %s" % str(cov_par_init_NN[0][i_layer].shape)
-        
+    
         #print(cov_par_init_NN)
         bdnn_settings = "\n\nUsing BDNN model\nN. free parameters: %s \nN. parameters: %s\n%s\n" % (n_prm, n_free_prm, bdnn_settings)
         print(bdnn_settings)
-        
+
 
 
 
