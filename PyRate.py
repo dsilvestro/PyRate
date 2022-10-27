@@ -5312,8 +5312,7 @@ if __name__ == '__main__':
         else:
             time_vec = np.sort(np.array([np.max(FA), np.min(LO)] + list(fixed_times_of_shift)))[::-1]
         if args.BDNNtimetrait or bdnn_timevar:
-            BDNNtimetrait_rescaler = 1.0
-            if args.BDNNtimetrait == -1 or bdnn_timevar:
+            if args.BDNNtimetrait == -1:
                 BDNNtimetrait_rescaler = 1 / np.max(time_vec)
                 args.BDNNtimetrait = BDNNtimetrait_rescaler
             else:
