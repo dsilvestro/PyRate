@@ -4061,7 +4061,7 @@ def MCMC(all_arg):
                 w_marg_ex.writerow(list(MA) + list(timesMA[1:len(timesMA)-1]))
                 marginal_ex_rate_file.flush()
                 os.fsync(marginal_ex_rate_file)
-            elif use_BDNNmodel and use_time_as_trait:
+            elif use_BDNNmodel and (use_time_as_trait or bdnn_timevar):
                 # log harmonic mean of rates
                 rj_ind_lam = 0 
                 rj_ind_mu = 0                 
@@ -4520,12 +4520,17 @@ if __name__ == '__main__':
         fix_Shift = 0
         
     fixed_times_of_shift_bdnn = []
-    if (args.BDNNtimetrait != 0 or args.BDNNtimevar) and args.BDNNmodel > 0 and fix_Shift == 0:
+    if (args.BDNNtimetrait != 0 or args.BDNNtimevar) and args.BDNNmodel > 0:# and fix_Shift == 0:
         if args.A == 4:
             fixed_times_of_shift_bdnn = np.arange(1, 1000)[::-1]        
             time_framesL_bdnn=len(fixed_times_of_shift_bdnn)+1
             time_framesM_bdnn=len(fixed_times_of_shift_bdnn)+1
             TDI = 4
+        elif fix_Shift == 1:
+             fixed_times_of_shift_bdnn = fixed_times_of_shift
+             time_framesL_bdnn = time_framesL
+             time_framesM_bdnn = time_framesM
+             TDI = 0
         else:
             # use 1myr bins by default
             f_shift=0
@@ -4536,7 +4541,6 @@ if __name__ == '__main__':
             min_allowed_t=0
             fix_Shift = 1
             TDI = 0
-
         
 
     if args.edgeShift[0] != np.inf or args.edgeShift[1] != 0:
@@ -4905,7 +4909,8 @@ if __name__ == '__main__':
     bdnn_const_baseline = args.BDNNconstbaseline
     out_act_f = get_act_f(args.BDNNoutputfun)
     hidden_act_f = get_hidden_act_f(args.BDNNactfun)
-    block_nn_model = args.BDNNblockmodel 
+    block_nn_model = args.BDNNblockmodel
+    bdnn_timevar = args.BDNNtimevar
 
     ############################ SET BIRTH-DEATH MODEL ############################
 
@@ -5227,7 +5232,7 @@ if __name__ == '__main__':
 
     if fix_Shift == 1 and use_ADE_model == 0: 
         est_hyperP = 1
-    if args.BDNNtimetrait != 0 and args.BDNNmodel > 0 and bdnn_const_baseline:
+    if (args.BDNNtimetrait != 0 or bdnn_timevar) and args.BDNNmodel > 0 and bdnn_const_baseline:
         est_hyperP = 0
     # define hyper-prior function for BD rates
     if tot_extant==-1 or TDI ==3 or use_poiD == 1:
@@ -5277,7 +5282,6 @@ if __name__ == '__main__':
             # print([f_update_q,f_update_lm,f_update_cov])
 
         n_BDNN_nodes = args.BDNNnodes
-        bdnn_timevar = args.BDNNtimevar
     
         # load trait data
         if args.trait_file != "":
