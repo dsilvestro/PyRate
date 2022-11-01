@@ -120,6 +120,36 @@ def get_death_lik_lineage_time(mu,bl,ex,log_effect):
     return lik
 
 
+def get_death_lik_lineage_times(mu,bl,ex,log_effect):
+    eff = 10 ** log_effect
+    # print(eff.shape, mu.shape, bl.shape)
+    multiplier_vec = np.insert(eff, 0, 1) # first value = 1 (background)
+    """
+    sp_ext_time_indx = index of overlap time during which species went extinct
+    0: no overlap
+    1: first bin
+    2: etc.
+    NOTE: extant species should still be assigned one index (it doesn't matter which one)
+    
+    rel_time_trait = overlap with each extinction regime (inlcuding background)
+    mu.shape = n. species
+    bl.shape = n. species
+    multiplier_vec.shape = 1 + n. overlaps
+    SP_EXT_TIME_INDEX.shape = n. species
+    """
+    # mu_matrix = np.einsum('s,o-> so')
+    mu_vec = np.einsum('s, o -> so', mu, multiplier_vec)
+    mu_at_extinction = mu * multiplier_vec[SP_EXT_TIME_INDEX]
+    # print(rel_time_trait.shape)
+    
+    lik_event = ex * np.log(mu_at_extinction)
+    lik_wt = np.einsum('s, so, so -> s', bl, rel_time_trait,mu_vec)
+    lik = lik_event - lik_wt
+    # print(lik_event)
+    # print(lik_wt)
+    # quit()
+    return lik
+
 def get_death_lik_lineage(mu,bl,ex):
 	return ex*np.log(mu) - (bl*mu)
 
@@ -228,9 +258,18 @@ ex = (te_list>0)*1   # extinction ID (0: extant, 1: extinct)
 #-- time trait
 # time_human_overlap = np.random.random(len(ts_list)) * bl * np.random.binomial(1, .5, len(ts_list))
 if args.overlap:
-    time_human_overlap = np.loadtxt(args.overlap, delimiter='\t', skiprows=1, usecols=[1])
+    head = next(open(args.overlap)).split()
+    TIME_EFFECT_NAMES = head[2:]
+    N_TIME_EFFECTS = len(head) - 2
+    time_human_overlap = np.loadtxt(args.overlap, delimiter='\t', skiprows=1, usecols=range(2, len(head)))
+    print(N_TIME_EFFECTS, time_human_overlap.shape)
     tol = 3
-    relative_overlap = np.round(time_human_overlap / bl ,  tol) # to avoid rounding errors
+    relative_overlap = np.round(np.einsum('so, s -> so', time_human_overlap, 1 / bl),  tol) # to avoid rounding errors
+    relative_non_overlap = 1 - np.sum(relative_overlap, axis=1)
+    rel_time_trait = np.zeros((len(bl), 1 + N_TIME_EFFECTS))
+    rel_time_trait[:,0] = relative_non_overlap
+    rel_time_trait[:,1:] = relative_overlap 
+    
     if np.max(relative_overlap) > 1:
         print('\nError: overlap > 100%')
         ind = np.where(relative_overlap > 1)[0]
@@ -240,11 +279,11 @@ if args.overlap:
         print(bl[ind])
         print(np.max(relative_overlap))
         sys.exit()
-    rel_time_trait = np.array([1-relative_overlap, relative_overlap]).T
-    print(rel_time_trait.shape)
-    print(rel_time_trait)
-    log_effectA = 0
-    ext_while_overlap = (relative_overlap > 0).astype(int) # if there was overlap ext occurred in overlap
+
+    log_effectA = np.zeros(N_TIME_EFFECTS)
+    # print("ext_while_overlap", ext_while_overlap, relative_overlap)
+    SP_EXT_TIME_INDEX = time_human_overlap = np.loadtxt(args.overlap, delimiter='\t', skiprows=1, usecols=[1]).astype(int)
+    print(rel_time_trait.shape)    
     use_time_effect = True
 else:
     use_time_effect = False
@@ -293,7 +332,7 @@ prior_Y = [np.sum(prior_normal(Y_vecA[i],m=0,sd=std_HP[i])) for i in range(n_tra
 prior_m = 0 # uniform prior on mean rate (can be replaced by something else)
 priorA = np.sum(prior_Y) + prior_m 
 if use_time_effect:
-    priorA += prior_normal(log_effectA,m=0,sd=1)
+    priorA += np.sum(prior_normal(log_effectA,m=0,sd=1))
 
 # MCMC settings
 
@@ -319,7 +358,8 @@ for i in range(n_traits):
 
 head += "\tbeta_hp"
 if use_time_effect:
-    head += "\ttime_effect"
+    for i in range(N_TIME_EFFECTS):
+        head += "\t%s_effect_log10" % TIME_EFFECT_NAMES[i]
 
 if args.mu_species==1:
     for i in unique_trait_comb_name:
@@ -373,7 +413,7 @@ while iteration <= n_iterations:
     #random update
     # update time trait
     if use_time_effect and np.random.random() < 0.1:
-        log_effect += np.random.normal(0,0.2)
+        log_effect += np.random.normal(0,0.2, log_effect.shape)
     
     # update state-spec Dirichlet multipliers
     if rr < freq_update_Ys: 
@@ -416,7 +456,7 @@ while iteration <= n_iterations:
     np_sum_rates = np_sum_rates/np.sum(np_sum_rates) * len(np_sum_rates)
     rates = multip * np_sum_rates
     if use_time_effect:
-        lik = np.sum(get_death_lik_lineage_time(rates,bl,ex,log_effect))
+        lik = np.sum(get_death_lik_lineage_times(rates,bl,ex,log_effect))
     else:
         lik = np.sum(get_death_lik_lineage(rates,bl,ex))
     # print(rates)
@@ -427,7 +467,7 @@ while iteration <= n_iterations:
     prior = prior_Y + prior_m + prior_Tau + prior_Beta 
     prior += np.sum(np.log(args.pI)*I_vec)
     if use_time_effect:
-        prior += prior_normal(log_effect,m=0,sd=1)
+        prior += np.sum(prior_normal(log_effect,m=0,sd=1))
     
     
     if (lik - likA) + (prior - priorA) + hasting >= np.log(np.random.random()) or gibbs==1:
@@ -446,7 +486,7 @@ while iteration <= n_iterations:
     if iteration % p_freq ==0:
         print(iteration,likA, multipA)
         if use_time_effect:
-            print(prior_Y, prior_m, prior_Tau, prior_Beta, gibbs, log_effectA)
+            print(prior_Y, prior_m, prior_Tau, prior_Beta, log_effectA)
         else:
             print(prior_Y, prior_m, prior_Tau, prior_Beta, gibbs)            
         #post_temp=[]
@@ -475,7 +515,7 @@ while iteration <= n_iterations:
         post_log = [iteration, likA+priorA, likA, priorA,multipA[0]] + list(I_vecA) + post_temp + post_sd
         post_log += [Gamma_b_prior]
         if use_time_effect:
-            post_log += [log_effectA]
+            post_log += list(log_effectA)
         if args.mu_species==1: 
             post_log += list(ratesA[unique_trait_comb_indx])
         wlog.writerow(post_log)
