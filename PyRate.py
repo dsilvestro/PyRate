@@ -3292,10 +3292,12 @@ def MCMC(all_arg):
                 cov_par[0][rnd_layer]=update_parameter_normal_vec(cov_parA[0][rnd_layer],d=0.05,f= .1 * len(cov_parA[0][rnd_layer])) 
                 # update layers D rate
                 cov_par[1][rnd_layer]=update_parameter_normal_vec(cov_parA[1][rnd_layer],d=0.05,f= .1 * len(cov_parA[1][rnd_layer])) 
-                if BDNN_MASK:
+                if BDNN_MASK_lam:
                     for i_layer in range(len(cov_parA[0])):
-                        cov_par[0][i_layer] *= BDNN_MASK[i_layer]
-                        cov_par[1][i_layer] *= BDNN_MASK[i_layer]
+                        cov_par[0][i_layer] *= BDNN_MASK_lam[i_layer]
+                if BDNN_MASK_mu:
+                    for i_layer in range(len(cov_parA[1])):
+                        cov_par[1][i_layer] *= BDNN_MASK_mu[i_layer]
             else:
                 rcov=np.random.random()
                 if est_COVAR_prior == 1 and rcov<0.05:
@@ -3917,7 +3919,7 @@ def MCMC(all_arg):
                     print("\tte:", teA[0:5], "...")
                 if use_BDNNmodel:
                     print("\tbdnn-lam:",[np.round(np.mean(cov_parA[0][i]), 2) for i in range(len(cov_par_init_NN[0]))])
-                    print("\tbdnn-mu: ",[np.round(np.mean(cov_parA[1][i]), 2) for i in range(len(cov_par_init_NN[0]))])
+                    print("\tbdnn-mu: ",[np.round(np.mean(cov_parA[1][i]), 2) for i in range(len(cov_par_init_NN[1]))])
             if it<=burnin and n_proc==0: print(("\n%s*\tpost: %s lik: %s prior: %s tot length %s" \
             % (it, l[0], l[1], l[2], l[3])))
 
@@ -5338,7 +5340,9 @@ if __name__ == '__main__':
             cov_par_init_NN = bdnn_pkl.weights
             prior_bdnn_w_sd = [np.ones(cov_par_init_NN[0][i].shape) * args.BDNNprior for i in range(len(cov_par_init_NN[0]))]
             # settings
-            BDNN_MASK = bdnn_pkl.bdnn_settings['block_nn_model']
+            block_nn_model = bdnn_pkl.bdnn_settings['block_nn_model']
+            BDNN_MASK_lam = bdnn_pkl.bdnn_settings['mask_lam']
+            BDNN_MASK_mu = bdnn_pkl.bdnn_settings['mask_mu']
 #            {'layers_shapes': [(16, 5), (8, 16), (1, 9)],
 #            'layers_sizes': [80, 128, 9],
 #            'mask': None,
@@ -5391,16 +5395,21 @@ if __name__ == '__main__':
                 # indx_input_list_2 = [0, 1]
         
                 # print(cov_par_init_NN[0], trait_values.shape,len(cov_par_init_NN[0]))
-                BDNN_MASK = create_mask(cov_par_init_NN[0],
-                                   indx_input_list=[indx_input_list_1, indx_input_list_2, []],
-                                   # nodes_per_feature_list=[[1, 1], [1, 1], []])
-                                   nodes_per_feature_list=nodes_per_feature_list) # [[4, 4], [1, 1], []]
+                BDNN_MASK_lam = create_mask(cov_par_init_NN[0],
+                                            indx_input_list=[indx_input_list_1, indx_input_list_2, []],
+                                            # nodes_per_feature_list=[[1, 1], [1, 1], []])
+                                            nodes_per_feature_list=nodes_per_feature_list) # [[4, 4], [1, 1], []]
+                BDNN_MASK_mu = create_mask(cov_par_init_NN[1],
+                                           indx_input_list=[indx_input_list_1, indx_input_list_2, []],
+                                           # nodes_per_feature_list=[[1, 1], [1, 1], []])
+                                           nodes_per_feature_list=nodes_per_feature_list) # [[4, 4], [1, 1], []]
                 # create_mask(w_layers, indx_input_list, nodes_per_feature_list)
-                [print("\n", i) for i in BDNN_MASK]
+                [print("\n", i) for i in BDNN_MASK_lam]
             
             
             else:
-                BDNN_MASK = None
+                BDNN_MASK_lam = None
+                BDNN_MASK_mu = None
         #---
             if False:
                 print(rescaled_time)    
@@ -5416,9 +5425,10 @@ if __name__ == '__main__':
         n_free_prm = 0
         bdnn_settings = ""
         for i_layer in range(len(cov_par_init_NN[0])):
-            if BDNN_MASK:
-                cov_par_init_NN[0][i_layer] *= BDNN_MASK[i_layer]
-                cov_par_init_NN[1][i_layer] *= BDNN_MASK[i_layer]
+            if BDNN_MASK_lam:
+                cov_par_init_NN[0][i_layer] *= BDNN_MASK_lam[i_layer]
+            if BDNN_MASK_mu:
+                cov_par_init_NN[1][i_layer] *= BDNN_MASK_mu[i_layer]
             n_prm += cov_par_init_NN[0][i_layer].size
             n_free_prm += np.sum(cov_par_init_NN[0][i_layer] != 0)
             bdnn_settings = bdnn_settings + "\n %s" % str(cov_par_init_NN[0][i_layer].shape)
@@ -5600,7 +5610,8 @@ if __name__ == '__main__':
         bdnn_dict = {
             'layers_shapes': [cov_par_init_NN[0][i_layer].shape for i_layer in range(len(cov_par_init_NN[0]))],
             'layers_sizes': [cov_par_init_NN[0][i_layer].size for i_layer in range(len(cov_par_init_NN[0]))],
-            'mask': BDNN_MASK,
+            'mask_lam': BDNN_MASK_lam,
+            'mask_mu': BDNN_MASK_mu,
             'fixed_times_of_shift_bdnn': fixed_times_of_shift_bdnn,
             'use_time_as_trait': use_time_as_trait, 
             'time_rescaler': BDNNtimetrait_rescaler, 
