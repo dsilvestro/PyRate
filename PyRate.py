@@ -1919,8 +1919,14 @@ def bdnn_parse_results(mcmc_file, pkl_file):
 def bdnn_time_rescaler(x, bdnn_obj):  
     return x * bdnn_obj.bdnn_settings['time_rescaler']
 
-               
+
+def get_names_variable(var_file):
+    vn = np.loadtxt(var_file, max_rows = 1, dtype = str)[1:]
+    return vn.tolist()
+
+
 def get_binned_time_variable(timebins, var_file, rescale):
+    names_var = get_names_variable(var_file)
     var = np.loadtxt(var_file, skiprows = 1)
     times = var[:, 0] * rescale
     values = var[:, 1:]
@@ -1945,7 +1951,7 @@ def get_binned_time_variable(timebins, var_file, rescale):
                 va, counts = np.unique(values_bin_disc[:,j], return_counts = True)
                 most_freq_state[j] = va[np.argmax(counts)]
             mean_var[i - 1, discr_var] = most_freq_state
-    return mean_var
+    return mean_var, names_var
 
 
 # ADE model
@@ -5281,11 +5287,13 @@ if __name__ == '__main__':
         n_BDNN_nodes = args.BDNNnodes
     
         # load trait data
+        names_traits = []
         if args.trait_file != "":
             traitfile=open(args.trait_file, 'r')
 
             L=traitfile.readlines()
             head= L[0].split()
+            names_traits = head[1:]
 
             trait_val=[l.split() for l in L][1:]
 
@@ -5325,8 +5333,9 @@ if __name__ == '__main__':
             BDNNtimetrait_rescaler = 1
 
         time_var = None
+        names_time_var = []
         if bdnn_timevar:
-             time_var = get_binned_time_variable(time_vec, bdnn_timevar, args.rescale)
+             time_var, names_time_var = get_binned_time_variable(time_vec, bdnn_timevar, args.rescale)
 
         if args.BDNNpklfile:
             print("loading BDNN pickle")
@@ -5602,6 +5611,11 @@ if __name__ == '__main__':
             suff_out+= "b"
         
         # save BDNN object
+        names_features = []
+        names_features += names_traits
+        names_features += names_time_var
+        if bdnn_timevar:
+            names_features += ['time']
         bdnn_dict = {
             'layers_shapes': [cov_par_init_NN[0][i_layer].shape for i_layer in range(len(cov_par_init_NN[0]))],
             'layers_sizes': [cov_par_init_NN[0][i_layer].size for i_layer in range(len(cov_par_init_NN[0]))],
@@ -5613,9 +5627,8 @@ if __name__ == '__main__':
             'bdnn_const_baseline': bdnn_const_baseline,
             'out_act_f': out_act_f,
             'hidden_act_f': hidden_act_f,
-            'block_nn_model': block_nn_model
-        
-        
+            'block_nn_model': block_nn_model,
+            'names_features': names_features
         }
         
         
