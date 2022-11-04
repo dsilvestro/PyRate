@@ -4065,19 +4065,14 @@ def MCMC(all_arg):
                 os.fsync(marginal_ex_rate_file)
             elif use_BDNNmodel and (use_time_as_trait or bdnn_timevar):
                 # log harmonic mean of rates
-                rj_ind_lam = 0 
-                rj_ind_mu = 0                 
-                sp_lam = np.zeros(len(fixed_times_of_shift_bdnn)-1) 
-                sp_mu = np.zeros(len(fixed_times_of_shift_bdnn)-1) 
-                for temp_l in range(len(fixed_times_of_shift_bdnn)-1):
-                    if fixed_times_of_shift_bdnn[temp_l + 1] < timesLA[rj_ind_lam + 1]:
-                        rj_ind_lam += 1
-                    if fixed_times_of_shift_bdnn[temp_l + 1] < timesMA[rj_ind_mu + 1]:
-                        rj_ind_mu += 1
-                    
-                    sp_lam_tmp = get_rate_BDNN(LA[rj_ind_lam], trait_tbl_NN[0][rj_ind_lam], cov_parA[0], hidden_act_f, out_act_f)
-                    sp_mu_tmp = get_rate_BDNN(MA[rj_ind_mu], trait_tbl_NN[1][rj_ind_mu], cov_parA[1], hidden_act_f, out_act_f)
-                    indx = get_sp_indx_in_timeframe(tsA, teA, up=fixed_times_of_shift_bdnn[temp_l], lo=fixed_times_of_shift_bdnn[temp_l + 1])
+                rj_ind_lam = 0
+                rj_ind_mu = 0
+                sp_lam = np.zeros(len(timesLA) - 1)
+                sp_mu = np.zeros(len(timesLA) - 1)
+                for temp_l in range(len(timesLA)-1):
+                    sp_lam_tmp = get_rate_BDNN(LA[temp_l], trait_tbl_NN[0][temp_l], cov_parA[0], hidden_act_f, out_act_f)
+                    sp_mu_tmp = get_rate_BDNN(MA[temp_l], trait_tbl_NN[1][temp_l], cov_parA[1], hidden_act_f, out_act_f)
+                    indx = get_sp_indx_in_timeframe(tsA, teA, up = timesLA[temp_l], lo = timesLA[temp_l + 1])
                     # print(fixed_times_of_shift_bdnn[temp_l + 1],
                     #       len(sp_lam_tmp), len(np.unique(sp_lam_tmp)), np.mean(sp_lam_tmp[indx]),
                     #       1 / np.mean(1 / sp_lam_tmp[indx]))
@@ -4088,10 +4083,10 @@ def MCMC(all_arg):
                 # print(sp_lam)
                 # print(sp_mu)
                 # print(timesMA, MA)
-                w_marg_sp.writerow(list(sp_lam) + list(fixed_times_of_shift_bdnn[1:len(fixed_times_of_shift_bdnn)-1]))
+                w_marg_sp.writerow(list(sp_lam) + list(fixed_times_of_shift_bdnn))#[1:len(fixed_times_of_shift_bdnn)-1]))
                 marginal_sp_rate_file.flush()
                 os.fsync(marginal_sp_rate_file)
-                w_marg_ex.writerow(list(sp_mu) + list(fixed_times_of_shift_bdnn[1:len(fixed_times_of_shift_bdnn)-1]))
+                w_marg_ex.writerow(list(sp_mu) + list(fixed_times_of_shift_bdnn))#[1:len(fixed_times_of_shift_bdnn)-1]))
                 marginal_ex_rate_file.flush()
                 os.fsync(marginal_ex_rate_file)
                 
