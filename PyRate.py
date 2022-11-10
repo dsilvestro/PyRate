@@ -5614,7 +5614,7 @@ if __name__ == '__main__':
         names_features = []
         names_features += names_traits
         names_features += names_time_var
-        if bdnn_timevar:
+        if bdnn_timevar or use_time_as_trait:
             names_features += ['time']
         bdnn_dict = {
             'layers_shapes': [cov_par_init_NN[0][i_layer].shape for i_layer in range(len(cov_par_init_NN[0]))],
