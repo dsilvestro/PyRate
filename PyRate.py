@@ -1885,15 +1885,30 @@ def load_pkl(file_name):
     with open(file_name, "rb") as f:
         return pickle.load(f)
         
-def bdnn_read_mcmc_file(mcmc_file):
+def apply_thin(w, thin):
+    n_samples = w.shape[0]
+    thin_idx = np.arange(0, n_samples, thin)
+    return w[thin_idx,:]
+
+def bdnn_read_mcmc_file(mcmc_file, burn, thin):
     m = pd.read_csv(mcmc_file, delimiter='\t')
     w_sp_indx = np.array([i for i in range(len(m.columns)) if 'w_lam_' in m.columns[i]])
     w_ex_indx = np.array([i for i in range(len(m.columns)) if 'w_mu_' in m.columns[i]])
+    ts_indx = np.array([i for i in range(len(m.columns)) if '_TS' in m.columns[i]])
+    te_indx = np.array([i for i in range(len(m.columns)) if '_TE' in m.columns[i]])
     np_m = m.to_numpy()
-    burnin = int(0.1 * np_m.shape[0])
+    num_it = np_m.shape[0]
+    burnin = check_burnin(burn, num_it)
     w_sp = np_m[burnin:,w_sp_indx]
     w_ex = np_m[burnin:,w_ex_indx]
-    return w_sp, w_ex
+    ts = np_m[burnin:,ts_indx]
+    te = np_m[burnin:,te_indx]
+    if thin > 0.0:
+        w_sp = apply_thin(w_sp, thin)
+        w_ex = apply_thin(w_ex, thin)
+        ts = apply_thin(ts, thin)
+        te = apply_thin(te, thin)
+    return w_sp, w_ex, ts, te
 
 def bdnn_reshape_w(posterior_w, bdnn_obj):
     w_list = []
@@ -1908,13 +1923,13 @@ def bdnn_reshape_w(posterior_w, bdnn_obj):
         w_list.append(w_sample)
     return w_list
 
-def bdnn_parse_results(mcmc_file, pkl_file):
+def bdnn_parse_results(mcmc_file, pkl_file, burn = 0.1, thin = 0.0):
     ob = load_pkl(pkl_file)
-    w_sp, w_ex = bdnn_read_mcmc_file(mcmc_file)
+    w_sp, w_ex, post_ts, post_te = bdnn_read_mcmc_file(mcmc_file, burn, thin)
     post_w_sp = bdnn_reshape_w(w_sp, ob)
     post_w_ex = bdnn_reshape_w(w_ex, ob)
     sp_fad_lad = ob.sp_fad_lad
-    return ob, post_w_sp, post_w_ex, sp_fad_lad
+    return ob, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te
     
 def bdnn_time_rescaler(x, bdnn_obj):  
     return x * bdnn_obj.bdnn_settings['time_rescaler']
