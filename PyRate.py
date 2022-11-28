@@ -4128,12 +4128,12 @@ def MCMC(all_arg):
                 sp_lam_vec = np.zeros(len(tsA))
                 sp_mu_vec = np.zeros(len(tsA)) 
                 for i in range(len(tsA)):
-                    trait_tbl_sp_i_lam = trait_tbl_NN[0][0,i,:] + 0
+                    trait_tbl_sp_i_lam = trait_tbl_NN[0][digitized_ts[i],i,:] + 0
                     # print(trait_tbl_sp_i)
                     # print(BDNNtimetrait_rescaler)
                     trait_tbl_sp_i_lam[-1] = rescaled_ts[i]
                     # print(trait_tbl_sp_i_lam, tsA[i])
-                    trait_tbl_sp_i_mu = trait_tbl_NN[1][0,i,:] + 0
+                    trait_tbl_sp_i_mu = trait_tbl_NN[1][digitized_te[i],i,:] + 0
                     trait_tbl_sp_i_mu[-1] = rescaled_te[i]
                     # print(trait_tbl_sp_i_mu, teA[i])
                     # get sp-specific rates: using '1' as baseline rate (only works with bdnn_const_baseline)
@@ -5942,4 +5942,3 @@ if __name__ == '__main__':
             res=start_MCMC(0)
         print("\nfinished at:", time.ctime(), "\nelapsed time:", round(time.time()-t1,2), "\n")
         logfile.close()
-
