@@ -1885,15 +1885,30 @@ def load_pkl(file_name):
     with open(file_name, "rb") as f:
         return pickle.load(f)
         
-def bdnn_read_mcmc_file(mcmc_file):
+def apply_thin(w, thin):
+    n_samples = w.shape[0]
+    thin_idx = np.arange(0, n_samples, thin)
+    return w[thin_idx,:]
+
+def bdnn_read_mcmc_file(mcmc_file, burn, thin):
     m = pd.read_csv(mcmc_file, delimiter='\t')
     w_sp_indx = np.array([i for i in range(len(m.columns)) if 'w_lam_' in m.columns[i]])
     w_ex_indx = np.array([i for i in range(len(m.columns)) if 'w_mu_' in m.columns[i]])
+    ts_indx = np.array([i for i in range(len(m.columns)) if '_TS' in m.columns[i]])
+    te_indx = np.array([i for i in range(len(m.columns)) if '_TE' in m.columns[i]])
     np_m = m.to_numpy()
-    burnin = int(0.1 * np_m.shape[0])
+    num_it = np_m.shape[0]
+    burnin = check_burnin(burn, num_it)
     w_sp = np_m[burnin:,w_sp_indx]
     w_ex = np_m[burnin:,w_ex_indx]
-    return w_sp, w_ex
+    ts = np_m[burnin:,ts_indx]
+    te = np_m[burnin:,te_indx]
+    if thin > 0.0:
+        w_sp = apply_thin(w_sp, thin)
+        w_ex = apply_thin(w_ex, thin)
+        ts = apply_thin(ts, thin)
+        te = apply_thin(te, thin)
+    return w_sp, w_ex, ts, te
 
 def bdnn_reshape_w(posterior_w, bdnn_obj):
     w_list = []
@@ -1908,19 +1923,25 @@ def bdnn_reshape_w(posterior_w, bdnn_obj):
         w_list.append(w_sample)
     return w_list
 
-def bdnn_parse_results(mcmc_file, pkl_file):
+def bdnn_parse_results(mcmc_file, pkl_file, burn = 0.1, thin = 0.0):
     ob = load_pkl(pkl_file)
-    w_sp, w_ex = bdnn_read_mcmc_file(mcmc_file)
+    w_sp, w_ex, post_ts, post_te = bdnn_read_mcmc_file(mcmc_file, burn, thin)
     post_w_sp = bdnn_reshape_w(w_sp, ob)
     post_w_ex = bdnn_reshape_w(w_ex, ob)
     sp_fad_lad = ob.sp_fad_lad
-    return ob, post_w_sp, post_w_ex, sp_fad_lad
+    return ob, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te
     
 def bdnn_time_rescaler(x, bdnn_obj):  
     return x * bdnn_obj.bdnn_settings['time_rescaler']
 
-               
+
+def get_names_variable(var_file):
+    vn = np.loadtxt(var_file, max_rows = 1, dtype = str)[1:]
+    return vn.tolist()
+
+
 def get_binned_time_variable(timebins, var_file, rescale):
+    names_var = get_names_variable(var_file)
     var = np.loadtxt(var_file, skiprows = 1)
     times = var[:, 0] * rescale
     values = var[:, 1:]
@@ -1945,7 +1966,7 @@ def get_binned_time_variable(timebins, var_file, rescale):
                 va, counts = np.unique(values_bin_disc[:,j], return_counts = True)
                 most_freq_state[j] = va[np.argmax(counts)]
             mean_var[i - 1, discr_var] = most_freq_state
-    return mean_var
+    return mean_var, names_var
 
 
 # ADE model
@@ -3292,10 +3313,12 @@ def MCMC(all_arg):
                 cov_par[0][rnd_layer]=update_parameter_normal_vec(cov_parA[0][rnd_layer],d=0.05,f= .1 * len(cov_parA[0][rnd_layer])) 
                 # update layers D rate
                 cov_par[1][rnd_layer]=update_parameter_normal_vec(cov_parA[1][rnd_layer],d=0.05,f= .1 * len(cov_parA[1][rnd_layer])) 
-                if BDNN_MASK:
+                if BDNN_MASK_lam:
                     for i_layer in range(len(cov_parA[0])):
-                        cov_par[0][i_layer] *= BDNN_MASK[i_layer]
-                        cov_par[1][i_layer] *= BDNN_MASK[i_layer]
+                        cov_par[0][i_layer] *= BDNN_MASK_lam[i_layer]
+                if BDNN_MASK_mu:
+                    for i_layer in range(len(cov_parA[1])):
+                        cov_par[1][i_layer] *= BDNN_MASK_mu[i_layer]
             else:
                 rcov=np.random.random()
                 if est_COVAR_prior == 1 and rcov<0.05:
@@ -3917,7 +3940,7 @@ def MCMC(all_arg):
                     print("\tte:", teA[0:5], "...")
                 if use_BDNNmodel:
                     print("\tbdnn-lam:",[np.round(np.mean(cov_parA[0][i]), 2) for i in range(len(cov_par_init_NN[0]))])
-                    print("\tbdnn-mu: ",[np.round(np.mean(cov_parA[1][i]), 2) for i in range(len(cov_par_init_NN[0]))])
+                    print("\tbdnn-mu: ",[np.round(np.mean(cov_parA[1][i]), 2) for i in range(len(cov_par_init_NN[1]))])
             if it<=burnin and n_proc==0: print(("\n%s*\tpost: %s lik: %s prior: %s tot length %s" \
             % (it, l[0], l[1], l[2], l[3])))
 
@@ -4063,19 +4086,14 @@ def MCMC(all_arg):
                 os.fsync(marginal_ex_rate_file)
             elif use_BDNNmodel and (use_time_as_trait or bdnn_timevar):
                 # log harmonic mean of rates
-                rj_ind_lam = 0 
-                rj_ind_mu = 0                 
-                sp_lam = np.zeros(len(fixed_times_of_shift_bdnn)-1) 
-                sp_mu = np.zeros(len(fixed_times_of_shift_bdnn)-1) 
-                for temp_l in range(len(fixed_times_of_shift_bdnn)-1):
-                    if fixed_times_of_shift_bdnn[temp_l + 1] < timesLA[rj_ind_lam + 1]:
-                        rj_ind_lam += 1
-                    if fixed_times_of_shift_bdnn[temp_l + 1] < timesMA[rj_ind_mu + 1]:
-                        rj_ind_mu += 1
-                    
-                    sp_lam_tmp = get_rate_BDNN(LA[rj_ind_lam], trait_tbl_NN[0][rj_ind_lam], cov_parA[0], hidden_act_f, out_act_f)
-                    sp_mu_tmp = get_rate_BDNN(MA[rj_ind_mu], trait_tbl_NN[1][rj_ind_mu], cov_parA[1], hidden_act_f, out_act_f)
-                    indx = get_sp_indx_in_timeframe(tsA, teA, up=fixed_times_of_shift_bdnn[temp_l], lo=fixed_times_of_shift_bdnn[temp_l + 1])
+                rj_ind_lam = 0
+                rj_ind_mu = 0
+                sp_lam = np.zeros(len(timesLA) - 1)
+                sp_mu = np.zeros(len(timesLA) - 1)
+                for temp_l in range(len(timesLA)-1):
+                    sp_lam_tmp = get_rate_BDNN(LA[temp_l], trait_tbl_NN[0][temp_l], cov_parA[0], hidden_act_f, out_act_f)
+                    sp_mu_tmp = get_rate_BDNN(MA[temp_l], trait_tbl_NN[1][temp_l], cov_parA[1], hidden_act_f, out_act_f)
+                    indx = get_sp_indx_in_timeframe(tsA, teA, up = timesLA[temp_l], lo = timesLA[temp_l + 1])
                     # print(fixed_times_of_shift_bdnn[temp_l + 1],
                     #       len(sp_lam_tmp), len(np.unique(sp_lam_tmp)), np.mean(sp_lam_tmp[indx]),
                     #       1 / np.mean(1 / sp_lam_tmp[indx]))
@@ -4086,10 +4104,10 @@ def MCMC(all_arg):
                 # print(sp_lam)
                 # print(sp_mu)
                 # print(timesMA, MA)
-                w_marg_sp.writerow(list(sp_lam) + list(fixed_times_of_shift_bdnn[1:len(fixed_times_of_shift_bdnn)-1]))
+                w_marg_sp.writerow(list(sp_lam) + list(fixed_times_of_shift_bdnn))#[1:len(fixed_times_of_shift_bdnn)-1]))
                 marginal_sp_rate_file.flush()
                 os.fsync(marginal_sp_rate_file)
-                w_marg_ex.writerow(list(sp_mu) + list(fixed_times_of_shift_bdnn[1:len(fixed_times_of_shift_bdnn)-1]))
+                w_marg_ex.writerow(list(sp_mu) + list(fixed_times_of_shift_bdnn))#[1:len(fixed_times_of_shift_bdnn)-1]))
                 marginal_ex_rate_file.flush()
                 os.fsync(marginal_ex_rate_file)
                 
@@ -4110,12 +4128,12 @@ def MCMC(all_arg):
                 sp_lam_vec = np.zeros(len(tsA))
                 sp_mu_vec = np.zeros(len(tsA)) 
                 for i in range(len(tsA)):
-                    trait_tbl_sp_i_lam = trait_tbl_NN[0][0,i,:] + 0
+                    trait_tbl_sp_i_lam = trait_tbl_NN[0][digitized_ts[i],i,:] + 0
                     # print(trait_tbl_sp_i)
                     # print(BDNNtimetrait_rescaler)
                     trait_tbl_sp_i_lam[-1] = rescaled_ts[i]
                     # print(trait_tbl_sp_i_lam, tsA[i])
-                    trait_tbl_sp_i_mu = trait_tbl_NN[1][0,i,:] + 0
+                    trait_tbl_sp_i_mu = trait_tbl_NN[1][digitized_te[i],i,:] + 0
                     trait_tbl_sp_i_mu[-1] = rescaled_te[i]
                     # print(trait_tbl_sp_i_mu, teA[i])
                     # get sp-specific rates: using '1' as baseline rate (only works with bdnn_const_baseline)
@@ -5284,11 +5302,13 @@ if __name__ == '__main__':
         n_BDNN_nodes = args.BDNNnodes
     
         # load trait data
+        names_traits = []
         if args.trait_file != "":
             traitfile=open(args.trait_file, 'r')
 
             L=traitfile.readlines()
             head= L[0].split()
+            names_traits = head[1:]
 
             trait_val=[l.split() for l in L][1:]
 
@@ -5328,8 +5348,9 @@ if __name__ == '__main__':
             BDNNtimetrait_rescaler = 1
 
         time_var = None
+        names_time_var = []
         if bdnn_timevar:
-             time_var = get_binned_time_variable(time_vec, bdnn_timevar, args.rescale)
+             time_var, names_time_var = get_binned_time_variable(time_vec, bdnn_timevar, args.rescale)
 
         if args.BDNNpklfile:
             print("loading BDNN pickle")
@@ -5338,7 +5359,9 @@ if __name__ == '__main__':
             cov_par_init_NN = bdnn_pkl.weights
             prior_bdnn_w_sd = [np.ones(cov_par_init_NN[0][i].shape) * args.BDNNprior for i in range(len(cov_par_init_NN[0]))]
             # settings
-            BDNN_MASK = bdnn_pkl.bdnn_settings['block_nn_model']
+            block_nn_model = bdnn_pkl.bdnn_settings['block_nn_model']
+            BDNN_MASK_lam = bdnn_pkl.bdnn_settings['mask_lam']
+            BDNN_MASK_mu = bdnn_pkl.bdnn_settings['mask_mu']
 #            {'layers_shapes': [(16, 5), (8, 16), (1, 9)],
 #            'layers_sizes': [80, 128, 9],
 #            'mask': None,
@@ -5391,16 +5414,21 @@ if __name__ == '__main__':
                 # indx_input_list_2 = [0, 1]
         
                 # print(cov_par_init_NN[0], trait_values.shape,len(cov_par_init_NN[0]))
-                BDNN_MASK = create_mask(cov_par_init_NN[0],
-                                   indx_input_list=[indx_input_list_1, indx_input_list_2, []],
-                                   # nodes_per_feature_list=[[1, 1], [1, 1], []])
-                                   nodes_per_feature_list=nodes_per_feature_list) # [[4, 4], [1, 1], []]
+                BDNN_MASK_lam = create_mask(cov_par_init_NN[0],
+                                            indx_input_list=[indx_input_list_1, indx_input_list_2, []],
+                                            # nodes_per_feature_list=[[1, 1], [1, 1], []])
+                                            nodes_per_feature_list=nodes_per_feature_list) # [[4, 4], [1, 1], []]
+                BDNN_MASK_mu = create_mask(cov_par_init_NN[1],
+                                           indx_input_list=[indx_input_list_1, indx_input_list_2, []],
+                                           # nodes_per_feature_list=[[1, 1], [1, 1], []])
+                                           nodes_per_feature_list=nodes_per_feature_list) # [[4, 4], [1, 1], []]
                 # create_mask(w_layers, indx_input_list, nodes_per_feature_list)
-                [print("\n", i) for i in BDNN_MASK]
+                [print("\n", i) for i in BDNN_MASK_lam]
             
             
             else:
-                BDNN_MASK = None
+                BDNN_MASK_lam = None
+                BDNN_MASK_mu = None
         #---
             if False:
                 print(rescaled_time)    
@@ -5416,9 +5444,10 @@ if __name__ == '__main__':
         n_free_prm = 0
         bdnn_settings = ""
         for i_layer in range(len(cov_par_init_NN[0])):
-            if BDNN_MASK:
-                cov_par_init_NN[0][i_layer] *= BDNN_MASK[i_layer]
-                cov_par_init_NN[1][i_layer] *= BDNN_MASK[i_layer]
+            if BDNN_MASK_lam:
+                cov_par_init_NN[0][i_layer] *= BDNN_MASK_lam[i_layer]
+            if BDNN_MASK_mu:
+                cov_par_init_NN[1][i_layer] *= BDNN_MASK_mu[i_layer]
             n_prm += cov_par_init_NN[0][i_layer].size
             n_free_prm += np.sum(cov_par_init_NN[0][i_layer] != 0)
             bdnn_settings = bdnn_settings + "\n %s" % str(cov_par_init_NN[0][i_layer].shape)
@@ -5597,19 +5626,24 @@ if __name__ == '__main__':
             suff_out+= "b"
         
         # save BDNN object
+        names_features = []
+        names_features += names_traits
+        names_features += names_time_var
+        if bdnn_timevar or use_time_as_trait:
+            names_features += ['time']
         bdnn_dict = {
             'layers_shapes': [cov_par_init_NN[0][i_layer].shape for i_layer in range(len(cov_par_init_NN[0]))],
             'layers_sizes': [cov_par_init_NN[0][i_layer].size for i_layer in range(len(cov_par_init_NN[0]))],
-            'mask': BDNN_MASK,
+            'mask_lam': BDNN_MASK_lam,
+            'mask_mu': BDNN_MASK_mu,
             'fixed_times_of_shift_bdnn': fixed_times_of_shift_bdnn,
             'use_time_as_trait': use_time_as_trait, 
             'time_rescaler': BDNNtimetrait_rescaler, 
             'bdnn_const_baseline': bdnn_const_baseline,
             'out_act_f': out_act_f,
             'hidden_act_f': hidden_act_f,
-            'block_nn_model': block_nn_model
-        
-        
+            'block_nn_model': block_nn_model,
+            'names_features': names_features
         }
         
         
@@ -5908,4 +5942,3 @@ if __name__ == '__main__':
             res=start_MCMC(0)
         print("\nfinished at:", time.ctime(), "\nelapsed time:", round(time.time()-t1,2), "\n")
         logfile.close()
-
