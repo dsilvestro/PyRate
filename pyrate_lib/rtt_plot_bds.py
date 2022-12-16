@@ -253,7 +253,7 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
     # 1. a vector of times (age of each marginal rate)
     # 2-4. mean, min and max marginal rates (95% HPD)
     # 5. a vector of times of rate shift
-    f = open(f_name,'U')
+    f = open(f_name, 'r')
     if nbins==0:
         nbins = int(max_age-0)
     post_rate=f.readlines()
