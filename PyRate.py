@@ -1760,7 +1760,7 @@ def BDNN_partial_lik(arg):
             r = get_rate_BDNN(rate, trait_tbl_NN[0][indx], nn_prm, hidden_act_f, out_act_f)
         else:
             r = get_rate_BDNN(rate, trait_tbl_NN[1][indx], nn_prm, hidden_act_f, out_act_f)    
-    else:   
+    else:
         if par=="l":
             r = get_rate_BDNN(rate, trait_tbl_NN[0], nn_prm, hidden_act_f, out_act_f)
         else:
@@ -1822,29 +1822,29 @@ def init_weight_prm(n_nodes, n_features, size_output, init_std=0.1, bias_node=0)
 
 def init_trait_and_weights(trait_tbl,time_var_tbl,nodes,bias_node=False,fadlad=0.1,
                             verbose=False,fixed_times_of_shift=[],
-                            use_time_as_trait=False,n_taxa=None):
+                            use_time_as_trait=False,dd=False,n_taxa=None):
     # if bias_node:
     #     trait_tbl = 0+np.hstack((trait_tbl,np.ones((trait_tbl.shape[0],1))))
-    if use_time_as_trait or time_var_tbl is not None: # only availble with -fixShift option
+    if use_time_as_trait or time_var_tbl is not None or dd: # only availble with -fixShift option
         # create a list of trait tables, one for each time frame
         trait_tbl_list = []
         for i in range(1,len(fixed_times_of_shift)):
             rescaled_time = np.mean([fixed_times_of_shift[i-1],fixed_times_of_shift[i]])
             if trait_tbl is not None:
                 trait_tbl_tmp = trait_tbl + 0.0
-                if time_var_tbl is not None:
-                    time_var_tbl_tmp = time_var_tbl[i - 1,:]
-                    time_var_tbl_tmp = np.tile(time_var_tbl_tmp, n_taxa).reshape((n_taxa, time_var_tbl.shape[1]))
-                    trait_tbl_tmp = np.hstack((trait_tbl_tmp, time_var_tbl_tmp))
-                if use_time_as_trait:
-                    trait_tbl_tmp = np.hstack((trait_tbl_tmp, rescaled_time * np.ones((trait_tbl.shape[0], 1))))
-                trait_tbl_list.append(trait_tbl_tmp)
             else:
-                if use_time_as_trait and time_var_tbl is not None:
-                    rescaled_time = np.hstack((rescaled_time, time_var_tbl[i - 1,:]))
-                else:
-                    rescaled_time = time_var_tbl[i - 1,:]
-                trait_tbl_list.append(rescaled_time*np.ones((n_taxa,1)))
+                trait_tbl_tmp = np.zeros((n_taxa, 1))
+            if time_var_tbl is not None:
+                time_var_tbl_tmp = time_var_tbl[i - 1,:]
+                time_var_tbl_tmp = np.tile(time_var_tbl_tmp, n_taxa).reshape((n_taxa, time_var_tbl.shape[1]))
+                trait_tbl_tmp = np.hstack((trait_tbl_tmp, time_var_tbl_tmp))
+            if dd:
+                trait_tbl_tmp = np.hstack((trait_tbl_tmp, np.zeros((n_taxa, 1))))
+            if use_time_as_trait:
+                trait_tbl_tmp = np.hstack((trait_tbl_tmp, rescaled_time * np.ones((n_taxa, 1))))
+            if trait_tbl is None:
+                trait_tbl_tmp = trait_tbl_tmp[:, 1:]
+            trait_tbl_list.append(trait_tbl_tmp)
         trait_tbl_lam = np.array(trait_tbl_list)+0
         trait_tbl_mu = np.array(trait_tbl_list)+0
         w_lam = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_lam[0].shape[1], size_output=1, init_std=0.01, bias_node=bias_node)
@@ -1967,6 +1967,18 @@ def get_binned_time_variable(timebins, var_file, rescale):
                 most_freq_state[j] = va[np.argmax(counts)]
             mean_var[i - 1, discr_var] = most_freq_state
     return mean_var, names_var
+
+
+def get_binned_div_traj(timebins, times, values):
+    binned_div = np.zeros(len(timebins))
+    for i in range(1,len(timebins)):
+        t_max = timebins[i-1]
+        t_min = timebins[i]
+        in_range_M = (times <= t_max).nonzero()[0]
+        in_range_m = (times >= t_min).nonzero()[0]
+        values_bin = values[np.intersect1d(in_range_M, in_range_m)]
+        binned_div[i - 1] = np.mean(values_bin)
+    return binned_div
 
 
 # ADE model
@@ -3319,6 +3331,16 @@ def MCMC(all_arg):
                 if BDNN_MASK_mu:
                     for i_layer in range(len(cov_parA[1])):
                         cov_par[1][i_layer] *= BDNN_MASK_mu[i_layer]
+                if bdnn_dd:
+                    bdnn_time_div = np.arange(timesLA[0], 0.0, -0.001)
+                    bdnn_div = get_DT(bdnn_time_div, ts, te)
+                    #print("time:", bdnn_time_div)
+                    #print("bdnn_div:", bdnn_div)
+                    bdnn_binned_div = get_binned_div_traj(time_vec, bdnn_time_div, bdnn_div).flatten()[:-1] / bdnn_rescale_div
+                    #print("bdnn_binned_div:", bdnn_binned_div)
+                    bdnn_binned_div = np.repeat(bdnn_binned_div, n_taxa).reshape((len(bdnn_binned_div), n_taxa))
+                    trait_tbl_NN[0][ :, :, div_idx_trt_tbl] = bdnn_binned_div
+                    trait_tbl_NN[1][ :, :, div_idx_trt_tbl] = bdnn_binned_div
             else:
                 rcov=np.random.random()
                 if est_COVAR_prior == 1 and rcov<0.05:
@@ -3556,7 +3578,7 @@ def MCMC(all_arg):
                 else:
                     args=list()
                     if use_ADE_model == 0: # speciation rate is not used under ADE model
-                        if use_BDNNmodel and (use_time_as_trait or bdnn_timevar):
+                        if use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd):
                             for temp_l in range(len(timesL)-1):
                                 up, lo = timesL[temp_l], timesL[temp_l+1]
                                 l = L[temp_l]
@@ -3571,7 +3593,7 @@ def MCMC(all_arg):
                     for temp_m in range(len(timesM)-1):
                         up, lo = timesM[temp_m], timesM[temp_m+1]
                         m = M[temp_m]
-                        if use_BDNNmodel and (use_time_as_trait or bdnn_timevar):
+                        if use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd):
                             args.append([ts, te, up, lo, m, 'm', cov_par[1],temp_m]) 
                         elif use_ADE_model == 0:
                             args.append([ts, te, up, lo, m, 'm', cov_par[1],np.nan])
@@ -4084,7 +4106,7 @@ def MCMC(all_arg):
                 w_marg_ex.writerow(list(MA) + list(timesMA[1:len(timesMA)-1]))
                 marginal_ex_rate_file.flush()
                 os.fsync(marginal_ex_rate_file)
-            elif use_BDNNmodel and (use_time_as_trait or bdnn_timevar):
+            elif use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd):
                 # log harmonic mean of rates
                 rj_ind_lam = 0
                 rj_ind_mu = 0
@@ -4128,15 +4150,19 @@ def MCMC(all_arg):
                 sp_lam_vec = np.zeros(len(tsA))
                 sp_mu_vec = np.zeros(len(tsA)) 
                 for i in range(len(tsA)):
-                    trait_tbl_sp_i_lam = trait_tbl_NN[0][digitized_ts[i],i,:] + 0
-                    # print(trait_tbl_sp_i)
-                    # print(BDNNtimetrait_rescaler)
-                    trait_tbl_sp_i_lam[-1] = rescaled_ts[i]
-                    # print(trait_tbl_sp_i_lam, tsA[i])
-                    trait_tbl_sp_i_mu = trait_tbl_NN[1][digitized_te[i],i,:] + 0
-                    trait_tbl_sp_i_mu[-1] = rescaled_te[i]
-                    # print(trait_tbl_sp_i_mu, teA[i])
-                    # get sp-specific rates: using '1' as baseline rate (only works with bdnn_const_baseline)
+                    if use_time_as_trait or time_var is not None or bdnn_dd:
+                        trait_tbl_sp_i_lam = trait_tbl_NN[0][digitized_ts[i],i,:] + 0
+                        # print(trait_tbl_sp_i)
+                        # print(BDNNtimetrait_rescaler)
+                        trait_tbl_sp_i_lam[-1] = rescaled_ts[i]
+                        # print(trait_tbl_sp_i_lam, tsA[i])
+                        trait_tbl_sp_i_mu = trait_tbl_NN[1][digitized_te[i],i,:] + 0
+                        trait_tbl_sp_i_mu[-1] = rescaled_te[i]
+                        # print(trait_tbl_sp_i_mu, teA[i])
+                        # get sp-specific rates: using '1' as baseline rate (only works with bdnn_const_baseline)
+                    else:
+                        trait_tbl_sp_i_lam = trait_tbl_NN[0][i,:] + 0
+                        trait_tbl_sp_i_mu = trait_tbl_NN[1][i,:] + 0
                     if bdnn_const_baseline:
                         # print("bdnn_const_baseline", np.array([trait_tbl_sp_i_lam]).shape, [cov_parA[0][i].shape for i in range(3)])
                         sp_lam_vec[i] = get_rate_BDNN(1, np.array([trait_tbl_sp_i_lam]), cov_parA[0], hidden_act_f, out_act_f)
@@ -4335,6 +4361,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNprior', type=float, help='sd normal prior', default=1, metavar=1)
     p.add_argument('-BDNNblockmodel',help='Block NN model', action='store_true', default=False)
     p.add_argument('-BDNNtimevar', type=str, help='Time variable file (e.g. PhanerozoicTempSmooth.txt), several variable in different columns possible', default="", metavar="")
+    p.add_argument('-BDNNdd', help='Diversity-dependent BDNN', action='store_true', default=False)
     p.add_argument('-BDNNpklfile', type=str, help='Load BDNN pickle file', default="", metavar="")
     
     p.add_argument("-edge_indicator",      help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
@@ -4538,7 +4565,7 @@ if __name__ == '__main__':
         fix_Shift = 0
         
     fixed_times_of_shift_bdnn = []
-    if (args.BDNNtimetrait != 0 or args.BDNNtimevar) and args.BDNNmodel > 0:# and fix_Shift == 0:
+    if (args.BDNNtimetrait != 0 or args.BDNNtimevar or args.BDNNdd) and args.BDNNmodel > 0:# and fix_Shift == 0:
         if args.A == 4:
             fixed_times_of_shift_bdnn = np.arange(1, 1000)[::-1]        
             time_framesL_bdnn=len(fixed_times_of_shift_bdnn)+1
@@ -4929,6 +4956,10 @@ if __name__ == '__main__':
     hidden_act_f = get_hidden_act_f(args.BDNNactfun)
     block_nn_model = args.BDNNblockmodel
     bdnn_timevar = args.BDNNtimevar
+    bdnn_dd = args.BDNNdd
+    div_idx_trt_tbl = -1
+    if bdnn_dd and use_time_as_trait:
+        div_idx_trt_tbl = -2
 
     ############################ SET BIRTH-DEATH MODEL ############################
 
@@ -5250,7 +5281,7 @@ if __name__ == '__main__':
 
     if fix_Shift == 1 and use_ADE_model == 0: 
         est_hyperP = 1
-    if (args.BDNNtimetrait != 0 or bdnn_timevar) and args.BDNNmodel > 0 and bdnn_const_baseline:
+    if (args.BDNNtimetrait != 0 or bdnn_timevar or bdnn_dd) and args.BDNNmodel > 0 and bdnn_const_baseline:
         est_hyperP = 0
     # define hyper-prior function for BD rates
     if tot_extant==-1 or TDI ==3 or use_poiD == 1:
@@ -5335,7 +5366,7 @@ if __name__ == '__main__':
             time_vec = np.sort(np.array([np.max(FA), np.min(LO)] + list(fixed_times_of_shift_bdnn)))[::-1]
         else:
             time_vec = np.sort(np.array([np.max(FA), np.min(LO)] + list(fixed_times_of_shift)))[::-1]
-        if args.BDNNtimetrait or bdnn_timevar:
+        if args.BDNNtimetrait or bdnn_timevar or bdnn_dd:
             if args.BDNNtimetrait == -1:
                 BDNNtimetrait_rescaler = 1 / np.max(time_vec)
                 args.BDNNtimetrait = BDNNtimetrait_rescaler
@@ -5384,6 +5415,7 @@ if __name__ == '__main__':
                                                                    bias_node=True, 
                                                                    fadlad=args.BDNNfadlad,
                                                                    use_time_as_trait=use_time_as_trait,
+                                                                   dd = bdnn_dd,
                                                                    fixed_times_of_shift=rescaled_time,
                                                                    n_taxa=n_taxa)
             cov_par_init_NN.append(0) # cov_par_init_NN[2] = covar prm for preservation rate (currently not used)
@@ -5620,6 +5652,8 @@ if __name__ == '__main__':
             suff_out+= "T"
         if bdnn_timevar:
             suff_out+= "V"
+        if bdnn_dd:
+            suff_out+= "DD"
         if bdnn_const_baseline:
             suff_out+= "c"
         if block_nn_model:
@@ -5629,23 +5663,10 @@ if __name__ == '__main__':
         names_features = []
         names_features += names_traits
         names_features += names_time_var
+        if bdnn_dd:
+            names_features += ['diversity']
         if bdnn_timevar or use_time_as_trait:
             names_features += ['time']
-        bdnn_dict = {
-            'layers_shapes': [cov_par_init_NN[0][i_layer].shape for i_layer in range(len(cov_par_init_NN[0]))],
-            'layers_sizes': [cov_par_init_NN[0][i_layer].size for i_layer in range(len(cov_par_init_NN[0]))],
-            'mask_lam': BDNN_MASK_lam,
-            'mask_mu': BDNN_MASK_mu,
-            'fixed_times_of_shift_bdnn': fixed_times_of_shift_bdnn,
-            'use_time_as_trait': use_time_as_trait, 
-            'time_rescaler': BDNNtimetrait_rescaler, 
-            'bdnn_const_baseline': bdnn_const_baseline,
-            'out_act_f': out_act_f,
-            'hidden_act_f': hidden_act_f,
-            'block_nn_model': block_nn_model,
-            'names_features': names_features
-        }
-        
         
         # store fad/lad 
         sp_fad_lad = []
@@ -5655,6 +5676,27 @@ if __name__ == '__main__':
         
         sp_fad_lad = pd.DataFrame(sp_fad_lad)
         sp_fad_lad.columns = ["Taxon", "FAD", "LAD"]
+        
+        bdnn_rescale_div = 0.0
+        if bdnn_dd:
+            bdnn_obs_div = get_DT(time_vec, sp_fad_lad["FAD"], sp_fad_lad["LAD"])
+            bdnn_rescale_div = np.max(bdnn_obs_div)
+        
+        bdnn_dict = {
+            'layers_shapes': [cov_par_init_NN[0][i_layer].shape for i_layer in range(len(cov_par_init_NN[0]))],
+            'layers_sizes': [cov_par_init_NN[0][i_layer].size for i_layer in range(len(cov_par_init_NN[0]))],
+            'mask_lam': BDNN_MASK_lam,
+            'mask_mu': BDNN_MASK_mu,
+            'fixed_times_of_shift_bdnn': fixed_times_of_shift_bdnn,
+            'use_time_as_trait': use_time_as_trait,
+            'time_rescaler': BDNNtimetrait_rescaler,
+            'bdnn_const_baseline': bdnn_const_baseline,
+            'out_act_f': out_act_f,
+            'hidden_act_f': hidden_act_f,
+            'block_nn_model': block_nn_model,
+            'names_features': names_features,
+            'div_rescaler': bdnn_rescale_div
+        }
         
         obj = bdnn(bdnn_settings=bdnn_dict,
                    weights=cov_par_init_NN,
