@@ -5,6 +5,7 @@ import random as rand
 import warnings, importlib
 import importlib.util
 import copy as copy_lib
+import json
 
 version= "PyRate"
 build  = "v3.1.3 - 20220926"
@@ -1884,55 +1885,6 @@ def load_pkl(file_name):
     import pickle
     with open(file_name, "rb") as f:
         return pickle.load(f)
-        
-def apply_thin(w, thin):
-    n_samples = w.shape[0]
-    thin_idx = np.arange(0, n_samples, thin)
-    return w[thin_idx,:]
-
-def bdnn_read_mcmc_file(mcmc_file, burn, thin):
-    m = pd.read_csv(mcmc_file, delimiter='\t')
-    w_sp_indx = np.array([i for i in range(len(m.columns)) if 'w_lam_' in m.columns[i]])
-    w_ex_indx = np.array([i for i in range(len(m.columns)) if 'w_mu_' in m.columns[i]])
-    ts_indx = np.array([i for i in range(len(m.columns)) if '_TS' in m.columns[i]])
-    te_indx = np.array([i for i in range(len(m.columns)) if '_TE' in m.columns[i]])
-    np_m = m.to_numpy()
-    num_it = np_m.shape[0]
-    burnin = check_burnin(burn, num_it)
-    w_sp = np_m[burnin:,w_sp_indx]
-    w_ex = np_m[burnin:,w_ex_indx]
-    ts = np_m[burnin:,ts_indx]
-    te = np_m[burnin:,te_indx]
-    if thin > 0.0:
-        w_sp = apply_thin(w_sp, thin)
-        w_ex = apply_thin(w_ex, thin)
-        ts = apply_thin(ts, thin)
-        te = apply_thin(te, thin)
-    return w_sp, w_ex, ts, te
-
-def bdnn_reshape_w(posterior_w, bdnn_obj):
-    w_list = []
-    for w in posterior_w:
-        c = 0
-        w_sample = []
-        for i in range(len(bdnn_obj.bdnn_settings['layers_sizes'])):
-            w_layer = w[c:c+bdnn_obj.bdnn_settings['layers_sizes'][i]].reshape(bdnn_obj.bdnn_settings['layers_shapes'][i])
-            c += bdnn_obj.bdnn_settings['layers_sizes'][i]
-            w_sample.append(w_layer)
-            # print(w_layer.shape)        
-        w_list.append(w_sample)
-    return w_list
-
-def bdnn_parse_results(mcmc_file, pkl_file, burn = 0.1, thin = 0.0):
-    ob = load_pkl(pkl_file)
-    w_sp, w_ex, post_ts, post_te = bdnn_read_mcmc_file(mcmc_file, burn, thin)
-    post_w_sp = bdnn_reshape_w(w_sp, ob)
-    post_w_ex = bdnn_reshape_w(w_ex, ob)
-    sp_fad_lad = ob.sp_fad_lad
-    return ob, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te
-    
-def bdnn_time_rescaler(x, bdnn_obj):  
-    return x * bdnn_obj.bdnn_settings['time_rescaler']
 
 
 def get_names_variable(var_file):
@@ -4266,6 +4218,12 @@ if __name__ == '__main__':
     p.add_argument('-plot2',      metavar='<input file>', type=str,help="RTT plot (type 2): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
     p.add_argument('-plot3',      metavar='<input file>', type=str,help="RTT plot for fixed number of shifts: provide 'mcmc.log' file",default="")
     p.add_argument('-plotRJ',     metavar='<input file>', type=str,help="RTT plot for runs with '-log_marginal_rates 0': provide path to 'mcmc.log' files",default="")
+    p.add_argument('-plotBDNN',   metavar='<input file>', type=str,help="RTT plot for BDNN runs: provide path to 'mcmc.log' and '*.pkl' files",default="")
+    p.add_argument('-plotBDNN_effects',   metavar='<input file>', type = str, help = "Effect plot for BDNN runs: provide path and base name for 'mcmc.log' and '*.pkl' files (e.g. .../pyrate_mcmc_logs/example_BDS_BDNN_16_8Tc)", default = "")
+    p.add_argument('-plotBDNN_transf_features', metavar='<input file>', type = str,
+                   help = "Optional back transformation of z-standardized BDNN features (text file with name of the feature as header, its mean, and standard deviation before z-standardization", default = "")
+    p.add_argument('-BDNN_groups',   metavar='<dict>', type = json.loads,
+                    help = """dictionary with features to plot together (e.g. on-hot encoded discrete features). E.g.: '{"Trait1": ["T1_state1", "T1_state2", "T1_state3"], "Trait2": ["T2_state1", "T2_state2", "T2_state3", "T2_state4"]}'""", default = "")
     p.add_argument('-n_prior',     type=int,help="n. samples from the prior to compute Bayes factors",default=100000)
     p.add_argument('-plotQ',      metavar='<input file>', type=str,help="Plot preservation rates through time: provide 'mcmc.log' file and '-qShift' argument ",default="")
     p.add_argument('-grid_plot',  type=float, help='Plot resolution in Myr (only for plot3 and plotRJ commands). If set to 0: 100 equal time bins', default=0, metavar=0)
@@ -4280,7 +4238,7 @@ if __name__ == '__main__':
     p.add_argument('-ginput',     type=str,help='generate SE table from *mcmc.log files', default="", metavar="<path_to_mcmc.log>")
     p.add_argument('-combLog',    type=str,help='Combine (and resample) log files', default="", metavar="<path_to_log_files>")
     p.add_argument('-combLogRJ',  type=str,help='Combine (and resample) all log files form RJMCMC', default="", metavar="<path_to_log_files>")
-    p.add_argument('-resample',   type=int,help='Number of samples for each log file (-combLog). Use 0 to keep all samples. Number of ts/te estimates (-ginput)', default=0, metavar=0)
+    p.add_argument('-resample',   type=int,help='Number of samples for each log file (-combLog). Use 0 to keep all samples. Number of ts/te estimates (-ginput). Number of BDNN samples (-plotBDNN and -plotBDNN_effects)', default=0, metavar=0)
     p.add_argument('-col_tag',    type=str,help='Columns to be combined using combLog', default=[], metavar="column names",nargs='+')
     p.add_argument('-check_names',type=str,help='Automatic check for typos in taxa names (provide SpeciesList file)', default="", metavar="<*_SpeciesList.txt file>")
     p.add_argument('-reduceLog',  type=str,help='Reduce file size (mcmc.log) to quickly assess convergence', default="", metavar="<*_mcmc.log file>")
@@ -4665,7 +4623,13 @@ if __name__ == '__main__':
     elif args.plotQ != "":
         path_dir_log_files=args.plotQ
         plot_type=5
-    print(args.plotQ)
+    elif args.plotBDNN != "":
+        path_dir_log_files = args.plotBDNN
+        plot_type = 6
+    elif args.plotBDNN_effects != "":
+        path_dir_log_files = args.plotBDNN_effects
+        plot_type = 7
+    #print(args.plotQ)
 
     list_files_BF=sort(args.BF)
     file_stem=args.tag
@@ -4673,7 +4637,7 @@ if __name__ == '__main__':
     grid_plot = args.grid_plot
     if path_dir_log_files != "":
         self_path = get_self_path()
-        if plot_type>=3:
+        if plot_type>=3 and plot_type != 7:
             import pyrate_lib.lib_DD_likelihood as lib_DD_likelihood
             import pyrate_lib.lib_utilities as lib_utilities
             import pyrate_lib.rtt_plot_bds as rtt_plot_bds
@@ -4685,8 +4649,44 @@ if __name__ == '__main__':
                         burnin=burnin,min_age=args.min_age_plot,max_age=root_plot,logT=args.logT,n_reps=args.n_prior)
             elif plot_type== 5:
                 rtt_plot_bds = rtt_plot_bds.RTTplot_Q(path_dir_log_files,args.qShift,burnin=burnin,max_age=root_plot)
+            elif plot_type== 6:
+                import pyrate_lib.bdnn_lib as bdnn_lib
+                sptt, extt, divtt, longtt, time_vec = bdnn_lib.get_bdnn_rtt(path_dir_log_files, burn = burnin)
+                bdnn_lib.plot_bdnn_rtt(path_dir_log_files, sptt, extt, divtt, longtt, time_vec)
             #except: sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
             #You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
+
+        elif plot_type == 7:
+            import pyrate_lib.bdnn_lib as bdnn_lib
+            pkl_file = path_dir_log_files + ".pkl" 
+            mcmc_file = path_dir_log_files + "_mcmc.log"
+            bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te = bdnn_lib.bdnn_parse_results(mcmc_file, pkl_file, burnin, thin = args.resample)
+            cond_trait_tbl_sp, names_features_sp = bdnn_lib.build_conditional_trait_tbl(bdnn_obj, sp_fad_lad,
+                                                                                        post_ts, post_te,
+                                                                                        len_cont = 100,
+                                                                                        rate_type = 'speciation',
+                                                                                        combine_discr_features = args.BDNN_groups)
+            cond_trait_tbl_ex, names_features_ex = bdnn_lib.build_conditional_trait_tbl(bdnn_obj, sp_fad_lad,
+                                                                                        post_ts, post_te,
+                                                                                        len_cont = 100,
+                                                                                        rate_type = 'extinction',
+                                                                                        combine_discr_features = args.BDNN_groups)
+            sp_rate_cond = bdnn_lib.get_conditional_rates(bdnn_obj, cond_trait_tbl_sp, post_w_sp)
+            ex_rate_cond = bdnn_lib.get_conditional_rates(bdnn_obj, cond_trait_tbl_ex, post_w_ex)
+            cond_trait_tbl_sp, cond_trait_tbl_ex, backscale_par = bdnn_lib.backscale_bdnn_features(args.plotBDNN_transf_features,
+                                                                                                   bdnn_obj,
+                                                                                                   cond_trait_tbl_sp,
+                                                                                                   cond_trait_tbl_ex)
+            bdnn_lib.plot_effects(path_dir_log_files,
+                                  cond_trait_tbl_sp,
+                                  cond_trait_tbl_ex,
+                                  sp_rate_cond,
+                                  ex_rate_cond,
+                                  bdnn_obj,
+                                  sp_fad_lad,
+                                  backscale_par,
+                                  names_features_sp,
+                                  names_features_ex)
 
         else:
             #path_dir_log_files=sort(path_dir_log_files)
