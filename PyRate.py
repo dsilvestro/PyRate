@@ -4223,7 +4223,7 @@ if __name__ == '__main__':
     p.add_argument('-plotBDNN_transf_features', metavar='<input file>', type = str,
                    help = "Optional back transformation of z-standardized BDNN features (text file with name of the feature as header, its mean, and standard deviation before z-standardization", default = "")
     p.add_argument('-BDNN_groups',   metavar='<dict>', type = json.loads,
-                    help = """dictionary with features to plot together (e.g. on-hot encoded discrete features). E.g.: '{"Trait1": ["T1_state1", "T1_state2", "T1_state3"], "Trait2": ["T2_state1", "T2_state2", "T2_state3", "T2_state4"]}'""", default = "")
+                    help = """dictionary with features to plot together (e.g. on-hot encoded discrete features). E.g.: '{"Trait1": ["T1_state1", "T1_state2", "T1_state3"], "Trait2": ["T2_state1", "T2_state2", "T2_state3", "T2_state4"]}'""", default = '{}')
     p.add_argument('-n_prior',     type=int,help="n. samples from the prior to compute Bayes factors",default=100000)
     p.add_argument('-plotQ',      metavar='<input file>', type=str,help="Plot preservation rates through time: provide 'mcmc.log' file and '-qShift' argument ",default="")
     p.add_argument('-grid_plot',  type=float, help='Plot resolution in Myr (only for plot3 and plotRJ commands). If set to 0: 100 equal time bins', default=0, metavar=0)
