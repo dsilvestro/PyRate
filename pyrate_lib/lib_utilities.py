@@ -500,18 +500,21 @@ def write_des_in(out_list, reps, all_taxa_list, taxon, time, input_wd, filename)
         os.fsync(w_in_file)
 
 def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "higherGeography", age1 = "earliestAge", age2 = "latestAge", binsize = 5., reps = 3, trim_age = [], data_in_area = []):
+    rece_taxa = np.array([])
+    area_recent = np.array([])
     rece = np.genfromtxt(recent, dtype = str, delimiter='\t')
-    rece_names = rece[0,:]
-    rece = np.unique(rece[1:,:], axis = 0)
-    rece_names_area = rece_names == area
-    rece_taxa = rece[:,rece_names == taxon].flatten()
-    areas = np.unique(rece[:,rece_names_area])
-    area_recent = np.zeros(rece.shape[0], dtype=int)
-    if data_in_area == 0:
-        area_recent[np.array(rece[:, rece_names_area] == areas[0]).flatten()] = 1
-        area_recent[np.array(rece[:, rece_names_area] == areas[1]).flatten()] = 2
-    else:
-        area_recent = area_recent + 3
+    if len(rece.shape) > 1:
+        rece_names = rece[0,:]
+        rece = np.unique(rece[1:,:], axis = 0)
+        rece_names_area = rece_names == area
+        rece_taxa = rece[:,rece_names == taxon].flatten()
+        areas = np.unique(rece[:,rece_names_area])
+        area_recent = np.zeros(rece.shape[0], dtype=int)
+        if data_in_area == 0:
+            area_recent[np.array(rece[:, rece_names_area] == areas[0]).flatten()] = 1
+            area_recent[np.array(rece[:, rece_names_area] == areas[1]).flatten()] = 2
+        else:
+            area_recent = area_recent + 3
     out_list = []
     all_taxa_list = []
     dat = np.genfromtxt(x, dtype=str, delimiter='\t')
@@ -520,6 +523,8 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
     dat_names_taxon = np.where(dat_names == taxon)
     dat_taxa = dat[:,dat_names_taxon].flatten()
     dat_names_area = np.where(dat_names == area)
+    if len(rece.shape) == 1:
+        areas = np.unique(dat[:,dat_names_area])
     dat_names_age1 = np.where(dat_names == age1)
     dat_names_age2 = np.where(dat_names == age2)
     dat_ages = dat[:,np.concatenate((dat_names_age1, dat_names_age2), axis = None)]
