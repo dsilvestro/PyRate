@@ -3223,6 +3223,13 @@ def MCMC(all_arg):
                     else:
                         q_rates_temp_M = q_rates_temp + MA[np.digitize(q_temp_time,timesMA[1:])]
                     ts,te = gibbs_update_ts_te(q_rates_temp_L,q_rates_temp_M,times_q_temp)
+            if bdnn_dd:
+                bdnn_time_div = np.arange(timesLA[0], 0.0, -0.001)
+                bdnn_div = get_DT(bdnn_time_div, ts, te)
+                bdnn_binned_div = get_binned_div_traj(time_vec, bdnn_time_div, bdnn_div).flatten()[:-1] / bdnn_rescale_div
+                bdnn_binned_div = np.repeat(bdnn_binned_div, n_taxa).reshape((len(bdnn_binned_div), n_taxa))
+                trait_tbl_NN[0][ :, :, div_idx_trt_tbl] = bdnn_binned_div
+                trait_tbl_NN[1][ :, :, div_idx_trt_tbl] = bdnn_binned_div
 
             tot_L=np.sum(ts-te)
         
@@ -3283,16 +3290,6 @@ def MCMC(all_arg):
                 if BDNN_MASK_mu:
                     for i_layer in range(len(cov_parA[1])):
                         cov_par[1][i_layer] *= BDNN_MASK_mu[i_layer]
-                if bdnn_dd:
-                    bdnn_time_div = np.arange(timesLA[0], 0.0, -0.001)
-                    bdnn_div = get_DT(bdnn_time_div, ts, te)
-                    #print("time:", bdnn_time_div)
-                    #print("bdnn_div:", bdnn_div)
-                    bdnn_binned_div = get_binned_div_traj(time_vec, bdnn_time_div, bdnn_div).flatten()[:-1] / bdnn_rescale_div
-                    #print("bdnn_binned_div:", bdnn_binned_div)
-                    bdnn_binned_div = np.repeat(bdnn_binned_div, n_taxa).reshape((len(bdnn_binned_div), n_taxa))
-                    trait_tbl_NN[0][ :, :, div_idx_trt_tbl] = bdnn_binned_div
-                    trait_tbl_NN[1][ :, :, div_idx_trt_tbl] = bdnn_binned_div
             else:
                 rcov=np.random.random()
                 if est_COVAR_prior == 1 and rcov<0.05:
