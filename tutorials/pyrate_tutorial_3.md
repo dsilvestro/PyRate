@@ -31,6 +31,12 @@ and for data sets with fixed times of origination and extinction (see also tutor
 You can find more details about preparing input files [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#generate-pyrate-input-file-option-1)
 and [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#generate-pyrate-input-file-option-2)
 
+By default the RJMCMC assumes a uniform prior on the time of rate shifts, with the constraint that a time bin cannot be smaller than 1 time unit (e.g. 1 myr). To change this prior you can use the flag `-min_dt` specifying the minimum allowed duration of a bin, e.g.:
+
+`python PyRate.py -d Canidae_1_G_se_est.txt -A 4 -min_dt 0.5`
+
+allowes rate shifts to be separated by at least 0.5 myr. Note that setting this parameter to small values can lead to instable results, especially for small datasets.  
+
 ## RJMCMC Output
 RJMCMC analyses by default produce 4 output files:
 ####  1) sum.txt  
@@ -70,6 +76,9 @@ The command `-root_plot` can be used to truncate the plot to a given maximum age
 generates a plot spanning only the Miocene. 
 
 The command `-logT 1` can be added to plot log10-transformed rates-through-time.
+If the **prior on the minimum duration between time bins**  was changed from its default in the analysis, this hsould be also specified when plotting the results, e.g., based on the example above:
+
+`python PyRate.py -plotRJ .../path_to_log_files/ -b 200 -min_dt 0.5`
 
 ![Example RTT](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/RTT_plot_RJMCMC.png)
 
