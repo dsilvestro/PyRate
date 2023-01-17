@@ -17,9 +17,16 @@ from PyRate import get_rate_BDNN
 
 def summarize_rate(r, n_rates):
     r_sum = np.zeros((n_rates, 3))
-    r_sum[:, 0] = np.mean(r, axis = 0)
+    r_sum[:, 0] = np.nanmean(r, axis = 0)
     for i in range(n_rates):
-        r_sum[i, 1:] = util.calcHPD(r[:, i], 0.95)
+        r_i = r[:, i]
+        r_i = r_i[~np.isnan(r_i)]
+        nData = len(r_i)
+        nIn = int(round(0.95 * nData))
+        if nIn > 3:
+            r_sum[i, 1:] = util.calcHPD(r_i, 0.95)
+        else:
+            r_sum[i, 1:] = np.nan
     r_sum = np.repeat(r_sum, repeats = 2, axis = 0)
     return r_sum
 
@@ -77,23 +84,27 @@ def plot_bdnn_rtt(f, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec):
     r_script += "\nlayout(matrix(1:4, ncol = 2, nrow = 2, byrow = TRUE))"
     r_script += "\npar(las = 1, mar = c(4.5, 4.5, 0.5, 0.5))"
     r_script += "\nxlim = c(%s, %s)" % (np.max(time_vec), np.min(time_vec))
-    r_script += "\nylim = c(%s, %s)" % (np.min(r_sp_sum), np.max(r_sp_sum))
-    r_script += "\nplot(time_vec, sp_mean, type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Speciation rate')"
-    r_script += "\npolygon(c(time_vec, rev(time_vec)), c(sp_lwr, rev(sp_upr)), col = adjustcolor('#4c4cec', alpha = 0.5), border = NA)"
-    r_script += "\nlines(time_vec, sp_mean, col = '#4c4cec', lwd = 2)"
-    r_script += "\nylim = c(%s, %s)" % (np.min(r_ex_sum), np.max(r_ex_sum))
-    r_script += "\nplot(time_vec, ex_mean, type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Extinction rate')"
-    r_script += "\npolygon(c(time_vec, rev(time_vec)), c(ex_lwr, rev(ex_upr)), col = adjustcolor('#e34a33', alpha = 0.5), border = NA)"
-    r_script += "\nlines(time_vec, ex_mean, col = '#e34a33', lwd = 2)"
-    r_script += "\nylim = c(%s, %s)" % (np.min(r_div_sum), np.max(r_div_sum))
-    r_script += "\nplot(time_vec, div_mean, type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Net diversification rate')"
-    r_script += "\npolygon(c(time_vec, rev(time_vec)), c(div_lwr, rev(div_upr)), col = adjustcolor('black', alpha = 0.3), border = NA)"
-    r_script += "\nlines(time_vec, div_mean, col = 'black', lwd = 2)"
+    r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_sp_sum), np.nanmax(r_sp_sum))
+    r_script += "\nnot_NA = !is.na(sp_mean)"
+    r_script += "\nplot(time_vec[not_NA], sp_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Speciation rate')"
+    r_script += "\npolygon(c(time_vec[not_NA], rev(time_vec[not_NA])), c(sp_lwr[not_NA], rev(sp_upr[not_NA])), col = adjustcolor('#4c4cec', alpha = 0.5), border = NA)"
+    r_script += "\nlines(time_vec[not_NA], sp_mean[not_NA], col = '#4c4cec', lwd = 2)"
+    r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_ex_sum), np.nanmax(r_ex_sum))
+    r_script += "\nnot_NA = !is.na(ex_mean)"
+    r_script += "\nplot(time_vec[not_NA], ex_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Extinction rate')"
+    r_script += "\npolygon(c(time_vec[not_NA], rev(time_vec[not_NA])), c(ex_lwr[not_NA], rev(ex_upr[not_NA])), col = adjustcolor('#e34a33', alpha = 0.5), border = NA)"
+    r_script += "\nlines(time_vec[not_NA], ex_mean[not_NA], col = '#e34a33', lwd = 2)"
+    r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_div_sum), np.nanmax(r_div_sum))
+    r_script += "\nnot_NA = !is.na(div_mean)"
+    r_script += "\nplot(time_vec[not_NA], div_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Net diversification rate')"
+    r_script += "\npolygon(c(time_vec[not_NA], rev(time_vec[not_NA])), c(div_lwr[not_NA], rev(div_upr[not_NA])), col = adjustcolor('black', alpha = 0.3), border = NA)"
+    r_script += "\nlines(time_vec[not_NA], div_mean[not_NA], col = 'black', lwd = 2)"
     r_script += "\nabline(h = 0, col = 'red', lty = 2)"
-    r_script += "\nylim = c(%s, %s)" % (np.min(long_sum), np.max(long_sum))
-    r_script += "\nplot(time_vec, div_mean, type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Longevity (Myr)')"
-    r_script += "\npolygon(c(time_vec, rev(time_vec)), c(long_lwr, rev(long_upr)), col = adjustcolor('black', alpha = 0.3), border = NA)"
-    r_script += "\nlines(time_vec, long_mean, col = 'black', lwd = 2)"
+    r_script += "\nylim = c(%s, %s)" % (np.nanmin(long_sum), np.nanmax(long_sum))
+    r_script += "\nnot_NA = !is.na(long_mean)"
+    r_script += "\nplot(time_vec[not_NA], long_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Longevity (Myr)')"
+    r_script += "\npolygon(c(time_vec[not_NA], rev(time_vec[not_NA])), c(long_lwr[not_NA], rev(long_upr[not_NA])), col = adjustcolor('black', alpha = 0.3), border = NA)"
+    r_script += "\nlines(time_vec[not_NA], long_mean[not_NA], col = 'black', lwd = 2)"
     r_script += "\ndev.off()"
     newfile.writelines(r_script)
     newfile.close()
