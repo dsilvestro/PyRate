@@ -4948,6 +4948,7 @@ if __name__ == '__main__':
     if args.se_gibbs: out_name += "_seGibbs"
     
     use_time_as_trait = args.BDNNtimetrait
+    add_to_bdnnblock_mask = 1
     bdnn_const_baseline = args.BDNNconstbaseline
     out_act_f = get_act_f(args.BDNNoutputfun)
     hidden_act_f = get_hidden_act_f(args.BDNNactfun)
@@ -4957,6 +4958,8 @@ if __name__ == '__main__':
     div_idx_trt_tbl = -1
     if bdnn_dd and use_time_as_trait:
         div_idx_trt_tbl = -2
+    if bdnn_dd:
+        add_to_bdnnblock_mask += 1
 
     ############################ SET BIRTH-DEATH MODEL ############################
 
@@ -5379,6 +5382,7 @@ if __name__ == '__main__':
         names_time_var = []
         if bdnn_timevar:
              time_var, names_time_var = get_binned_time_variable(time_vec, bdnn_timevar, args.rescale)
+             add_to_bdnnblock_mask += len(names_time_var)
 
         if args.BDNNpklfile:
             print("loading BDNN pickle")
@@ -5427,7 +5431,7 @@ if __name__ == '__main__':
             #---
             if block_nn_model:
                 # mask block - 1st layer
-                indx_input_list_1 = np.zeros(trait_values.shape[1] + 1) # add +1 for time
+                indx_input_list_1 = np.zeros(trait_values.shape[1] + add_to_bdnnblock_mask) # includes +1 for time, diversity dependence and temperature
                 indx_input_list_1[-1] = 1 # different block for time
                 # mask block - 2nd layer (equal split trait, time)
                 nodes_traits = int(n_BDNN_nodes[0] / 2)
