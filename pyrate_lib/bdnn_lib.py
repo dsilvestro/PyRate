@@ -12,7 +12,8 @@ import pyrate_lib.lib_utilities as util
 from PyRate import check_burnin
 from PyRate import load_pkl
 from PyRate import get_rate_BDNN
-
+from PyRate import get_DT
+from PyRate import get_binned_div_traj
 
 
 def summarize_rate(r, n_rates):
@@ -204,8 +205,8 @@ def backscale_bdnn_features(file_transf_features, bdnn_obj, cond_trait_tbl_sp, c
     if file_transf_features != "":
         names_feat = get_names_features(bdnn_obj)
         backscale_par = read_backscale_file(file_transf_features)
-        cond_trait_tbl_sp = backscale_tbl(backscale_par, names_feat, cond_trait_tbl_sp)
-        cond_trait_tbl_ex = backscale_tbl(backscale_par, names_feat, cond_trait_tbl_ex)
+        cond_trait_tbl_sp = backscale_tbl(bdnn_obj, backscale_par, names_feat, cond_trait_tbl_sp)
+        cond_trait_tbl_ex = backscale_tbl(bdnn_obj, backscale_par, names_feat, cond_trait_tbl_ex)
     return cond_trait_tbl_sp, cond_trait_tbl_ex, backscale_par
 
 
@@ -719,7 +720,7 @@ def read_backscale_file(backscale_file):
     return backscale_par
 
 
-def backscale_tbl(backscale_par, names_feat, tbl):
+def backscale_tbl(bdnn_obj, backscale_par, names_feat, tbl):
     if isinstance(backscale_par, pd.DataFrame):
         backscale_names = list(backscale_par.columns)
         for i in range(len(names_feat)):
@@ -1023,7 +1024,7 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, sp_fad_lad, r_s
             r_script = plot_bdnn_discr(rates_sum_plt, cond_rates_plt, trait_tbl_plt, r_script, names, names_states, rate_type)
         elif pt == 4.0:
             names = names_features[incl_features[0]]
-            obs = backscale_tbl(backscale_par, [names], obs)
+            obs = backscale_tbl(bdnn_obj, backscale_par, [names], obs)
             r_script = plot_bdnn_cont(rates_sum_plt, trait_tbl_plt, r_script, names, plot_time, obs, rate_type)
         elif np.isin(pt, np.array([6.0, 13.0, 14.0])):
             b = binary_feature[incl_features]
@@ -1033,10 +1034,10 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, sp_fad_lad, r_s
             names = names[np.argsort(b)]
             trait_tbl_plt = trait_tbl_plt[:, np.argsort(b)] # Continuous feature always in column 0
             obs = obs[:, np.argsort(b)]
-            obs[:,0] = backscale_tbl(backscale_par, [names[0]], obs[:,0].reshape((obs.shape[0],1))).flatten()
+            obs[:,0] = backscale_tbl(bdnn_obj, backscale_par, [names[0]], obs[:,0].reshape((obs.shape[0],1))).flatten()
             r_script = plot_bdnn_inter_discr_cont(rates_sum_plt, trait_tbl_plt, r_script, names, names_states, plot_time, obs, rate_type)
         elif pt == 7.0:
-            obs = backscale_tbl(backscale_par, names.tolist(), obs)
+            obs = backscale_tbl(bdnn_obj, backscale_par, names.tolist(), obs)
             r_script = plot_bdnn_inter_cont_cont(rates_sum_plt, trait_tbl_plt, r_script, names, plot_time, obs, rate_type)
         elif np.isin(pt, np.array([5.0, 8.0, 9.0, 10.0, 11.00, 12.0])):
             names = np.unique(names_features[incl_features])
