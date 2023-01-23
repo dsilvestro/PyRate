@@ -792,8 +792,10 @@ def plot_bdnn_discr(rs, r, tr, r_script, names, names_states, rate_type):
     r_script += "\nplot(1, 0, type = 'n', xlim = xlim, ylim = ylim, xlab = '', ylab = '%s', xaxt = 'n')" % rate_type
     if rate_type == 'speciation':
         r_script += "\ncol = colorRampPalette(c('lightblue1', rgb(0, 52, 94, maxColorValue = 255)))(%s)" % n_states
-    else:
+    elif rate_type == 'extinction':
         r_script += "\ncol = colorRampPalette(c(rgb(255, 143, 118, maxColorValue = 255), 'darkred'))(%s)" % n_states
+    else:
+        r_script += "\ncol = colorRampPalette(c('grey75', 'grey40'))(%s)" % n_states
     for i in range(n_states):
         r_script += "\naxis(side = 1, at = %s, labels = '%s')" % (i, str(names_states[i]))
         # r_script += "\nlines(rep(%s, 2), c(%s, %s), col = col[%s])" % (i, rs[i, 1], rs[i, 2], i + 1)
@@ -815,9 +817,12 @@ def plot_bdnn_cont(rs, tr, r_script, names, plot_time, obs, rate_type):
     r_script += util.print_R_vec("\nxlim", np.array([np.nanmin(tr[:, 0]), np.nanmax(tr[:, 0])]))
     if plot_time:
         r_script += "\nxlim = xlim[2:1]"
-    col = '#C5483B'
     if rate_type == 'speciation':
         col = '#6092AF'
+    elif rate_type == 'extinction':
+        col = '#C5483B'
+    else:
+        col = 'grey50'
     r_script += util.print_R_vec("\ntr", tr[:, 0])
     r_script += util.print_R_vec("\nr", rs[:, 0])
     r_script += util.print_R_vec("\nr_lwr", rs[:, 1])
@@ -869,8 +874,10 @@ def plot_bdnn_inter_discr_cont(rs, tr, r_script, names, names_states, plot_time,
     n_states = len(states)
     if rate_type == 'speciation':
         r_script += "\ncol = colorRampPalette(c('lightblue1', rgb(0, 52, 94, maxColorValue = 255)))(%s)" % n_states
-    else:
+    elif rate_type == 'extinction':
         r_script += "\ncol = colorRampPalette(c(rgb(255, 143, 118, maxColorValue = 255), 'darkred'))(%s)" % n_states
+    else:
+        r_script += "\ncol = colorRampPalette(c('grey75', 'grey40'))(%s)" % n_states
     for i in range(n_states):
         idx = obs_states == states[i]
         r_script += util.print_R_vec("\nobs_x", obs[idx, 0])
@@ -904,8 +911,10 @@ def plot_bdnn_inter_cont_cont(rs, tr, r_script, names, plot_time, obs, rate_type
     nr = np.sqrt(rs.shape[0])
     if rate_type == 'speciation':
         r_script += "\ncol = colorRampPalette(c('lightblue1', rgb(0, 52, 94, maxColorValue = 255)))(%s)" % nr
-    else:
+    elif rate_type == 'extinction':
         r_script += "\ncol = colorRampPalette(c(rgb(255, 143, 118, maxColorValue = 255), 'darkred'))(%s)" % nr
+    else:
+        r_script += "\ncol = colorRampPalette(c('grey85', 'grey15'))(%s)" % nr
     r_script += util.print_R_vec("\nx", tr[:, 0])
     r_script += util.print_R_vec("\ny", tr[:, 1])
     r_script += util.print_R_vec("\nr", rs[:, 0])
@@ -945,8 +954,10 @@ def plot_bdnn_inter_discr_discr(rs, r, tr, r_script, feat_idx_1, feat_idx_2, nam
     r_script += "\nplot(0, 0, type = 'n', xlim = xlim, ylim = ylim, xlab = '', ylab = '%s', xaxt = 'n')" % (rate_type)
     if rate_type == 'speciation':
         r_script += "\ncol = colorRampPalette(c('lightblue1', rgb(0, 52, 94, maxColorValue = 255)))(%s)" % n_states_feat_2
-    else:
+    elif rate_type == 'extinction':
         r_script += "\ncol = colorRampPalette(c(rgb(255, 143, 118, maxColorValue = 255), 'darkred'))(%s)" % n_states_feat_2
+    else:
+        r_script += "\ncol = colorRampPalette(c('grey75', 'grey25'))(%s)" % n_states_feat_2
     counter = 0
     for i in range(n_states_feat_1):
         for j in range(n_states_feat_2):
@@ -998,12 +1009,15 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, sp_fad_lad, r_s
     time_idx = np.nanmax(cond_trait_tbl[:, -3]) + 10.0
     if is_time_trait(bdnn_obj):
         time_idx = np.max(cond_trait_tbl[:, -6])
-    trait_tbl = get_trt_tbl(bdnn_obj, rate_type)
+    rate_type2 = rate_type
+    if rate_type == 'net diversification':
+        rate_type2 = 'extinction'
+    trait_tbl = get_trt_tbl(bdnn_obj, rate_type2)
     feature_is_time_variable = is_time_variable_feature(trait_tbl)
     fad_lad = sp_fad_lad[['FAD', 'LAD']].to_numpy()
-    fossil_age = get_fossil_age(bdnn_obj, fad_lad, rate_type)
+    fossil_age = get_fossil_age(bdnn_obj, fad_lad, rate_type2)
     fossil_age = backscale_bdnn_time(fossil_age, bdnn_obj)
-    fossil_bin = get_bin_from_fossil_age(bdnn_obj, fad_lad, rate_type)
+    fossil_bin = get_bin_from_fossil_age(bdnn_obj, fad_lad, rate_type2)
     names_features_original = np.array(get_names_features(bdnn_obj))
     binary_feature = is_binary_feature(trait_tbl)[0]
     for i in range(n_plots):
@@ -1014,7 +1028,7 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, sp_fad_lad, r_s
         names = names_features[incl_features]
         rates_sum_plt = rates_summary[idx, :]
         cond_rates_plt = cond_rates[idx,:]
-        obs = get_observed(bdnn_obj, incl_features, feature_is_time_variable, fossil_age, fossil_bin, rate_type)
+        obs = get_observed(bdnn_obj, incl_features, feature_is_time_variable, fossil_age, fossil_bin, rate_type2)
         plot_time = np.isin(time_idx, incl_features)
         if np.isin(pt, np.array([1.0, 2.0, 3.0])):
             names = names_features[incl_features[0]]
@@ -1084,6 +1098,10 @@ def plot_effects(f,
                                       backscale_par, rate_type = 'speciation')
     r_script = create_R_files_effects(cond_trait_tbl_ex, ex_rate_cond, bdnn_obj, sp_fad_lad, r_script, names_features_ex,
                                       backscale_par, rate_type = 'extinction')
+    if sp_rate_cond.shape[0] == ex_rate_cond.shape[0]:
+        netdiv_rate_cond = sp_rate_cond - ex_rate_cond
+        r_script = create_R_files_effects(cond_trait_tbl_ex, netdiv_rate_cond, bdnn_obj, sp_fad_lad, r_script, names_features_ex,
+                                          backscale_par, rate_type = 'net diversification')
     r_script += "\ndev.off()"
     newfile.writelines(r_script)
     newfile.close()
