@@ -785,8 +785,10 @@ def get_observed(bdnn_obj, feature_idx, feature_is_time_variable, fossil_age, fo
 def plot_bdnn_discr(rs, r, tr, r_script, names, names_states, rate_type):
     # binary two states or ordinal
     n_states = tr.shape[0]
-    rate_max = np.nanmax(rs[:, 2]) * 1.2
-    rate_min = np.nanmin(rs[:, 1]) * 0.8
+    rate_max = np.nanmax(rs[:, 2])
+    rate_min = np.nanmin(rs[:, 1])
+    rate_max += 0.2 * rate_max
+    rate_min -= 0.2 * np.abs(rate_min)
     r_script += "\nylim = c(%s, %s)" % (rate_min, rate_max)
     r_script += "\nxlim = c(-0.5, %s + 0.5)" % (n_states - 1)
     r_script += "\nplot(1, 0, type = 'n', xlim = xlim, ylim = ylim, xlab = '', ylab = '%s', xaxt = 'n')" % rate_type
@@ -946,8 +948,10 @@ def plot_bdnn_inter_discr_discr(rs, r, tr, r_script, feat_idx_1, feat_idx_2, nam
         # Binary or ordinal features
         states_feat_2 = tr[:, feat_idx_2].flatten()
     n_states_feat_2 = len(np.unique(states_feat_2))
-    rate_max = np.nanmax(rs[:, 2]) * 1.2
-    rate_min = np.nanmin(rs[:, 1]) * 0.8
+    rate_max = np.nanmax(rs[:, 2])
+    rate_min = np.nanmin(rs[:, 1])
+    rate_max += 0.2 * rate_max
+    rate_min -= 0.2 * np.abs(rate_min)
     r_script += "\npar(las = 2, mar = c(9, 4, 1.5, 0.5))"
     r_script += "\nylim = c(%s, %s)" % (rate_min, rate_max)
     r_script += "\nxlim = c(-0.5, %s + 0.5)" % (n_states_feat_1 * n_states_feat_2 - 1)
@@ -1002,7 +1006,7 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, sp_fad_lad, r_s
     plot_idx = np.unique(cond_trait_tbl[:, -3])
     n_plots = len(plot_idx)
     rates_summary = get_rates_summary(cond_rates)
-    # set summary to NA when we have not observed the combination of features
+    # set summary to NA when we have not observed the combination/range of features
     not_obs = cond_trait_tbl[:, -1] == 0
     rates_summary[not_obs,:] = np.nan
     cond_rates[not_obs,:] = np.nan
@@ -1074,6 +1078,45 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, sp_fad_lad, r_s
     return r_script
 
 
+def get_feat_to_keep_for_netdiv(cond_trait_tbl_sp, cond_trait_tbl_ex):
+    feat_sp = np.unique(cond_trait_tbl_sp[ :, -6])
+    feat_ex = np.unique(cond_trait_tbl_ex[:, -6])
+    feat_in_any = np.intersect1d(feat_sp, feat_ex).astype(int)
+    l = len(feat_in_any)
+    all_values_equal = np.zeros(l, dtype = bool)
+    if l > 0:
+        for i in range(l):
+            ii = feat_in_any[i]
+            # Check if values for feature i are the same in both cond_trait_tbls
+            idx_feat_i_sp = np.logical_and(cond_trait_tbl_sp[ :, -6] == ii, np.isnan(cond_trait_tbl_sp[ :, -5]))
+            idx_feat_i_ex = np.logical_and(cond_trait_tbl_ex[:, -6] == ii, np.isnan(cond_trait_tbl_ex[:, -5]))
+            if np.sum(idx_feat_i_sp) == np.sum(idx_feat_i_ex):
+                all_values_equal[i] = np.all(cond_trait_tbl_sp[idx_feat_i_sp, ii] == cond_trait_tbl_ex[idx_feat_i_ex, ii])
+    feat_to_keep = feat_in_any[all_values_equal]
+    return feat_to_keep
+
+
+def get_rates_cond_trait_tbl_for_netdiv(feat_to_keep, sp_rate_cond, ex_rate_cond, cond_trait_tbl_ex, cond_trait_tbl_sp):
+    keep_feat1 = np.isin(cond_trait_tbl_ex[ :, -6], feat_to_keep)
+    keep_feat2 = np.isin(cond_trait_tbl_ex[ :, -5], feat_to_keep)
+    keep_feat2[np.isnan(cond_trait_tbl_ex[ :, -5])] = True
+    keep = np.logical_and(keep_feat1, keep_feat2)
+    cond_trait_tbl_ex2 = cond_trait_tbl_ex[keep, :]
+    ex_rate_cond2 = ex_rate_cond[keep, :]
+    keep_feat1 = np.isin(cond_trait_tbl_sp[ :, -6], feat_to_keep)
+    keep_feat2 = np.isin(cond_trait_tbl_sp[ :, -5], feat_to_keep)
+    keep_feat2[np.isnan(cond_trait_tbl_sp[ :, -5])] = True
+    keep = np.logical_and(keep_feat1, keep_feat2)
+    cond_trait_tbl_sp2 = cond_trait_tbl_sp[keep, :]
+    sp_rate_cond2 = sp_rate_cond[keep, :]
+    netdiv = sp_rate_cond2 - ex_rate_cond2
+    # Restrict range of values that should be plotted
+    range_to_plot = cond_trait_tbl_sp2[ :, -1] + cond_trait_tbl_ex2[ :, -1]
+    cond_trait_tbl_ex2[range_to_plot == 0, -1] = 0
+    cond_trait_tbl_ex2[range_to_plot > 0, -1] = 1
+    return netdiv, cond_trait_tbl_ex2
+
+
 def plot_effects(f,
                  cond_trait_tbl_sp,
                  cond_trait_tbl_ex,
@@ -1094,14 +1137,19 @@ def plot_effects(f,
         r_script = "pdf(file='%s/%s_effects.pdf', width = 7, height = 6, useDingbats = FALSE)\n" % (wd_forward, name_file)
     else:
         r_script = "pdf(file='%s/%s_effects.pdf', width = 7, height = 6, useDingbats = FALSE)\n" % (output_wd, name_file)
-    r_script = create_R_files_effects(cond_trait_tbl_sp, sp_rate_cond, bdnn_obj, sp_fad_lad, r_script, names_features_sp,
+    r_script = create_R_files_effects(cond_trait_tbl_sp, sp_rate_cond + 0.0, bdnn_obj, sp_fad_lad, r_script, names_features_sp,
                                       backscale_par, rate_type = 'speciation')
-    r_script = create_R_files_effects(cond_trait_tbl_ex, ex_rate_cond, bdnn_obj, sp_fad_lad, r_script, names_features_ex,
+    r_script = create_R_files_effects(cond_trait_tbl_ex, ex_rate_cond + 0.0, bdnn_obj, sp_fad_lad, r_script, names_features_ex,
                                       backscale_par, rate_type = 'extinction')
-    if sp_rate_cond.shape[0] == ex_rate_cond.shape[0]:
-        netdiv_rate_cond = sp_rate_cond - ex_rate_cond
-        r_script = create_R_files_effects(cond_trait_tbl_ex, netdiv_rate_cond, bdnn_obj, sp_fad_lad, r_script, names_features_ex,
-                                          backscale_par, rate_type = 'net diversification')
+
+    feat_to_keep = get_feat_to_keep_for_netdiv(cond_trait_tbl_sp, cond_trait_tbl_ex)
+    netdiv_rate_cond, cond_trait_tbl_netdiv = get_rates_cond_trait_tbl_for_netdiv(feat_to_keep,
+                                                                                  sp_rate_cond,
+                                                                                  ex_rate_cond,
+                                                                                  cond_trait_tbl_ex,
+                                                                                  cond_trait_tbl_sp)
+    r_script = create_R_files_effects(cond_trait_tbl_netdiv, netdiv_rate_cond, bdnn_obj, sp_fad_lad, r_script, names_features_ex,
+                                      backscale_par, rate_type = 'net diversification')
     r_script += "\ndev.off()"
     newfile.writelines(r_script)
     newfile.close()
