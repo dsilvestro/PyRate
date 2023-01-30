@@ -3126,7 +3126,10 @@ def MCMC(all_arg):
         SA=np.sum(tsA-teA)
 
     # start threads
-    if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
+    not_using_BDNN_likelihood = True
+    if (use_BDNNmodel and TDI == 0 and fix_Shift == 0):
+        not_using_BDNN_likelihood = False
+    if num_processes>0 and not_using_BDNN_likelihood: pool_lik = multiprocessing.Pool(num_processes) # likelihood
     if frac1>=0 and num_processes_ts>0: pool_ts = multiprocessing.Pool(num_processes_ts) # update ts, te
     tmp, marginal_lik, lik_tmp=0, zeros(len(temperatures)), 0
 
@@ -3595,7 +3598,11 @@ def MCMC(all_arg):
                                     likBDtemp[i] = BPD_partial_lik(args[i])
                                 # i+=1
                         # multi-thread computation of lik and prior (rates)
-                        else: likBDtemp = np.array(pool_lik.map(BPD_partial_lik, args))
+                        else:
+                            if use_BDNNmodel:
+                                likBDtemp = np.array(pool_lik.map(BDNN_partial_lik, args))
+                            else:
+                                likBDtemp = np.array(pool_lik.map(BPD_partial_lik, args))
                     
 
             else:
@@ -3639,10 +3646,7 @@ def MCMC(all_arg):
                             likBDtemp=np.zeros(len(args))
                             i=0
                             for i in range(len(args)):
-                                if use_BDNNmodel:
-                                    likBDtemp[i] = BDNN_partial_lik(args[i])
-                                else:
-                                    likBDtemp[i]=BPD_partial_lik(args[i])
+                                likBDtemp[i]=BPD_partial_lik(args[i])
                                 i+=1
                         # multi-thread computation of lik and prior (rates)
                         else: likBDtemp = array(pool_lik.map(BPD_partial_lik, args))
@@ -4126,10 +4130,10 @@ def MCMC(all_arg):
         
         it += 1
     if TDI==1 and n_proc==0: marginal_likelihood(marginal_file, marginal_lik, temperatures)
-    if use_seq_lik == 0:
+    if use_seq_lik == 0 or num_processes > 0:
         pool_lik.close()
         pool_lik.join()
-        if frac1>=0:
+        if frac1>=0 and num_processes_ts > 0:
             pool_ts.close()
             pool_ts.join()
     return [it, n_proc,PostA, likA, priorA,tsA,teA,timesLA,timesMA,LA,MA,q_ratesA, cov_parA,lik_fossilA,likBDtempA]
