@@ -738,14 +738,12 @@ def backscale_tbl(bdnn_obj, backscale_par, names_feat, tbl):
 def get_conditional_rates(bdnn_obj, cond_trait_tbl, post_w):
     num_it = len(post_w)
     rate_cond = np.zeros((len(cond_trait_tbl), num_it))
-    counter = 0
     for i in range(num_it):
         rate_cond[:, i] = get_rate_BDNN(1, # constant baseline
                                         cond_trait_tbl[:, :-6],
                                         post_w[i], # list of arrays
                                         bdnn_obj.bdnn_settings['hidden_act_f'],
                                         bdnn_obj.bdnn_settings['out_act_f'])
-        counter += 1
     return rate_cond
 
 
@@ -1058,13 +1056,14 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, sp_fad_lad, r_s
             obs = backscale_tbl(bdnn_obj, backscale_par, names.tolist(), obs)
             r_script = plot_bdnn_inter_cont_cont(rates_sum_plt, trait_tbl_plt, r_script, names, plot_time, obs, rate_type)
         elif np.isin(pt, np.array([5.0, 8.0, 9.0, 10.0, 11.00, 12.0])):
-            names = np.unique(names_features[incl_features])
             if np.isin(pt, np.array([5.0, 9.0, 12.0])):
+                names = names_features[incl_features]
                 feat_1 = np.array([0])
                 feat_2 = np.array([1])
                 names_states_feat_1 = np.unique(trait_tbl_plt[:, feat_1]).tolist()
                 names_states_feat_2 = np.unique(trait_tbl_plt[:, feat_2]).tolist()
             if np.isin(pt, np.array([8.0, 10.0, 11.0])):
+                names = np.unique(names_features[incl_features])
                 feat_1, feat_2 = get_feat_idx(names_features, names, incl_features)
                 if len(feat_1) > 1:
                     names_states_feat_1 = names_features_original[incl_features][feat_1]
