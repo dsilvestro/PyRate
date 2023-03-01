@@ -254,8 +254,16 @@ def is_time_variable_feature(trait_tbl):
     return time_var_feat
 
 
-def get_idx_feature_without_variance(m):
-    return np.where((m[0, :] - m[1, :]) == 0.0)[0]
+def get_idx_feature_without_variance(trt_tbl):
+    sd_species = np.std(trt_tbl[0,:,:], axis = 0)
+    sd_time = np.zeros(trt_tbl.shape[2])
+    for i in range(trt_tbl.shape[2]):
+        for j in range(trt_tbl.shape[1]):
+            s = np.std(trt_tbl[:, j, i])
+            if s > sd_time[i]:
+                sd_time[i] = s
+    idx_feature = np.where((sd_species + sd_time) == 0)[0]
+    return idx_feature
 
 
 def expand_grid(v1, v2):
@@ -643,7 +651,6 @@ def build_conditional_trait_tbl(bdnn_obj,
         if is_time_trait(bdnn_obj):
             div_idx_trt_tbl = -2
         trait_tbl[ :, :, div_idx_trt_tbl] = div_traj_binned
-
     n_features = trait_tbl.shape[-1]
     idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
     conc_comb_feat = np.array([])
@@ -662,7 +669,7 @@ def build_conditional_trait_tbl(bdnn_obj,
     plot_type = np.hstack((plot_type, plot_idx.reshape((len(plot_idx), 1))))
     plot_type = plot_type[~np.isnan(plot_type[:, 3]), :]
     plot_idx_freq = get_plot_idx_freq(plot_type[:, 3])
-    feature_without_variance = get_idx_feature_without_variance(minmaxmean_features)
+    feature_without_variance = get_idx_feature_without_variance(trait_tbl)
     feature_is_time_variable = is_time_variable_feature(trait_tbl)
     nr = get_nrows_conditional_trait_tbl(plot_type, minmaxmean_features)
     cond_trait_tbl = np.zeros((nr, n_features + 6))
@@ -905,10 +912,18 @@ def plot_bdnn_inter_discr_cont(rs, tr, r_script, names, names_states, plot_time,
 
 def plot_bdnn_inter_cont_cont(rs, tr, r_script, names, plot_time, obs, rate_type):
     # Interaction of two continuous features
-    r_script += "\nylim = c(%s, %s)" % (float(np.nanmin(tr[:, 1])), float(np.nanmax(tr[:, 1])))
-    if plot_time:
-        r_script += "\nylim = ylim[2:1]"
+    r_script += "\npar(mar = c(4, 4, 1.5, 5.1))"
     nr = np.sqrt(rs.shape[0])
+    r_script += "\nzreord <- 1:%s" % nr
+    r_script += "\nbyrow <- FALSE"
+    if plot_time:
+        r_script += "\nbyrow <- TRUE"
+        names = [names[1], names[0]]
+        obs = obs[:,[1, 0]]
+        obs[:, 0] = -1 * obs[:, 0]
+        tr = tr[:, [1, 0]]
+        tr[:, 0] = -1 * tr[:, 0]
+        r_script += "\nzreord <- rev(zreord)"
     if rate_type == 'speciation':
         r_script += "\ncol = colorRampPalette(c('lightblue1', rgb(0, 52, 94, maxColorValue = 255)))(%s)" % nr
     elif rate_type == 'extinction':
@@ -921,13 +936,18 @@ def plot_bdnn_inter_cont_cont(rs, tr, r_script, names, plot_time, obs, rate_type
     r_script += "\nxyr <- cbind(x, y, r)"
     r_script += "\nxaxis <- sort(unique(xyr[, 1]))"
     r_script += "\nyaxis <- sort(unique(xyr[, 2]))"
-    r_script += "\nz <- matrix(xyr[, 3], length(xaxis), length(yaxis))"
-    r_script += "\nimage.plot(xaxis, yaxis, z, ylim = ylim, col = col, xlab = '%s', ylab = '%s')" % (names[0], names[1])
-    r_script += "\ncontour(xaxis, yaxis, z, col = 'grey50', add = TRUE)"
+    r_script += "\nz <- matrix(xyr[, 3], length(xaxis), length(yaxis), byrow)"
+    r_script += "\npadx <- abs(diff(xaxis))[1]"
+    r_script += "\npady <- abs(diff(yaxis))[1]"
+    r_script += "\nplot(mean(xaxis), mean(yaxis), type='n', xlim = c(min(xaxis) - padx, max(xaxis) + padx), ylim = c(min(yaxis) - pady, max(yaxis) + pady), xlab = '%s', ylab = '%s', xaxt = 'n', xaxs = 'i', yaxs= 'i')" % (names[0], names[1])
+    r_script += "\nxtk <- pretty(xaxis, n = 10)"
+    r_script += "\naxis(side = 1, at = xtk, labels = abs(xtk))"
+    r_script += "\nimage.plot(xaxis, yaxis, z[zreord, ], add = TRUE, col = col)"
+    r_script += "\ncontour(xaxis, yaxis, z[zreord, ], col = 'grey50', add = TRUE)"
     r_script += util.print_R_vec("\nobs_x", obs[:, 0])
     r_script += util.print_R_vec("\nobs_y", obs[:, 1])
     r_script += "\npoints(obs_x, obs_y, cex = 0.5, pch = 19, col = 'grey50')"
-    r_script += "\nbox()"
+    r_script += "\npar(las = 1, mar = c(4, 4, 1.5, 0.5))"
     return r_script
 
 
