@@ -605,24 +605,9 @@ def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_
                 if ((j == (t.shape[1] - 1)) and use_time_as_trait) and ((int(i_time_var) + int(j_time_var)) == 1):
                     # Time as trait but no other time variable feature
                     t[:, j] = fa
-                elif (int(i_time_var) + int(j_time_var)) == 1:
-                    # Only one feature varies through time
-                    t = trait_at_fad_or_lad + 0.0
                 else:
-                    # Both features vary through time (There must be something better than allowing all combinations)
-                    t = np.zeros((4, trait_tbl.shape[2]))
-                    min_i = np.min(trait_tbl[:, :, i])
-                    max_i = np.max(trait_tbl[:, :, i])
-                    min_j = np.min(trait_tbl[:, :, j])
-                    max_j = np.max(trait_tbl[:, :, j])
-                    t[0, i] = min_i
-                    t[0, j] = min_j
-                    t[1, i] = max_i
-                    t[1, j] = min_j
-                    t[2, i] = max_i
-                    t[2, j] = max_j
-                    t[3, i] = min_i
-                    t[3, j] = max_j
+                    # Both features vary through time
+                    t = trait_at_fad_or_lad + 0.0
             # Check if all w are inside a convex hull defined by the trait_tbl
             hull = ConvexHull(t[:, [i, j]])  # , qhull_options = 'QJ'
             vertices = t[hull.vertices, :][:, [i, j]]
