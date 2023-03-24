@@ -207,12 +207,14 @@ def data_simulator_mixture(q=None, # if None: rnd drawn
     if fixed_shape is None: 
         # draw rnd shape  
         rnd_shapes = np.exp(np.random.uniform(np.log(1 / magnitude), np.log(magnitude),(N, 2)))   
+        rnd_shapes = np.sort(rnd_shapes, 1)    
     else:
         rnd_shapes = np.ones((N, 2)) * fixed_shape
     
     if fixed_scale is None:
         # draw rnd scale  
         mean_longevity = np.random.uniform(2,30,(N, 2))
+        # mean_longevity = np.sort(mean_longevity, 1)
         rnd_scales = mean_longevity / scipy.special.gamma(1 + 1 / rnd_shapes)
     else: 
         rnd_scales = np.ones((N, 2)) * fixed_scale
@@ -480,7 +482,7 @@ if __name__ == '__main__':
     # simulate training set
     # features, labels = data_simulator(N=10000, gamma_model=False)
     
-    features, labels = data_simulator_mixture(N=50000, 
+    features, labels = data_simulator_mixture(N=10000, 
                                               gamma_model=False,
                                               min_n_taxa = 100,
                                               magnitude=4)
@@ -498,7 +500,7 @@ if __name__ == '__main__':
     # build NN model   
     model = build_nn(dense_nodes=[64,8], output_nodes=labels.shape[1])
     # train NN
-    h = fit_rnn(features, labels, model, batch_size=labels.shape[0], max_epochs=10000)
+    h = fit_rnn(features, labels, model, batch_size=labels.shape[0], max_epochs=1000)
 
     # simulate test set
     features_test, labels_test = data_simulator_mixture(N=1000, gamma_model=False, min_n_taxa = 100,
