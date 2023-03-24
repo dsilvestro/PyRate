@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import scipy.special
 import scipy.ndimage as nd 
-np.set_printoptions(suppress= 1, precision=3) # prints floats, no scientific notation
+np.set_printoptions(suppress= True, precision=3) # prints floats, no scientific notation
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -37,6 +37,11 @@ TODO list:
 3. add q rate heterogeneity (gamma distributed) <- check the effect of this
 4. save model to file
 5. check taxonomic bias option (currently commented out)
+
+
+data_simulator_mixture(None, 1, plot=True, fixed_shape=np.array([2, 4]), fixed_scale=np.array([1.5, 10]))                     
+data_simulator_mixture(None, 10, plot=False)                                                                                                             
+
 """
 
 def print_update(s):
@@ -58,7 +63,7 @@ def data_simulator(q=None, # if None: rnd drawn
                    alpha = 1, # rate heterogeneity across species (smaller alpha = greater variation)
                    verbose=0):
     """
-    N: number of dataset
+    N: number of datasets
     
     
     """
@@ -159,6 +164,131 @@ def data_simulator(q=None, # if None: rnd drawn
     labels = np.vstack((rnd_shapes, mean_longevity)).T
     print("\nDone.")
     return features, labels
+
+def data_simulator_mixture(q=None, # if None: rnd drawn
+                           N=1000,
+                           min_data_size=50,
+                           max_data_size=1000,
+                           fixed_shape=None, # if not None -> array of 2 values
+                           fixed_scale=None, # if not None -> array of 2 values
+                           magnitude = 2, # variation in shapes: 1/magnitude -> magnitude
+                           n_Hbins = 100,  # bins of histogram occs-per-species
+                           maxNbinsPerSpecies = 20, # bins of histogram timebins-per-species
+                           min_n_taxa = 20,
+                           gamma_model=True,
+                           alpha = 1, # rate heterogeneity across species (smaller alpha = greater variation)
+                           verbose=0,
+                           plot=False):
+    """
+    N: number of datasets
+    
+    
+    """
+    Hbins = np.linspace(0.5,(n_Hbins+0.5),n_Hbins+1)
+    Hbins = np.array(list(Hbins)+[1000.5])
+    EpochBinSize = np.random.uniform(2, 10, N)
+                   
+                   
+    # MODEL SETTINGS
+    print("\n")
+    
+    # preservation 
+    if q is None:
+        q_rates = np.random.uniform(0.25,1,N)
+    else:
+        q_rates = np.ones(N)*q
+        
+        
+    
+    hSize = len(Hbins)-1+maxNbinsPerSpecies+2
+    features = np.zeros((N,hSize))
+    n_species = np.random.randint(min_data_size,max_data_size,N)
+    
+    if fixed_shape is None: 
+        # draw rnd shape  
+        rnd_shapes = np.exp(np.random.uniform(np.log(1 / magnitude), np.log(magnitude),(N, 2)))   
+    else:
+        rnd_shapes = np.ones((N, 2)) * fixed_shape
+    
+    if fixed_scale is None:
+        # draw rnd scale  
+        mean_longevity = np.random.uniform(2,30,(N, 2))
+        rnd_scales = mean_longevity / scipy.special.gamma(1 + 1 / rnd_shapes)
+    else: 
+        rnd_scales = np.ones((N, 2)) * fixed_scale
+        mean_longevity = rnd_scales * scipy.special.gamma(1 + 1/rnd_shapes)
+    
+    
+    for i in np.arange(N):
+        #loop over datasets
+        EpochBins = np.linspace(0,1000, 1+int(1000/EpochBinSize[i])) 
+        if i % 10 == 0: 
+            print_update("Simulating data...%s/%s" % (i,N))
+        
+        # simulate species longevities
+        compound_index = np.random.binomial(1, 0.5, n_species[i]) # assign species to one of the two Weibulls
+        rW = np.random.weibull(rnd_shapes[i][compound_index], n_species[i]) * rnd_scales[i][compound_index]
+        rW[rW>990] = 990 # avoid extreme lifespans falling outside of the allowed time window
+        if plot:
+            plt.hist(rW)
+            plt.show()
+        
+        
+        # simulate fossil record (n. occs)
+        q_dataset = q_rates[i]
+        if gamma_model:
+            q_dataset = np.random.gamma(alpha, 1/alpha, len(rW))
+        
+        nF = np.random.poisson(q_rates[i]*rW)
+        
+        # actual occs| hist of how many sp extend over 1, 2, ... time bins
+        rnd_spec_time = np.random.uniform(0,10,n_species[i])
+        hOccs = np.zeros(maxNbinsPerSpecies)
+        brL=0
+        for j in range(n_species[i]):
+            if nF[j]>0:
+                # species with no records are not obs data
+                oF = rnd_spec_time[j] + np.random.uniform(0,rW[j],nF[j])
+                ndigi = np.digitize(oF,EpochBins)
+                nBins = np.min([maxNbinsPerSpecies,len(np.unique(ndigi))])-1
+                hOccs[nBins] = hOccs[nBins]+ 1
+                coarse_occs = np.random.uniform(EpochBins[ndigi-1],EpochBins[ndigi])
+                br_temp = np.max(coarse_occs)-np.min(coarse_occs)
+                brL += br_temp 
+            
+        if brL==0:
+            print(q_rates[i])
+            q_estimate = np.random.uniform(0.25,1)
+            sys.exit("???")
+        else:
+            q_estimate = np.sum(nF[nF>1] - 1)/brL
+        if verbose:
+            print(q_rates[i],q_estimate)
+        
+        # BUILDING FEATURE SET
+        # fraction of species with occurrences in 1, 2, 3, ... N time bins
+        hOccs = hOccs / np.sum(hOccs)    
+        
+        nF[nF>1000] = 1000    
+        nFsampled = nF[nF>0]    
+        if maxNbinsPerSpecies>0:
+            # append fraction of species with 1, 2, 3 ... N occurrences
+            h_temp = np.append(np.histogram(nFsampled,bins=Hbins,density=True)[0], hOccs)
+            # append avg bin size
+            h_temp = np.append(h_temp, EpochBinSize[i])
+            # append approximate preservation rate
+            features[i,:] = np.append(h_temp, q_estimate)
+        else:
+            h_temp = np.histogram(nFsampled,bins=Hbins,density=True)[0]
+            features[i,:] = np.append(h_temp, EpochBinSize[i])
+        
+    # BUILD LABELS
+    labels = np.hstack((rnd_shapes, mean_longevity))
+    print("\nDone.")
+    return features, labels
+
+
+
 
 def estimate_q_from_range_data(tbl):
     minAges = np.min(tbl[:,2:4].astype(float),axis=1)
@@ -288,7 +418,7 @@ def build_nn(dense_nodes=None,
              output_nodes=2, # shape, mean longevity
              output_act_f='softplus',
              loss_f='mse', # mean squared error
-             dropout_rate=0.2,
+             dropout_rate=0,
              verbose=1):
     if dense_nodes is None:
         dense_nodes = [32]
@@ -348,27 +478,33 @@ def save_rnn_model(wd, history, model, feature_rescaler, filename=""):
 
 if __name__ == '__main__':
     # simulate training set
-    features, labels = data_simulator(N=10000, gamma_model=False) 
+    # features, labels = data_simulator(N=10000, gamma_model=False)
+    
+    features, labels = data_simulator_mixture(N=50000, 
+                                              gamma_model=False,
+                                              min_n_taxa = 100,
+                                              magnitude=4)
 
     # save to files
-    wd = "your_path"
-    f1 = os.path.join(wd, "sim_features.npy")
+    wd = "/Users/dsilvestro/Desktop/ade-nn3-tests"
+    f1 = os.path.join(wd, "sim_features_mixture.npy")
     f2 = os.path.join(wd, "sim_labels.npy")
     np.save(file=f1,arr=features)
     np.save(file=f2,arr=labels)
 
     longevity_rescaler = 10
-    labels[:,1] = labels[:,1] / longevity_rescaler
+    labels[:,2:] = labels[:,2:] / longevity_rescaler
 
     # build NN model   
-    model = build_nn(dense_nodes=[64,8])
+    model = build_nn(dense_nodes=[64,8], output_nodes=labels.shape[1])
     # train NN
-    h = fit_rnn(features, labels, model, batch_size=10000)
+    h = fit_rnn(features, labels, model, batch_size=labels.shape[0], max_epochs=10000)
 
     # simulate test set
-    features_test, labels_test = data_simulator(N=100) 
+    features_test, labels_test = data_simulator_mixture(N=1000, gamma_model=False, min_n_taxa = 100,
+                                              magnitude=4)
 
-    n_predictions = 10 # this might help making the shape parameter estimation more accurate
+    n_predictions = 1 # this might help making the shape parameter estimation more accurate
     y = np.array([model(features_test, training=True) for _ in range(n_predictions)])
     # y.shape = (n_predictions, n_instances, 2)
     mean_y = np.mean(y, axis=0) # average over dropout replicates
@@ -377,12 +513,16 @@ if __name__ == '__main__':
     fig = plt.figure(figsize = (14,7))
     fig.add_subplot(1,2,1)
     plt.scatter(labels_test[:,0], mean_y[:,0])
+    plt.scatter(labels_test[:,1], mean_y[:,1])
+    plt.axline((0, 0), (1, 1), linewidth=2, linestyle='dashed', alpha=0.5, color="k")
     plt.xlabel('True shape')
     plt.ylabel('Estimated shape')
 
     # plot longevities
     fig.add_subplot(1,2,2)
-    plt.scatter(labels_test[:,1], mean_y[:,1] * longevity_rescaler)
+    plt.scatter(labels_test[:,2], mean_y[:,2] * longevity_rescaler)
+    plt.scatter(labels_test[:,3], mean_y[:,3] * longevity_rescaler)
+    plt.axline((0, 0), (1, 1), linewidth=2, linestyle='dashed', alpha=0.5, color="k")
     plt.xlabel('True longevity')
     plt.ylabel('Estimated longevity')
 
