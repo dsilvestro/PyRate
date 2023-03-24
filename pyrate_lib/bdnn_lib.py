@@ -254,8 +254,16 @@ def is_time_variable_feature(trait_tbl):
     return time_var_feat
 
 
-def get_idx_feature_without_variance(m):
-    return np.where((m[0, :] - m[1, :]) == 0.0)[0]
+def get_idx_feature_without_variance(trt_tbl):
+    sd_species = np.std(trt_tbl[0,:,:], axis = 0)
+    sd_time = np.zeros(trt_tbl.shape[2])
+    for i in range(trt_tbl.shape[2]):
+        for j in range(trt_tbl.shape[1]):
+            s = np.std(trt_tbl[:, j, i])
+            if s > sd_time[i]:
+                sd_time[i] = s
+    idx_feature = np.where((sd_species + sd_time) == 0)[0]
+    return idx_feature
 
 
 def expand_grid(v1, v2):
@@ -597,24 +605,9 @@ def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_
                 if ((j == (t.shape[1] - 1)) and use_time_as_trait) and ((int(i_time_var) + int(j_time_var)) == 1):
                     # Time as trait but no other time variable feature
                     t[:, j] = fa
-                elif (int(i_time_var) + int(j_time_var)) == 1:
-                    # Only one feature varies through time
-                    t = trait_at_fad_or_lad + 0.0
                 else:
-                    # Both features vary through time (There must be something better than allowing all combinations)
-                    t = np.zeros((4, trait_tbl.shape[2]))
-                    min_i = np.min(trait_tbl[:, :, i])
-                    max_i = np.max(trait_tbl[:, :, i])
-                    min_j = np.min(trait_tbl[:, :, j])
-                    max_j = np.max(trait_tbl[:, :, j])
-                    t[0, i] = min_i
-                    t[0, j] = min_j
-                    t[1, i] = max_i
-                    t[1, j] = min_j
-                    t[2, i] = max_i
-                    t[2, j] = max_j
-                    t[3, i] = min_i
-                    t[3, j] = max_j
+                    # Both features vary through time
+                    t = trait_at_fad_or_lad + 0.0
             # Check if all w are inside a convex hull defined by the trait_tbl
             hull = ConvexHull(t[:, [i, j]])  # , qhull_options = 'QJ'
             vertices = t[hull.vertices, :][:, [i, j]]
@@ -643,7 +636,6 @@ def build_conditional_trait_tbl(bdnn_obj,
         if is_time_trait(bdnn_obj):
             div_idx_trt_tbl = -2
         trait_tbl[ :, :, div_idx_trt_tbl] = div_traj_binned
-
     n_features = trait_tbl.shape[-1]
     idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
     conc_comb_feat = np.array([])
@@ -662,7 +654,7 @@ def build_conditional_trait_tbl(bdnn_obj,
     plot_type = np.hstack((plot_type, plot_idx.reshape((len(plot_idx), 1))))
     plot_type = plot_type[~np.isnan(plot_type[:, 3]), :]
     plot_idx_freq = get_plot_idx_freq(plot_type[:, 3])
-    feature_without_variance = get_idx_feature_without_variance(minmaxmean_features)
+    feature_without_variance = get_idx_feature_without_variance(trait_tbl)
     feature_is_time_variable = is_time_variable_feature(trait_tbl)
     nr = get_nrows_conditional_trait_tbl(plot_type, minmaxmean_features)
     cond_trait_tbl = np.zeros((nr, n_features + 6))
@@ -738,14 +730,12 @@ def backscale_tbl(bdnn_obj, backscale_par, names_feat, tbl):
 def get_conditional_rates(bdnn_obj, cond_trait_tbl, post_w):
     num_it = len(post_w)
     rate_cond = np.zeros((len(cond_trait_tbl), num_it))
-    counter = 0
     for i in range(num_it):
         rate_cond[:, i] = get_rate_BDNN(1, # constant baseline
                                         cond_trait_tbl[:, :-6],
                                         post_w[i], # list of arrays
                                         bdnn_obj.bdnn_settings['hidden_act_f'],
                                         bdnn_obj.bdnn_settings['out_act_f'])
-        counter += 1
     return rate_cond
 
 
@@ -907,10 +897,18 @@ def plot_bdnn_inter_discr_cont(rs, tr, r_script, names, names_states, plot_time,
 
 def plot_bdnn_inter_cont_cont(rs, tr, r_script, names, plot_time, obs, rate_type):
     # Interaction of two continuous features
-    r_script += "\nylim = c(%s, %s)" % (float(np.nanmin(tr[:, 1])), float(np.nanmax(tr[:, 1])))
-    if plot_time:
-        r_script += "\nylim = ylim[2:1]"
+    r_script += "\npar(mar = c(4, 4, 1.5, 5.1))"
     nr = np.sqrt(rs.shape[0])
+    r_script += "\nzreord <- 1:%s" % nr
+    r_script += "\nbyrow <- FALSE"
+    if plot_time:
+        r_script += "\nbyrow <- TRUE"
+        names = [names[1], names[0]]
+        obs = obs[:,[1, 0]]
+        obs[:, 0] = -1 * obs[:, 0]
+        tr = tr[:, [1, 0]]
+        tr[:, 0] = -1 * tr[:, 0]
+        r_script += "\nzreord <- rev(zreord)"
     if rate_type == 'speciation':
         r_script += "\ncol = colorRampPalette(c('lightblue1', rgb(0, 52, 94, maxColorValue = 255)))(%s)" % nr
     elif rate_type == 'extinction':
@@ -923,13 +921,18 @@ def plot_bdnn_inter_cont_cont(rs, tr, r_script, names, plot_time, obs, rate_type
     r_script += "\nxyr <- cbind(x, y, r)"
     r_script += "\nxaxis <- sort(unique(xyr[, 1]))"
     r_script += "\nyaxis <- sort(unique(xyr[, 2]))"
-    r_script += "\nz <- matrix(xyr[, 3], length(xaxis), length(yaxis))"
-    r_script += "\nimage.plot(xaxis, yaxis, z, ylim = ylim, col = col, xlab = '%s', ylab = '%s')" % (names[0], names[1])
-    r_script += "\ncontour(xaxis, yaxis, z, col = 'grey50', add = TRUE)"
+    r_script += "\nz <- matrix(xyr[, 3], length(xaxis), length(yaxis), byrow)"
+    r_script += "\npadx <- abs(diff(xaxis))[1]"
+    r_script += "\npady <- abs(diff(yaxis))[1]"
+    r_script += "\nplot(mean(xaxis), mean(yaxis), type='n', xlim = c(min(xaxis) - padx, max(xaxis) + padx), ylim = c(min(yaxis) - pady, max(yaxis) + pady), xlab = '%s', ylab = '%s', xaxt = 'n', xaxs = 'i', yaxs= 'i')" % (names[0], names[1])
+    r_script += "\nxtk <- pretty(xaxis, n = 10)"
+    r_script += "\naxis(side = 1, at = xtk, labels = abs(xtk))"
+    r_script += "\nimage.plot(xaxis, yaxis, z[zreord, ], add = TRUE, col = col)"
+    r_script += "\ncontour(xaxis, yaxis, z[zreord, ], col = 'grey50', add = TRUE)"
     r_script += util.print_R_vec("\nobs_x", obs[:, 0])
     r_script += util.print_R_vec("\nobs_y", obs[:, 1])
     r_script += "\npoints(obs_x, obs_y, cex = 0.5, pch = 19, col = 'grey50')"
-    r_script += "\nbox()"
+    r_script += "\npar(las = 1, mar = c(4, 4, 1.5, 0.5))"
     return r_script
 
 
@@ -1058,13 +1061,14 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, sp_fad_lad, r_s
             obs = backscale_tbl(bdnn_obj, backscale_par, names.tolist(), obs)
             r_script = plot_bdnn_inter_cont_cont(rates_sum_plt, trait_tbl_plt, r_script, names, plot_time, obs, rate_type)
         elif np.isin(pt, np.array([5.0, 8.0, 9.0, 10.0, 11.00, 12.0])):
-            names = np.unique(names_features[incl_features])
             if np.isin(pt, np.array([5.0, 9.0, 12.0])):
+                names = names_features[incl_features]
                 feat_1 = np.array([0])
                 feat_2 = np.array([1])
                 names_states_feat_1 = np.unique(trait_tbl_plt[:, feat_1]).tolist()
                 names_states_feat_2 = np.unique(trait_tbl_plt[:, feat_2]).tolist()
             if np.isin(pt, np.array([8.0, 10.0, 11.0])):
+                names = np.unique(names_features[incl_features])
                 feat_1, feat_2 = get_feat_idx(names_features, names, incl_features)
                 if len(feat_1) > 1:
                     names_states_feat_1 = names_features_original[incl_features][feat_1]

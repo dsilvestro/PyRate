@@ -5645,7 +5645,7 @@ if __name__ == '__main__':
             elif len(fixed_times_of_shift) > 0:
                 suff_out+= "_BDS"
             else:
-                suff_out+= "BD%s-%s" % (args.mL,args.mM)
+                suff_out+= "_BD%s-%s" % (args.mL,args.mM)
         if TDI==1: suff_out+= "_TI"
         if TDI==3: suff_out+= "dpp"
         if TDI==4: suff_out+= "rj"
