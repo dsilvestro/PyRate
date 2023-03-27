@@ -32,6 +32,11 @@ if V[0]<3: sys.exit("""\nYou need Python v.3 to run this version of PyRate""")
 # LOAD LIBRARIES
 import argparse
 try:
+    os.environ["OMP_NUM_THREADS"] = "1"
+    os.environ["OPENBLAS_NUM_THREADS"] = "1"
+    os.environ["MKL_NUM_THREADS"] = "1"
+    os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+    os.environ["NUMEXPR_NUM_THREADS"] = "1"
     from numpy import *
     import numpy as np
 except(ImportError):
@@ -4322,6 +4327,8 @@ if __name__ == '__main__':
     p.add_argument('-BDNNtimevar', type=str, help='Time variable file (e.g. PhanerozoicTempSmooth.txt), several variable in different columns possible', default="", metavar="")
     p.add_argument('-BDNNdd', help='Diversity-dependent BDNN', action='store_true', default=False)
     p.add_argument('-BDNNpklfile', type=str, help='Load BDNN pickle file', default="", metavar="")
+    p.add_argument('-BDNN_pred_importance', metavar='<input file>', type = str, help = "Predictor importance in BDNN: provide path and base name for 'mcmc.log' and '*.pkl' files (e.g. .../pyrate_mcmc_logs/example_BDS_BDNN_16_8Tc)", default = "")
+    p.add_argument('-BDNN_pred_importance_nperm', type=int, help='Number of permutation for BDNN predictor importance', default=100, metavar=100)
     
     p.add_argument("-edge_indicator",      help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
     
@@ -4661,23 +4668,14 @@ if __name__ == '__main__':
             import pyrate_lib.bdnn_lib as bdnn_lib
             pkl_file = path_dir_log_files + ".pkl" 
             mcmc_file = path_dir_log_files + "_mcmc.log"
-            bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te = bdnn_lib.bdnn_parse_results(mcmc_file, pkl_file, burnin, thin = args.resample)
-            cond_trait_tbl_sp, names_features_sp = bdnn_lib.build_conditional_trait_tbl(bdnn_obj, sp_fad_lad,
-                                                                                        post_ts, post_te,
-                                                                                        len_cont = 100,
-                                                                                        rate_type = 'speciation',
-                                                                                        combine_discr_features = args.BDNN_groups)
-            cond_trait_tbl_ex, names_features_ex = bdnn_lib.build_conditional_trait_tbl(bdnn_obj, sp_fad_lad,
-                                                                                        post_ts, post_te,
-                                                                                        len_cont = 100,
-                                                                                        rate_type = 'extinction',
-                                                                                        combine_discr_features = args.BDNN_groups)
-            sp_rate_cond = bdnn_lib.get_conditional_rates(bdnn_obj, cond_trait_tbl_sp, post_w_sp)
-            ex_rate_cond = bdnn_lib.get_conditional_rates(bdnn_obj, cond_trait_tbl_ex, post_w_ex)
-            cond_trait_tbl_sp, cond_trait_tbl_ex, backscale_par = bdnn_lib.backscale_bdnn_features(args.plotBDNN_transf_features,
-                                                                                                   bdnn_obj,
-                                                                                                   cond_trait_tbl_sp,
-                                                                                                   cond_trait_tbl_ex)
+            obj_effect_plot = bdnn_lib.get_effect_objects(mcmc_file, pkl_file,
+                                                          burnin,
+                                                          thin = args.resample,
+                                                          combine_discr_features = args.BDNN_groups,
+                                                          file_transf_features = args.plotBDNN_transf_features,
+                                                          num_processes = args.thread[0],
+                                                          show_progressbar = True)
+            bdnn_obj, cond_trait_tbl_sp, cond_trait_tbl_ex, names_features_sp, names_features_ex, sp_rate_cond, ex_rate_cond, sp_fad_lad, backscale_par = obj_effect_plot
             bdnn_lib.plot_effects(path_dir_log_files,
                                   cond_trait_tbl_sp,
                                   cond_trait_tbl_ex,
@@ -4687,7 +4685,8 @@ if __name__ == '__main__':
                                   sp_fad_lad,
                                   backscale_par,
                                   names_features_sp,
-                                  names_features_ex)
+                                  names_features_ex,
+                                  suffix_pdf = "PDP")
 
         else:
             #path_dir_log_files=sort(path_dir_log_files)
@@ -4715,6 +4714,59 @@ if __name__ == '__main__':
             else:
                 one_file = 0
                 plot_RTT(path_dir_log_files, burnin, file_stem,one_file,root_plot,plot_type)
+        quit()
+    elif args.BDNN_pred_importance != "":
+        import pyrate_lib.bdnn_lib as bdnn_lib
+        path_dir_log_files=args.BDNN_pred_importance
+        pkl_file = path_dir_log_files + ".pkl" 
+        mcmc_file = path_dir_log_files + "_mcmc.log"
+        print("Getting permutation importance")
+        sp_featperm, ex_featperm = bdnn_lib.feature_permutation(mcmc_file, pkl_file,
+                                                                burnin,
+                                                                thin = args.resample,
+                                                                n_perm = args.BDNN_pred_importance_nperm,
+                                                                num_processes = args.thread[0],
+                                                                combine_discr_features = args.BDNN_groups,
+                                                                show_progressbar = True)
+        print("Getting SHAP values")
+        sp_shap, ex_shap, sp_taxa_shap, ex_taxa_shap = bdnn_lib.k_add_kernel_shap(mcmc_file, pkl_file,
+                                                                                  burnin,
+                                                                                  thin = args.resample,
+                                                                                  num_processes = args.thread[0],
+                                                                                  combine_discr_features = args.BDNN_groups,
+                                                                                  show_progressbar = True)
+        print("Getting credible differences")
+        obj_effect = bdnn_lib.get_effect_objects(mcmc_file, pkl_file,
+                                                 burnin,
+                                                 thin = args.resample,
+                                                 combine_discr_features = args.BDNN_groups,
+                                                 file_transf_features = args.plotBDNN_transf_features,
+                                                 num_processes = args.thread[0],
+                                                 show_progressbar = True)
+        bdnn_obj, cond_trait_tbl_sp, cond_trait_tbl_ex, names_features_sp, names_features_ex, sp_rate_part, ex_rate_part, sp_fad_lad, backscale_par = obj_effect
+        sp_pv = bdnn_lib.get_prob_effects(cond_trait_tbl_sp, sp_rate_part, bdnn_obj, names_features_sp, rate_type = 'speciation')
+        ex_pv = bdnn_lib.get_prob_effects(cond_trait_tbl_ex, ex_rate_part, bdnn_obj, names_features_ex, rate_type = 'speciation')
+        # consensus among 3 feature importance methods
+        print("Getting consensus ranking")
+        sp_feat_importance = bdnn_lib.get_consensus_ranking(sp_pv, sp_shap, sp_featperm)
+        ex_feat_importance = bdnn_lib.get_consensus_ranking(ex_pv, ex_shap, ex_featperm)
+        output_wd = os.path.dirname(path_dir_log_files)
+        name_file = os.path.basename(path_dir_log_files)
+        ex_feat_merged_file = os.path.join(output_wd, name_file + '_ex_predictor_influence.csv')
+        ex_feat_importance.to_csv(ex_feat_merged_file, na_rep = 'NA', index = False)
+        sp_feat_merged_file = os.path.join(output_wd, name_file + '_sp_predictor_influence.csv')
+        sp_feat_importance.to_csv(sp_feat_merged_file, na_rep = 'NA', index = False)
+        sp_taxa_shap_file = os.path.join(output_wd, name_file + '_sp_shap_per_species.csv')
+        sp_taxa_shap.to_csv(sp_taxa_shap_file, na_rep = 'NA', index = False)
+        ex_taxa_shap_file = os.path.join(output_wd, name_file + '_ex_shap_per_species.csv')
+        ex_taxa_shap.to_csv(ex_taxa_shap_file, na_rep = 'NA', index = False)
+#        sp_pv_reord, sp_shap_reord, sp_featperm_reord = bdnn_lib.get_same_order(sp_pv, sp_shap, sp_featperm)
+#        ex_pv_reord, ex_shap_reord, ex_featperm_reord = bdnn_lib.get_same_order(ex_pv, ex_shap, ex_featperm)
+#        sp_feat_main_ranked, sp_feat_inter_ranked = bdnn_lib.rank_features(sp_pv_reord, sp_shap_reord, sp_featperm_reord)
+#        ex_feat_main_ranked, ex_feat_inter_ranked = bdnn_lib.rank_features(ex_pv_reord, ex_shap_reord, ex_featperm_reord)
+#        ex_feat_merged = bdnn_lib.merge_results_feat_import(ex_pv, ex_shap, ex_featperm)
+#        print(ex_feat_merged)
+#        print(bdnn_lib.quickcons(ex_feat_inter_ranked))
         quit()
     elif args.mProb != "": calc_model_probabilities(args.mProb,burnin)
     elif len(list_files_BF):
