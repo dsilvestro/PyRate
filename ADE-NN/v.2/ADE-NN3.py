@@ -469,7 +469,7 @@ def fit_rnn(Xt, Yt, model,
 
 
 
-def save_rnn_model(wd, history, model, feature_rescaler, filename=""):
+def save_nn_model(wd, history, model, filename=""):
     # save training history
     with open(os.path.join(wd, "rnn_history" + filename + ".pkl"), 'wb') as output:  # Overwrites any existing file.
         pkl.dump(history.history, output, pkl.HIGHEST_PROTOCOL)
@@ -500,7 +500,10 @@ if __name__ == '__main__':
     # build NN model   
     model = build_nn(dense_nodes=[64,8], output_nodes=labels.shape[1])
     # train NN
-    h = fit_rnn(features, labels, model, batch_size=labels.shape[0], max_epochs=1000)
+    history = fit_rnn(features, labels, model, batch_size=labels.shape[0], max_epochs=1000)
+    
+    # save model
+    save_nn_model(wd, history, model, filename="")
 
     # simulate test set
     features_test, labels_test = data_simulator_mixture(N=1000, gamma_model=False, min_n_taxa = 100,
