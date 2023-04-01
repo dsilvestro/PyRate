@@ -25,8 +25,8 @@ from PyRate import get_DT
 from PyRate import get_binned_div_traj
 from PyRate import get_sp_in_frame_br_length
 
-import fastshap
-from fastshap.plotting import get_variable_interactions
+#import fastshap
+#from fastshap.plotting import get_variable_interactions
 
 
 from scipy.special import bernoulli, binom
@@ -954,7 +954,7 @@ def plot_bdnn_inter_cont_cont(rs, tr, r_script, names, plot_time, obs, rate_type
     r_script += "\nz <- matrix(xyr[, 3], length(xaxis), length(yaxis), byrow)"
     r_script += "\npadx <- abs(diff(xaxis))[1]"
     r_script += "\npady <- abs(diff(yaxis))[1]"
-    r_script += "\nplot(mean(xaxis), mean(yaxis), type='n', xlim = c(min(xaxis) - padx, max(xaxis) + padx), ylim = c(min(yaxis) - pady, max(yaxis) + pady), xlab = '%s', ylab = '%s', xaxt = 'n', xaxs = 'i', yaxs= 'i')" % (names[0], names[1])
+    r_script += "\nplot(mean(xaxis), mean(yaxis), type='n', xlim = c(min(xaxis) - padx, max(xaxis) + padx), ylim = c(min(yaxis) - pady, max(yaxis) + pady), xlab = '%s', ylab = '%s', xaxt = 'n', xaxs = 'i', yaxs = 'i')" % (names[0], names[1])
     r_script += "\nxtk <- pretty(xaxis, n = 10)"
     r_script += "\naxis(side = 1, at = xtk, labels = abs(xtk))"
     r_script += "\nimage.plot(xaxis, yaxis, z[zreord, ], add = TRUE, col = col)"
@@ -1220,8 +1220,8 @@ def plot_effects(f,
         cmd = "cd %s & Rscript %s_%s.r" % (output_wd, name_file, suffix_pdf)
     else:
         cmd = "cd %s; Rscript %s_%s.r" % (output_wd, name_file, suffix_pdf)
-        print("cmd", cmd)
-        os.system(cmd)
+    print("cmd", cmd)
+    os.system(cmd)
 
 
 def get_prob_1_bin_trait(cond_rates_eff):
@@ -1985,8 +1985,8 @@ def feature_permutation(mcmc_file, pkl_file, burnin, thin, n_perm = 10, num_proc
     return sp_delta_lik_df, ex_delta_lik_df
 
 
-# Shap
-#######
+# Fastshap
+##########
 def get_num_interaction_bins(trt_tbl):
     num_rows = trt_tbl.shape[0]
     bin_credibility_threshold = 50
@@ -2015,20 +2015,51 @@ def get_interaction_R2(trt_tbl, shap_main):
     return inter_r2
 
 
+def interaction_R2_for_onehot_features(idx_comb_feat, si):
+    if len(idx_comb_feat) > 0:
+        drop = np.array([], dtype=int)
+        conc_comb_feat = np.concatenate(idx_comb_feat)
+        n = si.shape[0]
+        J = np.arange(n)
+        J = np.delete(J, conc_comb_feat)
+        # Cases of no interaction within another one-hot encoded feature
+        if len(J) > 0:
+            for i in range(len(idx_comb_feat)):
+                for j in J:
+                    inter_value = np.mean(si[j, idx_comb_feat[i]])
+                    si[j, idx_comb_feat[i][0]] = inter_value
+                    si[idx_comb_feat[i][0], j] = inter_value
+                drop = np.concatenate((drop, idx_comb_feat[i][1:]))
+        # Cases of interaction between two one-hot encoded features
+        if len(idx_comb_feat) > 1:
+            for i in range(len(idx_comb_feat)):
+                for k in range(1, len(idx_comb_feat)):
+                    inter_value = np.mean(si[idx_comb_feat[k], idx_comb_feat[i]])
+                    i1 = idx_comb_feat[k][0]
+                    i2 = idx_comb_feat[i][0]
+                    si[i1, i2] = inter_value
+                    si[i2, i1] = inter_value
+        si = np.delete(si, drop, axis = 0)
+        si = np.delete(si, drop, axis = 1)
+    return si
+
+
 def kernel_explainer(trt_tbl, cov_par, hidden_act_f, out_act_f, idx_comb_feat):
     ke = fastshap.KernelExplainer(
         model = lambda X: get_rate_BDNN(1, X, cov_par, hidden_act_f, out_act_f),
         background_data = trt_tbl
     )
     shap_main = ke.calculate_shap_values(trt_tbl, verbose = False)
+    baseline = np.array([shap_main[0, -1]])
     shap_main = shap_main[:,:-1] # remove expected value
     shap_interaction = get_interaction_R2(trt_tbl, shap_main)
     shap_main = main_shap_for_onehot_features(idx_comb_feat, shap_main)
+    shap_main_instances = shap_main.flatten()
     shap_main = np.mean(np.abs(shap_main), axis = 0)
     shap_interaction = interaction_R2_for_onehot_features(idx_comb_feat, shap_interaction)
     iu1 = np.triu_indices(shap_interaction.shape[0], 1)
     shap_interaction = shap_interaction[iu1]
-    return np.concatenate((shap_main, shap_interaction))
+    return np.concatenate((shap_main, shap_interaction, baseline, shap_main_instances))
 
 
 def kernel_shap_i(arg):
@@ -2118,6 +2149,8 @@ def kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, combine_di
     return shap_lam, shap_ex
 
 
+# k-additive Choque SHAP
+########################
 def main_shap_for_onehot_features(idx_comb_feat, sm):
     if len(idx_comb_feat) > 0:
         drop = np.array([], dtype = int)
@@ -2126,35 +2159,6 @@ def main_shap_for_onehot_features(idx_comb_feat, sm):
             drop = np.concatenate((drop, idx_comb_feat[i][1:]))
         sm = np.delete(sm, drop, axis = 1)
     return sm
-
-
-def interaction_R2_for_onehot_features(idx_comb_feat, si):
-    if len(idx_comb_feat) > 0:
-        drop = np.array([], dtype=int)
-        conc_comb_feat = np.concatenate(idx_comb_feat)
-        n = si.shape[0]
-        J = np.arange(n)
-        J = np.delete(J, conc_comb_feat)
-        # Cases of no interaction within another one-hot encoded feature
-        if len(J) > 0:
-            for i in range(len(idx_comb_feat)):
-                for j in J:
-                    inter_value = np.mean(si[j, idx_comb_feat[i]])
-                    si[j, idx_comb_feat[i][0]] = inter_value
-                    si[idx_comb_feat[i][0], j] = inter_value
-                drop = np.concatenate((drop, idx_comb_feat[i][1:]))
-        # Cases of interaction between two one-hot encoded features
-        if len(idx_comb_feat) > 1:
-            for i in range(len(idx_comb_feat)):
-                for k in range(1, len(idx_comb_feat)):
-                    inter_value = np.mean(si[idx_comb_feat[k], idx_comb_feat[i]])
-                    i1 = idx_comb_feat[k][0]
-                    i2 = idx_comb_feat[i][0]
-                    si[i1, i2] = inter_value
-                    si[i2, i1] = inter_value
-        si = np.delete(si, drop, axis = 0)
-        si = np.delete(si, drop, axis = 1)
-    return si
 
 
 def make_shap_names(names_features, idx_comb_feat, combine_discr_features):
@@ -2178,7 +2182,6 @@ def make_shap_names(names_features, idx_comb_feat, combine_discr_features):
     return nf
 
 
-# k-additive Choque SHAP
 def nParam_kAdd(kAdd, nAttr):
     '''Return the number of parameters in a k-additive model'''
     aux_numb = 1
@@ -2385,34 +2388,6 @@ def inter_shap_for_onehot_features(idx_comb_feat, si):
     return si
 
 
-def interaction_R2_for_onehot_features(idx_comb_feat, si):
-    if len(idx_comb_feat) > 0:
-        drop = np.array([], dtype=int)
-        conc_comb_feat = np.concatenate(idx_comb_feat)
-        n = si.shape[0]
-        J = np.arange(n)
-        J = np.delete(J, conc_comb_feat)
-        # Cases of no interaction within another one-hot encoded feature
-        if len(J) > 0:
-            for i in range(len(idx_comb_feat)):
-                for j in J:
-                    inter_value = np.mean(si[j, idx_comb_feat[i]])
-                    si[j, idx_comb_feat[i][0]] = inter_value
-                    si[idx_comb_feat[i][0], j] = inter_value
-                drop = np.concatenate((drop, idx_comb_feat[i][1:]))
-        # Cases of interaction between two one-hot encoded features
-        if len(idx_comb_feat) > 1:
-            for i in range(len(idx_comb_feat)):
-                for k in range(1, len(idx_comb_feat)):
-                    inter_value = np.mean(si[idx_comb_feat[k], idx_comb_feat[i]])
-                    i1 = idx_comb_feat[k][0]
-                    i2 = idx_comb_feat[i][0]
-                    si[i1, i2] = inter_value
-                    si[i2, i1] = inter_value
-        si = np.delete(si, drop, axis = 0)
-        si = np.delete(si, drop, axis = 1)
-    return si
-
 
 def make_shap_names(names_features, idx_comb_feat, combine_discr_features):
     if idx_comb_feat:
@@ -2446,7 +2421,7 @@ def make_taxa_names_shap(taxa_names, n_species, shap_names):
 
 
 def combine_shap_featuregroup(shap_main_instances, shap_interaction_instances, idx_comb_feat):
-    baseline = np.array([shap_main_instances[1, -1]])
+    baseline = np.array([shap_main_instances[0, -1]])
     shap_main_instances = main_shap_for_onehot_features(idx_comb_feat, shap_main_instances[:, 0:-1])
     shap_interaction_instances = inter_shap_for_onehot_features(idx_comb_feat, shap_interaction_instances)
     shap_main = np.mean(np.abs(shap_main_instances), axis = 0)
@@ -2489,6 +2464,39 @@ def delete_invariantfeat_from_taxa_shap(feature_without_variance, names_features
     idx_del = 1 + idx_del
     taxa_shap = np.delete(taxa_shap, idx_del.astype(int), axis = 0)
     return taxa_shap
+
+
+#def get_species_rates_from_shap(shap, n_species, n_main_eff, mcmc_samples):
+#    baseline = shap[:, 0]
+#    shap_species = shap[:,1:].reshape((n_species, mcmc_samples, n_main_eff))
+#    sr = np.zeros((n_species, mcmc_samples))
+#    for i in range(mcmc_samples):
+#        sr[:, i] = baseline[i] + np.sum(shap_species[:, i, :], axis = 1)
+#    sr_summary = get_rates_summary(sr)
+#    return sr_summary
+
+
+def get_species_rates_from_shap(shap, n_species, n_main_eff, mcmc_samples):
+    baseline = shap[:, 0]
+    sr = np.zeros((n_species, mcmc_samples))
+    for i in range(mcmc_samples):
+        shap_species = shap[i, 1:].reshape((n_species, n_main_eff))
+        sr[:, i] = baseline[i] + np.sum(shap_species, axis = 1)
+    sr_summary = get_rates_summary(sr)
+    return sr_summary
+
+
+def merge_taxa_shap_and_species_rates(taxa_shap, taxa_names_shap, rates_from_shap, n_species):
+    n = taxa_shap.shape[0]
+    r = np.zeros((n, 3))
+    r[:] = np.nan
+    idx = np.arange(1, n, int((n - 1) / n_species))
+    r[idx, :] = rates_from_shap
+    merged = np.hstack((taxa_shap, r))
+    merged_df = pd.DataFrame(merged, columns = ['shap', 'lwr_shap', 'upr_shap', 'rate', 'rate_lwr', 'rate_upr'])
+    taxa_names_shap_df = pd.DataFrame(taxa_names_shap, columns = ['feature'])
+    out_df = pd.concat([taxa_names_shap_df, merged_df], axis = 1)
+    return out_df
 
 
 def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, combine_discr_features = "", show_progressbar = False):
@@ -2559,12 +2567,12 @@ def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, comb
                                                        shap_names_sp, taxa_shap_sp)
     taxa_shap_ex = delete_invariantfeat_from_taxa_shap(feature_without_variance_ex, names_features_ex,
                                                        shap_names_ex, taxa_shap_ex)
-    taxa_shap_sp = pd.DataFrame(taxa_shap_sp, columns = ['shap', 'lwr_shap', 'upr_shap'])
-    taxa_shap_ex = pd.DataFrame(taxa_shap_ex, columns = ['shap', 'lwr_shap', 'upr_shap'])
-    taxa_names_shap_sp = pd.DataFrame(taxa_names_shap_sp, columns = ['feature'])
-    taxa_names_shap_ex = pd.DataFrame(taxa_names_shap_ex, columns = ['feature'])
-    taxa_shap_sp = pd.concat([taxa_names_shap_sp, taxa_shap_sp], axis = 1)
-    taxa_shap_ex = pd.concat([taxa_names_shap_ex, taxa_shap_ex], axis = 1)
+    sp_from_shap = get_species_rates_from_shap(shap_values[:, shap_names_sp.shape[0]:n_effects_sp],
+                                               n_species, n_main_eff_sp, mcmc_samples)
+    ex_from_shap = get_species_rates_from_shap(shap_values[:, (n_effects_sp + shap_names_ex.shape[0]):],
+                                               n_species, n_main_eff_ex, mcmc_samples)
+    taxa_shap_sp = merge_taxa_shap_and_species_rates(taxa_shap_sp, taxa_names_shap_sp, sp_from_shap, n_species)
+    taxa_shap_ex = merge_taxa_shap_and_species_rates(taxa_shap_ex, taxa_names_shap_ex, ex_from_shap, n_species)
     return shap_lam, shap_ex, taxa_shap_sp, taxa_shap_ex
 
 
