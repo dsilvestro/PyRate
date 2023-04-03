@@ -4748,8 +4748,8 @@ if __name__ == '__main__':
         ex_pv = bdnn_lib.get_prob_effects(cond_trait_tbl_ex, ex_rate_part, bdnn_obj, names_features_ex, rate_type = 'speciation')
         # consensus among 3 feature importance methods
         print("Getting consensus ranking")
-        sp_feat_importance = bdnn_lib.get_consensus_ranking(sp_pv, sp_shap, sp_featperm)
-        ex_feat_importance = bdnn_lib.get_consensus_ranking(ex_pv, ex_shap, ex_featperm)
+        sp_feat_importance, sp_main_consrank = bdnn_lib.get_consensus_ranking(sp_pv, sp_shap, sp_featperm)
+        ex_feat_importance, ex_main_consrank = bdnn_lib.get_consensus_ranking(ex_pv, ex_shap, ex_featperm)
         output_wd = os.path.dirname(path_dir_log_files)
         name_file = os.path.basename(path_dir_log_files)
         ex_feat_merged_file = os.path.join(output_wd, name_file + '_ex_predictor_influence.csv')
@@ -4760,13 +4760,8 @@ if __name__ == '__main__':
         sp_taxa_shap.to_csv(sp_taxa_shap_file, na_rep = 'NA', index = False)
         ex_taxa_shap_file = os.path.join(output_wd, name_file + '_ex_shap_per_species.csv')
         ex_taxa_shap.to_csv(ex_taxa_shap_file, na_rep = 'NA', index = False)
-#        sp_pv_reord, sp_shap_reord, sp_featperm_reord = bdnn_lib.get_same_order(sp_pv, sp_shap, sp_featperm)
-#        ex_pv_reord, ex_shap_reord, ex_featperm_reord = bdnn_lib.get_same_order(ex_pv, ex_shap, ex_featperm)
-#        sp_feat_main_ranked, sp_feat_inter_ranked = bdnn_lib.rank_features(sp_pv_reord, sp_shap_reord, sp_featperm_reord)
-#        ex_feat_main_ranked, ex_feat_inter_ranked = bdnn_lib.rank_features(ex_pv_reord, ex_shap_reord, ex_featperm_reord)
-#        ex_feat_merged = bdnn_lib.merge_results_feat_import(ex_pv, ex_shap, ex_featperm)
-#        print(ex_feat_merged)
-#        print(bdnn_lib.quickcons(ex_feat_inter_ranked))
+        # Plot contribution to species-specific rates
+        bdnn_lib.plot_species_shap(pkl_file, output_wd, name_file, sp_taxa_shap, ex_taxa_shap, sp_main_consrank, ex_main_consrank)
         quit()
     elif args.mProb != "": calc_model_probabilities(args.mProb,burnin)
     elif len(list_files_BF):
