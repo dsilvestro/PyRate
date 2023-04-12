@@ -127,8 +127,8 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True, n_sampl
             else:
                 for i in arange(ind_ts0,ind_te0):
                     indx = np.random.choice(range(burnin, shape_f[0]-1),n_samples)
-                    TS= list(t_file[burnin:shape_f[0],i].astype(float)[indx])
-                    TE= list(t_file[burnin:shape_f[0],ind_te0+j].astype(float)[indx])
+                    TS = list(t_file[indx, i].astype(float))
+                    TE = list(t_file[indx, ind_te0 + j].astype(float))
                     j+=1
                     #print(indx, n_samples, TS)
                     
