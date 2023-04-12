@@ -389,7 +389,7 @@ else:
     hypZA= args.pZ # if negative use uniform prior
 
 ### PLOT RTT
-def get_marginal_rates(model,l0,m0,Garray,Temp_at_events,shift_ind,root_age):
+def get_marginal_rates(model,l0,m0,Garray,Temp_at_events,shift_ind,root_age,all_events):
     if model==0: 
         l_at_events=trasfMultipleRateTemp(l0, Garray[0],Temp_at_events,shift_ind)
         m_at_events=trasfMultipleRateTemp(m0, Garray[1],Temp_at_events,shift_ind)
@@ -398,7 +398,7 @@ def get_marginal_rates(model,l0,m0,Garray,Temp_at_events,shift_ind,root_age):
         m_at_events=trasfMultipleRateTempLinear(m0, Garray[1],Temp_at_events,shift_ind)
     age_vec, l_vec, m_vec = list(),list(),list()
     for i in range(len(Temp_at_events)):
-        age = all_events_temp2[0,i]
+        age = all_events[i]
         if run_single_slice==1:
             if age < np.max(s_times):
                 if len(s_times)==2 and age >= np.min(s_times):
@@ -421,7 +421,7 @@ summary_file = args.plot
 if summary_file != "":
     root_age = np.max(ts)
     print("\nParsing log file:", summary_file)
-    t=np.loadtxt(summary_file, skiprows=np.max(1,int(args.b)))
+    t=np.loadtxt(summary_file, skiprows=np.max([1,int(args.b)]))
     head = next(open(summary_file)).split()
     
     L0_index = [head.index(i) for i in head if "l0" in i]
@@ -452,7 +452,7 @@ if summary_file != "":
                 Gm[i] = t[j,Gm_index[0]]
         
         Garray = np.array([Gl,Gm])
-        age_vec,l_vec,m_vec = get_marginal_rates(args.m,L0,M0,Garray,Temp_at_events,shift_ind,root_age)
+        age_vec,l_vec,m_vec = get_marginal_rates(args.m,L0,M0,Garray,Temp_at_events,shift_ind,root_age,all_events)
         marginal_L.append(l_vec)
         marginal_M.append(m_vec)
     
@@ -533,7 +533,7 @@ else: add_use_hp =""
 if lagged_model:
     add_lag = "_lag"
 else:    
-    add_lag = "_lag"
+    add_lag = ""
     
 if output_wd=="":
     out_file_name="%s_%s_%s_%s%sSp_%sEx%s%s%s%s%s.log" % \
