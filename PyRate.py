@@ -4761,7 +4761,11 @@ if __name__ == '__main__':
         ex_taxa_shap_file = os.path.join(output_wd, name_file + '_ex_shap_per_species.csv')
         ex_taxa_shap.to_csv(ex_taxa_shap_file, na_rep = 'NA', index = False)
         # Plot contribution to species-specific rates
-        bdnn_lib.plot_species_shap(pkl_file, output_wd, name_file, sp_taxa_shap, ex_taxa_shap, sp_main_consrank, ex_main_consrank)
+#        bdnn_lib.plot_species_shap(pkl_file, output_wd, name_file, sp_taxa_shap, ex_taxa_shap, sp_main_consrank, ex_main_consrank)
+        bdnn_lib.dotplot_species_shap(mcmc_file, pkl_file, burnin, args.resample, output_wd, name_file,
+                                      sp_taxa_shap, ex_taxa_shap, sp_main_consrank, ex_main_consrank,
+                                      combine_discr_features = args.BDNN_groups,
+                                      file_transf_features = args.plotBDNN_transf_features)
         quit()
     elif args.mProb != "": calc_model_probabilities(args.mProb,burnin)
     elif len(list_files_BF):

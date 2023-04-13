@@ -2466,16 +2466,6 @@ def delete_invariantfeat_from_taxa_shap(feature_without_variance, names_features
     return taxa_shap
 
 
-#def get_species_rates_from_shap(shap, n_species, n_main_eff, mcmc_samples):
-#    baseline = shap[:, 0]
-#    shap_species = shap[:,1:].reshape((n_species, mcmc_samples, n_main_eff))
-#    sr = np.zeros((n_species, mcmc_samples))
-#    for i in range(mcmc_samples):
-#        sr[:, i] = baseline[i] + np.sum(shap_species[:, i, :], axis = 1)
-#    sr_summary = get_rates_summary(sr)
-#    return sr_summary
-
-
 def get_species_rates_from_shap(shap, n_species, n_main_eff, mcmc_samples):
     baseline = shap[:, 0]
     sr = np.zeros((n_species, mcmc_samples))
@@ -2898,6 +2888,8 @@ def get_consensus_ranking(pv, sh, fp):
     return feat_merged, main_consrank
 
 
+# Plot SHAP
+###########
 def plot_species_shap(pkl_file, output_wd, name_file, sp_taxa_shap, ex_taxa_shap, sp_consrank, ex_consrank):
     ob = load_pkl(pkl_file)
     species_names = ob.sp_fad_lad["Taxon"]
@@ -3062,13 +3054,13 @@ def get_rscript_species_shap(r_script, species_names, taxa_shap, consrank, rate_
     r_script += util.print_R_vec("\nrate", r[is_rate].to_numpy().flatten())
     r_script += util.print_R_vec("\nrate_lwr", r_lwr[is_rate].to_numpy().flatten())
     r_script += util.print_R_vec("\nrate_upr", r_upr[is_rate].to_numpy().flatten())
-    r_script += "\nrates= cbind(rate, rate_lwr, rate_upr)"
+    r_script += "\nrates = cbind(rate, rate_lwr, rate_upr)"
     r_script += "\nspecies_names = c()"
     for i in range(nspecies):
         r_script += "\nspecies_names = c(species_names, '%s')" % species_names[i]
     feat_names = taxa_shap.iloc[1:(nfeat+1), 0].to_list()
     r_script += "\nfeat_names = c()"
-    for i in range((nfeat)):
+    for i in range(nfeat):
         r_script += "\nfeat_names = c(feat_names, '%s')" % feat_names[i].split('__')[-1]
     r_script += "\nord = ord_by_importance(shap, consrank, rate)"
     r_script += "\nshap_ord = shap[ord, consrank]"
@@ -3078,3 +3070,324 @@ def get_rscript_species_shap(r_script, species_names, taxa_shap, consrank, rate_
     r_script += "\nshap_heatmap(shap_ord, baseline, rates_ord, species_names_ord, feat_names_ord, rate_type = '%s')" % rate_type
     return r_script
 
+
+def get_features_for_shap_plot(mcmc_file, pkl_file, burnin, thin, rate_type, combine_discr_features, file_transf_features):
+    bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, ts_post, te_post = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
+    trait_tbl = get_trt_tbl(bdnn_obj, rate_type)
+    names_features = get_names_features(bdnn_obj)
+    names_features_orig = np.array(names_features)
+    # diversity-dependence
+    if "diversity" in names_features:
+        div_time, div_traj = get_mean_div_traj(ts_post, te_post)
+        bdnn_time = get_bdnn_time(bdnn_obj, ts_post)
+        div_traj_binned = get_binned_div_traj(bdnn_time, div_time, div_traj)[:-1]
+        div_traj_binned = div_traj_binned / bdnn_obj.bdnn_settings["div_rescaler"]
+        div_traj_binned = np.repeat(div_traj_binned, trait_tbl.shape[1]).reshape((trait_tbl.shape[0], trait_tbl.shape[1]))
+        div_idx_trt_tbl = -1
+        if is_time_trait(bdnn_obj):
+            div_idx_trt_tbl = -2
+        trait_tbl[ :, :, div_idx_trt_tbl] = div_traj_binned
+    # n_features = trait_tbl.shape[-1]
+    idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
+    # conc_comb_feat = np.array([])
+    if idx_comb_feat:
+        names_features = replace_names_by_feature_group(names_features, idx_comb_feat, combine_discr_features)
+        # conc_comb_feat = np.concatenate(idx_comb_feat)
+    names_features = np.array(names_features)
+    bdnn_time = get_bdnn_time(bdnn_obj, np.mean(ts_post, axis=0))
+    if rate_type == 'speciation':
+        tse = np.mean(ts_post, axis = 0)
+    else:
+        tse = np.mean(te_post, axis = 0)
+    shap_trt_tbl = get_shap_trt_tbl(tse, bdnn_time, trait_tbl)
+    # Backscale features
+    if is_time_trait(bdnn_obj):
+        shap_trt_tbl[:, -1] = backscale_bdnn_time(shap_trt_tbl[:, -1], bdnn_obj)
+    if file_transf_features != '':
+        names_feat = get_names_features(bdnn_obj)
+        backscale_par = read_backscale_file(file_transf_features)
+        shap_trt_tbl = backscale_tbl(bdnn_obj, backscale_par, names_feat, shap_trt_tbl)
+    # Remove invariant features
+    feature_without_variance = get_idx_feature_without_variance(shap_trt_tbl)
+    shap_trt_tbl = np.delete(shap_trt_tbl, feature_without_variance, axis = 1)
+    names_features = np.delete(names_features, feature_without_variance)
+    names_features_orig = np.delete(names_features_orig, feature_without_variance)
+    return shap_trt_tbl, names_features, names_features_orig
+
+
+def get_dotplot_rscript_species_shap(r_script, species_names, taxa_shap, consrank, shap_trt_tbl, names_features, names_features_orig, rate_type):
+    nspecies = len(species_names)
+    baseline = taxa_shap.iloc[0, 1]
+    shap = taxa_shap.iloc[1:, 1].to_numpy()
+    nfeat = int(len(shap) / nspecies)
+    shap = shap.reshape((nspecies, nfeat))
+    r_script += util.print_R_vec("\nconsrank", consrank)
+    r_script += "\nconsrank2 = order(consrank, decreasing = FALSE)"
+    r_script += "\nconsrank = order(consrank, decreasing = TRUE)"
+    r_script += "\nshap_list = list()"
+    for i in range(nfeat):
+        r_script += util.print_R_vec("\nshap_list[[%s]]", shap[:, i]) % (i + 1)
+    r_script += "\nshap = do.call('cbind', shap_list)"
+    r_script += "\nbaseline = %s" % baseline
+    r = taxa_shap.loc[1:, 'rate']
+    r_lwr = taxa_shap.loc[1:, 'rate_lwr']
+    r_upr = taxa_shap.loc[1:, 'rate_upr']
+    is_rate = np.isnan(r) == False
+    r_script += util.print_R_vec("\nrate", r[is_rate].to_numpy().flatten())
+    r_script += util.print_R_vec("\nrate_lwr", r_lwr[is_rate].to_numpy().flatten())
+    r_script += util.print_R_vec("\nrate_upr", r_upr[is_rate].to_numpy().flatten())
+    r_script += "\nrates = cbind(rate, rate_lwr, rate_upr)"
+    r_script += "\nspecies_names = c()"
+    for i in range(nspecies):
+        r_script += "\nspecies_names = c(species_names, '%s')" % species_names[i]
+    feat_names = taxa_shap.iloc[1:(nfeat+1), 0].to_list()
+    feat_names = [feat_names[i].split('__')[-1] for i in range(len(feat_names))]
+    r_script += "\nfeat_names = c()"
+    for i in range(nfeat):
+        r_script += "\nfeat_names = c(feat_names, '%s')" % feat_names[i]
+    r_script += "\nord = ord_by_importance(shap, consrank, rate)"
+    r_script += "\nshap_ord = shap[ord, consrank2]"
+    r_script += "\nrates_ord = rates[ord, ]"
+    r_script += "\nspecies_names_ord = species_names[ord]"
+    r_script += "\nfeat_names_ord = feat_names[consrank2]"
+    r_script += "\nfeat = vector(mode = 'list', length = %s)" % nfeat
+    r_script += "\nfeat_states = vector(mode = 'list', length = %s)" % nfeat
+    for i in range(nfeat):
+        idx = np.where(names_features == feat_names[i])[0]
+        len_featgroup = len(idx)
+        no_featgroup = len_featgroup == 1
+        if no_featgroup:
+            r_script += util.print_R_vec("\ntmp", shap_trt_tbl[:, idx].flatten())
+            r_script += "\nfeat[[%s]] = tmp[ord]" % (i + 1)
+            r_script += "\nfeat_states[[%s]] = NA" % (i + 1)
+        else:
+            r_script += "\ntmp = vector(mode = 'list', length = %s)" % len_featgroup
+            r_script += "\ntmp_states = c()"
+            for j in idx:
+                r_script += util.print_R_vec("\ntmp[[%s]]", shap_trt_tbl[:, j].flatten()) % (j + 1)
+                r_script += "\ntmp_states = c(tmp_states, '%s')" % str(names_features_orig[j])
+            r_script += "\ntmp = do.call('rbind', tmp)"
+            r_script += "\nfeat[[%s]] = tmp[, ord]" % (i + 1)
+            r_script += "\nfeat_states[[%s]] = tmp_states" % (i + 1)
+    r_script += "\nfeat_ord = feat[consrank2]"
+    r_script += "\nfeat_states_ord = feat_states[consrank2]"
+    r_script += "\nshap_heatmap(shap_ord, baseline, rates_ord, species_names_ord, feat_ord,"
+    r_script += "\n             feat_names_ord, feat_states_ord, rate_type = '%s', n_comb_pred = 3)" % rate_type
+    r_script += "\n"
+    return r_script
+
+
+def dotplot_species_shap(mcmc_file, pkl_file, burnin, thin, output_wd, name_file,
+                         sp_taxa_shap, ex_taxa_shap, sp_consrank, ex_consrank,
+                         combine_discr_features = '', file_transf_features = ''):
+    ob = load_pkl(pkl_file)
+    species_names = ob.sp_fad_lad["Taxon"]
+    suffix_pdf = "contribution_per_species_rates"
+    out = "%s/%s_%s.r" % (output_wd, name_file, suffix_pdf)
+    newfile = open(out, "w")
+    if platform.system() == "Windows" or platform.system() == "Microsoft":
+        wd_forward = os.path.abspath(output_wd).replace('\\', '/')
+        r_script = "pdf(file='%s/%s_%s.pdf', width = 7, height = 6, useDingbats = FALSE, pointsize = 7)\n" % (wd_forward, name_file, suffix_pdf)
+    else:
+        r_script = "pdf(file='%s/%s_%s.pdf', width = 7, height = 6, useDingbats = FALSE, pointsize = 7)\n" % (output_wd, name_file, suffix_pdf)
+    r_script += "\nord_by_importance = function(s, consrank, rate_mean) {"
+    r_script += "\n  imp = consrank**2"
+    r_script += "\n  s = scale(s)"
+    r_script += "\n  imp = imp / sum(imp)"
+    r_script += "\n  #imp = imp / max(imp)"
+    r_script += "\n  s = t(t(s) * imp)"
+    r_script += "\n  p = prcomp(cbind(s, scale(rate_mean)))"
+    r_script += "\n  ord <- order(p$x[, 1])"
+    r_script += "\n  if (cor(1:length(rate_mean), rate_mean[ord]) < 0) {"
+    r_script += "\n     ord = order(p$x[, 1], decreasing = TRUE)"
+    r_script += "\n  }"
+    r_script += "\n  return(ord)"
+    r_script += "\n}"
+    r_script += "\n"
+    r_script += "\nis_discrete <- function(x) {"
+    r_script += "\n  any(x == 0) && all((min(x):max(x)) %in% unique(x))"
+    r_script += "\n}"
+    r_script += "\n"
+    r_script += "\ncombine_predictors <- function(shap, feat, feat_names, n_comb) {"
+    r_script += "\n  n_comb1 = n_comb + 1"
+    r_script += "\n  idx_comb = n_comb1:ncol(shap)"
+    r_script += "\n  shap[, n_comb1] = rowSums(shap[, idx_comb])"
+    r_script += "\n  shap = shap[, 1:n_comb1]"
+    r_script += "\n  comb_pred = t(do.call('rbind', feat[idx_comb]))"
+    r_script += "\n  pc1 = prcomp(comb_pred)$x[, 1]"
+    r_script += "\n  feat[[n_comb1]] = pc1"
+    r_script += "\n  feat[(n_comb + 2):(length(feat))] = NULL"
+    r_script += "\n  feat_names = feat_names[1:n_comb1]"
+    r_script += "\n  feat_names[n_comb1] = 'PC1 other predictors'"
+    r_script += "\n  out = vector(mode = 'list', length = 3)"
+    r_script += "\n  out[[1]] = shap"
+    r_script += "\n  out[[2]] = feat"
+    r_script += "\n  out[[3]] = feat_names"
+    r_script += "\n  return(out)"
+    r_script += "\n}"
+    r_script += "\n"
+    r_script += "\nshap_heatmap <- function(shap, baseline, rates, species_names, feat,"
+    r_script += "\n                         feat_names, feat_states, rate_type = 'speciation', n_individual_pred = NULL) {"
+    r_script += "\n  nfeat = ncol(shap)"
+    r_script += "\n  if (!is.null(n_comb_pred)) {"
+    r_script += "\n    if ((n_individual_pred + 1) < nfeat) {"
+    r_script += "\n      comb_p = combine_predictors(shap, feat, feat_names, n_comb_pred)"
+    r_script += "\n      shap = comb_p[[1]]"
+    r_script += "\n      feat = comb_p[[2]]"
+    r_script += "\n      feat_names = comb_p[[3]]"
+    r_script += "\n      nfeat = ncol(shap)"
+    r_script += "\n    }"
+    r_script += "\n  }"
+    r_script += "\n  nspecies = nrow(shap)"
+    r_script += "\n  shap_pos = shap > 0"
+    r_script += "\n  shap_neg = shap < 0"
+    r_script += "\n  shap_sqrt = shap"
+    r_script += "\n  shap_sqrt[shap == 0] = 0"
+    r_script += "\n  offset_sqrt = 0.0"
+    r_script += "\n  shap_sqrt[shap_pos] = sqrt(shap[shap_pos] + offset_sqrt)"
+    r_script += "\n  shap_sqrt[shap_neg] = sqrt(-1 * shap[shap_neg] + offset_sqrt)"
+    r_script += "\n  max_pos = max(shap_sqrt[shap_pos])"
+    r_script += "\n  max_neg = max(shap_sqrt[shap_neg])"
+    r_script += "\n  steps_pos = round(max_pos / (max_pos + max_neg), 2) * 200"
+    r_script += "\n  steps_neg = round(max_neg / (max_pos + max_neg), 2) * 200"
+    r_script += "\n  # BrBG diverging colors"
+    r_script += "\n  total_steps = steps_pos + steps_neg"
+    r_script += "\n  max_steps = max(c(steps_pos, steps_neg))"
+    r_script += "\n  col_pos = colorRampPalette(c('#F5F5F5', '#543005'))(max_steps)"
+    r_script += "\n  col_neg = colorRampPalette(c('#F5F5F5', '#003C30'))(max_steps)"
+    r_script += "\n  col_pos = col_pos[1:steps_pos]"
+    r_script += "\n  col_neg = col_neg[1:steps_neg]"
+    r_script += "\n  shap_col = shap"
+    r_script += "\n  shap_col[shap == 0] = '#F5F5F5'"
+    r_script += "\n  col_idx = findInterval(shap_sqrt[shap_pos], seq(sqrt(offset_sqrt), max_pos, length.out = steps_pos))"
+    r_script += "\n  shap_col[shap_pos] = col_pos[col_idx]"
+    r_script += "\n  col_idx = findInterval(shap_sqrt[shap_neg], seq(sqrt(offset_sqrt), max_neg, length.out = steps_neg))"
+    r_script += "\n  shap_col[shap_neg] = col_neg[col_idx]"
+    r_script += "\n  species_names = gsub('_', ' ', species_names)"
+    r_script += "\n  # Plot"
+    r_script += "\n  h = 0.15"
+    r_script += "\n  if (nfeat < 10) {"
+    r_script += "\n    h = seq(0.4, 0.1, length.out = 9)"
+    r_script += "\n    h = h[nfeat]"
+    r_script += "\n  }"
+    r_script += "\n  heights = c(h, rep((1 - 1.25 * h)/nfeat, nfeat), h/4)"
+    r_script += "\n  rate_name = 'Speciation rate'"
+    r_script += "\n  rate_col = 'dodgerblue'"
+    r_script += "\n  if (rate_type == 'extinction') {"
+    r_script += "\n    rate_name = 'Extinction rate'"
+    r_script += "\n    rate_col = 'red'"
+    r_script += "\n  }"
+    r_script += "\n  layout(cbind(c(1, 2:(nfeat+2)), c(nfeat + 3, rep(nfeat + 4, nfeat), nfeat + 5)),"
+    r_script += "\n         heights = heights, widths = c(0.9, 0.1))"
+    r_script += "\n  # Rates per species"
+    r_script += "\n  par(las = 1, mar = c(0.1, 6, 0.5, 0.1), mgp = c(5, 1, 0))"
+    r_script += "\n  cex_lab = 2 / sqrt(length(feat_names))"
+    r_script += "\n  cex_lab = ifelse(cex_lab > 1, 1, cex_lab)"
+    r_script += "\n  y_tck = pretty(range(rates), n = 5)"
+    r_script += "\n  plot(0, 0, type = 'n', xaxs = 'i', yaxs = 'i',"
+    r_script += "\n       xlim = c(0, nspecies), ylim = range(y_tck),"
+    r_script += "\n       axes = FALSE, ylab = rate_name, cex.lab = cex_lab)"
+    r_script += "\n  abline(h = baseline, lty = 2, col = 'grey')"
+    r_script += "\n  x = c(1:nspecies) - 0.5"
+    r_script += "\n  polygon(c(x, rev(x)), c(rates[, 2], rev(rates[, 3])), col = adjustcolor(rate_col, alpha = 0.25), border = NA)"
+    r_script += "\n  lines(x, rates[, 1], col = rate_col, lwd = 1.5)"
+    r_script += "\n  axis(side = 2, at = y_tck, cex.axis = cex_lab)"
+    r_script += "\n  # Shape values"
+    r_script += "\n  species_x = c(1:nspecies) - 0.5"
+    r_script += "\n  for (i in 1:nfeat) {"
+    r_script += "\n    f = feat[[i]]"
+    r_script += "\n    if (is.null(dim(f))) {"
+    r_script += "\n      d = is_discrete(f)"
+    r_script += "\n      y_tck = pretty(range(f), n = 5)"
+    r_script += "\n      ylim = range(y_tck)"
+    r_script += "\n      if (d) {"
+    r_script += "\n        ylim = c(min(f) - 0.5, max(f) + 0.5)"
+    r_script += "\n      }"
+    r_script += "\n      plot(species_x, f, type = 'n', ylim = ylim,"
+    r_script += "\n           xlim = c(0, nspecies), xaxs = 'i', axes = FALSE,"
+    r_script += "\n           xlab = '', ylab = feat_names[i], cex.lab = cex_lab)"
+    r_script += "\n      if (!d) {"
+    r_script += "\n        lines(species_x, f, col = 'grey')"
+    r_script += "\n        axis(side = 2, at = y_tck, cex.axis = cex_lab)"
+    r_script += "\n      }"
+    r_script += "\n      else {"
+    r_script += "\n        axis(side = 2, at = min(f):max(f), cex.axis = cex_lab)"
+    r_script += "\n      }"
+    r_script += "\n      points(species_x, f, pch = 19, col = shap_col[, i])"
+    r_script += "\n    }"
+    r_script += "\n    else {"
+    r_script += "\n      nr = nrow(f)"
+    r_script += "\n      plot(0, 0, type = 'n', ylim = c(1 - 0.5, nr + 0.5),"
+    r_script += "\n           xlim = c(0, nspecies), xaxs = 'i', axes = FALSE,"
+    r_script += "\n           xlab = '', ylab = feat_names[i], cex.lab = cex_lab)"
+    r_script += "\n      axis(side = 2, at = 1:nr, labels = feat_states[[i]], cex.axis = cex_lab)"
+    r_script += "\n      for (j in 1:nr) {"
+    r_script += "\n        fj = f[j, ]"
+    r_script += "\n        idx = fj == 1"
+    r_script += "\n        points(species_x[idx], rep(j, sum(idx)), pch = 19, col = shap_col[idx, i])"
+    r_script += "\n      }"
+    r_script += "\n    }"
+    r_script += "\n  }"
+    r_script += "\n  # Species names"
+    r_script += "\n  par(mar = c(0.1, 6, 0.5, 0.1), mgp = c(3, 0.1, 0))"
+    r_script += "\n  plot(0, 0, type = 'n', xlim = c(0, nspecies), ylim = c(0, 3),"
+    r_script += "\n       xaxs = 'i', axes = FALSE, xlab = '', ylab = '')"
+    r_script += "\n  text(x = species_x, y = 3, labels = species_names,"
+    r_script += "\n       xpd = NA, srt = 35, adj = 0.965,"
+    r_script += "\n       cex = 2 / sqrt(length(species_names)), font = 3)"
+    r_script += "\n  # Empty plot"
+    r_script += "\n  plot(0, 0, type = 'n', axes = FALSE, xlab = '', ylab = '')"
+    r_script += "\n  # Legend"
+    r_script += "\n  col = c(rev(col_neg), col_pos)"
+    r_script += "\n  n_lead_digit = nchar(as.character(max(round(abs(shap)))))"
+    r_script += "\n  par(mar = c(4, 0.5, 0.5, 0.5), mgp = c(3, 1, 0))"
+    r_script += "\n  plot(0, 0, type = 'n', xlab = '', ylab = '', axes = FALSE,"
+    r_script += "\n       xlim = c(0, 2), ylim = c(0, 1.05 * total_steps))"
+    r_script += "\n  for (j in 1:total_steps) {"
+    r_script += "\n    rect(0, j - 1, 0.7, j, border = col[j], col = col[j])"
+    r_script += "\n  }"
+    r_script += "\n  rect(0, 0, 0.7, total_steps, border = 'black')"
+    r_script += "\n  lines(x = c(0.7, 1.0), y = rep(steps_neg, 2))"
+    r_script += "\n  text(x = 0, y = 1.05 * total_steps, labels = 'Rate change', adj = c(0, 0.5))"
+    r_script += "\n  a = c(1, 0.5) # right align"
+    r_script += "\n  text(x = 2, y = steps_neg, labels = sprintf(paste0('%.', 3 - n_lead_digit, 'f'), 0), adj = a)"
+    r_script += "\n  n_tck = 4"
+    r_script += "\n  s = seq(sqrt(offset_sqrt), max(c(max_pos, max_neg)), length.out = n_tck)"
+    r_script += "\n  pos = (s / s[n_tck]) * max_steps"
+    r_script += "\n  pos = pos[-1]"
+    r_script += "\n  s = s[-1]"
+    r_script += "\n  for (i in 1:length(pos)) {"
+    r_script += "\n    p = steps_neg + pos[i]"
+    r_script += "\n    if (p <= total_steps) {"
+    r_script += "\n      lines(x = c(0.7, 1.0), y = rep(p, 2))"
+    r_script += "\n      text(x = 2, y = p, adj = a, labels = sprintf(paste0('%.', 3 - n_lead_digit, 'f'), s[i]**2))"
+    r_script += "\n    }"
+    r_script += "\n    p = steps_neg - pos[i]"
+    r_script += "\n    if (p >= 0) {"
+    r_script += "\n      lines(x = c(0.7, 1.0), y = rep(p, 2))"
+    r_script += "\n      text(x = 2, y = p, adj = a, labels = sprintf(paste0('%.', 3 - n_lead_digit, 'f'), -(s[i]**2)))"
+    r_script += "\n    }"
+    r_script += "\n  }"
+    r_script += "\n}"
+    r_script += "\n"
+    sp_shap_trt_tbl, sp_names_features, sp_names_features_orig = get_features_for_shap_plot(mcmc_file, pkl_file,
+                                                                                            burnin, thin, 'speciation',
+                                                                                            combine_discr_features,
+                                                                                            file_transf_features)
+    ex_shap_trt_tbl, ex_names_features, ex_names_features_orig = get_features_for_shap_plot(mcmc_file, pkl_file,
+                                                                                            burnin, thin, 'extinction',
+                                                                                            combine_discr_features,
+                                                                                            file_transf_features)
+    r_script = get_dotplot_rscript_species_shap(r_script, species_names, sp_taxa_shap, sp_consrank, sp_shap_trt_tbl,
+                                                sp_names_features, sp_names_features_orig, rate_type = 'speciation')
+    r_script = get_dotplot_rscript_species_shap(r_script, species_names, ex_taxa_shap, ex_consrank, ex_shap_trt_tbl,
+                                                ex_names_features, ex_names_features_orig, rate_type = 'extinction')
+    r_script += "\ndev.off()"
+    newfile.writelines(r_script)
+    newfile.close()
+    if platform.system() == "Windows" or platform.system() == "Microsoft":
+        cmd = "cd %s & Rscript %s_%s.r" % (output_wd, name_file, suffix_pdf)
+    else:
+        cmd = "cd %s; Rscript %s_%s.r" % (output_wd, name_file, suffix_pdf)
+    print("cmd", cmd)
+    os.system(cmd)
