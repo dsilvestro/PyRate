@@ -3172,7 +3172,7 @@ def get_dotplot_rscript_species_shap(r_script, species_names, taxa_shap, consran
     r_script += "\nfeat_ord = feat[consrank2]"
     r_script += "\nfeat_states_ord = feat_states[consrank2]"
     r_script += "\nshap_heatmap(shap_ord, baseline, rates_ord, species_names_ord, feat_ord,"
-    r_script += "\n             feat_names_ord, feat_states_ord, rate_type = '%s', n_comb_pred = 3)" % rate_type
+    r_script += "\n             feat_names_ord, feat_states_ord, rate_type = '%s', n_individual_pred = 3)" % rate_type
     r_script += "\n"
     return r_script
 
@@ -3229,9 +3229,9 @@ def dotplot_species_shap(mcmc_file, pkl_file, burnin, thin, output_wd, name_file
     r_script += "\nshap_heatmap <- function(shap, baseline, rates, species_names, feat,"
     r_script += "\n                         feat_names, feat_states, rate_type = 'speciation', n_individual_pred = NULL) {"
     r_script += "\n  nfeat = ncol(shap)"
-    r_script += "\n  if (!is.null(n_comb_pred)) {"
+    r_script += "\n  if (!is.null(n_individual_pred)) {"
     r_script += "\n    if ((n_individual_pred + 1) < nfeat) {"
-    r_script += "\n      comb_p = combine_predictors(shap, feat, feat_names, n_comb_pred)"
+    r_script += "\n      comb_p = combine_predictors(shap, feat, feat_names, n_individual_pred)"
     r_script += "\n      shap = comb_p[[1]]"
     r_script += "\n      feat = comb_p[[2]]"
     r_script += "\n      feat_names = comb_p[[3]]"
