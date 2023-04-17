@@ -2307,24 +2307,29 @@ def shapley_kernel(M, s):
 
 
 def k_add_kernel_explainer(trt_tbl, cov_par, hidden_act_f, out_act_f):
-    k_add = 3
     n_species, nAttr = trt_tbl.shape  # Number of instances and attributes
-    # " Basic elements"
-    k_add_numb = 1
-    for ii in range(k_add):
-        k_add_numb += comb(nAttr, ii + 1)
-    # " Providing local explanations "
-    coal_shap = coalition_shap_kadd(k_add, nAttr)
-    nEval_old = coal_shap.shape[0]
-    for ii in range(1, 6):
-        with warnings.catch_warnings():
-            warnings.filterwarnings("error")
-            try:
-                nEval = ii * coal_shap.shape[0]
-                # " By selecting weighted random samples (without replacement) "
-                X, opt_data, weights_shap = opt_Xbinary_wrand_allMethods(nEval - 2, nAttr, k_add, coal_shap, trt_tbl)
-            except:
-                nEval = nEval_old
+    for k in range(3, 10):
+        k_add = k
+        # " Basic elements"
+        k_add_numb = 1
+        for ii in range(k_add):
+            k_add_numb += comb(nAttr, ii + 1)
+        # " Providing local explanations "
+        coal_shap = coalition_shap_kadd(k_add, nAttr)
+        nEval_old = coal_shap.shape[0]
+        for ii in range(1, 6):
+            with warnings.catch_warnings():
+                warnings.filterwarnings("error")
+                try:
+                    nEval = ii * coal_shap.shape[0]
+                    # " By selecting weighted random samples (without replacement) "
+                    X, opt_data, weights_shap = opt_Xbinary_wrand_allMethods(nEval - 2, nAttr, k_add, coal_shap, trt_tbl)
+                except:
+                    nEval = nEval_old
+        # Check if k_add is set correctly
+        opt_data_shape = opt_data.shape
+        if (opt_data_shape[0] == opt_data_shape[1]) and (opt_data_shape[0] == nEval):
+            break
     weights = np.eye(nEval)
     weights[0, 0], weights[-1, -1] = 10 ** 6, 10 ** 6
     shap_main = np.zeros((n_species, nAttr + 1))
