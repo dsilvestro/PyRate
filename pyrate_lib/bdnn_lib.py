@@ -138,7 +138,6 @@ def plot_bdnn_rtt(f, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec):
 
 def apply_thin(w, thin):
     n_samples = w.shape[0]
-#    thin_idx = np.arange(0, n_samples, thin)
     if thin > n_samples:
         thin = n_samples
         print("resample set to the number of mcmc samples:", n_samples)
@@ -1224,6 +1223,41 @@ def plot_effects(f,
     os.system(cmd)
 
 
+# Coefficient of rate variation
+def get_cv(x):
+    cv_it = np.std(x, axis = 1) / np.mean(x, axis = 1)
+    cv = np.zeros(3)
+    cv[0] = np.mean(cv_it)
+    cv[1:] = util.calcHPD(cv_it, .95)
+    return cv
+
+
+def get_coefficient_rate_variation(path_dir_log_files, burn, thin):
+    rates_mcmc_file = path_dir_log_files + "_per_species_rates.log"
+    rates = np.loadtxt(rates_mcmc_file, skiprows = 1)
+    s = rates.shape
+    num_taxa = int((s[1] - 1) / 2)
+    num_it = s[0]
+    burnin = check_burnin(burn, num_it)
+    rates = rates[burnin:, :]
+    if thin > 0:
+        rates = apply_thin(rates, thin)
+    sp_rates = rates[:, 1:(num_taxa + 1)]
+    ex_rates = rates[:, (num_taxa + 1):]
+    cv_rates = np.zeros((2, 4))
+    cv_rates[0, 1:] = get_cv(sp_rates)
+    cv_rates[1, 1:] = get_cv(ex_rates)
+    print('Coefficient of rate variation')
+    print('    Speciation:', f'{float(cv_rates[0, 1]):.2f}', '(' + f'{float(cv_rates[0, 2]):.2f}' + '-' + f'{float(cv_rates[0, 3]):.2f}' + ')')
+    print('    Extinction:', f'{float(cv_rates[1, 1]):.2f}', '(' + f'{float(cv_rates[1, 2]):.2f}' + '-' + f'{float(cv_rates[1, 3]):.2f}' + ')')
+    cv_rates = pd.DataFrame(cv_rates, columns = ['rate', 'cv', 'cv_lwr', 'cv_upr'])
+    cv_rates['rate'] = ['speciation', 'extinction']
+    output_wd = os.path.dirname(path_dir_log_files)
+    name_file = os.path.basename(path_dir_log_files)
+    cv_rates_file = os.path.join(output_wd, name_file + '_coefficient_of_rate_variation.csv')
+    cv_rates.to_csv(cv_rates_file, na_rep = 'NA', index = False)
+
+
 def get_prob_1_bin_trait(cond_rates_eff):
     d1 = cond_rates_eff[0, :]
     d2 = cond_rates_eff[1, :]
@@ -2306,60 +2340,68 @@ def shapley_kernel(M, s):
     return (M - 1) / (binom(M, s) * s * (M - s))
 
 
+def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, hidden_act_f, out_act_f, nAttr, opt_data, weights, weights_shap):
+    exp_payoffs_ci = np.zeros((nEval))
+    weights_shap_ci = np.zeros(nEval)
+    for ll in range(nEval):
+        trt_tbl_aux = trt_tbl + 0.0
+        trt_tbl_aux[:, np.where(X[ll, 0:-1] == 1)] = trt_tbl[i, np.where(X[ll, 0:-1] == 1)]
+        rate_aux = get_rate_BDNN(1, trt_tbl_aux, cov_par, hidden_act_f, out_act_f)
+        exp_payoffs_ci[ll] = np.mean(rate_aux)
+        weights_shap_ci[ll] = shapley_kernel(nAttr, np.sum(X[ll, 0:-1]))
+    exp_payoffs_shap = exp_payoffs_ci
+    exp_payoffs_ci = exp_payoffs_ci - exp_payoffs_ci[0]
+    # For weighted random samples
+    explain_matrix = np.linalg.inv(opt_data.T @ weights @ opt_data) @ opt_data.T @ weights
+    inter_val = explain_matrix @ exp_payoffs_ci
+    shapley_ci = inter_val[1:]
+    shapley_val_ci_shap = np.linalg.inv(X.T @ np.diag(weights_shap) @ X) @ X.T @ np.diag(weights_shap) @ exp_payoffs_shap
+    # Interaction indices
+    count = 0
+    indices = np.zeros((nAttr, nAttr))
+    for ii in range(nAttr - 1):
+        for jj in range(ii + 1, nAttr):
+            indices[ii, jj] = shapley_ci[nAttr + count]
+            count += 1
+    indices = indices + indices.T
+    return shapley_val_ci_shap, indices
+
+
 def k_add_kernel_explainer(trt_tbl, cov_par, hidden_act_f, out_act_f):
     n_species, nAttr = trt_tbl.shape  # Number of instances and attributes
-    for k in range(3, 10):
-        k_add = k
-        # " Basic elements"
-        k_add_numb = 1
-        for ii in range(k_add):
-            k_add_numb += comb(nAttr, ii + 1)
-        # " Providing local explanations "
+    k_add = 3
+    k_add_not_ok = True
+    while k_add_not_ok:
         coal_shap = coalition_shap_kadd(k_add, nAttr)
         nEval_old = coal_shap.shape[0]
         for ii in range(1, 6):
-            with warnings.catch_warnings():
-                warnings.filterwarnings("error")
-                try:
-                    nEval = ii * coal_shap.shape[0]
-                    # " By selecting weighted random samples (without replacement) "
-                    X, opt_data, weights_shap = opt_Xbinary_wrand_allMethods(nEval - 2, nAttr, k_add, coal_shap, trt_tbl)
-                except:
-                    nEval = nEval_old
-        # Check if k_add is set correctly
-        opt_data_shape = opt_data.shape
-        if (opt_data_shape[0] == opt_data_shape[1]) and (opt_data_shape[0] == nEval):
-            break
+            try:
+                nEval = ii * coal_shap.shape[0]
+                # " By selecting weighted random samples (without replacement) "
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore', category = RuntimeWarning)
+                    X, opt_data, weights_shap = opt_Xbinary_wrand_allMethods(nEval - 2, nAttr, k_add,
+                                                                             coal_shap, trt_tbl)
+            except:
+                nEval = nEval_old
+        weights = np.eye(nEval)
+        weights[0, 0], weights[-1, -1] = 10 ** 6, 10 ** 6
+        try:
+            _, _ = get_shap_species_i(0, nEval, trt_tbl, X, cov_par, hidden_act_f, out_act_f,
+                                      nAttr, opt_data, weights, weights_shap)
+            k_add_not_ok = False
+        except:
+            k_add_not_ok = True
+            k_add += 1
     weights = np.eye(nEval)
     weights[0, 0], weights[-1, -1] = 10 ** 6, 10 ** 6
     shap_main = np.zeros((n_species, nAttr + 1))
     shap_inter = np.zeros((n_species, nAttr, nAttr))
     for i in range(n_species):
         # For all samples
-        exp_payoffs_ci = np.zeros((nEval))
-        weights_shap_ci = np.zeros(nEval)
-        for ll in range(nEval):
-            trt_tbl_aux = trt_tbl + 0.0
-            trt_tbl_aux[:, np.where(X[ll, 0:-1] == 1)] = trt_tbl[i, np.where(X[ll, 0:-1] == 1)]
-            rate_aux = get_rate_BDNN(1, trt_tbl_aux, cov_par, hidden_act_f, out_act_f)
-            exp_payoffs_ci[ll] = np.mean(rate_aux)
-            weights_shap_ci[ll] = shapley_kernel(nAttr, np.sum(X[ll, 0:-1]))
-        exp_payoffs_shap = exp_payoffs_ci
-        exp_payoffs_ci = exp_payoffs_ci - exp_payoffs_ci[0]
-        # For weighted random samples
-        explain_matrix = np.linalg.inv(opt_data.T @ weights @ opt_data) @ opt_data.T @ weights
-        inter_val = explain_matrix @ exp_payoffs_ci
-        shapley_ci = inter_val[1:]
-        shapley_val_ci_shap = np.linalg.inv(X.T @ np.diag(weights_shap) @ X) @ X.T @ np.diag(weights_shap) @ exp_payoffs_shap
-        shap_main[i, :] = shapley_val_ci_shap#[0:-1]
-        # Interaction indices
-        count = 0
-        indices = np.zeros((nAttr, nAttr))
-        for ii in range(nAttr - 1):
-            for jj in range(ii + 1, nAttr):
-                indices[ii, jj] = shapley_ci[nAttr + count]
-                count += 1
-        indices = indices + indices.T
+        shapley_val_ci_shap, indices = get_shap_species_i(i, nEval, trt_tbl, X, cov_par, hidden_act_f, out_act_f,
+                                                          nAttr, opt_data, weights, weights_shap)
+        shap_main[i, :] = shapley_val_ci_shap
         shap_inter[i, :, :] = indices
     return shap_main, shap_inter
 
@@ -2749,9 +2791,9 @@ def BBconsensus(rr, cij):
         addpenalty[k] = penaltyBB2(cij, r, ord[b])
         candidate = np.zeros(r.shape)
         pb = np.zeros(1)
-    if pc == 0:
-        #po = np.zeros(1)
-        addpenalty = np.zeros(1)
+#    if pc == 0:
+#        #po = np.zeros(1)
+#        addpenalty = np.zeros(1)
     # else:
     #     poo = np.sum(addpenalty) # ??? poo not used
     # SIJ = scorematrix(cr)
@@ -2843,13 +2885,15 @@ def rank_features(pv_reord, sh_reord, fp_reord):
 #    ranked_feat_import_main = stats.rankdata(feat_importance_main, axis = 1, method = 'min', nan_policy = 'omit')
 #    ranked_feat_import_inter = stats.rankdata(feat_importance_inter, axis = 1, method = 'min', nan_policy = 'omit')
     nan_idx_main = np.isnan(feat_importance_main)
-    nan_idx_inter = np.isnan(feat_importance_inter)
     feat_importance_main[nan_idx_main] = np.nanmax(feat_importance_main) + 1
-    feat_importance_inter[nan_idx_inter] = np.nanmax(feat_importance_inter) + 1
     ranked_feat_import_main = stats.rankdata(feat_importance_main, axis = 1, method = 'min').astype(float)
-    ranked_feat_import_inter = stats.rankdata(feat_importance_inter, axis = 1, method = 'min').astype(float)
     ranked_feat_import_main[nan_idx_main] = np.nan
-    ranked_feat_import_inter[nan_idx_inter] = np.nan
+    ranked_feat_import_inter = np.array([])
+    if feat_importance_inter.shape[0] > 1:
+        nan_idx_inter = np.isnan(feat_importance_inter)
+        feat_importance_inter[nan_idx_inter] = np.nanmax(feat_importance_inter) + 1
+        ranked_feat_import_inter = stats.rankdata(feat_importance_inter, axis = 1, method = 'min').astype(float)
+        ranked_feat_import_inter[nan_idx_inter] = np.nan
     return ranked_feat_import_main, ranked_feat_import_inter
 
 
@@ -2883,10 +2927,15 @@ def merge_results_feat_import(pv, sh, fp, rr):
 def get_consensus_ranking(pv, sh, fp):
     pv_reordered, sh_reordered, fp_reordered = get_same_order(pv, sh, fp)
     feat_main_ranked, feat_inter_ranked = rank_features(pv_reordered, sh_reordered, fp_reordered)
-    main_consranks = quickcons(feat_main_ranked)
-    main_consrank = np.mean(main_consranks[0], axis = 0).flatten()
-    inter_consranks = quickcons(feat_inter_ranked)
-    inter_consrank = np.mean(inter_consranks[0], axis = 0).flatten()
+    main_consrank = np.zeros(1)
+    if feat_main_ranked.shape[1] > 1:
+        main_consranks = quickcons(feat_main_ranked)
+        main_consrank = np.mean(main_consranks[0], axis = 0).flatten()
+    if feat_inter_ranked.shape[0] > 0:
+        inter_consrank = np.zeros(1)
+        if feat_inter_ranked.shape[1] > 1:
+            inter_consranks = quickcons(feat_inter_ranked)
+            inter_consrank = np.mean(inter_consranks[0], axis = 0).flatten()
     rank_df = pd.DataFrame(np.concatenate((main_consrank, inter_consrank)) + 1.0, columns = ['rank'])
     r = pd.concat([pv_reordered[['feature1', 'feature2']], rank_df], axis = 1)
     feat_merged = merge_results_feat_import(pv, sh, fp, r)
@@ -2942,9 +2991,9 @@ def plot_species_shap(pkl_file, output_wd, name_file, sp_taxa_shap, ex_taxa_shap
     r_script += "\n  col_neg = col_neg[1:steps_neg]"
     r_script += "\n  shap_col = shap"
     r_script += "\n  shap_col[shap == 0] = '#F5F5F5'"
-    r_script += "\n  col_idx = findInterval(shap_sqrt[shap_pos], seq(sqrt(offset_sqrt), max_pos, length.out = steps_pos))"
+    r_script += "\n  col_idx = findInterval(shap_sqrt[shap_pos], seq(sqrt(offset_sqrt), max_pos, length.out = steps_pos), all.inside = TRUE)"
     r_script += "\n  shap_col[shap_pos] = col_pos[col_idx]"
-    r_script += "\n  col_idx = findInterval(shap_sqrt[shap_neg], seq(sqrt(offset_sqrt), max_neg, length.out = steps_neg))"
+    r_script += "\n  col_idx = findInterval(shap_sqrt[shap_neg], seq(sqrt(offset_sqrt), max_neg, length.out = steps_neg), all.inside = TRUE)"
     r_script += "\n  shap_col[shap_neg] = col_neg[col_idx]"
     r_script += "\n  species_names = gsub('_', ' ', species_names)"
     r_script += "\n  # Plot"
@@ -3264,9 +3313,9 @@ def dotplot_species_shap(mcmc_file, pkl_file, burnin, thin, output_wd, name_file
     r_script += "\n  col_neg = col_neg[1:steps_neg]"
     r_script += "\n  shap_col = shap"
     r_script += "\n  shap_col[shap == 0] = '#F5F5F5'"
-    r_script += "\n  col_idx = findInterval(shap_sqrt[shap_pos], seq(sqrt(offset_sqrt), max_pos, length.out = steps_pos))"
+    r_script += "\n  col_idx = findInterval(shap_sqrt[shap_pos], seq(sqrt(offset_sqrt), max_pos, length.out = steps_pos), all.inside = TRUE)"
     r_script += "\n  shap_col[shap_pos] = col_pos[col_idx]"
-    r_script += "\n  col_idx = findInterval(shap_sqrt[shap_neg], seq(sqrt(offset_sqrt), max_neg, length.out = steps_neg))"
+    r_script += "\n  col_idx = findInterval(shap_sqrt[shap_neg], seq(sqrt(offset_sqrt), max_neg, length.out = steps_neg), all.inside = TRUE)"
     r_script += "\n  shap_col[shap_neg] = col_neg[col_idx]"
     r_script += "\n  species_names = gsub('_', ' ', species_names)"
     r_script += "\n  # Plot"
@@ -3339,7 +3388,7 @@ def dotplot_species_shap(mcmc_file, pkl_file, burnin, thin, output_wd, name_file
     r_script += "\n       xaxs = 'i', axes = FALSE, xlab = '', ylab = '')"
     r_script += "\n  text(x = species_x, y = 3, labels = species_names,"
     r_script += "\n       xpd = NA, srt = 35, adj = 0.965,"
-    r_script += "\n       cex = 2 / sqrt(length(species_names)), font = 3)"
+    r_script += "\n       cex = 4 / sqrt(length(species_names)), font = 3)"
     r_script += "\n  # Empty plot"
     r_script += "\n  plot(0, 0, type = 'n', axes = FALSE, xlab = '', ylab = '')"
     r_script += "\n  # Legend"
