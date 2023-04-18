@@ -1224,6 +1224,7 @@ def plot_effects(f,
 
 
 # Coefficient of rate variation
+###############################
 def get_cv(x):
     cv_it = np.std(x, axis = 1) / np.mean(x, axis = 1)
     cv = np.zeros(3)
@@ -1258,6 +1259,8 @@ def get_coefficient_rate_variation(path_dir_log_files, burn, thin):
     cv_rates.to_csv(cv_rates_file, na_rep = 'NA', index = False)
 
 
+# Credible differences
+######################
 def get_prob_1_bin_trait(cond_rates_eff):
     d1 = cond_rates_eff[0, :]
     d2 = cond_rates_eff[1, :]
@@ -2097,7 +2100,7 @@ def kernel_explainer(trt_tbl, cov_par, hidden_act_f, out_act_f, idx_comb_feat):
 
 
 def kernel_shap_i(arg):
-    [bdnn_obj, post_ts_i, post_te_i, post_w_sp_i, post_w_ex_i, hidden_act_f, out_act_f, trt_tbls, bdnn_dd, idx_comb_feat_sp, idx_comb_feat_ex, binary_feature_sp, binary_feature_ex] = arg
+    [bdnn_obj, post_ts_i, post_te_i, post_w_sp_i, post_w_ex_i, hidden_act_f, out_act_f, trt_tbls, bdnn_dd, div_idx_trt_tbl, idx_comb_feat_sp, idx_comb_feat_ex, binary_feature_sp, binary_feature_ex] = arg
     bdnn_time = get_bdnn_time(bdnn_obj, post_ts_i)
     if bdnn_dd:
         n_taxa = trt_tbls[0].shape[1]
@@ -2131,6 +2134,9 @@ def kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, combine_di
     names_features_sp = get_names_features(bdnn_obj)
     names_features_ex = copy_lib.deepcopy(names_features_sp)
     bdnn_dd = 'diversity' in names_features_sp
+    div_idx_trt_tbl = -1
+    if is_time_trait(bdnn_obj) and bdnn_dd:
+            div_idx_trt_tbl = -2
     hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
     out_act_f = bdnn_obj.bdnn_settings['out_act_f']
     idx_comb_feat_sp = get_idx_comb_feat(names_features_sp, combine_discr_features)
@@ -2142,7 +2148,7 @@ def kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, combine_di
     args = []
     for i in range(mcmc_samples):
         a = [bdnn_obj, post_ts[i, :], post_te[i, :], post_w_sp[i], post_w_ex[i], hidden_act_f, out_act_f,
-             trt_tbls, bdnn_dd, idx_comb_feat_sp, idx_comb_feat_ex, binary_feature_sp, binary_feature_ex]
+             trt_tbls, bdnn_dd, div_idx_trt_tbl, idx_comb_feat_sp, idx_comb_feat_ex, binary_feature_sp, binary_feature_ex]
         args.append(a)
     unixos = is_unix()
     if unixos and num_processes > 1:
@@ -2479,7 +2485,7 @@ def combine_shap_featuregroup(shap_main_instances, shap_interaction_instances, i
 
 
 def k_add_kernel_shap_i(arg):
-    [bdnn_obj, post_ts_i, post_te_i, post_w_sp_i, post_w_ex_i, hidden_act_f, out_act_f, trt_tbls, bdnn_dd, idx_comb_feat_sp, idx_comb_feat_ex] = arg
+    [bdnn_obj, post_ts_i, post_te_i, post_w_sp_i, post_w_ex_i, hidden_act_f, out_act_f, trt_tbls, bdnn_dd, div_idx_trt_tbl, idx_comb_feat_sp, idx_comb_feat_ex] = arg
     bdnn_time = get_bdnn_time(bdnn_obj, post_ts_i)
     if bdnn_dd:
         n_taxa = trt_tbls[0].shape[1]
@@ -2536,14 +2542,41 @@ def merge_taxa_shap_and_species_rates(taxa_shap, taxa_names_shap, rates_from_sha
     return out_df
 
 
-def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, combine_discr_features = "", show_progressbar = False):
+def make_shap_result_for_single_feature(names_features_sp, names_features_ex, combine_discr_features):
+    one_feature_name_sp = names_features_sp[0]
+    one_feature_name_ex = names_features_ex[0]
+    if len(combine_discr_features) > 0:
+        first_feature_group = list(combine_discr_features.keys())[0]
+        one_feature_name_sp = first_feature_group
+        one_feature_name_ex = first_feature_group
+    shap_lam = pd.DataFrame({'feature1': one_feature_name_sp, 'feature2': 'none',
+                             'shap': np.nan, 'lwr_shap': np.nan, 'upr_shap': np.nan},
+                             index = [0])
+    shap_ex = pd.DataFrame({'feature1': one_feature_name_ex, 'feature2': 'none',
+                             'shap': np.nan, 'lwr_shap': np.nan, 'upr_shap': np.nan},
+                             index = [0])
+    taxa_shap_sp = pd.DataFrame(columns = ['shap', 'lwr_shap', 'upr_shap', 'rate', 'rate_lwr', 'rate_upr'])
+    taxa_shap_ex = pd.DataFrame(columns = ['shap', 'lwr_shap', 'upr_shap', 'rate', 'rate_lwr', 'rate_upr'])
+    return shap_lam, shap_ex, taxa_shap_sp, taxa_shap_ex
+
+
+def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, combine_discr_features = {}, show_progressbar = False):
     bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
     mcmc_samples = post_ts.shape[0]
     trt_tbls = bdnn_obj.trait_tbls
     n_species = trt_tbls[0].shape[-2]
+    n_features = trt_tbls[0].shape[-1]
     names_features_sp = get_names_features(bdnn_obj)
     names_features_ex = copy_lib.deepcopy(names_features_sp)
+    n_states = 1
+    if len(combine_discr_features) > 0:
+        n_states = len(combine_discr_features[list(combine_discr_features.keys())[0]])
+    if n_features == 1 or (n_states == n_features):
+        return make_shap_result_for_single_feature(names_features_sp, names_features_ex, combine_discr_features)
     bdnn_dd = 'diversity' in names_features_sp
+    div_idx_trt_tbl = -1
+    if is_time_trait(bdnn_obj) and bdnn_dd:
+            div_idx_trt_tbl = -2
     hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
     out_act_f = bdnn_obj.bdnn_settings['out_act_f']
     idx_comb_feat_sp = get_idx_comb_feat(names_features_sp, combine_discr_features)
@@ -2557,7 +2590,7 @@ def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, comb
     args = []
     for i in range(mcmc_samples):
         a = [bdnn_obj, post_ts[i, :], post_te[i, :], post_w_sp[i], post_w_ex[i],
-             hidden_act_f, out_act_f, trt_tbls, bdnn_dd, idx_comb_feat_sp, idx_comb_feat_ex]
+             hidden_act_f, out_act_f, trt_tbls, bdnn_dd, div_idx_trt_tbl, idx_comb_feat_sp, idx_comb_feat_ex]
         args.append(a)
     unixos = is_unix()
     if unixos and num_processes > 1:
@@ -2575,6 +2608,9 @@ def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, comb
     mean_shap_ex = shap_summary[n_effects_sp:(n_effects_sp + shap_names_ex.shape[0]), :]
     taxa_shap_sp = shap_summary[shap_names_sp.shape[0]:n_effects_sp, :] # First row is baseline
     taxa_shap_ex = shap_summary[(n_effects_sp + shap_names_ex.shape[0]):, :]
+    if bdnn_dd:
+        trt_tbls[0][0, :, div_idx_trt_tbl] = 1.0
+        trt_tbls[1][0, :, div_idx_trt_tbl] = 1.0
     feature_without_variance_sp = get_idx_feature_without_variance(trt_tbls[0])
     feature_without_variance_ex = get_idx_feature_without_variance(trt_tbls[1])
     remove_sp = []
@@ -2888,8 +2924,11 @@ def rank_features(pv_reord, sh_reord, fp_reord):
     feat_importance_main[nan_idx_main] = np.nanmax(feat_importance_main) + 1
     ranked_feat_import_main = stats.rankdata(feat_importance_main, axis = 1, method = 'min').astype(float)
     ranked_feat_import_main[nan_idx_main] = np.nan
+    n_inter = np.sum(idx_main == False)
     ranked_feat_import_inter = np.array([])
-    if feat_importance_inter.shape[0] > 1:
+    if n_inter == 1:
+        ranked_feat_import_inter = np.zeros((1, 3))
+    elif n_inter > 1:
         nan_idx_inter = np.isnan(feat_importance_inter)
         feat_importance_inter[nan_idx_inter] = np.nanmax(feat_importance_inter) + 1
         ranked_feat_import_inter = stats.rankdata(feat_importance_inter, axis = 1, method = 'min').astype(float)
@@ -2931,6 +2970,7 @@ def get_consensus_ranking(pv, sh, fp):
     if feat_main_ranked.shape[1] > 1:
         main_consranks = quickcons(feat_main_ranked)
         main_consrank = np.mean(main_consranks[0], axis = 0).flatten()
+    inter_consrank = np.array([])
     if feat_inter_ranked.shape[0] > 0:
         inter_consrank = np.zeros(1)
         if feat_inter_ranked.shape[1] > 1:
@@ -3424,18 +3464,24 @@ def dotplot_species_shap(mcmc_file, pkl_file, burnin, thin, output_wd, name_file
     r_script += "\n  }"
     r_script += "\n}"
     r_script += "\n"
-    sp_shap_trt_tbl, sp_names_features, sp_names_features_orig = get_features_for_shap_plot(mcmc_file, pkl_file,
-                                                                                            burnin, thin, 'speciation',
-                                                                                            combine_discr_features,
-                                                                                            file_transf_features)
-    ex_shap_trt_tbl, ex_names_features, ex_names_features_orig = get_features_for_shap_plot(mcmc_file, pkl_file,
-                                                                                            burnin, thin, 'extinction',
-                                                                                            combine_discr_features,
-                                                                                            file_transf_features)
-    r_script = get_dotplot_rscript_species_shap(r_script, species_names, sp_taxa_shap, sp_consrank, sp_shap_trt_tbl,
-                                                sp_names_features, sp_names_features_orig, rate_type = 'speciation')
-    r_script = get_dotplot_rscript_species_shap(r_script, species_names, ex_taxa_shap, ex_consrank, ex_shap_trt_tbl,
-                                                ex_names_features, ex_names_features_orig, rate_type = 'extinction')
+    if len(sp_taxa_shap) > 1:
+        sp_shap_trt_tbl, sp_names_features, sp_names_features_orig = get_features_for_shap_plot(mcmc_file, pkl_file,
+                                                                                                burnin, thin, 'speciation',
+                                                                                                combine_discr_features,
+                                                                                                file_transf_features)
+        r_script = get_dotplot_rscript_species_shap(r_script, species_names, sp_taxa_shap, sp_consrank, sp_shap_trt_tbl,
+                                                    sp_names_features, sp_names_features_orig, rate_type = 'speciation')
+    else:
+        r_script += "\nplot(1:5, 1:5, type = 'n', main = 'No shap values available when there is only one predictor')"
+    if len(ex_taxa_shap) > 1:
+        ex_shap_trt_tbl, ex_names_features, ex_names_features_orig = get_features_for_shap_plot(mcmc_file, pkl_file,
+                                                                                                burnin, thin, 'extinction',
+                                                                                                combine_discr_features,
+                                                                                                file_transf_features)
+        r_script = get_dotplot_rscript_species_shap(r_script, species_names, ex_taxa_shap, ex_consrank, ex_shap_trt_tbl,
+                                                    ex_names_features, ex_names_features_orig, rate_type = 'extinction')
+    else:
+        r_script += "\nplot(1:5, 1:5, type = 'n', main = 'No shap values available when there is only one predictor')"
     r_script += "\ndev.off()"
     newfile.writelines(r_script)
     newfile.close()
