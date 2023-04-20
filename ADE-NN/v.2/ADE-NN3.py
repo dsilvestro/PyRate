@@ -290,6 +290,23 @@ def data_simulator_mixture(q=None, # if None: rnd drawn
     return features, labels
 
 
+def calcHPD(data, level):
+    assert (0 < level < 1)
+    d = list(data)
+    d.sort()
+    nData = len(data)
+    nIn = int(round(level * nData))
+    if nIn < 2 :
+        sys.exit('\n\nToo little data to calculate marginal parameters.')
+    i = 0
+    r = d[i+nIn-1] - d[i]
+    for k in range(len(d) - (nIn - 1)):
+            rk = d[k+nIn-1] - d[k]
+            if rk < r :
+                r = rk
+                i = k
+    assert 0 <= i <= i+nIn-1 < len(d)
+    return (d[i], d[i+nIn-1])
 
 
 def estimate_q_from_range_data(tbl):
@@ -498,7 +515,7 @@ if __name__ == '__main__':
     labels[:,2:] = labels[:,2:] / longevity_rescaler
 
     # build NN model   
-    model = build_nn(dense_nodes=[64,8], output_nodes=labels.shape[1])
+    model = build_nn(dense_nodes=[64,8], output_nodes=labels.shape[1], dropout_rate=0.05)
     # train NN
     history = fit_rnn(features, labels, model, batch_size=labels.shape[0], max_epochs=1000)
     
@@ -509,10 +526,17 @@ if __name__ == '__main__':
     features_test, labels_test = data_simulator_mixture(N=1000, gamma_model=False, min_n_taxa = 100,
                                               magnitude=4)
 
-    n_predictions = 1 # this might help making the shape parameter estimation more accurate
+    n_predictions = 10 #
     y = np.array([model(features_test, training=True) for _ in range(n_predictions)])
     # y.shape = (n_predictions, n_instances, 2)
     mean_y = np.mean(y, axis=0) # average over dropout replicates
+    
+    confidence_intervals = {
+        'shape.1': [calcHPD(y[i,0]) for i in range(y.shape[0])]
+        'shape.2': [calcHPD(y[i,1]) for i in range(y.shape[0])]
+        'scale.1': [calcHPD(y[i,2]) for i in range(y.shape[0])]
+        'scale.2': [calcHPD(y[i,3]) for i in range(y.shape[0])]
+    }
 
     # plot shapes
     fig = plt.figure(figsize = (14,7))
