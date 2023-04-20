@@ -4070,6 +4070,13 @@ def MCMC(all_arg):
                 rj_ind_mu = 0
                 sp_lam = np.zeros(len(timesLA) - 1)
                 sp_mu = np.zeros(len(timesLA) - 1)
+                if bdnn_dd:
+                    bdnn_time_div = np.arange(timesLA[0], 0.0, -0.001)
+                    bdnn_div = get_DT(bdnn_time_div, tsA, teA)
+                    bdnn_binned_div = get_binned_div_traj(time_vec, bdnn_time_div, bdnn_div).flatten()[:-1] / bdnn_rescale_div
+                    bdnn_binned_div = np.repeat(bdnn_binned_div, n_taxa).reshape((len(bdnn_binned_div), n_taxa))
+                    trait_tbl_NN[0][ :, :, div_idx_trt_tbl] = bdnn_binned_div
+                    trait_tbl_NN[1][ :, :, div_idx_trt_tbl] = bdnn_binned_div
                 for temp_l in range(len(timesLA)-1):
                     sp_lam_tmp = get_rate_BDNN(LA[temp_l], trait_tbl_NN[0][temp_l], cov_parA[0], hidden_act_f, out_act_f)
                     sp_mu_tmp = get_rate_BDNN(MA[temp_l], trait_tbl_NN[1][temp_l], cov_parA[1], hidden_act_f, out_act_f)
@@ -4104,25 +4111,20 @@ def MCMC(all_arg):
                 digitized_ts = np.digitize(tsA, timesLA) - 1
                 digitized_te = np.digitize(teA, timesMA) - 1
                 digitized_ts[digitized_ts < 0] = 0 # fixed index of oldest ts in the dataset
-                
                 sp_lam_vec = np.zeros(len(tsA))
-                sp_mu_vec = np.zeros(len(tsA)) 
+                sp_mu_vec = np.zeros(len(tsA))
                 for i in range(len(tsA)):
                     if use_time_as_trait or time_var is not None or bdnn_dd:
                         trait_tbl_sp_i_lam = trait_tbl_NN[0][digitized_ts[i],i,:] + 0
-                        # print(trait_tbl_sp_i)
-                        # print(BDNNtimetrait_rescaler)
-                        trait_tbl_sp_i_lam[-1] = rescaled_ts[i]
-                        # print(trait_tbl_sp_i_lam, tsA[i])
                         trait_tbl_sp_i_mu = trait_tbl_NN[1][digitized_te[i],i,:] + 0
-                        trait_tbl_sp_i_mu[-1] = rescaled_te[i]
-                        # print(trait_tbl_sp_i_mu, teA[i])
+                        if use_time_as_trait:
+                            trait_tbl_sp_i_lam[-1] = rescaled_ts[i]
+                            trait_tbl_sp_i_mu[-1] = rescaled_te[i]
                         # get sp-specific rates: using '1' as baseline rate (only works with bdnn_const_baseline)
                     else:
                         trait_tbl_sp_i_lam = trait_tbl_NN[0][i,:] + 0
                         trait_tbl_sp_i_mu = trait_tbl_NN[1][i,:] + 0
                     if bdnn_const_baseline:
-                        # print("bdnn_const_baseline", np.array([trait_tbl_sp_i_lam]).shape, [cov_parA[0][i].shape for i in range(3)])
                         sp_lam_vec[i] = get_rate_BDNN(1, np.array([trait_tbl_sp_i_lam]), cov_parA[0], hidden_act_f, out_act_f)
                         sp_mu_vec[i] =  get_rate_BDNN(1, np.array([trait_tbl_sp_i_mu]), cov_parA[1], hidden_act_f, out_act_f)
                     else:

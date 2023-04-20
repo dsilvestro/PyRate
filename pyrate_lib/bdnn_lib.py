@@ -202,6 +202,13 @@ def is_time_trait(bdnn_obj):
     return bdnn_obj.bdnn_settings['use_time_as_trait'] != 0.0
 
 
+def backscale_bdnn_diversity(tbl, bdnn_obj, names_feat):
+    if 'diversity' in names_feat:
+        div_idx = np.where(np.array(["diversity"]) == names_feat)[0]
+        tbl[:, div_idx] = tbl[:, div_idx] * bdnn_obj.bdnn_settings['div_rescaler']
+    return tbl
+
+
 def backscale_bdnn_time(x, bdnn_obj):
     denom = 1
     if is_time_trait(bdnn_obj):
@@ -215,12 +222,38 @@ def backscale_time_cond_trait_tbl(cond_trait_tbl, bdnn_obj):
     return cond_trait_tbl
 
 
+def backscale_bdnn_cont(x, mean_x, sd_x):
+    x_back = (x * sd_x) + mean_x
+    return x_back
+
+
+def read_backscale_file(backscale_file):
+    backscale_par = []
+    if backscale_file:
+        backscale_par = pd.read_csv(backscale_file, delimiter = '\t')
+    return backscale_par
+
+
+def backscale_tbl(bdnn_obj, backscale_par, names_feat, tbl):
+    if isinstance(backscale_par, pd.DataFrame):
+        backscale_names = list(backscale_par.columns)
+        for i in range(len(names_feat)):
+            na = names_feat[i]
+            if na in backscale_names:
+                mean_feat = backscale_par[na][0]
+                sd_feat = backscale_par[na][1]
+                tbl[:, i] = backscale_bdnn_cont(tbl[:, i], mean_feat, sd_feat)
+    return tbl
+
+
 def backscale_bdnn_features(file_transf_features, bdnn_obj, cond_trait_tbl_sp, cond_trait_tbl_ex):
     cond_trait_tbl_sp = backscale_time_cond_trait_tbl(cond_trait_tbl_sp, bdnn_obj)
     cond_trait_tbl_ex = backscale_time_cond_trait_tbl(cond_trait_tbl_ex, bdnn_obj)
+    names_feat = get_names_features(bdnn_obj)
+    cond_trait_tbl_sp = backscale_bdnn_diversity(cond_trait_tbl_sp, bdnn_obj, names_feat)
+    cond_trait_tbl_ex = backscale_bdnn_diversity(cond_trait_tbl_ex, bdnn_obj, names_feat)
     backscale_par = None
     if file_transf_features != "":
-        names_feat = get_names_features(bdnn_obj)
         backscale_par = read_backscale_file(file_transf_features)
         cond_trait_tbl_sp = backscale_tbl(bdnn_obj, backscale_par, names_feat, cond_trait_tbl_sp)
         cond_trait_tbl_ex = backscale_tbl(bdnn_obj, backscale_par, names_feat, cond_trait_tbl_ex)
@@ -722,33 +755,6 @@ def build_conditional_trait_tbl(bdnn_obj,
     return cond_trait_tbl, names_features
 
 
-def backscale_bdnn_cont(x, mean_x, sd_x):
-    x_back = (x * sd_x) + mean_x
-    return x_back
-
-
-def read_backscale_file(backscale_file):
-    backscale_par = []
-    if backscale_file:
-        backscale_par = pd.read_csv(backscale_file, delimiter = '\t')
-    return backscale_par
-
-
-def backscale_tbl(bdnn_obj, backscale_par, names_feat, tbl):
-    if isinstance(backscale_par, pd.DataFrame):
-        backscale_names = list(backscale_par.columns)
-        for i in range(len(names_feat)):
-            na = names_feat[i]
-            if na in backscale_names:
-                mean_feat = backscale_par[na][0]
-                sd_feat = backscale_par[na][1]
-                tbl[:, i] = backscale_bdnn_cont(tbl[:, i], mean_feat, sd_feat)
-    if 'diversity' in names_feat:
-        div_idx = np.where(np.array(["diversity"]) == names_feat)[0]
-        tbl[:, div_idx] = tbl[:, div_idx] * bdnn_obj.bdnn_settings['div_rescaler']
-    return tbl
-
-
 def get_conditional_rates(bdnn_obj, cond_trait_tbl, post_w):
     num_it = len(post_w)
     obs = cond_trait_tbl[:, -1] == 1
@@ -1076,6 +1082,7 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, sp_fad_lad, r_s
         elif pt == 4.0:
             names = names_features[incl_features[0]]
             obs = backscale_tbl(bdnn_obj, backscale_par, [names], obs)
+            obs = backscale_bdnn_diversity(obs, bdnn_obj, [names])
             r_script = plot_bdnn_cont(rates_sum_plt, trait_tbl_plt, r_script, names, plot_time, obs, rate_type)
         elif np.isin(pt, np.array([6.0, 13.0, 14.0])):
             b = binary_feature[incl_features]
@@ -1086,9 +1093,11 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, sp_fad_lad, r_s
             trait_tbl_plt = trait_tbl_plt[:, np.argsort(b)] # Continuous feature always in column 0
             obs = obs[:, np.argsort(b)]
             obs[:,0] = backscale_tbl(bdnn_obj, backscale_par, [names[0]], obs[:,0].reshape((obs.shape[0],1))).flatten()
+            obs = backscale_bdnn_diversity(obs, bdnn_obj, names)
             r_script = plot_bdnn_inter_discr_cont(rates_sum_plt, trait_tbl_plt, r_script, names, names_states, plot_time, obs, rate_type)
         elif pt == 7.0:
             obs = backscale_tbl(bdnn_obj, backscale_par, names.tolist(), obs)
+            obs = backscale_bdnn_diversity(obs, bdnn_obj, names)
             r_script = plot_bdnn_inter_cont_cont(rates_sum_plt, trait_tbl_plt, r_script, names, plot_time, obs, rate_type)
         elif np.isin(pt, np.array([5.0, 8.0, 9.0, 10.0, 11.00, 12.0])):
             if np.isin(pt, np.array([5.0, 9.0, 12.0])):
@@ -1908,8 +1917,17 @@ def permute_trt_tbl(trt_tbl, feat_idx, feature_is_time_variable, bdnn_obj, post_
 
 
 def perm_mcmc_sample_i(arg):
-    [bdnn_obj, post_ts_i, post_te_i, post_w_sp_i, post_w_ex_i, trt_tbls, n_perm, n_perm_traits, n_features, feature_is_time_variable, perm_feature_idx] = arg
+    [bdnn_obj, post_ts_i, post_te_i, post_w_sp_i, post_w_ex_i, trt_tbls, n_perm, n_perm_traits, n_features, feature_is_time_variable, bdnn_dd, div_idx_trt_tbl, perm_feature_idx] = arg
     bdnn_time = get_bdnn_time(bdnn_obj, post_ts_i)
+    if bdnn_dd:
+        n_taxa = trt_tbls[0].shape[1]
+        bdnn_rescale_div = bdnn_obj.bdnn_settings['div_rescaler']
+        bdnn_time_div = np.arange(np.max(post_ts_i), 0.0, -0.001)
+        bdnn_div = get_DT(bdnn_time_div, post_ts_i, post_te_i)
+        bdnn_binned_div = get_binned_div_traj(bdnn_time, bdnn_time_div, bdnn_div)[:-1] / bdnn_rescale_div
+        bdnn_binned_div = np.repeat(bdnn_binned_div, n_taxa).reshape((len(bdnn_binned_div), n_taxa))
+        trt_tbls[0][:, :, div_idx_trt_tbl] = bdnn_binned_div
+        trt_tbls[1][:, :, div_idx_trt_tbl] = bdnn_binned_div
     # Original bd liks
     orig_birth_lik = get_bdnn_lik(bdnn_obj, bdnn_time, post_ts_i, post_te_i, post_w_sp_i,
                                   trt_tbls, rate_type='l')
@@ -1934,8 +1952,8 @@ def perm_mcmc_sample_i(arg):
                                           trt_tbls_perm, rate_type='l')
             ex_lik_j[k, j] = get_bdnn_lik(bdnn_obj, bdnn_time, post_ts_i, post_te_i, post_w_ex_i,
                                           trt_tbls_perm, rate_type='m')
-        species_sp_delta_lik = sp_lik_j - orig_birth_lik
-        species_ex_delta_lik = ex_lik_j - orig_death_lik
+    species_sp_delta_lik = sp_lik_j - orig_birth_lik
+    species_ex_delta_lik = ex_lik_j - orig_death_lik
     return np.hstack((species_sp_delta_lik, species_ex_delta_lik))
 
 
@@ -1971,6 +1989,15 @@ def feature_permutation(mcmc_file, pkl_file, burnin, thin, n_perm = 10, num_proc
     n_mcmc = post_ts.shape[0]
     trt_tbls = bdnn_obj.trait_tbls
     n_features = trt_tbls[0].shape[-1]
+    names_features_sp = get_names_features(bdnn_obj)
+    names_features_ex = copy_lib.deepcopy(names_features_sp)
+    bdnn_dd = 'diversity' in names_features_sp
+    div_idx_trt_tbl = -1
+    if is_time_trait(bdnn_obj) and bdnn_dd:
+            div_idx_trt_tbl = -2
+    if bdnn_dd:
+        trt_tbls[0][0, :, div_idx_trt_tbl] = 1.0
+        trt_tbls[1][0, :, div_idx_trt_tbl] = 1.0
     sp_feature_is_time_variable = is_time_variable_feature(trt_tbls[0])
     ex_feature_is_time_variable = is_time_variable_feature(trt_tbls[1])
     feature_is_time_variable = sp_feature_is_time_variable + ex_feature_is_time_variable
@@ -1979,7 +2006,7 @@ def feature_permutation(mcmc_file, pkl_file, burnin, thin, n_perm = 10, num_proc
     args = []
     for i in range(n_mcmc):
         a = [bdnn_obj, post_ts[i, :], post_te[i, :], post_w_sp[i], post_w_ex[i], trt_tbls,
-             n_perm, n_perm_traits, n_features, feature_is_time_variable, perm_feature_idx]
+             n_perm, n_perm_traits, n_features, feature_is_time_variable, bdnn_dd, div_idx_trt_tbl, perm_feature_idx]
         args.append(a)
     unixos = is_unix()
     if unixos and num_processes > 1:
@@ -2164,6 +2191,9 @@ def kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, combine_di
     mean_shap = np.mean(shap_values, axis = 0)
     mean_shap_sp = mean_shap[:n_effects_sp]
     mean_shap_ex = mean_shap[n_effects_sp:(n_effects_sp + n_effects_ex)]
+    if bdnn_dd:
+        trt_tbls[0][0, :, div_idx_trt_tbl] = 1.0
+        trt_tbls[1][0, :, div_idx_trt_tbl] = 1.0
     feature_without_variance_sp = get_idx_feature_without_variance(trt_tbls[0])
     feature_without_variance_ex = get_idx_feature_without_variance(trt_tbls[1])
     remove_sp = []
@@ -3175,18 +3205,14 @@ def get_features_for_shap_plot(mcmc_file, pkl_file, burnin, thin, rate_type, com
         div_time, div_traj = get_mean_div_traj(ts_post, te_post)
         bdnn_time = get_bdnn_time(bdnn_obj, ts_post)
         div_traj_binned = get_binned_div_traj(bdnn_time, div_time, div_traj)[:-1]
-        div_traj_binned = div_traj_binned / bdnn_obj.bdnn_settings["div_rescaler"]
         div_traj_binned = np.repeat(div_traj_binned, trait_tbl.shape[1]).reshape((trait_tbl.shape[0], trait_tbl.shape[1]))
         div_idx_trt_tbl = -1
         if is_time_trait(bdnn_obj):
             div_idx_trt_tbl = -2
         trait_tbl[ :, :, div_idx_trt_tbl] = div_traj_binned
-    # n_features = trait_tbl.shape[-1]
     idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
-    # conc_comb_feat = np.array([])
     if idx_comb_feat:
         names_features = replace_names_by_feature_group(names_features, idx_comb_feat, combine_discr_features)
-        # conc_comb_feat = np.concatenate(idx_comb_feat)
     names_features = np.array(names_features)
     bdnn_time = get_bdnn_time(bdnn_obj, np.mean(ts_post, axis=0))
     if rate_type == 'speciation':
