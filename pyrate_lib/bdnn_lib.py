@@ -2376,22 +2376,20 @@ def shapley_kernel(M, s):
     return (M - 1) / (binom(M, s) * s * (M - s))
 
 
-def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, hidden_act_f, out_act_f, nAttr, opt_data, weights, weights_shap):
+def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, hidden_act_f, out_act_f, nAttr, explain_matrix, XX_w):
     exp_payoffs_ci = np.zeros((nEval))
-    weights_shap_ci = np.zeros(nEval)
     for ll in range(nEval):
         trt_tbl_aux = trt_tbl + 0.0
-        trt_tbl_aux[:, np.where(X[ll, 0:-1] == 1)] = trt_tbl[i, np.where(X[ll, 0:-1] == 1)]
+        idx = np.where(X[ll, 0:-1] == 1)
+        trt_tbl_aux[:, idx] = trt_tbl[i, idx]
         rate_aux = get_rate_BDNN(1, trt_tbl_aux, cov_par, hidden_act_f, out_act_f)
         exp_payoffs_ci[ll] = np.mean(rate_aux)
-        weights_shap_ci[ll] = shapley_kernel(nAttr, np.sum(X[ll, 0:-1]))
-    exp_payoffs_shap = exp_payoffs_ci
+    exp_payoffs_shap = exp_payoffs_ci + 0.0
     exp_payoffs_ci = exp_payoffs_ci - exp_payoffs_ci[0]
     # For weighted random samples
-    explain_matrix = np.linalg.inv(opt_data.T @ weights @ opt_data) @ opt_data.T @ weights
     inter_val = explain_matrix @ exp_payoffs_ci
     shapley_ci = inter_val[1:]
-    shapley_val_ci_shap = np.linalg.inv(X.T @ np.diag(weights_shap) @ X) @ X.T @ np.diag(weights_shap) @ exp_payoffs_shap
+    shapley_val_ci_shap = XX_w @ exp_payoffs_shap
     # Interaction indices
     count = 0
     indices = np.zeros((nAttr, nAttr))
@@ -2422,9 +2420,14 @@ def k_add_kernel_explainer(trt_tbl, cov_par, hidden_act_f, out_act_f):
                 nEval = nEval_old
         weights = np.eye(nEval)
         weights[0, 0], weights[-1, -1] = 10 ** 6, 10 ** 6
+        # Pre-computing
+        m = opt_data.T @ weights
+        explain_matrix = np.linalg.inv(m @ opt_data) @ m
+        X_w = X.T @ np.diag(weights_shap)  # This can be pre-computed once for all species
+        XX_w = np.linalg.inv(X_w @ X) @ X_w
         try:
             _, _ = get_shap_species_i(0, nEval, trt_tbl, X, cov_par, hidden_act_f, out_act_f,
-                                      nAttr, opt_data, weights, weights_shap)
+                                      nAttr, explain_matrix, XX_w)
             k_add_not_ok = False
         except:
             k_add_not_ok = True
@@ -2436,7 +2439,7 @@ def k_add_kernel_explainer(trt_tbl, cov_par, hidden_act_f, out_act_f):
     for i in range(n_species):
         # For all samples
         shapley_val_ci_shap, indices = get_shap_species_i(i, nEval, trt_tbl, X, cov_par, hidden_act_f, out_act_f,
-                                                          nAttr, opt_data, weights, weights_shap)
+                                                          nAttr, explain_matrix, XX_w)
         shap_main[i, :] = shapley_val_ci_shap
         shap_inter[i, :, :] = indices
     return shap_main, shap_inter
