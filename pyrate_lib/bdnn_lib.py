@@ -961,7 +961,10 @@ def plot_bdnn_inter_cont_cont(rs, tr, r_script, names, plot_time, obs, rate_type
     r_script += "\npady <- abs(diff(yaxis))[1]"
     r_script += "\nplot(mean(xaxis), mean(yaxis), type='n', xlim = c(min(xaxis) - padx, max(xaxis) + padx), ylim = c(min(yaxis) - pady, max(yaxis) + pady), xlab = '%s', ylab = '%s', xaxt = 'n', xaxs = 'i', yaxs = 'i')" % (names[0], names[1])
     r_script += "\nxtk <- pretty(xaxis, n = 10)"
-    r_script += "\naxis(side = 1, at = xtk, labels = xtk)"
+    r_script += "\nxtk_lbl <- xtk"
+    if plot_time:
+        r_script += "\nxtk_lbl <- abs(xtk_lbl)"
+    r_script += "\naxis(side = 1, at = xtk, labels = xtk_lbl)"
     r_script += "\nimage.plot(xaxis, yaxis, z[zreord, ], add = TRUE, col = col)"
     r_script += "\ncontour(xaxis, yaxis, z[zreord, ], col = 'grey50', add = TRUE)"
     r_script += util.print_R_vec("\nobs_x", obs[:, 0])
