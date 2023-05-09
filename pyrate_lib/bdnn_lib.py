@@ -30,7 +30,7 @@ from PyRate import get_sp_in_frame_br_length
 
 
 from scipy.special import bernoulli, binom
-from itertools import chain, combinations
+from itertools import chain, combinations, product
 import random
 
 
@@ -1645,6 +1645,137 @@ def get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl, post_w, po
             rate_pdp.append(get_pdp_rate_it_i(args[i]))
     rate_pdp = np.stack(rate_pdp, axis = 1)
     return rate_pdp
+
+
+def match_names_comb_with_features(names_comb, names_features):
+    keys_names_comb = get_names_feature_group(names_comb)
+    m = []
+    for i in range(len(names_comb)):
+        names_comb_i = names_comb[keys_names_comb[i]]
+        J = len(names_comb_i)
+        idx = np.zeros(J)
+        for j in range(J):
+            idx[j] = np.where(names_comb_i[j] == names_features)[0]
+        m.append(idx)
+    return m
+
+
+def get_all_combination(names_comb_idx, minmaxmean_features):
+    l = []
+    for i in range(len(names_comb_idx)):
+        idx_i = names_comb_idx[i]
+        for j in range(len(idx_i)):
+            jj = int(idx_i[j])
+            v1 = np.linspace(minmaxmean_features[0, jj], minmaxmean_features[1, jj], int(minmaxmean_features[3, jj]))
+            l.append(v1)
+    all_comb = build_all_combinations(l)
+    # Remove rows where we have more than one state of a one-hot encoded feature
+    names_comb_idx_conc = np.concatenate(names_comb_idx).astype(int)
+    for i in range(len(names_comb_idx)):
+        idx_i = names_comb_idx[i]
+        if len(idx_i) > 1:
+            col_idx = np.arange(len(names_comb_idx_conc))[np.isin(names_comb_idx_conc, idx_i)]
+            keep = np.sum(all_comb[:, col_idx], axis = 1) == 1
+            all_comb = all_comb[keep, :]
+    return all_comb
+
+
+def build_all_combinations(list):
+    all_comb = [p for p in product(*list)]
+    all_comb_np = np.array(all_comb)
+    return all_comb_np
+
+
+def get_pdp_rate_it_i_free_combination(arg):
+    [bdnn_obj, post_w_i, trait_tbl, all_comb_tbl, names_comb_idx_conc] = arg
+    nrows_all_comb_tbl = len(all_comb_tbl)
+    rate_it_i = np.zeros(nrows_all_comb_tbl)
+    rate_it_i[:] = np.nan
+    for j in range(nrows_all_comb_tbl):
+        trait_tbl_tmp = trait_tbl + 0.0
+        trait_tbl_tmp[:, names_comb_idx_conc] = all_comb_tbl[j, :]
+        rate_BDNN = get_rate_BDNN(1,  # constant baseline
+                                  trait_tbl_tmp,
+                                  post_w_i,  # list of arrays
+                                  bdnn_obj.bdnn_settings['hidden_act_f'],
+                                  bdnn_obj.bdnn_settings['out_act_f'])
+        rate_it_i[j] = np.mean(rate_BDNN)
+    return rate_it_i
+
+
+def get_pdp_rate_free_combination(bdnn_obj,
+                                  sp_fad_lad,
+                                  ts_post, te_post, w_post,
+                                  names_comb,
+                                  backscale_par,
+                                  len_cont = 100,
+                                  rate_type = "speciation",
+                                  num_processes = 1,
+                                  show_progressbar = False):
+    trait_tbl = get_trt_tbl(bdnn_obj, rate_type)
+    names_features = get_names_features(bdnn_obj)
+    # diversity-dependence
+    if "diversity" in names_features:
+        div_time, div_traj = get_mean_div_traj(ts_post, te_post)
+        bdnn_time = get_bdnn_time(bdnn_obj, ts_post)
+        div_traj_binned = get_binned_div_traj(bdnn_time, div_time, div_traj)[:-1]
+        div_traj_binned = div_traj_binned / bdnn_obj.bdnn_settings["div_rescaler"]
+        div_traj_binned = np.repeat(div_traj_binned, trait_tbl.shape[1]).reshape((trait_tbl.shape[0], trait_tbl.shape[1]))
+        div_idx_trt_tbl = -1
+        if is_time_trait(bdnn_obj):
+            div_idx_trt_tbl = -2
+        trait_tbl[ :, :, div_idx_trt_tbl] = div_traj_binned
+    conc_comb_feat = np.array([])
+    names_features = np.array(names_features)
+    names_comb_idx = match_names_comb_with_features(names_comb, names_features)
+    names_comb_idx_conc = np.concatenate(names_comb_idx).astype(int)
+    binary_feature, most_frequent_state = is_binary_feature(trait_tbl)
+    minmaxmean_features = get_minmaxmean_features(trait_tbl,
+                                                  most_frequent_state,
+                                                  binary_feature,
+                                                  conc_comb_feat,
+                                                  len_cont)
+    all_comb_tbl = get_all_combination(names_comb_idx, minmaxmean_features)
+    bdnn_time = get_bdnn_time(bdnn_obj, np.mean(ts_post, axis = 0))
+    num_it = len(w_post)
+    trait_tbl_for_mean = np.zeros((num_it, trait_tbl.shape[-2], len(names_comb_idx_conc)))
+    args = []
+    for i in range(num_it):
+        trait_tbl_a = trait_tbl + 0.0
+        if rate_type == "speciation":
+            trait_tbl_a = get_shap_trt_tbl(ts_post[i, :], bdnn_time, trait_tbl_a)
+        else:
+            trait_tbl_a = get_shap_trt_tbl(te_post[i, :], bdnn_time, trait_tbl_a)
+        trait_tbl_for_mean[i, :, :] = trait_tbl_a[:, names_comb_idx_conc]
+        a = [bdnn_obj, w_post[i], trait_tbl_a, all_comb_tbl, names_comb_idx_conc]
+        args.append(a)
+    trait_tbl_mean = np.mean(trait_tbl_for_mean, axis = 0)
+    unixos = is_unix()
+    if unixos and num_processes > 1:
+        pool_perm = multiprocessing.Pool(num_processes)
+        rate_pdp = list(tqdm(pool_perm.imap_unordered(get_pdp_rate_it_i_free_combination, args),
+                             total = num_it, disable = show_progressbar == False))
+        pool_perm.close()
+    else:
+        rate_pdp = []
+        for i in tqdm(range(num_it), disable = show_progressbar == False):
+            rate_pdp.append(get_pdp_rate_it_i_free_combination(args[i]))
+    rate_pdp = np.stack(rate_pdp, axis = 1)
+    rate_pdp_sum = get_rates_summary(rate_pdp)
+    rate_pdp_sum_df = pd.DataFrame(rate_pdp_sum, columns = ['mean', 'lwr', 'upr'])
+    names_features = names_features[names_comb_idx_conc]
+    if is_time_trait(bdnn_obj):
+        time_idx = np.where('time' == names_features)[0]
+        all_comb_tbl[:, time_idx] = backscale_bdnn_time(all_comb_tbl[:, time_idx], bdnn_obj)
+        trait_tbl_mean[:, time_idx] = backscale_bdnn_time(trait_tbl_mean[:, time_idx], bdnn_obj)
+    all_comb_tbl = backscale_bdnn_diversity(all_comb_tbl, bdnn_obj, names_features)
+    trait_tbl_mean = backscale_bdnn_diversity(trait_tbl_mean, bdnn_obj, names_features)
+    all_comb_tbl = backscale_tbl(bdnn_obj, backscale_par, names_features, all_comb_tbl)
+    trait_tbl_mean = backscale_tbl(bdnn_obj, backscale_par, names_features, trait_tbl_mean)
+    all_comb_df = pd.DataFrame(all_comb_tbl, columns = names_features)
+    rate_out = pd.concat([all_comb_df, rate_pdp_sum_df], axis = 1)
+    trt_df = pd.DataFrame(trait_tbl_mean, columns = names_features, index = sp_fad_lad['Taxon'])
+    return rate_out, trt_df, names_features.tolist()
 
 
 def get_greenwells_feature_importance(cond_trait_tbl, pdp_rates, bdnn_obj, names_features, rate_type = 'speciation'):
