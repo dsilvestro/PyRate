@@ -1313,10 +1313,12 @@ def get_prob_inter_bin_con_trait(rates_eff, state0):
         cond_rates_state1 = cond_rates_state1[overlap_across_cont, :]
         diff_state = cond_rates_state0 - cond_rates_state1
         mean_diff_state = np.mean(diff_state, axis = 1)
-        d1 = diff_state[np.argmax(mean_diff_state), :]
-        d2 = diff_state[np.argmin(mean_diff_state), :]
+        idx_largest_diff = np.argmax(mean_diff_state)
+        idx_smallest_diff = np.argmin(mean_diff_state)
+        d1 = diff_state[idx_largest_diff, :]
+        d2 = diff_state[idx_smallest_diff, :]
         prob = get_prob(d1, d2, len(d1))
-        mag = cond_rates_state0[np.argmax(mean_diff_state), :] / cond_rates_state1[np.argmin(mean_diff_state), :]
+        mag = cond_rates_state0[idx_largest_diff, :] / cond_rates_state1[idx_largest_diff, :]
         mean_mag = np.mean(mag)
         mag_HPD = util.calcHPD(mag, .95)
     return np.array([prob, mean_mag, mag_HPD[0], mag_HPD[1]])
@@ -1393,9 +1395,6 @@ def get_prob_inter_discr_discr(cond_rates_eff, tr, feat_idx_1, feat_idx_2,
                                 index = [0])
             p_df = pd.concat([p_df, pjk], ignore_index = True)
     return p_df
-
-
-
 
 
 def get_prob_inter_cont_discr_ord(cond_rates_eff, trait_tbl_eff, names_cont, names_discr_ord, names_states):
