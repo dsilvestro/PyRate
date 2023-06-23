@@ -32,7 +32,7 @@ Canis | 4.9 | 0.3 | NAmerica
 Canis | 1.8 | 0.3 | NAmerica
 Canis | 3.2 | 0.0117 | Eurasia
 
-If a fossil assemblage or site contains several occurrences we should consider these occurrences as coeval even as we randomize their age within their temporal range. This can be done by specifying a "site" column in the input data, with a name or number specifying the ID of the assemblage for each occurrence. See [CarnivoraFossils.txt](https://github.com/dsilvestro/PyRate/blob/master/example_files/DES_examples/Carnivora/CarnivoraFossilsSite.txt) for an example and the description of `-site` below.
+If a fossil assemblage or site contains several occurrences we should consider these occurrences as coeval even as we randomize their age within their temporal range. This can be done by specifying a "site" column in the input data, with a name or number specifying the ID of the assemblage for each occurrence. See [CarnivoraFossilsSite.txt](https://github.com/dsilvestro/PyRate/blob/master/example_files/DES_examples/Carnivora/CarnivoraFossilsSite.txt) for an example and the description of `-site` below.
 
 [CarnivoraRecent.txt](https://github.com/dsilvestro/PyRate/blob/master/example_files/DES_examples/Carnivora/CarnivoraRecent.txt) shows the recent distribution. Note that, if a taxon occurs in both areas in recent time, it needs a separate row for each area.
 
