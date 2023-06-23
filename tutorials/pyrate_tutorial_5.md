@@ -32,6 +32,8 @@ Canis | 4.9 | 0.3 | NAmerica
 Canis | 1.8 | 0.3 | NAmerica
 Canis | 3.2 | 0.0117 | Eurasia
 
+If a fossil assemblage or site contains several occurrences we should consider these occurrences as coeval even as we randomize their age within their temporal range. This can be done by specifying a "site" column in the input data, with a name or number specifying the ID of the assemblage for each occurrence. See [CarnivoraFossils.txt](https://github.com/dsilvestro/PyRate/blob/master/example_files/DES_examples/Carnivora/CarnivoraFossilsSite.txt) for an example and the description of `-site` below.
+
 [CarnivoraRecent.txt](https://github.com/dsilvestro/PyRate/blob/master/example_files/DES_examples/Carnivora/CarnivoraRecent.txt) shows the recent distribution. Note that, if a taxon occurs in both areas in recent time, it needs a separate row for each area.
 
 | scientificName   | higherGeography |
@@ -71,6 +73,8 @@ The following code produces the DES input files.
 * `-age1` is an optional argument specifying the name of the column with the earliest age in case it is not *earliestAge*.
 
 * `-age2` is an optional argument specifying the name of the column with the latest age in case it is not *latestAge*.
+
+* `-site` is an optional argument specifying the name of the column in the `-recent` text file with the ID of the assemblage for each occurrence. By default a column named `site` is assumed (but not required). If there is a column `site`, but the randomization of ages should not be linked to the site, use `-site ""`
 
 * `-data_in_area 1` is an argument to code fossil occurrences for a DES analysis where lineages are only known from a single area.  For instance `python ./PyRateDES.py -fossil .../example_files/DES_examples/Diatoms_Lake_Ohrid/DiatomFossils.txt -recent .../example_files/DES_examples/Diatoms_Lake_Ohrid/DiatomRecent.txt -wd .../example_files/DES_examples/Diatoms_Lake_Ohrid -filename Diatoms -bin_size 0.5 -rep 10`
 

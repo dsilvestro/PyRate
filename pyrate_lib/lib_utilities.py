@@ -499,7 +499,7 @@ def write_des_in(out_list, reps, all_taxa_list, taxon, time, input_wd, filename)
         w_in_file.flush()
         os.fsync(w_in_file)
 
-def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "higherGeography", age1 = "earliestAge", age2 = "latestAge", binsize = 5., reps = 3, trim_age = [], data_in_area = []):
+def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "higherGeography", age1 = "earliestAge", age2 = "latestAge", site = "site", binsize = 5., reps = 3, trim_age = [], data_in_area = []):
     dat = np.genfromtxt(x, dtype=str, delimiter='\t')
     dat_names = dat[0,:]
     dat = dat[1:,:]
@@ -535,8 +535,17 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
     cutter_len = len(cutter)
     for i in range(reps):
         age_ran = np.zeros(dat.shape[0])
-        for y in range(dat.shape[0]):
-            age_ran[y] = np.random.uniform(dat_ages[y, 0], dat_ages[y, 1], 1)
+        dat_names_site = np.where(dat_names == site)[0]
+        if len(dat_names_site) == 0:
+            for y in range(dat.shape[0]):
+                age_ran[y] = np.random.uniform(dat_ages[y, 0], dat_ages[y, 1], 1)
+        else:
+             sites = dat[:,dat_names_site]
+             sites_unique = np.unique(sites)
+             for y in range(len(sites_unique)):
+                  site_y = np.where(sites == sites_unique[y])[0]
+                  site_y0 = site_y[0]
+                  age_ran[site_y] = np.random.uniform(dat_ages[site_y0, 0], dat_ages[site_y0, 1], 1)
         binnedage = np.digitize(age_ran, cutter) # Starts with 1!
         area_fossil = np.zeros(dat.shape[0], dtype=int)
         area_fossil[np.array(dat[:,dat_names_area] == areas[0]).flatten()] = 1

@@ -1,6 +1,12 @@
 #!/usr/bin/env python 
 # Created by Daniele Silvestro on 04/04/2018 => pyrate.help@gmail.com 
 import os,csv,platform
+# Prevent blas from using all CPU cores
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import argparse, os,sys, glob, time
 import math
 import fnmatch
@@ -156,6 +162,7 @@ p.add_argument('-area',     type=str, help='area column within fossil and recent
 p.add_argument('-age1',     type=str, help='earliest age', default="earliestAge", metavar="")
 p.add_argument('-age2',     type=str, help='latest age', default="latestAge", metavar="")
 p.add_argument('-trim_age', type=float, help='trim DES input to maximum age',  default=[])
+p.add_argument('-site',     type=str, help='name of column indicating same sites', default="site", metavar="")
 p.add_argument('-plot_raw', help='plot raw diversity curves', action='store_true', default=False)
 
 p.add_argument('-log_div', help='log modeled diversity (DivdD or DivdE models)', action='store_true', default=False)
@@ -186,7 +193,7 @@ print("Random seed: ", rseed)
 # generate DES input
 if args.fossil != "":
 	reps = args.rep
-	desin_list, time = des_in(args.fossil, args.recent, args.wd, args.filename, taxon = args.taxon, area = args.area, age1 = args.age1, age2 = args.age2, binsize = args.bin_size, reps = reps, trim_age = args.trim_age, data_in_area = args.data_in_area)
+	desin_list, time = des_in(args.fossil, args.recent, args.wd, args.filename, taxon = args.taxon, area = args.area, age1 = args.age1, age2 = args.age2, site = args.site, binsize = args.bin_size, reps = reps, trim_age = args.trim_age, data_in_area = args.data_in_area)
 	if args.plot_raw:
 		len_time = len(time)
 		desin_div1 = np.zeros((reps, len_time))
