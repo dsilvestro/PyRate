@@ -1314,13 +1314,23 @@ def get_prob_inter_bin_con_trait(rates_eff, state0):
         diff_state = cond_rates_state0 - cond_rates_state1
         mean_diff_state = np.mean(diff_state, axis = 1)
         idx_largest_diff = np.argmax(mean_diff_state)
-        idx_smallest_diff = np.argmin(mean_diff_state)
+        idx_smallest_diff = np.argmin(np.abs(mean_diff_state))
         d1 = diff_state[idx_largest_diff, :]
         d2 = diff_state[idx_smallest_diff, :]
         prob = get_prob(d1, d2, len(d1))
-        mag = cond_rates_state0[idx_largest_diff, :] / cond_rates_state1[idx_largest_diff, :]
-        mean_mag = np.mean(mag)
-        mag_HPD = util.calcHPD(mag, .95)
+        #mag = (cond_rates_state0[idx_largest_diff, :] - cond_rates_state0[idx_smallest_diff, :]) / (cond_rates_state1[idx_largest_diff, :] - cond_rates_state1[idx_smallest_diff, :])
+        m1 = cond_rates_state0[idx_largest_diff, :] - cond_rates_state0[idx_smallest_diff, :]
+        if np.sum(m1 < 0.0) > len(m1)/2:
+            m1 = -1.0 * m1
+        m1[m1 < 0.0] = np.nan
+        m2 = cond_rates_state1[idx_largest_diff, :] - cond_rates_state1[idx_smallest_diff, :]
+        if np.sum(m2 < 0.0) > len(m2)/2:
+            m2 = -1.0 * m2
+        m2[m2 < 0.0] = np.nan
+        mag = m1 / m2
+        mean_mag = np.nanmean(mag)
+        if np.sum(~np.isnan(mag)) > 2:
+            mag_HPD = util.calcHPD(mag[~np.isnan(mag)], .95)
     return np.array([prob, mean_mag, mag_HPD[0], mag_HPD[1]])
 
 
