@@ -189,7 +189,7 @@ def bdnn_parse_results(mcmc_file, pkl_file, burn = 0.1, thin = 0):
     return ob, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te
 
 
-def bdnn_time_rescaler(x, bdnn_obj):  
+def bdnn_time_rescaler(x, bdnn_obj):
     return x * bdnn_obj.bdnn_settings['time_rescaler']
 
 
@@ -575,27 +575,43 @@ def get_plot_idx_freq(x):
     return freq
 
 
-def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_obj, fad_lad, rate_type, pt):
+def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_obj, tste, rate_type, pt):
     lw = len(w)
     comb_exists = np.zeros(lw)
     use_time_as_trait = is_time_trait(bdnn_obj)
     time_dd_temp = False # No time as trait, diversity-dependence, or time-variable environment
     if len(trait_tbl.shape) == 3:
         time_dd_temp = True
-    if np.isin(pt, np.array([1., 2., 3., 4])):
+    if np.isin(pt, np.array([1., 2., 3., 4.])):
         # Main effects
         comb_exists = np.ones(lw)
+        if feature_is_time_variable[i]:
+            fa = get_fossil_age(bdnn_obj, tste, rate_type)
+            if use_time_as_trait and i == (trait_tbl.shape[2] - 1):
+                t = fa
+            else:
+                bin_species = get_bin_from_fossil_age(bdnn_obj, tste, rate_type)
+                trait_at_ts_or_te = np.zeros((len(bin_species), trait_tbl.shape[2]))
+                for k in range(len(bin_species)):
+                    trait_at_ts_or_te[k, :] = trait_tbl[bin_species[k], k, :]
+                t = trait_at_ts_or_te[:, i]
+            w = w.flatten()
+            delta_w = np.abs(np.diff(w[:2]))
+            max_t = np.max(t) + delta_w
+            min_t = np.min(t) - delta_w
+            outside_obs = np.logical_or(w > max_t, w < min_t)
+            comb_exists[outside_obs] = 0.0
     else:
         # Interactions
         i_bin, j_bin = is_binary_feature(trait_tbl)[0][[i, j]]
         i_time_var = feature_is_time_variable[i]
         j_time_var = feature_is_time_variable[j]
         if i_time_var or j_time_var:
-            fa = get_fossil_age(bdnn_obj, fad_lad, rate_type)
-            bin_species = get_bin_from_fossil_age(bdnn_obj, fad_lad, rate_type)
-            trait_at_fad_or_lad = np.zeros((len(bin_species), trait_tbl.shape[2]))
+            fa = get_fossil_age(bdnn_obj, tste, rate_type)
+            bin_species = get_bin_from_fossil_age(bdnn_obj, tste, rate_type)
+            trait_at_ts_or_te = np.zeros((len(bin_species), trait_tbl.shape[2]))
             for k in range(len(bin_species)):
-                trait_at_fad_or_lad[k, :] = trait_tbl[bin_species[k], k, :]
+                trait_at_ts_or_te[k, :] = trait_tbl[bin_species[k], k, :]
         if np.isin(pt, np.array([5., 8., 9., 10., 11., 12.])):
             # 5:  binary x binary
             # 8:  one-hot-encoded discrete x binary
@@ -608,14 +624,13 @@ def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_
             else:
                 t = trait_tbl + 0.0
             if i_time_var:
-                t[:, i] = trait_at_fad_or_lad[:, i]
+                t[:, i] = trait_at_ts_or_te[:, i]
             if j_time_var:
-                t[:, j] = trait_at_fad_or_lad[:, j]
+                t[:, j] = trait_at_ts_or_te[:, j]
             t = t[:, [i, j]]
             observed_comb = np.unique(t, axis = 0)
             for k in range(w.shape[0]):
                  if np.any(np.all(w[k, :] == observed_comb, axis = 1)):
-#                if np.isin(w[k, 0], observed_comb[:, 0]) and np.isin(w[k, 1], observed_comb[:, 1]):
                     comb_exists[k] = 1.0
         elif np.isin(pt, np.array([6., 13., 14.])):
             # 6:  binary x continuous
@@ -635,12 +650,12 @@ def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_
             else:
                 t = trait_tbl + 0.0
             if i_time_var:
-                t[:, i] = trait_at_fad_or_lad[:, i]
+                t[:, i] = trait_at_ts_or_te[:, i]
             if j_time_var:
                 if (j == (t.shape[1] - 1)) and use_time_as_trait:
                     t[:, j] = fa
                 else:
-                    t[:, j] = trait_at_fad_or_lad[:, j]
+                    t[:, j] = trait_at_ts_or_te[:, j]
             states = np.unique(t[:, bin_idx]).astype(int)
             wc = w[:, cont_idx_w]
             for s in states:
@@ -657,23 +672,22 @@ def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_
             else:
                 t = trait_tbl + 0.0
             if i_time_var or j_time_var:
-                if ((j == (t.shape[1] - 1)) and use_time_as_trait) and ((int(i_time_var) + int(j_time_var)) == 1):
+                t = trait_at_ts_or_te + 0.0
+                if ((j == (t.shape[1] - 1)) and use_time_as_trait):# and ((int(i_time_var) + int(j_time_var)) == 1):
                     # Time as trait but no other time variable feature
-                    t[:, j] = fa
-                else:
-                    # Both features vary through time
-                    t = trait_at_fad_or_lad + 0.0
-            # Check if all w are inside a convex hull defined by the trait_tbl
+                    t[:, j] = fa + 0.0
             hull = ConvexHull(t[:, [i, j]])  # , qhull_options = 'QJ'
             vertices = t[hull.vertices, :][:, [i, j]]
             path_p = Path(vertices)
             inside_poly = path_p.contains_points(w, radius=0.1)
             comb_exists[inside_poly] = 1.0
+            tmin = np.min(t[:, [i, j]], axis = 0)
+            tmax = np.max(t[:, [i, j]], axis = 0)
     return comb_exists
 
 
 def build_conditional_trait_tbl(bdnn_obj,
-                                sp_fad_lad,
+                                tste,
                                 ts_post, te_post,
                                 len_cont = 100,
                                 rate_type = "speciation",
@@ -704,19 +718,42 @@ def build_conditional_trait_tbl(bdnn_obj,
                                                   binary_feature,
                                                   conc_comb_feat,
                                                   len_cont)
+    feature_is_time_variable = is_time_variable_feature(trait_tbl)
+    if np.any(feature_is_time_variable):
+        fossil_age = get_fossil_age(bdnn_obj, tste, 'speciation')
+        fossil_age = backscale_bdnn_time(fossil_age, bdnn_obj)
+        fossil_bin_ts = get_bin_from_fossil_age(bdnn_obj, tste, 'speciation')
+        fossil_age = get_fossil_age(bdnn_obj, tste, 'extinction')
+        fossil_age = backscale_bdnn_time(fossil_age, bdnn_obj)
+        fossil_bin_te = get_bin_from_fossil_age(bdnn_obj, tste, 'extinction')
+        n_taxa = len(fossil_bin_te)
+        trait_at_ts = np.zeros((n_taxa, trait_tbl.shape[2]))
+        trait_at_te = np.zeros((n_taxa, trait_tbl.shape[2]))
+        for k in range(n_taxa):
+            trait_at_ts[k, :] = trait_tbl[fossil_bin_ts[k], k, :]
+            trait_at_te[k, :] = trait_tbl[fossil_bin_te[k], k, :]
+        trait_at_ts_or_te = np.vstack((trait_at_ts, trait_at_te))
+        minmaxmean_features[0, feature_is_time_variable] = np.min(trait_at_ts_or_te[:, feature_is_time_variable], axis = 0)
+        minmaxmean_features[1, feature_is_time_variable] = np.max(trait_at_ts_or_te[:, feature_is_time_variable], axis = 0)
+        if is_time_trait(bdnn_obj):
+            tste_rescaled = bdnn_time_rescaler(tste, bdnn_obj)
+            min_tste = np.min(tste_rescaled)
+            if min_tste < minmaxmean_features[0, -1]:
+                minmaxmean_features[1, -1] = min_tste * 0.98
+            max_tste = np.max(tste_rescaled)
+            if max_tste > minmaxmean_features[1, -1]:
+                minmaxmean_features[1, -1] = max_tste * 1.02
     plot_type = get_plot_type(minmaxmean_features, binary_feature, idx_comb_feat)
     plot_idx = get_plot_idx(plot_type, idx_comb_feat)
     plot_type = np.hstack((plot_type, plot_idx.reshape((len(plot_idx), 1))))
     plot_type = plot_type[~np.isnan(plot_type[:, 3]), :]
     plot_idx_freq = get_plot_idx_freq(plot_type[:, 3])
     feature_without_variance = get_idx_feature_without_variance(trait_tbl)
-    feature_is_time_variable = is_time_variable_feature(trait_tbl)
     nr = get_nrows_conditional_trait_tbl(plot_type, minmaxmean_features)
     cond_trait_tbl = np.zeros((nr, n_features + 6))
     cond_trait_tbl[:, :n_features] = minmaxmean_features[2, :] # mean/modal values
     cond_trait_tbl[:, -1] = 1 # combination is observed
     counter = 0
-    fad_lad = sp_fad_lad[["FAD", "LAD"]].to_numpy()
     for k in range(plot_type.shape[0]):
         i = int(plot_type[k, 0])
         v1 = np.linspace(minmaxmean_features[0, i], minmaxmean_features[1, i], int(minmaxmean_features[3, i]))
@@ -744,7 +781,7 @@ def build_conditional_trait_tbl(bdnn_obj,
                                                                               i, j,
                                                                               feature_is_time_variable,
                                                                               bdnn_obj,
-                                                                              fad_lad,
+                                                                              tste,
                                                                               rate_type,
                                                                               plot_type[k, 2])
         if comparison_incl_feature_without_variance:
@@ -850,10 +887,11 @@ def plot_bdnn_cont(rs, tr, r_script, names, plot_time, obs, rate_type):
         col = '#C5483B'
     else:
         col = 'grey50'
-    r_script += util.print_R_vec("\ntr", tr[:, 0])
-    r_script += util.print_R_vec("\nr", rs[:, 0])
-    r_script += util.print_R_vec("\nr_lwr", rs[:, 1])
-    r_script += util.print_R_vec("\nr_upr", rs[:, 2])
+    not_na = np.isnan(rs[:, 0]) == False
+    r_script += util.print_R_vec("\ntr", tr[not_na, 0])
+    r_script += util.print_R_vec("\nr", rs[not_na, 0])
+    r_script += util.print_R_vec("\nr_lwr", rs[not_na, 1])
+    r_script += util.print_R_vec("\nr_upr", rs[not_na, 2])
     r_script += "\nplot(0, 0, type = 'n', xlim = xlim, ylim = ylim, xlab = '%s', ylab = '%s')" % (names, rate_type)
     r_script += util.print_R_vec("\nobs_x", obs.flatten())
     r_script += "\nd = diff(par('usr')[3:4]) * 0.025"
@@ -959,7 +997,9 @@ def plot_bdnn_inter_cont_cont(rs, tr, r_script, names, plot_time, obs, rate_type
     r_script += "\nz <- matrix(xyr[, 3], length(xaxis), length(yaxis), byrow)"
     r_script += "\npadx <- abs(diff(xaxis))[1]"
     r_script += "\npady <- abs(diff(yaxis))[1]"
-    r_script += "\nplot(mean(xaxis), mean(yaxis), type='n', xlim = c(min(xaxis) - padx, max(xaxis) + padx), ylim = c(min(yaxis) - pady, max(yaxis) + pady), xlab = '%s', ylab = '%s', xaxt = 'n', xaxs = 'i', yaxs = 'i')" % (names[0], names[1])
+#    if plot_time:
+#        r_script += "\nxaxis <- xaxis - padx/4"
+    r_script += "\nplot(mean(xaxis), mean(yaxis), type='n', xlim = c(min(xaxis) - padx, max(xaxis) + padx), ylim = c(min(yaxis) - pady, max(yaxis) + pady), xlab = '%s', ylab = '%s', xaxt = 'n')" % (names[0], names[1]) # , xaxs = 'i', yaxs = 'i'
     r_script += "\nxtk <- pretty(xaxis, n = 10)"
     r_script += "\nxtk_lbl <- xtk"
     if plot_time:
@@ -1035,7 +1075,7 @@ def get_feat_idx(names_features, names, incl_feat):
     return f1_idx, f2_idx
 
 
-def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, sp_fad_lad, r_script, names_features, backscale_par,
+def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, tste, r_script, names_features, backscale_par,
                            rate_type = 'speciation'):
     r_script += "\npkgs = c('fields', 'vioplot')"
     r_script += "\nnew_pkgs = pkgs[!(pkgs %in% installed.packages()[,'Package'])]"
@@ -1060,10 +1100,9 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, sp_fad_lad, r_s
         rate_type2 = 'extinction'
     trait_tbl = get_trt_tbl(bdnn_obj, rate_type2)
     feature_is_time_variable = is_time_variable_feature(trait_tbl)
-    fad_lad = sp_fad_lad[['FAD', 'LAD']].to_numpy()
-    fossil_age = get_fossil_age(bdnn_obj, fad_lad, rate_type2)
+    fossil_age = get_fossil_age(bdnn_obj, tste, rate_type2)
     fossil_age = backscale_bdnn_time(fossil_age, bdnn_obj)
-    fossil_bin = get_bin_from_fossil_age(bdnn_obj, fad_lad, rate_type2)
+    fossil_bin = get_bin_from_fossil_age(bdnn_obj, tste, rate_type2)
     names_features_original = np.array(get_names_features(bdnn_obj))
     binary_feature = is_binary_feature(trait_tbl)[0]
     for i in range(n_plots):
@@ -1163,21 +1202,29 @@ def get_rates_cond_trait_tbl_for_netdiv(feat_to_keep, sp_rate_cond, ex_rate_cond
     return netdiv, cond_trait_tbl_ex2
 
 
+def get_mean_inferred_tste(post_ts, post_te):
+    mean_tste = np.zeros((post_ts.shape[1], 2))
+    mean_tste[:, 0] = np.mean(post_ts, axis = 0)
+    mean_tste[:, 1] = np.mean(post_te, axis = 0)
+    return mean_tste
+
+
 def get_effect_objects(mcmc_file, pkl_file, burnin, thin, combine_discr_features = "", file_transf_features = "", num_processes = 1, show_progressbar = False):
     bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
-    cond_trait_tbl_sp, names_features_sp = build_conditional_trait_tbl(bdnn_obj, sp_fad_lad,
+    mean_tste = get_mean_inferred_tste(post_ts, post_te)
+    cond_trait_tbl_sp, names_features_sp = build_conditional_trait_tbl(bdnn_obj, mean_tste,
                                                                        post_ts, post_te,
                                                                        len_cont = 100,
                                                                        rate_type = "speciation",
                                                                        combine_discr_features = combine_discr_features)
-    cond_trait_tbl_ex, names_features_ex = build_conditional_trait_tbl(bdnn_obj, sp_fad_lad,
+    cond_trait_tbl_ex, names_features_ex = build_conditional_trait_tbl(bdnn_obj, mean_tste,
                                                                        post_ts, post_te,
                                                                        len_cont = 100,
                                                                        rate_type = "extinction",
                                                                        combine_discr_features = combine_discr_features)
     #sp_rate_cond = bdnn_lib.get_conditional_rates(bdnn_obj, cond_trait_tbl_sp, post_w_sp)
     #ex_rate_cond = bdnn_lib.get_conditional_rates(bdnn_obj, cond_trait_tbl_ex, post_w_ex)
-    bdnn_time = get_bdnn_time(bdnn_obj, np.mean(post_ts, axis = 0))
+    bdnn_time = get_bdnn_time(bdnn_obj, mean_tste[:, 0])
     print("Getting partial dependence rates for speciation")
     sp_rate_cond = get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl_sp, post_w_sp, post_ts,
                                                 rate_type = 'speciation', num_processes = num_processes, show_progressbar = show_progressbar)
@@ -1188,7 +1235,7 @@ def get_effect_objects(mcmc_file, pkl_file, burnin, thin, combine_discr_features
                                                                                   bdnn_obj,
                                                                                   cond_trait_tbl_sp,
                                                                                   cond_trait_tbl_ex)
-    return bdnn_obj, cond_trait_tbl_sp, cond_trait_tbl_ex, names_features_sp, names_features_ex, sp_rate_cond, ex_rate_cond, sp_fad_lad, backscale_par
+    return bdnn_obj, cond_trait_tbl_sp, cond_trait_tbl_ex, names_features_sp, names_features_ex, sp_rate_cond, ex_rate_cond, mean_tste, backscale_par
 
 
 def plot_effects(f,
@@ -1197,7 +1244,7 @@ def plot_effects(f,
                  sp_rate_cond,
                  ex_rate_cond,
                  bdnn_obj,
-                 sp_fad_lad,
+                 tste,
                  backscale_par,
                  names_features_sp,
                  names_features_ex,
@@ -1212,9 +1259,9 @@ def plot_effects(f,
         r_script = "pdf(file='%s/%s_%s.pdf', width = 7, height = 6, useDingbats = FALSE)\n" % (wd_forward, name_file, suffix_pdf)
     else:
         r_script = "pdf(file='%s/%s_%s.pdf', width = 7, height = 6, useDingbats = FALSE)\n" % (output_wd, name_file, suffix_pdf)
-    r_script = create_R_files_effects(cond_trait_tbl_sp, sp_rate_cond + 0.0, bdnn_obj, sp_fad_lad, r_script, names_features_sp,
+    r_script = create_R_files_effects(cond_trait_tbl_sp, sp_rate_cond + 0.0, bdnn_obj, tste, r_script, names_features_sp,
                                       backscale_par, rate_type = 'speciation')
-    r_script = create_R_files_effects(cond_trait_tbl_ex, ex_rate_cond + 0.0, bdnn_obj, sp_fad_lad, r_script, names_features_ex,
+    r_script = create_R_files_effects(cond_trait_tbl_ex, ex_rate_cond + 0.0, bdnn_obj, tste, r_script, names_features_ex,
                                       backscale_par, rate_type = 'extinction')
     feat_to_keep = get_feat_to_keep_for_netdiv(cond_trait_tbl_sp, cond_trait_tbl_ex)
     netdiv_rate_cond, cond_trait_tbl_netdiv = get_rates_cond_trait_tbl_for_netdiv(feat_to_keep,
@@ -1222,7 +1269,7 @@ def plot_effects(f,
                                                                                   ex_rate_cond,
                                                                                   cond_trait_tbl_ex,
                                                                                   cond_trait_tbl_sp)
-    r_script = create_R_files_effects(cond_trait_tbl_netdiv, netdiv_rate_cond, bdnn_obj, sp_fad_lad, r_script, names_features_ex,
+    r_script = create_R_files_effects(cond_trait_tbl_netdiv, netdiv_rate_cond, bdnn_obj, tste, r_script, names_features_ex,
                                       backscale_par, rate_type = 'net diversification')
     r_script += "\ndev.off()"
     newfile.writelines(r_script)
@@ -1285,8 +1332,8 @@ def get_prob_1_bin_trait(cond_rates_eff):
 
 def get_prob_1_con_trait(cond_rates_eff):
     mean_rate = np.mean(cond_rates_eff, axis = 1)
-    d1 = cond_rates_eff[np.argmax(mean_rate), :]
-    d2 = cond_rates_eff[np.argmin(mean_rate), :]
+    d1 = cond_rates_eff[np.nanargmax(mean_rate), :]
+    d2 = cond_rates_eff[np.nanargmin(mean_rate), :]
     d = d1 - d2
     d = d.flatten()
     n = np.sum(d > 0.0)
@@ -1314,21 +1361,15 @@ def get_prob_inter_bin_con_trait(rates_eff, state0):
         diff_state = cond_rates_state0 - cond_rates_state1
         mean_diff_state = np.mean(diff_state, axis = 1)
         idx_largest_diff = np.argmax(mean_diff_state)
-        idx_smallest_diff = np.argmin(np.abs(mean_diff_state))
+        idx_smallest_diff = np.argmin(mean_diff_state)
         d1 = diff_state[idx_largest_diff, :]
         d2 = diff_state[idx_smallest_diff, :]
         prob = get_prob(d1, d2, len(d1))
-        #mag = (cond_rates_state0[idx_largest_diff, :] - cond_rates_state0[idx_smallest_diff, :]) / (cond_rates_state1[idx_largest_diff, :] - cond_rates_state1[idx_smallest_diff, :])
-        m1 = cond_rates_state0[idx_largest_diff, :] - cond_rates_state0[idx_smallest_diff, :]
-        if np.sum(m1 < 0.0) > len(m1)/2:
-            m1 = -1.0 * m1
-        m1[m1 < 0.0] = np.nan
-        m2 = cond_rates_state1[idx_largest_diff, :] - cond_rates_state1[idx_smallest_diff, :]
-        if np.sum(m2 < 0.0) > len(m2)/2:
-            m2 = -1.0 * m2
-        m2[m2 < 0.0] = np.nan
-        mag = m1 / m2
-        mean_mag = np.nanmean(mag)
+#        m1 = np.abs(cond_rates_state0[idx_largest_diff, :] - cond_rates_state0[idx_smallest_diff, :])
+#        m2 = np.abs(cond_rates_state1[idx_largest_diff, :] - cond_rates_state1[idx_smallest_diff, :])
+#        mag = m1 / m2
+        mag = np.abs(diff_state[idx_largest_diff, :]) / np.abs(diff_state[idx_smallest_diff, :])
+        mean_mag = np.nanmedian(mag)
         if np.sum(~np.isnan(mag)) > 2:
             mag_HPD = util.calcHPD(mag[~np.isnan(mag)], .95)
     return np.array([prob, mean_mag, mag_HPD[0], mag_HPD[1]])
@@ -1744,6 +1785,32 @@ def get_pdp_rate_free_combination(bdnn_obj,
                                                   binary_feature,
                                                   conc_comb_feat,
                                                   len_cont)
+    feature_is_time_variable = is_time_variable_feature(trait_tbl)
+    if np.any(feature_is_time_variable):
+        tste = get_mean_inferred_tste(ts_post, te_post)
+        fossil_age = get_fossil_age(bdnn_obj, tste, 'speciation')
+        fossil_age = backscale_bdnn_time(fossil_age, bdnn_obj)
+        fossil_bin_ts = get_bin_from_fossil_age(bdnn_obj, tste, 'speciation')
+        fossil_age = get_fossil_age(bdnn_obj, tste, 'extinction')
+        fossil_age = backscale_bdnn_time(fossil_age, bdnn_obj)
+        fossil_bin_te = get_bin_from_fossil_age(bdnn_obj, tste, 'extinction')
+        n_taxa = len(fossil_bin_te)
+        trait_at_ts = np.zeros((n_taxa, trait_tbl.shape[2]))
+        trait_at_te = np.zeros((n_taxa, trait_tbl.shape[2]))
+        for k in range(n_taxa):
+            trait_at_ts[k, :] = trait_tbl[fossil_bin_ts[k], k, :]
+            trait_at_te[k, :] = trait_tbl[fossil_bin_te[k], k, :]
+        trait_at_ts_or_te = np.vstack((trait_at_ts, trait_at_te))
+        minmaxmean_features[0, feature_is_time_variable] = np.min(trait_at_ts_or_te[:, feature_is_time_variable], axis = 0)
+        minmaxmean_features[1, feature_is_time_variable] = np.max(trait_at_ts_or_te[:, feature_is_time_variable], axis = 0)
+        if is_time_trait(bdnn_obj):
+            tste_rescaled = bdnn_time_rescaler(tste, bdnn_obj)
+            min_tste = np.min(tste_rescaled)
+            if min_tste < minmaxmean_features[0, -1]:
+                minmaxmean_features[1, -1] = min_tste * 0.98
+            max_tste = np.max(tste_rescaled)
+            if max_tste > minmaxmean_features[1, -1]:
+                minmaxmean_features[1, -1] = max_tste * 1.02
     all_comb_tbl = get_all_combination(names_comb_idx, minmaxmean_features)
     bdnn_time = get_bdnn_time(bdnn_obj, np.mean(ts_post, axis = 0))
     num_it = len(w_post)

@@ -4678,14 +4678,14 @@ if __name__ == '__main__':
                                                           file_transf_features = args.plotBDNN_transf_features,
                                                           num_processes = args.thread[0],
                                                           show_progressbar = True)
-            bdnn_obj, cond_trait_tbl_sp, cond_trait_tbl_ex, names_features_sp, names_features_ex, sp_rate_cond, ex_rate_cond, sp_fad_lad, backscale_par = obj_effect_plot
+            bdnn_obj, cond_trait_tbl_sp, cond_trait_tbl_ex, names_features_sp, names_features_ex, sp_rate_cond, ex_rate_cond, mean_tste, backscale_par = obj_effect_plot
             bdnn_lib.plot_effects(path_dir_log_files,
                                   cond_trait_tbl_sp,
                                   cond_trait_tbl_ex,
                                   sp_rate_cond,
                                   ex_rate_cond,
                                   bdnn_obj,
-                                  sp_fad_lad,
+                                  mean_tste,
                                   backscale_par,
                                   names_features_sp,
                                   names_features_ex,
