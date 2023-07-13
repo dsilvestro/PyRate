@@ -66,7 +66,7 @@ The following code produces the DES input files.
 
 * `-trim_age` is an optional argument to truncate the dataset by an maximum age (e.g. `-trim_age 23.03` truncates to the Neogene). It omits a fossil when the uniform resampling of the fossil age estimates exceeds the specified age.
 
-* `-translate` is an optional argument to shift the entire dataset towards the present (e.g. `-translate 66.0` removes all time bin of the Cenozoic from the generated file). This requires the `-recent` file to be empty and can be useful to reduce the computation time for a completely extinct group of taxa. When using this option, a rate shift should be set to bin_size/2 (see `-qtime`) and all rates after this shift should be ignored. Datasets generated using `-translate` should only be analyzed with the skyline model but not with covariate dependent dispersal and extinction models.
+* `-translate` is an optional argument to shift the entire dataset towards the present (e.g., `-translate 66.0` removes all time bin of the Cenozoic from the generated file). This requires the `-recent` file to be empty and can be useful to reduce the computation time for a completely extinct group of taxa. When using this option, a rate shift should be set to bin_size/2 (see `-qtime`) and all rates after this shift should be ignored. Datasets generated using `-translate` should only be analyzed with the skyline model but not with covariate dependent dispersal and extinction models. Time of `-translate` will need to be subtracted from other ages of `-qtime` (e.g., when the record was shifted by 66 million years, a Cretaceous rate shift would need to be specified with 79.0 instead of 145.0).
 
 * `-taxon` is an optional argument specifying the name of the column with the taxon names in case it is not *scientificName*.
 
@@ -310,5 +310,5 @@ This will generate an R script and a PDF file with the rates-through-time plots.
 
 The effect of environmental covariates, diversity, and traits can also be plotted:
 
-`python ./PyRateDES.py -d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -varE .../example_files/DES_examples/Carnivora/covariate_extinction -traitD .../example_files/DES_examples/Carnivora/Body_mass_1.txt -plot .../example_files/DES_examples/Carnivora/Carnivora_1_0_TdD_Eexp_TraitD_marginal_rates.log -b 5000`
+`python ./PyRateDES.py -d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -varE .../example_files/DES_examples/Carnivora/covariate_extinction -traitD .../example_files/DES_examples/Carnivora/Body_mass_1.txt -plot .../example_files/DES_examples/Carnivora/Carnivora_1_0_TdD_Eexp_TraitD.log -b 5000`
 
