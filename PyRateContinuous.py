@@ -74,7 +74,7 @@ cov_file=args.c
 rescale_factor=args.r
 focus_clade=args.clade
 win_size=args.w
-rep_j=max(args.j-1,0) # No np.max here because it ignores the 0 after the comma
+rep_j=np.maximum(args.j-1,0) # No np.max here because it ignores the 0 after the comma
 est_start_time = args.est_start_time
 w_size_start_time = args.ws_start_time
 lagged_model = args.lag
@@ -831,7 +831,7 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
     if hypGA>0: # use normal prior on G par
         prior = prior_normal(Garray,scale=sqrt(hypGA)) 
     else: # use uniform prior on G par
-        if np.anp.max(abs(Garray)) > -hypGA:
+        if np.amax(np.abs(Garray)) > -hypGA:
             prior = -np.inf
         else: 
             prior = 0
@@ -839,7 +839,7 @@ for iteration in range(mcmc_gen * len(scal_fac_TI)):
         if hypZA>0: # use normal prior on Z par
             prior += prior_normal(Zarray,scale=sqrt(hypZA)) 
         else: # use uniform prior on Z par
-            if np.anp.max(abs(Zarray)) > -hypZA:
+            if np.amax(np.abs(Zarray)) > -hypZA:
                 prior += -np.inf
             else: 
                 prior += 0

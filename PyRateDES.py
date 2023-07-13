@@ -3616,7 +3616,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		if hypGA>0: # use normal prior on covar par
 			prior += prior_normal(covar_par,scale=sqrt(hypGA))
 		else: # use uniform prior on covar par
-			if np.anp.max(np.abs(covar_par)) > -hypGA:
+			if np.amax(np.abs(covar_par)) > -hypGA:
 				prior += -np.inf
 			else:
 				prior += 0
@@ -3627,7 +3627,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		if hypGA>0: # use normal prior on trait par
 			prior += prior_normal(trait_par,scale=sqrt(hypGA))
 		else: # use uniform prior on trait par
-			if np.anp.max(np.abs(trait_par)) > -hypGA:
+			if np.amax(np.abs(trait_par)) > -hypGA:
 				prior += -np.inf
 			else:
 				prior += 0
@@ -3638,7 +3638,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		if hypGA>0: # use normal prior on trait par
 			prior += prior_normal(cat_par_concat,scale=sqrt(hypGA))
 		else: # use uniform prior on trait par
-			if np.anp.max(np.abs(cat_par_concat)) > -hypGA:
+			if np.amax(np.abs(cat_par_concat)) > -hypGA:
 				prior += -np.inf
 			else:
 				prior += 0
