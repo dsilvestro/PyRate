@@ -10,7 +10,7 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import argparse, os,sys, glob, time
 import math
 import fnmatch
-from numpy import *
+#from numpy import *
 import numpy as np
 import scipy
 import scipy.linalg
@@ -186,8 +186,7 @@ simulation_no = args.i
 if args.seed==-1:
 	rseed=np.random.randint(0,9999)
 else: rseed=args.seed
-random.seed(rseed)
-np.random.seed(rseed)
+
 
 print("Random seed: ", rseed)
 
@@ -333,9 +332,9 @@ equal_q = args.symq
 constraints = np.array(args.constr)
 constraints = constraints - 1
 constraints_true = len(constraints) > 0
-constraints_01 = any(np.isin(constraints, np.array([0, 1])))
-constraints_23 = any(np.isin(constraints, np.array([2, 3])))
-constraints_45 = any(np.isin(constraints, np.array([4, 5])))
+constraints_01 = np.any(np.isin(constraints, np.array([0, 1])))
+constraints_23 = np.any(np.isin(constraints, np.array([2, 3])))
+constraints_45 = np.any(np.isin(constraints, np.array([4, 5])))
 d12_prior_idx = n_Q_times
 d21_prior_idx = n_Q_times
 e1_prior_idx = n_Q_times
@@ -430,8 +429,8 @@ if args.sum !="":
 			mean_par = par[0]
 		else:
 			hpd = np.around(calcHPD(par, .95), decimals=3)
-			mode = round(get_mode(par),3)
-			mean_par = round(mean(par),3)
+			mode = np.round(get_mode(par),3)
+			mean_par = np.round(np.mean(par),3)
 		if i==start_column: out_str= "%s\t%s\t%s\t%s\t%s\n" % (head[i], mean_par,mode,hpd[0],hpd[1])
 		else: out_str= "%s\t%s\t%s\t%s\t%s\n" % (head[i], mean_par,mode,hpd[0],hpd[1])
 		out.writelines(out_str)
@@ -456,7 +455,7 @@ if plot_file != "":
 		lenCI = len(plotCI)
 		if mcmc_rtt:
 			rtt = rtt[rtt[:,0] > burnin,:]
-			ncols = shape(rtt)[1]
+			ncols = rtt.shape[1]
 			hpd = np.zeros((2 * lenCI, ncols))
 			for i in range(ncols):
 				par = rtt[:,i]
@@ -464,7 +463,7 @@ if plot_file != "":
 					hpd[[2 * y, 1 + 2 * y],i] = calcHPD(par, plotCI[y])
 			rate_mean = np.median(rtt, axis = 0)
 		else:
-			ncols = shape(rtt)[0]
+			ncols = rtt.shape[0]
 			hpd = np.zeros((2, ncols))
 			hpd[:] = np.NaN
 			rate_mean = rtt
@@ -609,7 +608,7 @@ sim_bin_size = TimeSpan/n_sim_bins
 # q = 0.5   P=[ 0.99  0.92  0.71  0.39  0.22]
 # q = 0.1   P=[ 0.63  0.39  0.22  0.1   0.05]
 #sampling_prob_per_bin = np.round(np.array([1-exp(-q_rate[0]*bin_size), 1-exp(-q_rate[1]*bin_size)]),2)
-sampling_prob_per_sim_bin = np.array([1-exp(-q_rate[0]*sim_bin_size), 1-exp(-q_rate[1]*sim_bin_size)])
+sampling_prob_per_sim_bin = np.array([1-np.exp(-q_rate[0]*sim_bin_size), 1-np.exp(-q_rate[1]*sim_bin_size)])
 
 #########################################
 ######       DATA SIMULATION       ######
@@ -738,7 +737,7 @@ if verbose == 1:
 #############################################
 if verbose == 1:
 	print("initializing model...")
-delta_t= abs(np.diff(time_series))
+delta_t= np.abs(np.diff(time_series))
 bin_size = delta_t[0]
 possible_areas= list(powerset(np.arange(nareas)))
 
@@ -753,7 +752,7 @@ tbl = tbl[ind_keep,:]
 if args.red == 1:
 	ind_keep = []
 	for i in range(data_temp.shape[0]):
-		if (any(data_temp[i,:] == 1) and any(data_temp[i,:] == 2)) or any(data_temp[i,:] == 3):
+		if (np.any(data_temp[i,:] == 1) and np.any(data_temp[i,:] == 2)) or np.any(data_temp[i,:] == 3):
 			ind_keep.append(i)
 	data_temp = data_temp[ind_keep,:]
 	tbl = tbl[ind_keep,:]
@@ -857,7 +856,7 @@ r_vec[:,3]=1
 #for i in range(len(time_series)):
 ind_shift=[]
 
-for i in Q_times: ind_shift.append(np.argmin(abs(time_series-i)))
+for i in Q_times: ind_shift.append(np.argmin(np.abs(time_series-i)))
 
 ind_shift.append(len(time_series))
 ind_shift= np.sort(ind_shift)[::-1]
@@ -904,9 +903,9 @@ if verbose == 1:
 start_time=time.time()
 
 
-update_rate_freq_d = max(0.1, 1.5/sum(np.size(dis_rate_vec)))
-update_rate_freq_e = max(0.1, 1.5/sum(np.size(ext_rate_vec)))
-update_rate_freq_r = max(0.1, 1.5/sum(np.size(r_vec)))
+update_rate_freq_d = np.maximum(0.1, 1.5/sum(np.size(dis_rate_vec)))
+update_rate_freq_e = np.maximum(0.1, 1.5/sum(np.size(ext_rate_vec)))
+update_rate_freq_r = np.maximum(0.1, 1.5/sum(np.size(r_vec)))
 if verbose == 1: print("Origination time (binned):", OrigTimeIndex, delta_t)
 l=1
 recursive = np.arange(OrigTimeIndex[l],len(delta_t))[::-1]
@@ -1084,9 +1083,9 @@ constrDivdD_0 = np.array([])
 constrDivdD_not0 = np.arange(0, 2, 1)
 if args.constrDivdD_0 or (do_DivdD and data_in_area != 0):
 	if data_in_area == 1:
-			constrDivdD_0 = np.array([0])
+		constrDivdD_0 = np.array([0])
 	elif data_in_area == 2:
-			constrDivdD_0 = np.array([1])
+		constrDivdD_0 = np.array([1])
 	else:
 		constrDivdD_0 = np.array(args.constrDivdD_0) - 1
 	constrDivdD_not0 = constrDivdD_not0[np.isin(constrDivdD_not0, constrDivdD_0) == False]
@@ -1095,9 +1094,9 @@ constrDivdE_not0 = np.arange(0, 2, 1)
 if args.constrDivdE_0  or (do_DivdE and data_in_area != 0) or (do_DdE and data_in_area != 0):
 	constrDivdE_0 = np.array(args.constrDivdE_0) - 1
 	if data_in_area == 1:
-			constrDivdE_0 = np.array([1])
+		constrDivdE_0 = np.array([1])
 	elif data_in_area == 2:
-			constrDivdE_0 = np.array([0])
+		constrDivdE_0 = np.array([0])
 	else:
 		constrDivdE_0 = np.array(args.constrDivdE_0) - 1
 	constrDivdE_not0 = 2 + constrDivdE_not0[np.isin(constrDivdE_not0, constrDivdE_0) == False]
@@ -1344,7 +1343,7 @@ if plot_file != "":
 			rate = np.zeros((len_par, len_covar))
 			for i in range(len_par):
 				if transf == 1: # Time/environment-dependency and trait dependency
-					rate[i,:] = de[i] * exp(np.sum(par[i] * covar, axis = 1))
+					rate[i,:] = de[i] * np.exp(np.sum(par[i] * covar, axis = 1))
 				if transf == 2: # DivdD
 					tmp = de[i] * (1. - (covar/par[i]))
 					tmp[tmp <= 0] = 0.
@@ -1564,7 +1563,7 @@ if plot_file != "":
 			return plot_script
 
 		head = next(open(plot_file)).split()
-		logfile = loadtxt(plot_file, skiprows=1)
+		logfile = np.loadtxt(plot_file, skiprows=1)
 		mcmc_logfile = logfile.ndim == 2
 		if mcmc_logfile:
 			logfile = logfile[logfile[:,0] > burnin,:]
@@ -1813,7 +1812,7 @@ Q_times_header = np.concatenate((0., Q_times), axis = None)[::-1]
 for i in range(len(dis_rate_vec)): head+= "\td12_t%s\td21_t%s" % (Q_times_header[i],Q_times_header[i])
 for i in range(len(ext_rate_vec)): head+= "\te1_t%s\te2_t%s" % (Q_times_header[i],Q_times_header[i])
 for i in range(n_Q_times): head+= "\tq1_t%s\tq2_t%s" % (Q_times_header[i],Q_times_header[i])
-if do_varD: 
+if do_varD:
 	for i in range(num_varD):
 		head += "\tcov%s_d12\tcov%s_d21" % (i + 1, i + 1)
 	if args.lgD:
@@ -1832,7 +1831,7 @@ if argsG: head+= "\talpha"
 if do_DivdD or do_DivdE:
 	slices_dis = dis_rate_vec.shape[0]
 	slices_ext = ext_rate_vec.shape[0]
-	max_slices = max(slices_dis, slices_ext)
+	max_slices = np.maximum(slices_dis, slices_ext)
 	if data_in_area == 0:
 		for i in range(max_slices): head+= "\tcarrying_capacity_1_t%s\tcarrying_capacity_2_t%s" % (i,i)
 	else:
@@ -1918,10 +1917,10 @@ def div_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2):
 	div1 = div[0]
 	div2 = div[1]
 	div3 = div[2]
-	lim_d1 = max(0, 1 - (div1 + div3)/k_d1) # Limit dispersal into area 1
-	lim_d2 = max(0, 1 - (div2 + div3)/k_d2) # Limit dispersal into area 2
-	lim_e1 = max(1e-05, 1 - (div1 + div3)/k_e1) # Increases extinction in area 1
-	lim_e2 = max(1e-05, 1 - (div2 + div3)/k_e2) # Increases extinction in area 2
+	lim_d1 = np.maximum(0.0, 1.0 - (div1 + div3)/k_d1) # Limit dispersal into area 1
+	lim_d2 = np.maximum(0.0, 1.0 - (div2 + div3)/k_d2) # Limit dispersal into area 2
+	lim_e1 = np.maximum(1e-05, 1.0 - (div1 + div3)/k_e1) # Increases extinction in area 1
+	lim_e2 = np.maximum(1e-05, 1.0 - (div2 + div3)/k_e2) # Increases extinction in area 2
 	dS = np.zeros(5)
 	dS[3] = d21 * div2 * lim_d1 # Gain area 1
 	dS[4] = d12 * div1 * lim_d2 # Gain area 2
@@ -1943,8 +1942,8 @@ def div_traitcat_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2, covar_mu
 	div3 = div[pres3_idx]
 	div13 = sum(div1) + sum(div3)
 	div23 = sum(div1) + sum(div3)
-	lim_d1 = max(0, 1 - div13/k_d1) # Limit dispersal into area 1
-	lim_d2 = max(0, 1 - div23/k_d2) # Limit dispersal into area 2
+	lim_d1 = np.maximum(0.0, 1.0 - div13/k_d1) # Limit dispersal into area 1
+	lim_d2 = np.maximum(0.0, 1.0 - div23/k_d2) # Limit dispersal into area 2
 	dS = np.zeros(5 * nTaxa)
 	if argstraitD: # Cont trait dis
 		cont_modi = np.exp(np.sum(trait_parD * traitD, axis = 1))
@@ -1965,8 +1964,8 @@ def div_traitcat_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2, covar_mu
 	if do_DdE: # Dispersal induced extinction
 		mu1 = mu1 + covar_mu1 * dS[gainA_idx] / (div13 + 1.)
 		mu2 = mu2 + covar_mu2 * dS[gainB_idx] / (div23 + 1.)
-	lim_e1 = max(1e-05, 1 - div13/k_e1) # Increases extinction in area 1
-	lim_e2 = max(1e-05, 1 - div23/k_e2) # Increases extinction in area 2
+	lim_e1 = np.maximum(1e-05, 1.0 - div13/k_e1) # Increases extinction in area 1
+	lim_e2 = np.maximum(1e-05, 1.0 - div23/k_e2) # Increases extinction in area 2
 	mu1 = mu1 / lim_e1
 	mu2 = mu2 / lim_e2
 	dS[pres1_idx] = -mu1 * div[pres1_idx] + mu2 * div[pres3_idx] - dS[gainB_idx]
@@ -1980,8 +1979,8 @@ def dis_dep_ext_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, covar_mu1, covar_mu2)
 	div3 = div[2]
 	div13 = div[0] + div[2]
 	div23 = div[1] + div[2]
-	lim_d1 = max(0, 1 - (div13)/k_d1) # Limit dispersal into area 1
-	lim_d2 = max(0, 1 - (div23)/k_d2) # Limit dispersal into area 2
+	lim_d1 = np.maximum(0.0, 1.0 - (div13)/k_d1) # Limit dispersal into area 1
+	lim_d2 = np.maximum(0.0, 1.0 - (div23)/k_d2) # Limit dispersal into area 2
 	dS = np.zeros(5)
 	dS[3] = d21 * div2 * lim_d1 # Gain area 1
 	dS[4] = d12 * div1 * lim_d2 # Gain area 2
@@ -2007,8 +2006,8 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 		sa = np.zeros((pp_gamma_ncat, nTaxa))
 		sb = np.zeros((pp_gamma_ncat, nTaxa))
 		for i in range(pp_gamma_ncat):
-			sa[i,:] = exp(-bin_size * YangGamma[i] * -log(r_vec[Q_index_first_occ, 1])/bin_size)
-			sb[i,:] = exp(-bin_size * YangGamma[i] * -log(r_vec[Q_index_first_occ, 2])/bin_size)
+			sa[i,:] = np.exp(-bin_size * YangGamma[i] * -np.log(r_vec[Q_index_first_occ, 1])/bin_size)
+			sb[i,:] = np.exp(-bin_size * YangGamma[i] * -np.log(r_vec[Q_index_first_occ, 2])/bin_size)
 		sa = sa * weight_per_taxon
 		sb = sb * weight_per_taxon
 #		print("sb", sb)
@@ -2081,12 +2080,12 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 			occ_i = bin_first_occ == i # Only taxa occuring at that time for the first time
 			sa_i = sa[occ_i]
 			sb_i = sb[occ_i]
-			sum_sa_i = sum(sa_i) # Summed probability of false absences in area 1
-			sum_sb_i = sum(sb_i)
+			sum_sa_i = np.sum(sa_i) # Summed probability of false absences in area 1
+			sum_sb_i = np.sum(sb_i)
 			first_area_i = first_area[occ_i]
-			new_1 = sum(first_area_i == 1.) - sum_sb_i # Observed area 1 - false absences in area 1 (which are then in 3)
-			new_2 = sum(first_area_i == 2.) - sum_sa_i
-			new_3 = sum(first_area_i == 3.) + sum_sa_i + sum_sb_i
+			new_1 = np.sum(first_area_i == 1.) - sum_sb_i # Observed area 1 - false absences in area 1 (which are then in 3)
+			new_2 = np.sum(first_area_i == 2.) - sum_sa_i
+			new_3 = np.sum(first_area_i == 3.) + sum_sa_i + sum_sb_i
 
 			dt = [0., time_series_pad[i - 1] - time_series_pad[i] ]
 			div_t = np.zeros(5)
@@ -2206,8 +2205,8 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
 	gain_2_rescaled = gain_2 / (div_2 + 1.)
 	gain_1_rescaled[np.isnan(gain_1_rescaled)] = np.nanmax(gain_1_rescaled)
 	gain_2_rescaled[np.isnan(gain_2_rescaled)] = np.nanmax(gain_2_rescaled)
-	div_13[-1] = sum(np.isin(data_temp[:,-1], [1., 3.]))
-	div_23[-1] = sum(np.isin(data_temp[:,-1], [2., 3.]))
+	div_13[-1] = np.sum(np.isin(data_temp[:,-1], [1., 3.]))
+	div_23[-1] = np.sum(np.isin(data_temp[:,-1], [2., 3.]))
 	
 	div_13 = div_13[1:]
 	div_23 = div_23[1:]
@@ -2229,16 +2228,16 @@ def calc_diff_equil_two_areas(div):
 	if div13 > k_d[0] or div23 > k_d[1] or div13 >= k_e[0] or div23 >= k_e[1] or (div1 + div3 < 1) or (div2 + div3 < 1):
 		diff_equil = 1e10
 	else:
-		lim_d2 = max(0, 1 - div13/k_d[0]) # Limit dispersal into area 2
-		lim_d1 = max(0, 1 - div23/k_d[1]) # Limit dispersal into area 1
+		lim_d2 = np.maximum(0.0, 1.0 - div13/k_d[0]) # Limit dispersal into area 2
+		lim_d1 = np.maximum(0.0, 1.0 - div23/k_d[1]) # Limit dispersal into area 1
 		gain1 = dis[1] * div2 * lim_d1
 		gain2 = dis[0] * div1 * lim_d2
 		if do_DdE: # Dispersal dependent extinction
 			mu1 = ext[0] + covar_par[2] * gain1 / (div13 + 1.)
 			mu2 = ext[1] + covar_par[3] * gain2 / (div23 + 1.)
 		else: # Diversity dependent extinction
-			lim_e1 = max(1e-10, 1 - div13/k_e[0]) # Increases extinction in area 2
-			lim_e2 = max(1e-10, 1 - div23/k_e[1]) # Increases extinction in area 1
+			lim_e1 = np.maximum(1e-10, 1.0 - div13/k_e[0]) # Increases extinction in area 2
+			lim_e2 = np.maximum(1e-10, 1.0 - div23/k_e[1]) # Increases extinction in area 1
 			mu1 = ext[0]/lim_e1
 			mu2 = ext[1]/lim_e2
 		loss1 = mu1 * div1 + mu1 * div3
@@ -2246,21 +2245,21 @@ def calc_diff_equil_two_areas(div):
 		diff_equil = abs(gain1 - loss1) + abs(gain2 - loss2)
 	return diff_equil
 
-# Calculate difference from a given diversity to the equilibrium diversity for one area	
+# Calculate difference from a given diversity to the equilibrium diversity for one area
 def calc_diff_equil_one_area(div):
 	div_both = div[0] + div[1]
 	if div_both > k_d or div_both >= k_e or div_both < 1:
 		diff_equil = 1e10
 	else:
-		lim_d = max(0, 1 - div_both/k_d)  # Limit dispersal into focal area
+		lim_d = np.maximum(0.0, 1.0 - div_both/k_d)  # Limit dispersal into focal area
 		gain = dis * div[0] * lim_d
 		if do_DdE: # Dispersal dependent extinction
 			mu = ext + covar_par_equil * gain / (div_both + 1.)
 		else: # Diversity dependent extinction
-			lim_e = max(1e-10, 1 - div_both/k_e)
+			lim_e = np.maximum(1e-10, 1.0 - div_both/k_e)
 			mu = ext/lim_e
 		loss = mu * div_both
-		diff_equil = abs(gain - loss)
+		diff_equil = np.abs(gain - loss)
 	return diff_equil
 
 
@@ -2386,7 +2385,7 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 					idx_r_vec2 = [1,2]
 					#-log(r_vec2[:,idx_r_vec2])/bin_size
 					#r_vec2 = r_vec * np.exp(np.sum(trait_parS * traitS[l])) # Bad with ML
-					r_vec2_rate = -log(r_vec2[:,idx_r_vec2])/bin_size
+					r_vec2_rate = -np.log(r_vec2[:,idx_r_vec2])/bin_size
 					r_vec2_rate = r_vec2_rate * np.exp(np.sum(trait_parS * traitS[l]))
 					r_vec2[:,idx_r_vec2] = np.exp(-bin_size * r_vec2_rate)
 #					print(l)
@@ -2405,10 +2404,10 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 				r_vec2 = np.copy(r_vec)
 				if do_traitS:
 					idx_r_vec2 = [1,2]
-					r_vec2[:,idx_r_vec2] = np.exp(-bin_size * np.exp(np.sum(trait_parS * traitS[l])) * -log(r_vec2[:,idx_r_vec2])/bin_size)
+					r_vec2[:,idx_r_vec2] = np.exp(-bin_size * np.exp(np.sum(trait_parS * traitS[l])) * -np.log(r_vec2[:,idx_r_vec2])/bin_size)
 				for i in range(pp_gamma_ncat):
 #					print("r_vec:", r_vec)
-					r_vec_Gamma = exp(-bin_size * YangGamma[i] * -log(r_vec2)/bin_size) # convert to probability scale
+					r_vec_Gamma = np.exp(-bin_size * YangGamma[i] * -np.log(r_vec2)/bin_size) # convert to probability scale
 					r_vec_Gamma[:,0] = 0
 					r_vec_Gamma[:,3] = 1
 #					print(l)
@@ -2424,7 +2423,7 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 #				print(lik_vec)
 				lik_vec_max = np.max(lik_vec)
 				lik2 = lik_vec - lik_vec_max
-				lik += log(sum(exp(lik2))/pp_gamma_ncat) + lik_vec_max
+				lik += np.log(np.sum(np.exp(lik2))/pp_gamma_ncat) + lik_vec_max
 				weight_per_taxon[:,l] = np.exp(lik2) / np.sum(np.exp(lik2))
 		#print "lik2", lik
 		
@@ -2436,12 +2435,12 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 					r_vec,
 					rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
 					traits, cat, use_Pade_approx] for l in list_taxa_index ]
-			lik = sum(np.array(pool_lik.map(lik_DES_taxon, args_mt_lik)))
+			lik = np.sum(np.array(pool_lik.map(lik_DES_taxon, args_mt_lik)))
 		else:
 			YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
 			liktmp = np.zeros((pp_gamma_ncat, nTaxa)) # row: ncat column: species
 			for i in range(pp_gamma_ncat): 
-				r_vec_Gamma = exp(-bin_size * YangGamma[i] * -log(r_vec)/bin_size) # convert to probability scale
+				r_vec_Gamma = np.exp(-bin_size * YangGamma[i] * -np.log(r_vec)/bin_size) # convert to probability scale
 				r_vec_Gamma[:,0] = 0
 				r_vec_Gamma[:,3] = 1
 				if data_in_area == 1:
@@ -2455,8 +2454,8 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
 				liktmp[i,:] = np.array(pool_lik.map(lik_DES_taxon, args_mt_lik))
 			liktmpmax = np.amax(liktmp, axis = 0)
 			liktmp2 = liktmp - liktmpmax
-			lik = sum(log(sum( exp(liktmp2), axis = 0 )/pp_gamma_ncat)+liktmpmax)
-			weight_per_taxon = liktmp / sum(liktmp, axis = 0)
+			lik = np.sum(np.log(np.sum( np.exp(liktmp2), axis = 0 )/pp_gamma_ncat) + liktmpmax)
+			weight_per_taxon = liktmp / np.sum(liktmp, axis = 0)
 	
 	return lik, weight_per_taxon
 
@@ -2505,10 +2504,10 @@ def lik_opt(x, grad):
 		if equal_d:
 			dis_vec[:,0] = np.array(x[opt_ind_dis[0]])
 			dis_vec[:,1] = np.array(x[opt_ind_dis[0]])
-		elif sum(constraints_01_which) == 0 and len(constraints_01_which) == 1:
+		elif np.sum(constraints_01_which) == 0 and len(constraints_01_which) == 1:
 			dis_vec[:,0] = np.array(x[opt_ind_dis[0]])
 			dis_vec[:,1] = np.array(x[opt_ind_dis[1:]])
-		elif sum(constraints_01_which) == 1 and len(constraints_01_which) == 1:
+		elif np.sum(constraints_01_which) == 1 and len(constraints_01_which) == 1:
 			dis_vec[:,0] = np.array(x[opt_ind_dis[:-1]])
 			dis_vec[:,1] = np.array(x[opt_ind_dis[-1]])
 		else:
@@ -2545,10 +2544,10 @@ def lik_opt(x, grad):
 		if equal_e:
 			ext_vec[:,0] = np.array(x[opt_ind_ext[0]])
 			ext_vec[:,1] = np.array(x[opt_ind_ext[0]])
-		elif sum(constraints_23_which) == 2 and len(constraints_23_which) == 1:
+		elif np.sum(constraints_23_which) == 2 and len(constraints_23_which) == 1:
 			ext_vec[:,0] = np.array(x[opt_ind_ext[0]])
 			ext_vec[:,1] = np.array(x[opt_ind_ext[1:]])
-		elif sum(constraints_23_which) == 3 and len(constraints_23_which) == 1:
+		elif np.sum(constraints_23_which) == 3 and len(constraints_23_which) == 1:
 			ext_vec[:,0] = np.array(x[opt_ind_ext[:-1]])
 			ext_vec[:,1] = np.array(x[opt_ind_ext[-1]])
 		else:
@@ -2753,7 +2752,7 @@ if args.A == 3:
 	if data_in_area != 0:
 		opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, n_Q_times_ext)
 	if args.TdE is True and constraints_23 and equal_e is False:
-		if all(np.isin(np.array([2, 3]), constraints)):
+		if np.all(np.isin(np.array([2, 3]), constraints)):
 			opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, nareas)
 		else:
 			opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, n_Q_times_ext + 1)
@@ -2769,7 +2768,7 @@ if args.A == 3:
 	if data_in_area != 0:
 		opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, n_Q_times)
 	if constraints_45 and equal_q is False:
-		if all(np.isin(np.array([4, 5]), constraints)):
+		if np.all(np.isin(np.array([4, 5]), constraints)):
 			opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, nareas)
 		else:
 			opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, n_Q_times + 1)
@@ -2945,7 +2944,7 @@ if args.A == 3:
 		opt_base = nlopt.opt(nlopt.LN_SBPLX, len(x0))
 		new_lower_bounds = lower_bounds[:]
 		new_upper_bounds = upper_bounds[:]
-		frombound = int(max(opt_ind_r_vec)) + 1
+		frombound = int(np.max(opt_ind_r_vec)) + 1
 		tobound = len(x0)
 		if argsG: #  and data_in_area == 0
 			frombound = frombound + 1
@@ -2967,7 +2966,7 @@ if args.A == 3:
 		opt_base.set_upper_bounds(new_upper_bounds)
 		opt_base.set_max_objective(lik_opt)
 		opt_base.set_xtol_rel(args.A3set[0])
-		opt_base.set_maxeval(int(args.A3set[2]/3) * round(1.25**frombound))
+		opt_base.set_maxeval(int(args.A3set[2]/3 * round(1.25**frombound)))
 		opt_base.set_ftol_abs(args.A3set[1])
 		opt_base.set_maxtime(args.A3set[3]/3)
 		x_base = opt_base.optimize(x0)
@@ -2990,9 +2989,9 @@ if args.A == 3:
 		new_lower_bounds2 = lower_bounds[:]
 		new_upper_bounds2 = upper_bounds[:]
 		if do_varD:
-			frombound = int(max(opt_ind_covar_dis)) + 1
-			if args.lgD: frombound = int(max(opt_ind_x0_log_dis)) + 1
-		else: frombound = int(max(opt_ind_divd_dis)) + 1 # DivdD
+			frombound = int(np.max(opt_ind_covar_dis)) + 1
+			if args.lgD: frombound = int(np.max(opt_ind_x0_log_dis)) + 1
+		else: frombound = int(np.max(opt_ind_divd_dis)) + 1 # DivdD
 		tobound = len(x0)
 		new_lower_bounds2[frombound:tobound] = x0[frombound:tobound]
 		new_upper_bounds2[frombound:tobound] = x0[frombound:tobound]
@@ -3006,7 +3005,7 @@ if args.A == 3:
 		opt_dis_cov.set_upper_bounds(new_upper_bounds2)
 		opt_dis_cov.set_max_objective(lik_opt)
 		opt_dis_cov.set_xtol_rel(args.A3set[0])
-		opt_dis_cov.set_maxeval(int(args.A3set[2]/3) * round(1.25**frombound))
+		opt_dis_cov.set_maxeval(int(args.A3set[2]/3 * round(1.25**frombound)))
 		opt_dis_cov.set_ftol_abs(args.A3set[1])
 		opt_dis_cov.set_maxtime(args.A3set[3]/3)
 		x_dis_cov = opt_dis_cov.optimize(x0)
@@ -3019,9 +3018,10 @@ if args.A == 3:
 		new_lower_bounds2 = lower_bounds[:]
 		new_upper_bounds2 = upper_bounds[:]
 		if do_varE:
-			frombound = int(max(opt_ind_covar_ext)) + 1
-			if args.lgE: frombound = int(max(opt_ind_x0_log_ext)) + 1
-		else: frombound = int(max(opt_ind_divd_ext)) + 1
+			frombound = int(np.max(opt_ind_covar_ext)) + 1
+			if args.lgE:
+				frombound = int(np.max(opt_ind_x0_log_ext)) + 1
+		else: frombound = int(np.max(opt_ind_divd_ext)) + 1
 		tobound = len(x0)
 		new_lower_bounds2[frombound:tobound] = x0[frombound:tobound]
 		new_upper_bounds2[frombound:tobound] = x0[frombound:tobound]
@@ -3029,7 +3029,7 @@ if args.A == 3:
 		opt_ext_cov.set_upper_bounds(new_upper_bounds2)
 		opt_ext_cov.set_max_objective(lik_opt)
 		opt_ext_cov.set_xtol_rel(args.A3set[0])
-		opt_ext_cov.set_maxeval(int(args.A3set[2]/3) * round(1.25**frombound))
+		opt_ext_cov.set_maxeval(int(args.A3set[2]/3 * round(1.25**frombound)))
 		opt_ext_cov.set_ftol_abs(args.A3set[1])
 		opt_ext_cov.set_maxtime(args.A3set[3]/3)
 		x_ext_cov = opt_ext_cov.optimize(x0)
@@ -3043,7 +3043,7 @@ if args.A == 3:
 	opt.set_upper_bounds(upper_bounds)
 	opt.set_max_objective(lik_opt)
 	opt.set_xtol_rel(args.A3set[0])
-	opt.set_maxeval(int(args.A3set[2]/div_iter) * round(1.25**len(x0)))
+	opt.set_maxeval(int(args.A3set[2]/div_iter * round(1.25**len(x0))))
 	opt.set_ftol_abs(args.A3set[1])
 	opt.set_maxtime(args.A3set[3]/div_timeout)
 	x = opt.optimize(x0)
@@ -3061,10 +3061,10 @@ if args.A == 3:
 			dis_rate_vec[:,0] = np.array(x[opt_ind_dis[0]])
 			dis_rate_vec[:,1] = np.array(x[opt_ind_dis[0]])
 		# Both dispersal rates could be constant!
-		elif sum(constraints_01_which) == 0 and len(constraints_01_which) == 1:
+		elif np.sum(constraints_01_which) == 0 and len(constraints_01_which) == 1:
 			dis_rate_vec[:,0] = np.array(x[opt_ind_dis[0]])
 			dis_rate_vec[:,1] = np.array(x[opt_ind_dis[1:]]) 
-		elif sum(constraints_01_which) == 1 and len(constraints_01_which) == 1:
+		elif np.sum(constraints_01_which) == 1 and len(constraints_01_which) == 1:
 			dis_rate_vec[:,0] = np.array(x[opt_ind_dis[:-1]])
 			dis_rate_vec[:,1] = np.array(x[opt_ind_dis[-1]])
 		else:
@@ -3083,10 +3083,10 @@ if args.A == 3:
 		if equal_e:
 			ext_rate_vec[:,0] = np.array(x[opt_ind_ext[0]])
 			ext_rate_vec[:,1] = np.array(x[opt_ind_ext[0]])
-		elif sum(constraints_23_which) == 2 and len(constraints_23_which) == 1:
+		elif np.sum(constraints_23_which) == 2 and len(constraints_23_which) == 1:
 			ext_rate_vec[:,0] = np.array(x[opt_ind_ext[0]])
 			ext_rate_vec[:,1] = np.array(x[opt_ind_ext[1:]])
-		elif sum(constraints_23_which) == 3 and len(constraints_23_which) == 1:
+		elif np.sum(constraints_23_which) == 3 and len(constraints_23_which) == 1:
 			ext_rate_vec[:,0] = np.array(x[opt_ind_ext[:-1]])
 			ext_rate_vec[:,1] = np.array(x[opt_ind_ext[-1]])
 		else:
@@ -3108,10 +3108,10 @@ if args.A == 3:
 		if equal_q:
 			r_vec[:,1] = np.array(x[opt_ind_r_vec[0]])
 			r_vec[:,2] = np.array(x[opt_ind_r_vec[0]])
-		elif sum(constraints_45_which) == 4 and len(constraints_45_which) == 1:
+		elif np.sum(constraints_45_which) == 4 and len(constraints_45_which) == 1:
 			r_vec[:,1] = np.array(x[opt_ind_r_vec[0]])
 			r_vec[:,2] = np.array(x[opt_ind_r_vec[1:]])
-		elif sum(constraints_45_which) == 5 and len(constraints_45_which) == 1:
+		elif np.sum(constraints_45_which) == 5 and len(constraints_45_which) == 1:
 			r_vec[:,1] = np.array(x[opt_ind_r_vec[:-1]])
 			r_vec[:,2] = np.array(x[opt_ind_r_vec[-1]])
 		else:
@@ -3428,10 +3428,12 @@ for it in range(n_generations * len(scal_fac_TI)):
 		if argsG is True and r[1] < .5:
 			alpha, hasting_alpha = update_multiplier_proposal(alphaA,d=1.1)
 		r_vec[:,0]=0
+		#--> CONSTANT Q IN AREA 1
+		if np.any(constraints == 4):
+			r_vec[:,1] = r_vec[1,1]
 		#--> CONSTANT Q IN AREA 2
-		if any(constraints == 4): r_vec[:,1] = r_vec[1,1]
-		#--> CONSTANT Q IN AREA 2
-		if any(constraints == 5): r_vec[:,2] = r_vec[1,2]
+		if np.any(constraints == 5):
+			r_vec[:,2] = r_vec[1,2]
 		#--> SYMMETRIC SAMPLING
 		if equal_q is True: r_vec[:,2] = r_vec[:,1]
 		r_vec[:,3]=1
@@ -3521,8 +3523,8 @@ for it in range(n_generations * len(scal_fac_TI)):
 		transf_e=3
 		ext_vec = ext_rate_vec
 	elif args.DisdE and do_varE is False: # Dispersal RATE dep Extinction
-		rateD12res = log(rateD12)
-		rateD21res = log(rateD21)
+		rateD12res = np.log(rateD12)
+		rateD21res = np.log(rateD21)
 		transf_e=1
 		time_var_e2,time_var_e1 = rateD12res,rateD21res
 		ext_vec = ext_rate_vec
@@ -3567,8 +3569,8 @@ for it in range(n_generations * len(scal_fac_TI)):
 	if args.linE: transf_e = 6
 
 	if model_DUO:
-		numD12res = rescale_vec_to_range(log(1+numD12), r=10., m=0)
-		numD21res = rescale_vec_to_range(log(1+numD21), r=10., m=0)
+		numD12res = rescale_vec_to_range(np.log(1+numD12), r=10., m=0)
+		numD21res = rescale_vec_to_range(np.log(1+numD21), r=10., m=0)
 		# NOTE THAT no. dispersals from 1=>2 affects extinction in 2 and vice versa
 		time_var_e2two, time_var_e1two=  numD12res, numD21res
 		ext_vec = ext_rate_vec
@@ -3614,7 +3616,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		if hypGA>0: # use normal prior on covar par
 			prior += prior_normal(covar_par,scale=sqrt(hypGA))
 		else: # use uniform prior on covar par
-			if np.anp.max(abs(covar_par)) > -hypGA:
+			if np.anp.max(np.abs(covar_par)) > -hypGA:
 				prior += -np.inf
 			else:
 				prior += 0
@@ -3625,7 +3627,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		if hypGA>0: # use normal prior on trait par
 			prior += prior_normal(trait_par,scale=sqrt(hypGA))
 		else: # use uniform prior on trait par
-			if np.anp.max(abs(trait_par)) > -hypGA:
+			if np.anp.max(np.abs(trait_par)) > -hypGA:
 				prior += -np.inf
 			else:
 				prior += 0
@@ -3636,7 +3638,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 		if hypGA>0: # use normal prior on trait par
 			prior += prior_normal(cat_par_concat,scale=sqrt(hypGA))
 		else: # use uniform prior on trait par
-			if np.anp.max(abs(cat_par_concat)) > -hypGA:
+			if np.anp.max(np.abs(cat_par_concat)) > -hypGA:
 				prior += -np.inf
 			else:
 				prior += 0
@@ -3689,12 +3691,12 @@ for it in range(n_generations * len(scal_fac_TI)):
 			ml_it=0
 		if runMCMC == 1:
 			# MCMC
-			if (lik_alter-(likA* scal_fac_TI[scal_fac_ind]) + prior-priorA +hasting >= log(np.random.uniform(0,1))) or (gibbs_sample == 1):
+			if (lik_alter-(likA* scal_fac_TI[scal_fac_ind]) + prior-priorA +hasting >= np.log(np.random.uniform(0,1))) or (gibbs_sample == 1):
 				accepted_state=1
 		else:
 			# ML (approx maximum a posteriori algorithm)
 			if ml_it==0: rr = 0 # only accept improvements
-			else: rr = log(np.random.uniform(0,1))
+			else: rr = np.log(np.random.uniform(0,1))
 			if (lik_alter-(likA* scal_fac_TI[scal_fac_ind]))*map_power >= rr:
 				accepted_state=1
 	elif it==0: 
@@ -3726,7 +3728,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 	ext_rate_not_transformed = True
 	if it % print_freq == 0:
 		sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
-		q_rates = -log(sampling_prob)/bin_size
+		q_rates = -np.log(sampling_prob)/bin_size
 		print(it,"\t",likA,lik,scal_fac_TI[scal_fac_ind])
 		if do_DivdD:
 			dis_rate_vec_A[0,:] = dis_rate_vec_A[0,:] / (1. - ([offset_dis_div2, offset_dis_div1]/covar_par_A[0:2]))
@@ -3734,10 +3736,10 @@ for it in range(n_generations * len(scal_fac_TI)):
 			ext_rate_vec_A[0,:] = ext_rate_vec_A[0,:] * (1. - ([offset_ext_div2, offset_ext_div1]/covar_par_A[2:4]))
 			ext_rate_not_transformed = False
 		if args.lgD:
-			dis_rate_vec_A[0,:] = dis_rate_vec_A[0,:] * ( 1. + exp(-covar_parD_A * (covar_mean_dis - x0_logisticD_A)))
+			dis_rate_vec_A[0,:] = dis_rate_vec_A[0,:] * ( 1. + np.exp(-covar_parD_A * (covar_mean_dis - x0_logisticD_A)))
 			dis_rate_not_transformed = False
 		if args.lgE:
-			ext_rate_vec_A[0,:] = ext_rate_vec_A[0,:] * ( 1. + exp(-covar_parE_A * (covar_mean_ext - x0_logisticE_A)))
+			ext_rate_vec_A[0,:] = ext_rate_vec_A[0,:] * ( 1. + np.exp(-covar_parE_A * (covar_mean_ext - x0_logisticE_A)))
 			ext_rate_not_transformed = False
 		print("\td:", dis_rate_vec_A.flatten(), "e:", ext_rate_vec_A.flatten(),"q:",q_rates,"alpha:",alphaA)
 		print("\tK/phi:",covar_par_A)
@@ -3786,15 +3788,15 @@ for it in range(n_generations * len(scal_fac_TI)):
 			sys.exit(msg)
 	if log_to_file:
 		sampling_prob = r_vec_A[:,1:len(r_vec_A[0])-1].flatten()
-		q_rates = -log(sampling_prob)/bin_size
+		q_rates = -np.log(sampling_prob)/bin_size
 		if do_DivdD and dis_rate_not_transformed:
 			dis_rate_vec_A[0,:] = dis_rate_vec_A[0,:] / (1. - ([offset_dis_div2, offset_dis_div1]/covar_par[0:2]))
 		if do_DivdE and ext_rate_not_transformed:
 			ext_rate_vec_A[0,:] = ext_rate_vec_A[0,:] * (1. - ([offset_ext_div2, offset_ext_div1]/covar_par[2:4]))
 		if args.lgD and dis_rate_not_transformed:
-			dis_rate_vec_A[0,:] = dis_rate_vec_A[0,:] * ( 1. + exp(-covar_parD_A * (covar_mean_dis - x0_logisticD_A)))
+			dis_rate_vec_A[0,:] = dis_rate_vec_A[0,:] * ( 1. + np.exp(-covar_parD_A * (covar_mean_dis - x0_logisticD_A)))
 		if args.lgE and ext_rate_not_transformed:
-			ext_rate_vec_A[0,:] = ext_rate_vec_A[0,:] * ( 1. + exp(-covar_parE_A * (covar_mean_ext - x0_logisticE_A)))
+			ext_rate_vec_A[0,:] = ext_rate_vec_A[0,:] * ( 1. + np.exp(-covar_parE_A * (covar_mean_ext - x0_logisticE_A)))
 		log_dis_rate = dis_rate_vec_A.flatten()
 		log_ext_rate = ext_rate_vec_A.flatten()
 		if args.A == 3: priorA = 0.0

@@ -1,4 +1,4 @@
-from numpy import *
+#from numpy import *
 import numpy as np
 import scipy
 import csv, os
@@ -94,8 +94,8 @@ def make_Q_list(dv_list,ev_list): # construct list of Q matrices
 	return Q_list
 
 def make_Q_Covar(dv_list,ev_list,time_var,covar_par=np.zeros(2)): # construct list of Q matrices
-	transf_d = np.array([dv_list[0][0] *exp(covar_par[0]*time_var), dv_list[0][1] *exp(covar_par[0]*time_var)]).T
-	transf_e = np.array([ev_list[0][0] *exp(covar_par[1]*time_var), ev_list[0][1] *exp(covar_par[1]*time_var)]).T
+	transf_d = np.array([dv_list[0][0] * np.exp(covar_par[0]*time_var), dv_list[0][1] * np.exp(covar_par[0]*time_var)]).T
+	transf_e = np.array([ev_list[0][0] * np.exp(covar_par[1]*time_var), ev_list[0][1] * np.exp(covar_par[1]*time_var)]).T
 	Q_list=[]
 	for i in range(len(transf_d)):
 		D=0
@@ -114,8 +114,8 @@ def make_Q_Covar(dv_list,ev_list,time_var,covar_par=np.zeros(2)): # construct li
 	return Q_list
 		
 def make_Q_Covar4V(dv_list,ev_list,time_var,covar_par=np.zeros(4)): # construct list of Q matrices
-	transf_d = np.array([dv_list[0][0] *exp(covar_par[0]*time_var), dv_list[0][1] *exp(covar_par[1]*time_var)]).T
-	transf_e = np.array([ev_list[0][0] *exp(covar_par[2]*time_var), ev_list[0][1] *exp(covar_par[3]*time_var)]).T
+	transf_d = np.array([dv_list[0][0] * np.exp(covar_par[0]*time_var), dv_list[0][1] * np.exp(covar_par[1]*time_var)]).T
+	transf_e = np.array([ev_list[0][0] * np.exp(covar_par[2]*time_var), ev_list[0][1] * np.exp(covar_par[3]*time_var)]).T
 	Q_list=[]
 	for i in range(len(transf_d)):
 		D=0
@@ -137,14 +137,14 @@ def transform_rate_logistic(r_at_trait_mean,prm,trait):
 	# r0 is the max rate
 	k, x0 = prm # steepness and mid point
 	trait_mean = np.mean(trait)
-	r0 = r_at_trait_mean * ( 1. + exp( -k * (trait_mean-x0) )    )
-	rate_at_trait = r0 / ( 1. + exp( -k * (trait-x0) )    )
+	r0 = r_at_trait_mean * ( 1. +  np.exp( -k * (trait_mean-x0) )    )
+	rate_at_trait = r0 / ( 1. +  np.exp( -k * (trait-x0) )    )
 	return rate_at_trait.flatten()
 
 
 def get_dispersal_rate_through_time(dv_list,time_var_d1,time_var_d2,covar_par=np.zeros(4),x0_logistic=np.zeros(4),transf_d=0): 
 	if transf_d==1: # exponential
-		transf_d = np.array([dv_list[0][0] *exp(covar_par[0]*time_var_d1), dv_list[0][1] *exp(covar_par[1]*time_var_d2)]).T
+		transf_d = np.array([dv_list[0][0] * np.exp(covar_par[0]*time_var_d1), dv_list[0][1] * np.exp(covar_par[1]*time_var_d2)]).T
 	elif transf_d==2: # logistic
 		transf_d12 = transform_rate_logistic(dv_list[0][0], [covar_par[0],x0_logistic[0]],time_var_d1)
 		transf_d21 = transform_rate_logistic(dv_list[0][1], [covar_par[1],x0_logistic[1]],time_var_d2)
@@ -159,7 +159,7 @@ def make_Q_Covar4VDdE(dv_list, ev_list, time_var_d1, time_var_d2, time_var_e1, t
 	if transf_d==1: # exponential
 		idx1 = np.arange(0, len(covar_parD), 2, dtype = int)
 		idx2 = np.arange(1, len(covar_parD), 2, dtype = int)
-		transf_d = np.array([dv_list[0][0] * exp(np.sum(covar_parD[idx1]*time_var_d1, axis = 1)), dv_list[0][1] * exp(np.sum(covar_parD[idx2]*time_var_d2, axis = 1))]).T
+		transf_d = np.array([dv_list[0][0] * np.exp(np.sum(covar_parD[idx1]*time_var_d1, axis = 1)), dv_list[0][1] * np.exp(np.sum(covar_parD[idx2]*time_var_d2, axis = 1))]).T
 	elif transf_d==2: # logistic
 		transf_d12 = transform_rate_logistic(dv_list[0][0], [covar_parD[0],x0_logisticD[0]],time_var_d1)
 		transf_d21 = transform_rate_logistic(dv_list[0][1], [covar_parD[1],x0_logisticD[1]],time_var_d2)
@@ -172,8 +172,8 @@ def make_Q_Covar4VDdE(dv_list, ev_list, time_var_d1, time_var_d2, time_var_e1, t
 	elif transf_d==5: # Combination of environment and diversity dependent dispersal
 		idx1 = np.arange(0, len(covar_parD), 2, dtype = int)
 		idx2 = np.arange(1, len(covar_parD), 2, dtype = int)
-		env_d12 = dv_list[0][0] * exp(np.sum(covar_parD[idx1]*time_var_d1, axis = 1))
-		env_d21 = dv_list[0][1] * exp(np.sum(covar_parD[idx2]*time_var_d2, axis = 1))
+		env_d12 = dv_list[0][0] * np.exp(np.sum(covar_parD[idx1]*time_var_d1, axis = 1))
+		env_d21 = dv_list[0][1] * np.exp(np.sum(covar_parD[idx2]*time_var_d2, axis = 1))
 		transf_d = np.array([(env_d12 / (1. - (offset_dis_div1/covar_par[0]))) * (1. - (diversity_d1/covar_par[0])), 
 		                     (env_d21 / (1. - (offset_dis_div2/covar_par[1]))) * (1. - (diversity_d2/covar_par[1]))]).T
 		transf_d[transf_d <= 0] = 1e-5
@@ -183,7 +183,7 @@ def make_Q_Covar4VDdE(dv_list, ev_list, time_var_d1, time_var_d2, time_var_e1, t
 	if transf_e==1: # exponential
 		idx1 = np.arange(0, len(covar_parE), 2, dtype = int)
 		idx2 = np.arange(1, len(covar_parE), 2, dtype = int)
-		transf_e = np.array([ev_list[0][0] * exp(np.sum(covar_parE[idx1]*time_var_e1, axis = 1)), ev_list[0][1] * exp(np.sum(covar_parE[idx2]*time_var_e2, axis = 1))]).T
+		transf_e = np.array([ev_list[0][0] * np.exp(np.sum(covar_parE[idx1]*time_var_e1, axis = 1)), ev_list[0][1] * np.exp(np.sum(covar_parE[idx2]*time_var_e2, axis = 1))]).T
 	elif transf_e==2: # logistic
 		transf_e1  = transform_rate_logistic(ev_list[0][0], [covar_parE[0],x0_logisticE[0]],time_var_e1)
 		transf_e2  = transform_rate_logistic(ev_list[0][1], [covar_parE[1],x0_logisticE[1]],time_var_e2)
@@ -209,8 +209,8 @@ def make_Q_Covar4VDdE(dv_list, ev_list, time_var_d1, time_var_d2, time_var_e1, t
 	elif transf_e==5: # Combination of environment and diversity dependent extinction
 		idx1 = np.arange(0, len(covar_parE), 2, dtype = int)
 		idx2 = np.arange(1, len(covar_parE), 2, dtype = int)
-		env_e1 = ev_list[0][0] * exp(np.sum(covar_parE[idx1]*time_var_e1, axis = 1))
-		env_e2 = ev_list[0][1] * exp(np.sum(covar_parE[idx2]*time_var_e2, axis = 1))
+		env_e1 = ev_list[0][0] * np.exp(np.sum(covar_parE[idx1]*time_var_e1, axis = 1))
+		env_e2 = ev_list[0][1] * np.exp(np.sum(covar_parE[idx2]*time_var_e2, axis = 1))
 		denom_e1 = 1. - diversity_e1/covar_par[2]
 		denom_e2 = 1. - diversity_e2/covar_par[3]
 		denom_e1[denom_e1 == 0.0] = 1e-5 # Diversity equals K
@@ -235,8 +235,8 @@ def make_Q_Covar4VDdE(dv_list, ev_list, time_var_d1, time_var_d2, time_var_e1, t
 	elif transf_e==7: # Combination of environment and dispersal dependent extinction
 		idx1 = np.arange(0, len(covar_parE), 2, dtype = int)
 		idx2 = np.arange(1, len(covar_parE), 2, dtype = int)
-		env_e1 = ev_list[0][0] * exp(np.sum(covar_parE[idx1]*time_var_e1, axis = 1))
-		env_e2 = ev_list[0][1] * exp(np.sum(covar_parE[idx2]*time_var_e2, axis = 1))
+		env_e1 = ev_list[0][0] * np.exp(np.sum(covar_parE[idx1]*time_var_e1, axis = 1))
+		env_e2 = ev_list[0][1] * np.exp(np.sum(covar_parE[idx2]*time_var_e2, axis = 1))
 		transf_e = np.array([env_e1 + (covar_par[2]*dis_into_1), env_e2 +(covar_par[3]*dis_into_2)]).T
 		transf_e[transf_e < 0.0] = 0.0
 	else:
@@ -280,7 +280,7 @@ def make_Q_Covar4VDdE(dv_list, ev_list, time_var_d1, time_var_d2, time_var_e1, t
 
 def make_Q_Covar4VDdEDOUBLE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,time_var_e2,time_var_e1two,time_var_e2two,covar_par=np.zeros(4),x0_logistic=np.zeros(4),transf_d=0,transf_e=0): 
 	if transf_d==1: # exponential
-		transf_d = np.array([dv_list[0][0] *exp(covar_par[0]*time_var_d1), dv_list[0][1] *exp(covar_par[1]*time_var_d2)]).T
+		transf_d = np.array([dv_list[0][0] * np.exp(covar_par[0]*time_var_d1), dv_list[0][1] * np.exp(covar_par[1]*time_var_d2)]).T
 	elif transf_d==2: # logistic
 		transf_d12 = transform_rate_logistic(dv_list[0][0], [covar_par[0],x0_logistic[0]],time_var_d1)
 		transf_d21 = transform_rate_logistic(dv_list[0][1], [covar_par[1],x0_logistic[1]],time_var_d2)
@@ -288,7 +288,7 @@ def make_Q_Covar4VDdEDOUBLE(dv_list,ev_list,time_var_d1,time_var_d2,time_var_e1,
 	else: # time-dependent-dispersal
 		transf_d = dv_list
 	if transf_e==1: # exponential
-		transf_e = np.array([ev_list[0][0] *exp(covar_par[2]*time_var_e1 + covar_par[3]*time_var_e1two), ev_list[0][1] *exp(covar_par[2]*time_var_e2 + covar_par[3]*time_var_e2two)]).T
+		transf_e = np.array([ev_list[0][0] * np.exp(covar_par[2]*time_var_e1 + covar_par[3]*time_var_e1two), ev_list[0][1] * np.exp(covar_par[2]*time_var_e2 + covar_par[3]*time_var_e2two)]).T
 	elif transf_e==3: # linear DOUBLE
 		transf_e = np.array([ev_list[0][0] + (covar_par[2]*time_var_e1) + (covar_par[3]*time_var_e1two) , ev_list[0][1] +(covar_par[2]*time_var_e2) + (covar_par[3]*time_var_e2two) ]).T
 		transf_e[transf_e<0.0001] = 0.0001
@@ -344,9 +344,9 @@ def make_Q3A(dv,ev): # construct Q matrix
 def simulate_dataset(no_sim,d,e,n_taxa,TimeSpan,n_bins=20,wd=""):
 	n_bins +=1
 	def random_choice_P(vector):
-		probDeath=np.cumsum(vector/sum(vector)) # cumulative prob (used to randomly sample one 
+		probDeath=np.cumsum(vector/np.sum(vector)) # cumulative prob (used to randomly sample one 
 		r=rand.random()                          # parameter based on its deathRate)
-		probDeath=sort(append(probDeath, r))
+		probDeath=np.sort(append(probDeath, r))
 		ind=np.where(probDeath==r)[0][0] # just in case r==1
 		return [vector[ind], ind]
 	
@@ -365,11 +365,11 @@ def simulate_dataset(no_sim,d,e,n_taxa,TimeSpan,n_bins=20,wd=""):
 	#OrigTimes[OrigTimes>45]=0 # avoid taxa appearing later than 5 Ma 
 	#OrigTimes = np.random.uniform(0, TimeSpan - TimeSpan * 0.1, n_taxa)
 	
-	#Times = sort(np.random.uniform(0,50,10))  #
-	Times_mod = sort(np.linspace(0,TimeSpan,n_bins))
+	#Times = np.sort(np.random.uniform(0,50,10))  #
+	Times_mod = np.sort(np.linspace(0,TimeSpan,n_bins))
 	SimStates = np.zeros(n_bins) + nan
 	#deltaTimes= np.diff(Times)
-	#Times_mod = sort(np.append(Times,0))
+	#Times_mod = np.sort(np.append(Times,0))
 	wlog.writerow(list(Times_mod))
 	newfile.flush()
 
@@ -410,9 +410,9 @@ def simulate_dataset(no_sim,d,e,n_taxa,TimeSpan,n_bins=20,wd=""):
 def simulate_dataset_1area(no_sim,d,e,n_taxa,n_bins=20,wd="", area = 2):
 	n_bins +=1
 	def random_choice_P(vector):
-		probDeath=np.cumsum(vector/sum(vector)) # cumulative prob (used to randomly sample one 
+		probDeath=np.cumsum(vector/np.sum(vector)) # cumulative prob (used to randomly sample one 
 		r=rand.random()                          # parameter based on its deathRate)
-		probDeath=sort(append(probDeath, r))
+		probDeath=np.sort(append(probDeath, r))
 		ind=np.where(probDeath==r)[0][0] # just in case r==1
 		return [vector[ind], ind]
 	
@@ -430,11 +430,11 @@ def simulate_dataset_1area(no_sim,d,e,n_taxa,n_bins=20,wd="", area = 2):
 	#OrigTimes = np.random.uniform(0,TimeSpan,n_taxa) # uniform distribution of speciation times
 	#OrigTimes[OrigTimes>45]=0 # avoid taxa appearing later than 5 Ma 
 	
-	#Times = sort(np.random.uniform(0,50,10))  #
-	Times_mod = sort(np.linspace(0,TimeSpan,n_bins))
+	#Times = np.sort(np.random.uniform(0,50,10))  #
+	Times_mod = np.sort(np.linspace(0,TimeSpan,n_bins))
 	SimStates = np.zeros(n_bins) + nan
 	#deltaTimes= np.diff(Times)
-	#Times_mod = sort(np.append(Times,0))
+	#Times_mod = np.sort(np.append(Times,0))
 	wlog.writerow(list(Times_mod))
 	newfile.flush()
 
@@ -457,7 +457,7 @@ def simulate_dataset_1area(no_sim,d,e,n_taxa,n_bins=20,wd="", area = 2):
 			t += rand_t
 			SimStates[passed_ind] = current_state
 	
-			if t < max(Times_mod): # did not exceed max length
+			if t < np.max(Times_mod): # did not exceed max length
 				Qrow = Q[current_state]+0
 				Qrow[Qrow<0]=0 # No probability for the diagonal
 				[rate, ind] = random_choice_P(Qrow)
@@ -478,7 +478,7 @@ def simulate_dataset_1area(no_sim,d,e,n_taxa,n_bins=20,wd="", area = 2):
 
 def transform_Array_Tuple(A): # works ONLY for 2 areas
 	A=np.array(A)
-	A[isnan(A)]=4 # 4 means NaN
+	A[np.isnan(A)]=4 # 4 means NaN
 	A =np.ndarray.astype(A,dtype=int)
 	z=np.empty(np.shape(A),dtype=object)
 	translation = np.array([(),(0,),(1,),(0,1),(np.nan,)], dtype = object)
@@ -503,7 +503,7 @@ def parse_input_data(input_file_name,RHO_sampling=np.ones(2),verbose=0,n_sampled
 				d=d[np.isfinite(d)]
 				areas = np.unique(d[d>0])
 				if len(areas)>0:
-					if len(areas)>1 or max(areas)==3:
+					if len(areas)>1 or np.max(areas)==3:
 						DATA_temp.append(DATA[i])
 						print(areas)
 			DATA =  DATA_temp
@@ -512,7 +512,7 @@ def parse_input_data(input_file_name,RHO_sampling=np.ones(2),verbose=0,n_sampled
 	obs_area_series = transform_Array_Tuple(DATA[1:])
 	nTaxa = len(obs_area_series)
 	print(time_series)
-	print(len(time_series),shape(obs_area_series))
+	print(len(time_series),np.shape(obs_area_series))
 
 	###### SIMULATE SAMPLING ######
 	sampled_data=list()  #np.empty(nTaxa, dtype=object)
@@ -527,7 +527,7 @@ def parse_input_data(input_file_name,RHO_sampling=np.ones(2),verbose=0,n_sampled
 		
 			if len(obs[i]) == 0: new_obs.append(()) # if no areas it means taxon is extinct for good
 		
-			elif isnan(obs[i][0]): 
+			elif np.isnan(obs[i][0]): 
 				#__ if species doesn't exist yet NaN (assuming origination time is known)
 				new_obs.append((np.nan,)) 
 				OrigTimeIndex[l] = i+1
@@ -545,8 +545,8 @@ def parse_input_data(input_file_name,RHO_sampling=np.ones(2),verbose=0,n_sampled
 		new_obs2,NA=[],1
 		for i in range(len(new_obs)): # add NaN until first observed appearance (i.e. not true time of origin)
 			if NA==1:
-				if new_obs[i]==() or isnan(new_obs[i][0]):
-					 new_obs2.append((np.nan,))
+				if new_obs[i]==() or np.isnan(new_obs[i][0]):
+					new_obs2.append((np.nan,))
 				else: 
 					new_obs2.append(new_obs[i])
 					NA = 0
@@ -564,7 +564,7 @@ def parse_input_data(input_file_name,RHO_sampling=np.ones(2),verbose=0,n_sampled
 		
 	# code data into binned time
 	if n_sampled_bins > 0:
-		Binned_time = sort(np.linspace(0,max(time_series),n_sampled_bins))
+		Binned_time = np.sort(np.linspace(0,np.max(time_series),n_sampled_bins))
 		#_ print Binned_time
 		binned_DATA = list()
 		binned_OrigTimeIndex=np.zeros(nTaxa)
@@ -629,12 +629,12 @@ def get_binned_continuous_variable(timebins, var_file):
 		in_range_M = (times<=t_min).nonzero()[0]
 		in_range_m = (times>=t_max).nonzero()[0]
 		#times[np.intersect1d(in_range_M,in_range_m)]
-		mean_var.append(mean(values[np.intersect1d(in_range_M,in_range_m)]))
+		mean_var.append(np.mean(values[np.intersect1d(in_range_M,in_range_m)]))
 	
 	return np.array(mean_var)
 
 def get_gamma_rates(a,YangGammaQuant,pp_gamma_ncat):
 	b=a
 	m = gdtrix(b,a,YangGammaQuant) # user defined categories
-	s=pp_gamma_ncat/sum(m) # multiplier to scale the so that the mean of the discrete distribution is one
-	return array(m)*s # SCALED VALUES
+	s=pp_gamma_ncat/np.sum(m) # multiplier to scale the so that the mean of the discrete distribution is one
+	return np.array(m)*s # SCALED VALUES
