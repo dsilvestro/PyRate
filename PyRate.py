@@ -1141,7 +1141,7 @@ def init_ts_te(FA,LO):
 
 def init_BD(n):
     #return np.repeat(0.5,max(n-1,1))
-    return np.random.exponential(.2, max(n-1,1))+.1
+    return np.random.exponential(.2, np.maximum(n-1,1))+.1
 
 def init_times(root_age,time_framesL,time_framesM,tip_age):
     timesL=np.linspace(root_age,tip_age,time_framesL+1)
@@ -4466,7 +4466,7 @@ if __name__ == '__main__':
         update_rates =  update_rates_sliding_win
     else:
         update_rates = update_rates_multiplier
-        d3 = max(args.tR,1.01) # avoid win size < 1
+        d3 = np.maximum(args.tR,1.01) # avoid win size < 1
 
 
     if args.ginput != "" or args.check_names != "" or args.reduceLog != "":
