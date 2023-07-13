@@ -905,7 +905,7 @@ start_time=time.time()
 
 
 update_rate_freq_d = max(0.1, 1.5/sum(np.size(dis_rate_vec)))
-update_rate_freq_e = max(.01, 1.5/sum(np.size(ext_rate_vec)))
+update_rate_freq_e = max(0.1, 1.5/sum(np.size(ext_rate_vec)))
 update_rate_freq_r = max(0.1, 1.5/sum(np.size(r_vec)))
 if verbose == 1: print("Origination time (binned):", OrigTimeIndex, delta_t)
 l=1
