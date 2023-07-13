@@ -499,7 +499,7 @@ def write_des_in(out_list, reps, all_taxa_list, taxon, time, input_wd, filename)
         w_in_file.flush()
         os.fsync(w_in_file)
 
-def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "higherGeography", age1 = "earliestAge", age2 = "latestAge", site = "site", binsize = 5., reps = 3, trim_age = [], data_in_area = []):
+def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "higherGeography", age1 = "earliestAge", age2 = "latestAge", site = "site", binsize = 5., reps = 3, trim_age = [], translate = [], data_in_area = []):
     dat = np.genfromtxt(x, dtype=str, delimiter='\t')
     dat_names = dat[0,:]
     dat = dat[1:,:]
@@ -510,6 +510,8 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
     rece_taxa = np.array([])
     area_recent = np.array([])
     rece = np.genfromtxt(recent, dtype = str, delimiter='\t')
+    if len(rece.shape) > 1 and translate:
+        sys.exit(print("Shifting completely extinct group but having a recent distribution is not sensible"))
     if len(rece.shape) > 1:
         rece_names = rece[0,:]
         rece = np.unique(rece[1:,:], axis = 0)
@@ -528,10 +530,19 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
     dat_names_age2 = np.where(dat_names == age2)
     dat_ages = dat[:,np.concatenate((dat_names_age1, dat_names_age2), axis = None)]
     dat_ages = dat_ages.astype(float)
+    if translate:
+        dat_ages = dat_ages - translate
+        if np.min(dat_ages) < 0.0:
+            sys.exit(print("Shifting completely extinct group beyond the present"))
     max_age = np.max(dat_ages)
     if np.array(trim_age) > 0:
         max_age = np.array(trim_age)
+        if translate:
+            max_age = max_age - translate
     cutter = np.arange(0., max_age + binsize, binsize)
+    if translate:
+        trans_bin = np.array([binsize/10.0])
+        cutter = np.concatenate((cutter[0], trans_bin, cutter[1:]), axis = None)
     cutter_len = len(cutter)
     for i in range(reps):
         age_ran = np.zeros(dat.shape[0])
@@ -607,9 +618,11 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
         for i in range(reps):
             out_list[i] = out_list[i][:,keep_rows:]
         cutter = cutter[:-keep_rows] # Truncate cutter to dim2 of out_list
-    tdiff = np.diff(cutter)[0]
+    tdiff = np.diff(cutter)[-1]
     time = np.arange(0., np.max(cutter) + tdiff + tdiff/1000., tdiff)
     time[1:] = time[1:] - tdiff/2
     time = time[::-1]
+    if translate:
+        time = np.concatenate((time[:-1], trans_bin, time[-1]), axis = None)
     write_des_in(out_list, reps, all_taxa_list, taxon, time, input_wd, filename)
     return out_list, time

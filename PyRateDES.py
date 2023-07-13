@@ -162,6 +162,7 @@ p.add_argument('-area',     type=str, help='area column within fossil and recent
 p.add_argument('-age1',     type=str, help='earliest age', default="earliestAge", metavar="")
 p.add_argument('-age2',     type=str, help='latest age', default="latestAge", metavar="")
 p.add_argument('-trim_age', type=float, help='trim DES input to maximum age',  default=[])
+p.add_argument('-translate', type=float, help='shift data towards the present (e.g., -translate 10 when group of taxa is completely extinct since 10 Ma)', default=[])
 p.add_argument('-site',     type=str, help='name of column indicating same sites', default="site", metavar="")
 p.add_argument('-plot_raw', help='plot raw diversity curves', action='store_true', default=False)
 
@@ -193,7 +194,7 @@ print("Random seed: ", rseed)
 # generate DES input
 if args.fossil != "":
 	reps = args.rep
-	desin_list, time = des_in(args.fossil, args.recent, args.wd, args.filename, taxon = args.taxon, area = args.area, age1 = args.age1, age2 = args.age2, site = args.site, binsize = args.bin_size, reps = reps, trim_age = args.trim_age, data_in_area = args.data_in_area)
+	desin_list, time = des_in(args.fossil, args.recent, args.wd, args.filename, taxon = args.taxon, area = args.area, age1 = args.age1, age2 = args.age2, site = args.site, binsize = args.bin_size, reps = reps, trim_age = args.trim_age, translate = args.translate, data_in_area = args.data_in_area)
 	if args.plot_raw:
 		len_time = len(time)
 		desin_div1 = np.zeros((reps, len_time))
@@ -614,7 +615,8 @@ sampling_prob_per_sim_bin = np.array([1-exp(-q_rate[0]*sim_bin_size), 1-exp(-q_r
 ######       DATA SIMULATION       ######
 #########################################
 if input_data=="":
-	print("simulating data...")
+	if verbose == 1:
+		print("simulating data...")
 	simulate_dataset(simulation_no,sim_d_rate,sim_e_rate,n_taxa,TimeSpan,n_sim_bins,output_wd)
 	RHO_sampling = np.array(sampling_prob_per_sim_bin)
 	time.sleep(1)
@@ -659,15 +661,27 @@ if input_data=="":
 	% (output_wd,simulation_no,n_bins,q_rate[0],n_taxa,sim_d_rate[0],sim_d_rate[1],sim_e_rate[0],sim_e_rate[1],q_rate[0],q_rate[1],ti_tag)
 	
 else:
-	print("parsing input data...")
+	if verbose == 1:
+		print("parsing input data...")
 	RHO_sampling= np.ones(2)
 	nTaxa, time_series, obs_area_series, OrigTimeIndex = parse_input_data(input_data,RHO_sampling,verbose,n_sampled_bins=0,reduce_data=args.red)
-#	OrigTimeIndex = np.ones(nTaxa, dtype = int)
 	name_file = os.path.splitext(os.path.basename(input_data))[0]
-	if len(Q_times)>0: Q_times_str = "_q_" + '_'.join(Q_times.astype("str"))
-	else: Q_times_str=""
-	if args.A==1: ti_tag ="_TI"
-	else: ti_tag=""
+	if len(Q_times)>0:
+		Q_times_str = "_q_" + '_'.join(Q_times.astype("str"))
+		tbl = np.genfromtxt(input_data, dtype = str, delimiter = '\t')
+		tbl = tbl[1:,:]
+		data_temp = tbl[:,1:].astype(float)
+		ind_keep = (np.nansum(data_temp, axis = 1) != 0).nonzero()[0]
+		data_temp = data_temp[ind_keep,:]
+		first_bin_not_all_nan = np.max(np.where(np.isnan(data_temp).all(axis = 0))[0]) + 1
+		if np.max(Q_times) >= time_series[first_bin_not_all_nan]:
+			sys.exit(print("Earliest rate shift in -qtimes (" +str(np.max(Q_times)) +") older than earliest time bin in input -d with distribution data (" + str(time_series[first_bin_not_all_nan]) + ")"))
+	else:
+		Q_times_str=""
+	if args.A==1:
+		ti_tag ="_TI"
+	else:
+		ti_tag=""
 	output_wd = os.path.dirname(input_data)
 	if output_wd=="": output_wd= self_path
 	model_tag=""
@@ -722,7 +736,8 @@ if verbose == 1:
 #############################################
 ######            INIT MODEL           ######
 #############################################
-print("initializing model...")
+if verbose == 1:
+	print("initializing model...")
 delta_t= abs(np.diff(time_series))
 bin_size = delta_t[0]
 possible_areas= list(powerset(np.arange(nareas)))
@@ -888,8 +903,9 @@ if verbose == 1:
 #if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
 start_time=time.time()
 
+
 update_rate_freq_d = max(0.1, 1.5/sum(np.size(dis_rate_vec)))
-update_rate_freq_e = max(0.1, 1.5/sum(np.size(ext_rate_vec)))
+update_rate_freq_e = max(.01, 1.5/sum(np.size(ext_rate_vec)))
 update_rate_freq_r = max(0.1, 1.5/sum(np.size(r_vec)))
 if verbose == 1: print("Origination time (binned):", OrigTimeIndex, delta_t)
 l=1
@@ -2463,7 +2479,10 @@ def lik_opt(x, grad):
 		r_vec[:,2] = x[opt_ind_r_vec]
 	elif constraints_45:
 		constraints_45_which = constraints[constraints > 3]
-		if sum(constraints_45_which) == 4 and len(constraints_45_which) == 1:
+		if equal_q:
+			r_vec[:,1] = np.array(x[opt_ind_r_vec[0]])
+			r_vec[:,2] = np.array(x[opt_ind_r_vec[0]])
+		elif sum(constraints_45_which) == 4 and len(constraints_45_which) == 1:
 			r_vec[:,1] = np.array(x[opt_ind_r_vec[0]])
 			r_vec[:,2] = np.array(x[opt_ind_r_vec[1:]])
 		elif sum(constraints_45_which) == 5 and len(constraints_45_which) == 1:
@@ -2483,7 +2502,10 @@ def lik_opt(x, grad):
 	elif constraints_01 and args.TdD:
 		constraints_01_which = constraints[constraints < 2]
 		# Both dispersal rates could be constant!
-		if sum(constraints_01_which) == 0 and len(constraints_01_which) == 1:
+		if equal_d:
+			dis_vec[:,0] = np.array(x[opt_ind_dis[0]])
+			dis_vec[:,1] = np.array(x[opt_ind_dis[0]])
+		elif sum(constraints_01_which) == 0 and len(constraints_01_which) == 1:
 			dis_vec[:,0] = np.array(x[opt_ind_dis[0]])
 			dis_vec[:,1] = np.array(x[opt_ind_dis[1:]])
 		elif sum(constraints_01_which) == 1 and len(constraints_01_which) == 1:
@@ -2520,7 +2542,10 @@ def lik_opt(x, grad):
 		ext_vec[:,1] = x[opt_ind_ext]
 	elif constraints_23 and args.TdE:
 		constraints_23_which = constraints[np.logical_and(constraints >= 2, constraints < 4)]
-		if sum(constraints_23_which) == 2 and len(constraints_23_which) == 1:
+		if equal_e:
+			ext_vec[:,0] = np.array(x[opt_ind_ext[0]])
+			ext_vec[:,1] = np.array(x[opt_ind_ext[0]])
+		elif sum(constraints_23_which) == 2 and len(constraints_23_which) == 1:
 			ext_vec[:,0] = np.array(x[opt_ind_ext[0]])
 			ext_vec[:,1] = np.array(x[opt_ind_ext[1:]])
 		elif sum(constraints_23_which) == 3 and len(constraints_23_which) == 1:
@@ -2700,10 +2725,14 @@ if args.A == 3:
 		n_Q_times_dis = 1
 	opt_ind_dis = np.arange(0, n_Q_times_dis*nareas) 
 	if equal_d is True:
-		opt_ind_dis = np.repeat(np.arange(0, n_Q_times_dis), 2)
+		if constraints_01:
+			# symmetric and constant dispersal while other rates may shift
+			opt_ind_dis = np.zeros(1, dtype = int)
+		else:
+			opt_ind_dis = np.repeat(np.arange(0, n_Q_times_dis), 2)
 	if data_in_area != 0:
 		opt_ind_dis = np.arange(0, n_Q_times_dis)
-	if args.TdD is True and constraints_01:
+	if args.TdD is True and constraints_01 and equal_d is False:
 		if len(constraints[constraints < 2]) == 1:
 			opt_ind_dis = np.arange(0, n_Q_times_dis + 1)
 		else:
@@ -2717,10 +2746,13 @@ if args.A == 3:
 		n_Q_times_ext = 1
 	opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, n_Q_times_ext*nareas) 
 	if equal_e is True:
-		opt_ind_ext = np.max(opt_ind_dis) + 1 + np.repeat(np.arange(0, n_Q_times_ext), 2)
+		if constraints_23:
+			opt_ind_ext = np.array([np.max(opt_ind_dis) + 1])
+		else:
+			opt_ind_ext = np.max(opt_ind_dis) + 1 + np.repeat(np.arange(0, n_Q_times_ext), 2)
 	if data_in_area != 0:
 		opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, n_Q_times_ext)
-	if args.TdE is True and constraints_23:
+	if args.TdE is True and constraints_23 and equal_e is False:
 		if all(np.isin(np.array([2, 3]), constraints)):
 			opt_ind_ext = np.max(opt_ind_dis) + 1 + np.arange(0, nareas)
 		else:
@@ -2730,17 +2762,19 @@ if args.A == 3:
 	
 	opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, n_Q_times*nareas)
 	if equal_q is True:
-		opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.repeat(np.arange(0, n_Q_times), 2)
+		if constraints_45:
+			opt_ind_r_vec = np.array([np.max(opt_ind_ext) + 1])
+		else:
+			opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.repeat(np.arange(0, n_Q_times), 2)
 	if data_in_area != 0:
 		opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, n_Q_times)
-	if constraints_45:
+	if constraints_45 and equal_q is False:
 		if all(np.isin(np.array([4, 5]), constraints)):
 			opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, nareas)
 		else:
 			opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, n_Q_times + 1)
 		if data_in_area != 0:
 			opt_ind_r_vec = np.max(opt_ind_ext) + 1 + np.arange(0, 1)
-	
 	
 	x0 = np.zeros(1 + np.max(opt_ind_r_vec)) # Initial values
 	x0[opt_ind_dis] = np.random.uniform(0.1,0.2, len(opt_ind_dis))
@@ -3023,8 +3057,11 @@ if args.A == 3:
 		dis_rate_vec[:,0] = x[opt_ind_dis]
 	elif constraints_01 and args.TdD:
 		constraints_01_which = constraints[constraints < 2]
+		if equal_d:
+			dis_rate_vec[:,0] = np.array(x[opt_ind_dis[0]])
+			dis_rate_vec[:,1] = np.array(x[opt_ind_dis[0]])
 		# Both dispersal rates could be constant!
-		if sum(constraints_01_which) == 0 and len(constraints_01_which) == 1:
+		elif sum(constraints_01_which) == 0 and len(constraints_01_which) == 1:
 			dis_rate_vec[:,0] = np.array(x[opt_ind_dis[0]])
 			dis_rate_vec[:,1] = np.array(x[opt_ind_dis[1:]]) 
 		elif sum(constraints_01_which) == 1 and len(constraints_01_which) == 1:
@@ -3043,7 +3080,10 @@ if args.A == 3:
 		ext_rate_vec[:,1] = x[opt_ind_ext]
 	elif constraints_23 and args.TdE:
 		constraints_23_which = constraints[np.logical_and(constraints >= 2, constraints < 4)]
-		if sum(constraints_23_which) == 2 and len(constraints_23_which) == 1:
+		if equal_e:
+			ext_rate_vec[:,0] = np.array(x[opt_ind_ext[0]])
+			ext_rate_vec[:,1] = np.array(x[opt_ind_ext[0]])
+		elif sum(constraints_23_which) == 2 and len(constraints_23_which) == 1:
 			ext_rate_vec[:,0] = np.array(x[opt_ind_ext[0]])
 			ext_rate_vec[:,1] = np.array(x[opt_ind_ext[1:]])
 		elif sum(constraints_23_which) == 3 and len(constraints_23_which) == 1:
@@ -3065,7 +3105,10 @@ if args.A == 3:
 		r_vec[:,2] = x[opt_ind_r_vec]
 	elif constraints_45:
 		constraints_45_which = constraints[constraints > 3]
-		if sum(constraints_45_which) == 4 and len(constraints_45_which) == 1:
+		if equal_q:
+			r_vec[:,1] = np.array(x[opt_ind_r_vec[0]])
+			r_vec[:,2] = np.array(x[opt_ind_r_vec[0]])
+		elif sum(constraints_45_which) == 4 and len(constraints_45_which) == 1:
 			r_vec[:,1] = np.array(x[opt_ind_r_vec[0]])
 			r_vec[:,2] = np.array(x[opt_ind_r_vec[1:]])
 		elif sum(constraints_45_which) == 5 and len(constraints_45_which) == 1:

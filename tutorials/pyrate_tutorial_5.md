@@ -64,7 +64,9 @@ The following code produces the DES input files.
 
 * `-rep` is the number of replicates desired. Replication arises from the age uncertainty of the fossils, which are usually dated with a minimum and maximum age. For each replicate the age of the fossils is sampled from a uniform distribution between minimum and maximum age.
 
-* `-trim_age` is an optional argument to truncate the dataset by an maximum age (e.g. `-trim_age 23.03`. truncates to the Neogene). It omits a fossil when the uniform resampling of the fossil age estimates exceeds the specified age.
+* `-trim_age` is an optional argument to truncate the dataset by an maximum age (e.g. `-trim_age 23.03` truncates to the Neogene). It omits a fossil when the uniform resampling of the fossil age estimates exceeds the specified age.
+
+* `-translate` is an optional argument to shift the entire dataset towards the present (e.g. `-translate 66.0` removes all time bin of the Cenozoic from the generated file). This requires the `-recent` file to be empty and can be useful to reduce the computation time for a completely extinct group of taxa. When using this option, a rate shift should be set to bin_size/2 (see `-qtime`) and all rates after this shift should be ignored. Datasets generated using `-translate` should only be analyzed with the skyline model but not with covariate dependent dispersal and extinction models.
 
 * `-taxon` is an optional argument specifying the name of the column with the taxon names in case it is not *scientificName*.
 
