@@ -188,7 +188,7 @@ def calc_model_probabilities(f,burnin):
     if len(k_ind)==0: k_ind =[head.index(s) for s in head if s in ["K_l","K_m"]]
     z1=t[burnin:,k_ind[0]]  # list of shifts (lambda)
     z2=t[burnin:,k_ind[1]]  # list of shifts (mu)
-    y1= max(max(z1),max(z2))
+    y1= np.maximum(np.max(z1),np.max(z2))
     print("Model           Probability")
     print("          Speciation  Extinction")
     for i in range(1,int(y1)+1):
@@ -378,7 +378,7 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
         file_name =  os.path.splitext(os.path.basename(f))[0]
         print(file_name)
         try:
-            t=loadtxt(f, skiprows=max(1,burnin))
+            t=np.loadtxt(f, skiprows=np.maximum(1,burnin))
             sys.stdout.write(".")
             sys.stdout.flush()
             head = next(open(f)).split()
@@ -614,14 +614,14 @@ def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1.): # change rescale to
     div_m    = np.min(dtraj,axis=0)
     div_M    = np.max(dtraj,axis=0)
 
-    Ymin,Ymax,yaxis = 0,max(div_M)+1,""
-    if min(div_m)>5: Ymin = min(div_m)-1
+    Ymin,Ymax,yaxis = 0,np.max(div_M)+1,""
+    if np.min(div_m)>5: Ymin = np.min(div_m)-1
 
     if plot_type==2:
-        div_mean = log10(div_mean)
-        div_m    = log10(div_m   )
-        div_M    = log10(div_M   )
-        Ymin,Ymax,yaxis = min(div_m),max(div_M), " (Log10)"
+        div_mean = np.log10(div_mean)
+        div_m    = np.log10(div_m   )
+        div_M    = np.log10(div_M   )
+        Ymin,Ymax,yaxis = np.min(div_m),np.max(div_M), " (Log10)"
 
     # write to file
     if plot_type==1 or plot_type==2:
@@ -686,7 +686,7 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
     root = int(np.max(ts)+1)
 
     if EXT_RATE==0:
-        EXT_RATE = len(te[te>0])/sum(ts-te) # estimator for overall extinction rate
+        EXT_RATE = len(te[te>0])/np.sum(ts-te) # estimator for overall extinction rate
         print("estimated extinction rate:", EXT_RATE)
 
     wd = "%s" % os.path.dirname(tste_file)
@@ -735,7 +735,7 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
             ex_rate = [float(EXT_RATE)]
             r_ind = np.repeat(0,no_sim_ex_time)
         except(ValueError):
-            t=loadtxt(EXT_RATE, skiprows=max(1,int(burnin)))
+            t=np.loadtxt(EXT_RATE, skiprows=np.maximum(1,int(burnin)))
             head = next(open(EXT_RATE)).split()
             m_ind= [head.index(s) for s in head if "m_0" in s]
             ex_rate= [mean(t[:,m_ind])]
@@ -752,10 +752,10 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
 
         life_exp= np.array(life_exp)
         STR= "\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" \
-        % (time_t, median(diversity),min(diversity),max(diversity),
-        median(age_current_taxa),min(age_current_taxa),max(age_current_taxa),
-        median(turnover),min(turnover),max(turnover),
-        median(life_exp),np.min(life_exp),np.max(life_exp))
+        % (time_t, np.median(diversity),np.min(diversity),np.max(diversity),
+        np.median(age_current_taxa),np.min(age_current_taxa),np.max(age_current_taxa),
+        np.median(turnover),np.min(turnover),np.max(turnover),
+        np.median(life_exp),np.min(life_exp),np.max(life_exp))
         extant_at_time_t_previous = extant_at_time_t
         STR = STR.replace("nan","NA")
         sys.stdout.write(".")
@@ -804,11 +804,11 @@ def comb_rj_rates(infile, files,tag, resample, rate_type):
     for f in files:
         f_temp = open(f,'r')
         x_temp = [line for line in f_temp.readlines()]
-        x_temp = x_temp[max(1,int(burnin)):]
+        x_temp = x_temp[np.maximum(1,int(burnin)):]
         x_temp =array(x_temp)
         if 2>1: #try:
             if resample>0:
-                r_ind= sort(np.random.randint(0,len(x_temp),resample))
+                r_ind= np.sort(np.random.randint(0,len(x_temp),resample))
                 x_temp = x_temp[r_ind]
             if j==0:
                 comb = x_temp
@@ -831,7 +831,7 @@ def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type=""):
         if 2>1: #try:
             file_name =  os.path.splitext(os.path.basename(f))[0]
             print(file_name, end=' ')
-            t_file=loadtxt(f, skiprows=max(1,int(burnin)))
+            t_file=np.loadtxt(f, skiprows=np.maximum(1,int(burnin)))
             shape_f=shape(t_file)
             print(shape_f)
             #t_file = t[burnin:shape_f[0],:]#).astype(str)
@@ -985,11 +985,11 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
         for f in files:
             f_temp = open(f,'r')
             x_temp = [line for line in f_temp.readlines()]
-            x_temp = x_temp[max(1,int(burnin)):]
+            x_temp = x_temp[np.maximum(1,int(burnin)):]
             x_temp =array(x_temp)
             try:
                 if resample>0:
-                    r_ind= sort(np.random.randint(0,len(x_temp),resample))
+                    r_ind= np.sort(np.random.randint(0,len(x_temp),resample))
                     x_temp = x_temp[r_ind]
                 if j==0:
                     comb = x_temp
@@ -1019,7 +1019,7 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
         try:
             file_name =  os.path.splitext(os.path.basename(f))[0]
             print(file_name, end=' ')
-            t_file=loadtxt(f, skiprows=max(1,int(burnin)))
+            t_file=np.loadtxt(f, skiprows=np.maximum(1,int(burnin)))
             shape_f=shape(t_file)
             print(shape_f)
             #t_file = t[burnin:shape_f[0],:]#).astype(str)
@@ -1127,9 +1127,9 @@ def init_ts_te(FA,LO):
     ts= FA+np.random.exponential(1./q,len(q))
     te= LO-np.random.exponential(1./q,len(q))
 
-    if max(ts) > boundMax:
+    if np.max(ts) > boundMax:
         ts[ts>boundMax] = np.random.uniform(FA[ts>boundMax],boundMax,len(ts[ts>boundMax])) # avoit init values outside bounds
-    if min(te) < boundMin:
+    if np.min(te) < boundMin:
         te[te<boundMin] = np.random.uniform(boundMin,LO[te<boundMin],len(te[te<boundMin])) # avoit init values outside bounds
     #te=LO*tt
     if frac1==0: ts, te= FA,LO
@@ -1284,9 +1284,9 @@ def update_ts_te(ts, te, d1, sample_extinction=1):
         ten[ten>M] = te[ten>M]
         ten[LO==0]=0                                     # indices of LO==0 (extant species)
     S= tsn-ten
-    if min(S)<=0: print(S)
-    tsn[SP_not_in_window] = max([boundMax, max(tsn[SP_in_window])])
-    ten[EX_not_in_window] = min([boundMin, min(ten[EX_in_window])])
+    if np.min(S)<=0: print(S)
+    tsn[SP_not_in_window] = np.maximum(boundMax, np.max(tsn[SP_in_window]))
+    ten[EX_not_in_window] = np.minimum(boundMin, np.min(ten[EX_in_window]))
     return tsn,ten
 
 
@@ -1321,8 +1321,8 @@ def update_ts_te_indicator(ts, te, d1, sample_extinction=1):
             # ten[ind_swap] = 0
     S= tsn-ten
     # if min(S)<=0: print(S)
-    tsn[SP_not_in_window] = max([boundMax, max(tsn[SP_in_window])])
-    ten[EX_not_in_window] = min([boundMin, min(ten[EX_in_window])])
+    tsn[SP_not_in_window] = np.maximum(boundMax, np.max(tsn[SP_in_window]))
+    ten[EX_not_in_window] = np.minimum(boundMin, np.min(ten[EX_in_window]))
     return tsn,ten
 
 #### GIBBS SAMPLER S/E
@@ -2126,15 +2126,15 @@ def HPP_vec_lik(arg, return_rate=False):
         time_frames = time_frames[time_frames != ts]
     h = np.histogram(np.array([ts,te]),bins=sort(time_frames))[0][::-1]
     ind_tste= (h).nonzero()[0]
-    ind_min=min(ind_tste)
-    ind_max=max(ind_tste)
+    ind_min=np.min(ind_tste)
+    ind_max=np.max(ind_tste)
     ind=np.arange(len(time_frames))
     ind = ind[ind_min:(ind_max+1)] # indexes of time frames where lineage is present
     # calc time lived in each time frame
     t = time_frames[time_frames<ts]
     t = t[t>te]
     t2 = np.array([ts]+list(t)+[te])
-    d = abs(np.diff(t2))
+    d = np.abs(np.diff(t2))
 
     if argsG == 1 and sum(k_vec)>1: # for singletons no Gamma
         # loop over gamma categories
@@ -2167,7 +2167,7 @@ def HOMPP_lik(arg):
     k=len(x[x>0]) # no. fossils for species i
     br_length = M-m
     if useBounded_BD == 1:
-        br_length = min(M,boundMax)-max(m, boundMin)
+        br_length = np.minimum(M,boundMax)-np.maximum(m, boundMin)
     if cov_par ==2: # transform preservation rate by trait value
         q=exp(log(q_rate)+cov_par*(con_trait[i]-parGAUS[0]))
     else: q=q_rate
@@ -2175,7 +2175,7 @@ def HOMPP_lik(arg):
         YangGamma=get_gamma_rates(shapeGamma)
         qGamma= YangGamma*q
         lik1= -qGamma*(br_length) + log(qGamma)*k - sum(log(np.arange(1,k+1)))  -log(1-exp(-qGamma*(br_length)))
-        maxLik1 = max(lik1)
+        maxLik1 = np.max(lik1)
         lik2= lik1-maxLik1
         lik=log(sum(exp(lik2)*(1./pp_gamma_ncat)))+maxLik1
         return lik
@@ -2220,7 +2220,7 @@ def NHPP_lik(arg):
             # LOG TRANSF
             log_lik_temp = (-(int_q) + np.sum((logPERT4_density(MM,z[:,0:k],aa,bb,X)+log(q)), axis=1) )  \
             + log(G_density(-GM,1,l)/den) - log(1-exp(-int_q))
-            maxLogLikTemp = max(log_lik_temp)
+            maxLogLikTemp = np.max(log_lik_temp)
             log_lik_temp_scaled = log_lik_temp-maxLogLikTemp
             lik = log(sum(exp(log_lik_temp_scaled))/ len(GM))+maxLogLikTemp
         else: lik= sum(-(int_q) + np.sum((logPERT4_density(MM,z[:,0:k],aa,bb,X)+log(q)), axis=1))
@@ -2259,11 +2259,11 @@ def NHPPgamma(arg):
         PERT4_den=np.append(W, [W]*(pp_gamma_ncat-1)).reshape(pp_gamma_ncat,len(W)).T
         #lik=log( sum( (exp(-qGamma*(M-m)) * np.prod((PERT4_den*qGamma), axis=0) / (1-exp(-qGamma*(M-m))))*(1./pp_gamma_ncat)) )
         tempL=exp(-qGamma*(M-m))
-        if max(tempL)<1:
+        if np.max(tempL)<1:
             L=log(1-tempL)
             if np.isfinite(sum(L)):
                 lik1=-qGamma*(M-m) + np.sum(log(PERT4_den*qGamma), axis=0) - L
-                maxLogLik1 = max(lik1)
+                maxLogLik1 = np.max(lik1)
                 lik2=lik1-maxLogLik1
                 lik=log(sum(exp(lik2)*(1./pp_gamma_ncat)))+maxLogLik1
             else: lik=-100000
@@ -2489,7 +2489,7 @@ def born_prm(times, R, ind, tse):
     #B=max(1./times[0], np.random.beta(1,(len(R)+1))) # avoid time frames < 1 My
     #B=np.random.beta(1,(len(R)+1))
     alpha=zeros(len(R)+1)+lam_s
-    B=max(1./times[0], np.random.dirichlet(alpha,1)[0][0])
+    B=np.maximum(1./times[0], np.random.dirichlet(alpha,1)[0][0])
     Q=np.diff(times*(1-B))
     ADD=-B*times[0]
     Q1=insert(Q, ind,ADD)
@@ -2505,7 +2505,7 @@ def born_prm(times, R, ind, tse):
     if np.random.random()>.5:
         n_R= insert(R, ind, init_BD(1))
     else:
-        R_init = R[max(ind-1,0)]
+        R_init = R[np.maximum(ind-1,0)]
         n_R= insert(R, ind,update_parameter(R_init,0,5,.05,1))
 
 
@@ -2863,8 +2863,8 @@ def random_choice_P(vector):
     return [vector[ind], ind]
 
 def calc_rel_prob(log_lik):
-    rel_prob=exp(log_lik-max(log_lik))
-    return rel_prob/sum(rel_prob)
+    rel_prob=np.exp(log_lik-np.max(log_lik))
+    return rel_prob/np.sum(rel_prob)
 
 def G0(alpha=1.5,beta=5,n=1):
     #return np.array([np.random.random()])
@@ -3265,8 +3265,8 @@ def MCMC(all_arg):
                         timesL=update_times(timesLA, edgeShifts[0],min(te),mod_d4,2,len(timesL)-1)
                         timesM=update_times(timesMA, edgeShifts[0],min(te),mod_d4,2,len(timesM)-1)
                     elif fix_edgeShift == 3: # min age edge shift
-                        timesL=update_times(timesLA,max(ts),edgeShifts[0],mod_d4,1,len(timesL)-2)
-                        timesM=update_times(timesMA,max(ts),edgeShifts[0],mod_d4,1,len(timesM)-2)
+                        timesL=update_times(timesLA,np.max(ts),edgeShifts[0],mod_d4,1,len(timesL)-2)
+                        timesM=update_times(timesMA,np.max(ts),edgeShifts[0],mod_d4,1,len(timesM)-2)
 
                 else:
                     timesL=update_times(timesLA, maxFA,minLA,mod_d4,1,len(timesL))
@@ -3773,7 +3773,7 @@ def MCMC(all_arg):
             
 
         # exponential prior on root age
-        maxFA = max(FA)
+        maxFA = np.max(FA)
         prior += prior_root_age(maxTs,maxFA,maxFA)
 
         # add tree likelihood
@@ -3960,9 +3960,9 @@ def MCMC(all_arg):
                     #try:
                     #    q95 = np.min([xtemp[pdf_q_sampling==0.75][0],0.25*s_max]) # don't remove more than 25% of the time window
                     #except: q95 = 0.25*s_max
-                    q95 = min(tsA[tsA>0])
+                    q95 = np.min(tsA[tsA>0])
                     # estimate sp rate based on ex rate and ratio between observed sp and ex events
-                    corrSPrate = float(len(tsA[tsA>q95]))/max(1,len(teA[teA>q95])) * 1./MA
+                    corrSPrate = float(len(tsA[tsA>q95]))/np.maximum(1,len(teA[teA>q95])) * 1./MA
                     log_state+= list(corrSPrate)
 
                 if use_BDNNmodel and bdnn_const_baseline:
@@ -4040,11 +4040,11 @@ def MCMC(all_arg):
                     else: min_marginal_frame = min(LO)
 
                     for i in range(len(timesLA)-1): # indexes of the 1My bins within each timeframe
-                        ind=np.intersect1d(marginal_frames[marginal_frames<=timesLA[i]],marginal_frames[marginal_frames>=max(min_marginal_frame,timesLA[i+1])])
+                        ind=np.intersect1d(marginal_frames[marginal_frames<=timesLA[i]],marginal_frames[marginal_frames>=np.maximum(min_marginal_frame,timesLA[i+1])])
                         j=array(ind)
                         margL[j]=LA[i]
                     for i in range(len(timesMA)-1): # indexes of the 1My bins within each timeframe
-                        ind=np.intersect1d(marginal_frames[marginal_frames<=timesMA[i]],marginal_frames[marginal_frames>=max(min_marginal_frame,timesMA[i+1])])
+                        ind=np.intersect1d(marginal_frames[marginal_frames<=timesMA[i]],marginal_frames[marginal_frames>=np.maximum(min_marginal_frame,timesMA[i+1])])
                         j=array(ind)
                         margM[j]=MA[i]
                     marginal_rates(it, margL, margM, marginal_file, n_proc)
@@ -4485,7 +4485,7 @@ if __name__ == '__main__':
             SpeciesList_file = args.check_names
             pyrate_lib.check_species_names.run_name_check(SpeciesList_file)
         elif args.reduceLog != "":
-            pyrate_lib.lib_utilities.reduce_log_file(args.reduceLog,max(1,int(args.b)))
+            pyrate_lib.lib_utilities.reduce_log_file(args.reduceLog,np.maximum(1,int(args.b)))
         quit()
 
 
@@ -4570,8 +4570,8 @@ if __name__ == '__main__':
         if len(edgeShifts)==2: # min and max boundaries
             fix_edgeShift = 1
             min_allowed_n_rates = 3
-        time_framesL = max(min_allowed_n_rates,args.mL) # change number of starting rates based on edgeShifts
-        time_framesM = max(min_allowed_n_rates,args.mM) # change number of starting rates based on edgeShifts
+        time_framesL = np.maximum(min_allowed_n_rates,args.mL) # change number of starting rates based on edgeShifts
+        time_framesM = np.maximum(min_allowed_n_rates,args.mM) # change number of starting rates based on edgeShifts
         edgeShifts = np.array(edgeShifts)*args.rescale+args.translate
     else:
         fix_edgeShift = 0
@@ -4864,7 +4864,7 @@ if __name__ == '__main__':
             test_spec.loader.exec_module(input_data_module)
         except(IOError): sys.exit("\nInput file required. Use '-h' for command list.\n")
 
-        j=max(args.j-1,0)
+        j=np.maximum(args.j-1,0)
         try: fossil_complete=input_data_module.get_data(j)
         except(IndexError):
             fossil_complete=input_data_module.get_data(0)
@@ -4990,7 +4990,7 @@ if __name__ == '__main__':
         print(se_tbl_file)
         t_file=np.loadtxt(se_tbl_file, skiprows=1)
         print(np.shape(t_file))
-        j=max(args.j-1,0)
+        j=np.maximum(args.j-1,0)
         FA=t_file[:,2+2*j]*args.rescale+args.translate
         LO=t_file[:,3+2*j]*args.rescale+args.translate
         focus_clade=args.clade
@@ -5017,7 +5017,7 @@ if __name__ == '__main__':
 
     ###### SET UP BD MODEL WITH STARTING NUMBER OF LINEAGES > 1
     no_starting_lineages = args.initDiv
-    max_age_fixed_ts = max(FA)
+    max_age_fixed_ts = np.max(FA)
 
     if no_starting_lineages>0:
         if use_se_tbl==0:
@@ -5060,10 +5060,10 @@ if __name__ == '__main__':
         fixed_times_of_shift_bdnn=fixed_times_of_shift_bdnn[fixed_times_of_shift_bdnn < np.max(FA)]
 
     if len(fixed_times_of_shift)>0:
-        fixed_times_of_shift=fixed_times_of_shift[fixed_times_of_shift<max(FA)]
+        fixed_times_of_shift=fixed_times_of_shift[fixed_times_of_shift<np.max(FA)]
         # fixed number of dpp bins
         if args.dpp_nB>0:
-            t_bin_set = np.linspace(0,max(FA),args.dpp_nB+1)[::-1]
+            t_bin_set = np.linspace(0,np.max(FA),args.dpp_nB+1)[::-1]
             fixed_times_of_shift = t_bin_set[1:len(t_bin_set)-1]
         time_framesL=len(fixed_times_of_shift)+1
         time_framesM=len(fixed_times_of_shift)+1
@@ -5139,7 +5139,7 @@ if __name__ == '__main__':
                     #print trait_values
 
             else:             # Trait data from .py file
-                trait_values=input_data_module.get_continuous(max(args.trait-1,0))
+                trait_values=input_data_module.get_continuous(np.maximum(args.trait-1,0))
             #
             if twotraitBD == 1:
                 trait_values=input_data_module.get_continuous(0)
@@ -5351,20 +5351,20 @@ if __name__ == '__main__':
         except: times_q_shift=np.array([np.loadtxt(args.qShift)])*args.rescale + args.translate
         # filter qShift times based on observed time frame
         if qFilter == 1:
-            times_q_shift=times_q_shift[times_q_shift<max(FA)]
+            times_q_shift=times_q_shift[times_q_shift<np.max(FA)]
             times_q_shift=list(times_q_shift[times_q_shift>min(LO)])
         else: # q outside observed range (sampled from the prior)
             times_q_shift = list(times_q_shift)
         time_framesQ=len(times_q_shift)+1
         occs_sp_bin =list()
-        temp_times_q_shift = np.array(list(times_q_shift)+[max(FA)+1]+[0])
+        temp_times_q_shift = np.array(list(times_q_shift)+[np.max(FA)+1]+[0])
         for i in range(len(fossil)):
             occs_temp = fossil[i]
             h = np.histogram(occs_temp[occs_temp>0],bins=sort( temp_times_q_shift ))[0][::-1]
             occs_sp_bin.append(h)
         argsHPP = 1
         TPP_model = 1
-        print(times_q_shift, max(FA), min(LO))
+        print(times_q_shift, np.max(FA), min(LO))
     else: TPP_model = 0
 
 
@@ -5676,7 +5676,7 @@ if __name__ == '__main__':
         # print histogram
         n_occs_list = np.array(n_occs_list)
         hist = np.histogram(n_occs_list,bins = np.arange(np.max(n_occs_list)+1)+1)[0]
-        hist2 = hist.astype(float)/max(hist) * 50
+        hist2 = hist.astype(float)/np.max(hist) * 50
         #print "occs.\ttaxa\thistogram"
         #for i in range(len(hist)): print "%s\t%s\t%s" % (i+1,int(hist[i]),"*"*int(hist2[i]))
         sys.exit("\n")
@@ -5706,7 +5706,7 @@ if __name__ == '__main__':
             PyRateC_setFossils(fossilForPyRateC) # saving all fossil data as C vector
 
         if args.qShift != "":  # q_shift times
-            tmpEpochs = np.sort(np.array(list(times_q_shift)+[max(FA)+1]+[0]))[::-1]
+            tmpEpochs = np.sort(np.array(list(times_q_shift)+[np.max(FA)+1]+[0]))[::-1]
             PyRateC_initEpochs(tmpEpochs)
 
     ############################ MCMC OUTPUT ############################
@@ -5943,7 +5943,7 @@ if __name__ == '__main__':
         # save regular marginal rate file
         if TDI!=1 and use_ADE_model == 0 and useDiscreteTraitModel == 0 and log_marginal_rates_to_file==1: # (path_dir, output_file, out_run)
             if useBounded_BD == 1: max_marginal_frame = boundMax+1
-            else: max_marginal_frame = max(FA)
+            else: max_marginal_frame = np.max(FA)
             marginal_frames= array([int(fabs(i-int(max_marginal_frame))) for i in range(int(max_marginal_frame)+1)])
             if log_marginal_rates_to_file==1:
                 out_log_marginal = "%s/%s_marginal_rates.log" % (path_dir, suff_out)
@@ -5981,7 +5981,7 @@ if __name__ == '__main__':
         else: marginal_frames=0
 
         if fix_SE == 1 and fix_Shift == 1:
-            time_frames  = sort(np.array(list(fixed_times_of_shift) + [0,max(fixed_ts)]))
+            time_frames  = np.sort(np.array(list(fixed_times_of_shift) + [0,np.max(fixed_ts)]))
             B = sort(time_frames)+0.000001 # add small number to avoid counting extant species as extinct
             ss1 = np.histogram(fixed_ts,bins=B)[0][::-1]
             ss1[0] = ss1[0]-no_starting_lineages
@@ -6036,7 +6036,7 @@ if __name__ == '__main__':
 
         # Metropolis-coupled MCMC (Altekar, et al. 2004)
         if use_seq_lik == 0 and runs>1:
-            marginal_frames= array([int(fabs(i-int(max(FA)))) for i in range(int(max(FA))+1)])
+            marginal_frames= array([int(fabs(i-int(np.max(FA)))) for i in range(int(np.max(FA))+1)])
             pool = mcmcMPI(num_proc)
             res = pool.map(start_MCMC, list(range(runs)))
             current_it=0
