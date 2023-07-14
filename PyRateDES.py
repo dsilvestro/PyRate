@@ -187,8 +187,12 @@ if args.seed==-1:
 	rseed=np.random.randint(0,9999)
 else: rseed=args.seed
 
+random.seed(rseed)
+np.random.seed(rseed)
 
-print("Random seed: ", rseed)
+verbose= args.ver
+if verbose == 1:
+	print("Random seed: ", rseed)
 
 # generate DES input
 if args.fossil != "":
@@ -312,7 +316,6 @@ if args.fossil != "":
 burnin= args.b
 n_taxa= args.t
 num_processes=args.thread
-verbose= args.ver
 n_bins= args.n_bins
 n_sim_bins= args.n_sim_bins
 sim_d_rate = np.array(args.sim_d)
