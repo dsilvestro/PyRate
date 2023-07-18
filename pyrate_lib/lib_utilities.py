@@ -13,7 +13,7 @@ self_path=os.getcwd()
 
 def rescale_vec_to_range(x, r=1., m=0):
         print("we rescale")
-        temp = (x-min(x))/(max(x)-min(x))
+        temp = (x-np.min(x))/(np.max(x)-np.min(x))
         temp = temp*r # rescale
         temp = temp+m # shift
         return(temp)
@@ -241,7 +241,7 @@ def calc_marginal_likelihood(infile,burnin,extract_mcmc=1):
     for f in files:
         try: 
         #if 2>1:
-            t=loadtxt(f, skiprows=max(1,burnin))
+            t=np.loadtxt(f, skiprows=np.maximum(1,burnin))
             input_file = os.path.basename(f)
             name_file = os.path.splitext(input_file)[0]
             
@@ -327,7 +327,7 @@ def calc_marginal_likelihood(infile,burnin,extract_mcmc=1):
 
 
 def parse_hsp_logfile(logfile,burnin=100):
-    t=np.loadtxt(logfile, skiprows=max(1,burnin))
+    t=np.loadtxt(logfile, skiprows=np.maximum(1,burnin))
     head = next(open(logfile)).split()
     
     baseline_L = mean(t[:,4])
@@ -357,7 +357,7 @@ def parse_hsp_logfile(logfile,burnin=100):
 
 
 def parse_hsp_logfile_HPD(logfile,burnin=100):
-    t=np.loadtxt(logfile, skiprows=max(1,burnin))
+    t=np.loadtxt(logfile, skiprows=np.maximum(1,burnin))
     head = next(open(logfile)).split()
     
     # get col indexes
@@ -418,8 +418,8 @@ def get_mode(data):
     # determine bins Freedman-Diaconis rule
     iqr = np.subtract(*np.percentile(data,[75,25])) # interquantile range
     h_temp = 2 * iqr * len(data) **(-1./3) # width
-    h = max(h_temp,0.0001)
-    n_bins= int((max(data)-min(data))/h)
+    h = np.maximum(h_temp,0.0001)
+    n_bins= int((np.max(data)-np.min(data))/h)
     hist=np.histogram(data,bins=n_bins)
     return hist[1][np.argmax(hist[0])] # modal value
 
@@ -446,12 +446,12 @@ def get_score(a,b,max_length_diff):
             elif np.abs(len(a1)-len(b1)) > max_length_diff:
                 score, s_diff = 0, len(b1)
             else:
-                l_a =a1[np.array(list(itertools.combinations(np.arange(len(a1)),min(len(a1),len(b1)))))]
-                l_b =b1[np.array(list(itertools.combinations(np.arange(len(b1)),min(len(a1),len(b1)))))]
+                l_a =a1[np.array(list(itertools.combinations(np.arange(len(a1)),np.minimum(len(a1),len(b1)))))]
+                l_b =b1[np.array(list(itertools.combinations(np.arange(len(b1)),np.minimum(len(a1),len(b1)))))]
                 s = l_a==l_b
                 s_bin = s.astype(None) # convert True/False array into 1/0 array
                 score = np.max(np.sum(s_bin,axis=1))/np.mean([len(a1),len(b1)])
-                s_diff = np.abs(len(a1)-len(b1)) + ( min(len(a1),len(b1)) - np.max(np.sum(s_bin,axis=1)) )
+                s_diff = np.abs(len(a1)-len(b1)) + ( np.minimum(len(a1),len(b1)) - np.max(np.sum(s_bin,axis=1)) )
     if score==1: s_diff=0
     return score, s_diff
 
