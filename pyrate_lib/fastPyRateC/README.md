@@ -48,6 +48,6 @@ You should have two new files in the folder (FastPyRateC.py, FastPyRateC_wrap.cx
 `rm -r boost FastPyRateC.py FastPyRateC_wrap.cxx`
 `rm -r build`
 
-* Rename the library from e.g "_FastPyRateC.cpython-311-x86_64-linux-gnu.so" or "_FastPyRateC.cpython-311-darwin.so" to "_FastPyRateC.so" and copy it into the PyRate library folder corresponding to your OS
+* Rename the library inside .../pyrate_lib/fastPyRateC/lib.(name according to your OS system) from e.g "_FastPyRateC.cpython-311-x86_64-linux-gnu.so" or "_FastPyRateC.cpython-311-darwin.so" to "_FastPyRateC.so" and copy it into the PyRate library folder corresponding to your OS
 `e.g. your_Pyrate_directory/pyrate_lib/fastPyRateC/Other/`
 Folder `Other` for any kind of Linux OS. `macOS` and `Windows` folders for their respective OS system.
