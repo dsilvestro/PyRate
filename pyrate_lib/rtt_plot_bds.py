@@ -26,7 +26,7 @@ def r_plot_code(res,wd,name_file,alpha=0.5,plot_title="RTT plot"):
     data += util.print_R_vec('\nM_mean', res[:,4])
     data += util.print_R_vec('\nM_hpd_m',res[:,5])
     data += util.print_R_vec('\nM_hpd_M',res[:,6])
-    max_x_axis,min_x_axis = -max(res[:,0]),-min(res[:,0])
+    max_x_axis,min_x_axis = -np.max(res[:,0]),-np.min(res[:,0])
     data += "\nplot(age,age,type = 'n', ylim = c(0, %s), xlim = c(%s,%s), ylab = 'Speciation rate', xlab = 'Ma',main='%s' )" \
         % (1.1*max(res[:,3]),max_x_axis,min_x_axis,plot_title) 
     data += """\nlines(rev(age), rev(L_mean), col = "#4c4cec", lwd=3)""" 
@@ -42,7 +42,7 @@ def r_plot_code(res,wd,name_file,alpha=0.5,plot_title="RTT plot"):
 def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
     wd = "%s" % os.path.dirname(f)
     name_file=os.path.splitext(os.path.basename(f))[0]
-    t=loadtxt(f, skiprows=max(1,int(burnin)))
+    t=np.loadtxt(f, skiprows=np.maximum(1,int(burnin)))
     head = np.array(next(open(f)).split()) # should be faster
     #print np.where(head=="beta")[0], np.where(head=="temperature")[0]
     if "temperature" in head or "beta" in head:
@@ -61,9 +61,9 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
     death_ind = head.index("death_age")
     sp_shift_ind = [head.index(s) for s in head if "shift_sp_" in s]
     ex_shift_ind = [head.index(s) for s in head if "shift_ex_" in s]
-    min_root_age = min(t[:,root_ind])
+    min_root_age = np.min(t[:,root_ind])
     if max_age> 0: min_root_age=max_age
-    max_death_age= max(t[:,death_ind])
+    max_death_age= np.max(t[:,death_ind])
     n_bins= int((min_root_age-max_death_age)/grid_cell_size)
     grid = np.linspace(min_root_age,max_death_age,n_bins)
     n_samples = np.shape(t)[0]
@@ -128,7 +128,7 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 def RTTplot_Q(f,q_shift_file,burnin=0,max_age=0):
     wd = "%s" % os.path.dirname(f)
     name_file=os.path.splitext(os.path.basename(f))[0]
-    t=loadtxt(f, skiprows=max(1,int(burnin)))
+    t=np.loadtxt(f, skiprows=np.maximum(1,int(burnin)))
     head = np.array(next(open(f)).split()) # should be faster
     #print np.where(head=="beta")[0], np.where(head=="temperature")[0]
     if "temperature" in head or "beta" in head:
@@ -144,7 +144,7 @@ def RTTplot_Q(f,q_shift_file,burnin=0,max_age=0):
     q_ind = [head.index(s) for s in head if "q_" in s and s.split("q_")[1] not in ['TS', 'TE']]
     root_ind  = head.index("root_age")
     death_ind = head.index("death_age")
-    min_root_age = min(t[:,root_ind])
+    min_root_age = np.min(t[:,root_ind])
     if max_age> 0: min_root_age=max_age
     max_death_age= max(t[:,death_ind])
 
@@ -207,7 +207,7 @@ def RTTplot_Q(f,q_shift_file,burnin=0,max_age=0):
 
 # functionsto plot RTT when '-log_marginal_rates 0'
 def calcBF(threshold,empirical_prior):
-    A = exp(threshold/2)*empirical_prior/(1-empirical_prior)
+    A = np.exp(threshold/2)*empirical_prior/(1-empirical_prior)
     return A/(A+1)
 
 
@@ -231,7 +231,7 @@ def get_prior_shift(t_start,t_end,bins_histogram,n_reps,min_allowed_t):
             n_rates = n_rates_temp[n_rates_temp>0][0]
             shift_times = list(np.random.uniform(t_end-min_time_frame_size,t_start+min_time_frame_size,n_rates-1))
             time_frames = np.sort([t_start, t_end]+shift_times)    
-            if min(np.diff(time_frames))<min_time_frame_size:
+            if np.min(np.diff(time_frames))<min_time_frame_size:
                 pass
             else:
                 iteration+=1
@@ -262,7 +262,7 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
     times_of_shift = []
     
     if burnin<1: # define burnin as a fraction
-        burnin=min(int(burnin*len(post_rate)),int(0.9*len(post_rate)))
+        burnin=np.minimum(int(burnin*len(post_rate)),int(0.9*len(post_rate)))
     else: burnin = int(burnin)
     
     for i in range(burnin,len(post_rate)):
@@ -293,7 +293,7 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
         min_rates += [hpd[0]]
         max_rates += [hpd[1]]
     
-    time_frames = bins_histogram-abs(bins_histogram[1]-bins_histogram[0])/2.
+    time_frames = bins_histogram-np.abs(bins_histogram[1]-bins_histogram[0])/2.
     #print time_frames, min(times_of_shift), min_age
     #quit()
     time_frames = time_frames[1:]
@@ -356,7 +356,7 @@ or -grid_plot 0.1 for bins of size 0.1.\n
 """)
         out_str += util.print_R_vec("\ncounts",h[0]/float(res[5]))
         out_str += "\nplot(mids,counts,type = 'h', xlim = c(%s,%s), ylim=c(0,%s), ylab = 'Frequency of rate shift', xlab = 'Time',lwd=5,col='%s')" \
-            % (-max_age,-min_age,max(max(h[0]/float(res[5])),0.2),col)
+            % (-max_age,-min_age,np.maximum(np.max(h[0]/float(res[5])),0.2),col)
         # get BFs
         if run_simulation==1:
             BFs = get_prior_shift(min_age,max_age,bins_histogram,n_reps,min_allowed_t)
@@ -402,7 +402,7 @@ def plot_net_rate(resS,resE,col,min_age,max_age,plot_title,n_bins):
     out_str += util.print_R_vec("\nnet_minHPD",np.array(min_rates))
     out_str += util.print_R_vec("\nnet_maxHPD",np.array(max_rates))
     out_str += "\nplot(time,time,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = 'Net Rate', xlab = 'Time',lwd=2, main='%s', col= '%s' )" \
-            % (min(0,1.1*np.nanmin(min_rates)),1.1*np.nanmax(max_rates),-maxXaxis,-minXaxis,plot_title,col) 
+            % (np.minimum(0,1.1*np.nanmin(min_rates)),1.1*np.nanmax(max_rates),-maxXaxis,-minXaxis,plot_title,col) 
     out_str += "\npolygon(c(time, rev(time)), c(net_maxHPD, rev(net_minHPD)), col = alpha('%s',0.3), border = NA)" % (col)
     out_str += "\nlines(time,net_rate, col = '%s', lwd=2)" % (col)
     out_str += "\nabline(h=0,lty=2)\n"
@@ -439,25 +439,25 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=0.,burnin=0.2,min_age=0,ma
                 nbins = int((max_age_t-min_age_t)/float(bin_size))
             else:
                 nbins = 100
-                bin_size = (min(max_age,max_age_t)-max(min_age_t,min_age))/100.
+                bin_size = (np.minimum(max_age,max_age_t)-np.maximum(min_age_t,min_age))/100.
             print("\nAge range:",round(max_age_t,2), round(min_age_t,2), "Bin size:", np.round(bin_size,3))
             colors = ["#4c4cec","#e34a33","#504A4B","#756bb1"] # sp and ex rate and net div rate
             # sp file
             f_name = mcmc_file.replace("mcmc.log","sp_rates.log")
             resS = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin)
             fig_title = "Speciation (%s)" % ( name_file)
-            r_str += get_r_plot(resS,col=colors[0],parameter="Speciation rate",min_age=max(min_age_t,min_age),max_age=min(max_age,max_age_t),
+            r_str += get_r_plot(resS,col=colors[0],parameter="Speciation rate",min_age=np.maximum(min_age_t,min_age),max_age=np.minimum(max_age,max_age_t),
                                 plot_title=fig_title,plot_log=logT,run_simulation=1,n_reps=n_reps, min_allowed_t=min_allowed_t)
             # ex file
             f_name = mcmc_file.replace("mcmc.log","ex_rates.log")
             resE = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin)
-            r_str += get_r_plot(resE,col=colors[1],parameter="Extinction rate",min_age=max(min_age_t,min_age),max_age=min(max_age,max_age_t),
+            r_str += get_r_plot(resE,col=colors[1],parameter="Extinction rate",min_age=np.maximum(min_age_t,min_age),max_age=np.minimum(max_age,max_age_t),
                                 plot_title="Extinction",plot_log=logT,run_simulation=0, min_allowed_t=min_allowed_t)
             # net div rate
-            r_str += plot_net_rate(resS,resE,col=colors[2],min_age=max(min_age_t,min_age),max_age=min(max_age,max_age_t),plot_title="Net diversification",n_bins= nbins)
+            r_str += plot_net_rate(resS,resE,col=colors[2],min_age=np.maximum(min_age_t,min_age),max_age=np.minimum(max_age,max_age_t),plot_title="Net diversification",n_bins= nbins)
             # longevity
             lon_avg = 1./np.mean(resE[6],axis=0)    
-            r_str += get_r_plot([resE[0],lon_avg,lon_avg,lon_avg,0],col=colors[3],parameter="Mean longevity",min_age=max(min_age_t,min_age),max_age=min(max_age,max_age_t),
+            r_str += get_r_plot([resE[0],lon_avg,lon_avg,lon_avg,0],col=colors[3],parameter="Mean longevity",min_age=np.maximum(min_age_t,min_age),max_age=np.minimum(max_age,max_age_t),
                                 plot_title="Longevity",plot_log=logT,run_simulation=0,plot_shifts=0,line_wd=4, min_allowed_t=min_allowed_t)
         else: 
             print("Could not read file:", mcmc_file)

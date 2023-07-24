@@ -127,7 +127,7 @@ try:
                                                          PyRateC_NHPP_lik, PyRateC_FBD_T4
     else: 
         os_spec_lib = "Other"
-        from pyrate_lib.fastPyRateC.Other2._FastPyRateC import PyRateC_BD_partial_lik, PyRateC_HOMPP_lik, PyRateC_setFossils, \
+        from pyrate_lib.fastPyRateC.Other._FastPyRateC import PyRateC_BD_partial_lik, PyRateC_HOMPP_lik, PyRateC_setFossils, \
                                PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
                                                          PyRateC_NHPP_lik, PyRateC_FBD_T4
 
