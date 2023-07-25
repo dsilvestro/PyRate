@@ -191,8 +191,10 @@ for iteration in range(n_iterations):
         if iteration<25000: rr = np.random.uniform(0,sampling_freqs[1])
         else: rr = np.random.random()
 
-        if single_focal_clade is True and rr > sampling_freqs[1]: focal_clade=fixed_focal_clade
-        else: focal_clade= np.random.randint(0,(n_clades-1),1)[0] #np.random.random_integers(0,(n_clades-1),1)[0]
+        if single_focal_clade is True and rr > sampling_freqs[1]:
+            focal_clade=fixed_focal_clade
+        else:
+            focal_clade= np.random.randint(0, n_clades, 1)[0] #np.random.random_integers(0,(n_clades-1),1)[0]
 
         if rr<sampling_freqs[0]:
             if rand.random()>.5: 
