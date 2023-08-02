@@ -2586,14 +2586,18 @@ def shapley_kernel(M, s):
     return (M - 1) / (binom(M, s) * s * (M - s))
 
 
-def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, hidden_act_f, out_act_f, nAttr, explain_matrix, XX_w):
-    exp_payoffs_ci = np.zeros((nEval))
+def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, hidden_act_f, out_act_f, explain_matrix, XX_w):
+    n_species, nAttr = trt_tbl.shape
+    trt_tbl_aux2 = np.zeros(nEval * n_species * nAttr).reshape(nEval, n_species, nAttr)
     for ll in range(nEval):
         trt_tbl_aux = trt_tbl + 0.0
         idx = np.where(X[ll, 0:-1] == 1)
         trt_tbl_aux[:, idx] = trt_tbl[i, idx]
-        rate_aux = get_rate_BDNN(1, trt_tbl_aux, cov_par, hidden_act_f, out_act_f)
-        exp_payoffs_ci[ll] = np.mean(rate_aux)
+        trt_tbl_aux2[ll, :, :] = trt_tbl_aux
+    trt_tbl_aux = trt_tbl_aux2.reshape(nEval * n_species, nAttr)
+    rate_aux = get_rate_BDNN(1, trt_tbl_aux, cov_par, hidden_act_f, out_act_f)
+    rate_aux = rate_aux.reshape(nEval, n_species)
+    exp_payoffs_ci = np.mean(rate_aux, axis = 1)
     exp_payoffs_shap = exp_payoffs_ci + 0.0
     exp_payoffs_ci = exp_payoffs_ci - exp_payoffs_ci[0]
     # For weighted random samples
@@ -2636,8 +2640,7 @@ def k_add_kernel_explainer(trt_tbl, cov_par, hidden_act_f, out_act_f):
         X_w = X.T @ np.diag(weights_shap)  # This can be pre-computed once for all species
         XX_w = np.linalg.inv(X_w @ X) @ X_w
         try:
-            _, _ = get_shap_species_i(0, nEval, trt_tbl, X, cov_par, hidden_act_f, out_act_f,
-                                      nAttr, explain_matrix, XX_w)
+            _, _ = get_shap_species_i(0, nEval, trt_tbl, X, cov_par, hidden_act_f, out_act_f, explain_matrix, XX_w)
             k_add_not_ok = False
         except:
             k_add_not_ok = True
@@ -2648,8 +2651,7 @@ def k_add_kernel_explainer(trt_tbl, cov_par, hidden_act_f, out_act_f):
     shap_inter = np.zeros((n_species, nAttr, nAttr))
     for i in range(n_species):
         # For all samples
-        shapley_val_ci_shap, indices = get_shap_species_i(i, nEval, trt_tbl, X, cov_par, hidden_act_f, out_act_f,
-                                                          nAttr, explain_matrix, XX_w)
+        shapley_val_ci_shap, indices = get_shap_species_i(i, nEval, trt_tbl, X, cov_par, hidden_act_f, out_act_f, explain_matrix, XX_w)
         shap_main[i, :] = shapley_val_ci_shap
         shap_inter[i, :, :] = indices
     return shap_main, shap_inter
