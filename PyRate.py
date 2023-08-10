@@ -1901,18 +1901,39 @@ def get_names_variable(var_file):
     return vn.tolist()
 
 
+def interpolate_constant(x, xp, yp):
+    indices = np.searchsorted(xp, x, side='right')
+    y = np.concatenate((yp[0], yp), axis = None)
+    return y[indices]
+
+
 def get_binned_time_variable(timebins, var_file, rescale):
     names_var = get_names_variable(var_file)
     var = np.loadtxt(var_file, skiprows = 1)
     times = var[:, 0] * rescale
     values = var[:, 1:]
-    mean_var = np.zeros((len(timebins) - 1, values.shape[1]))
-    discr_var = np.zeros(values.shape[1], dtype = bool)
-    for i in range(values.shape[1]):
+    nbins = len(timebins)
+    nvars = values.shape[1]
+    mean_var = np.zeros((nbins - 1, nvars))
+    discr_var = np.zeros(nvars, dtype = bool)
+    for i in range(nvars):
         va = np.unique(values[:, i])
         n_va = len(va)
         discr_var[i] = np.all(np.isin(va, np.arange(n_va)))
-    for i in range(1,len(timebins)):
+    # Interpolation if temporal resolution of var_file is lower than time bins
+    if nbins > values.shape[0]:
+        times_comb = np.sort(np.concatenate((timebins, times), axis = None))
+        values_comb = np.zeros((len(times_comb), nvars))
+        for i in range(nvars):
+            if discr_var[i]:
+                values_comb[:, i] = interpolate_constant(times_comb, times, values[:, i])
+            else:
+                values_comb[:, i] = np.interp(times_comb, times, values[:, i])
+        del(values)
+        del(times)
+        values = values_comb
+        times = times_comb
+    for i in range(1,nbins):
         t_max = timebins[i-1]
         t_min = timebins[i]
         in_range_M = (times <= t_max).nonzero()[0]
