@@ -676,7 +676,10 @@ def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_
                 if ((j == (t.shape[1] - 1)) and use_time_as_trait):# and ((int(i_time_var) + int(j_time_var)) == 1):
                     # Time as trait but no other time variable feature
                     t[:, j] = fa + 0.0
-            hull = ConvexHull(t[:, [i, j]])  # , qhull_options = 'QJ'
+            try:
+                hull = ConvexHull(t[:, [i, j]])
+            except:
+                hull = ConvexHull(t[:, [i, j]], qhull_options = 'QJ')
             vertices = t[hull.vertices, :][:, [i, j]]
             path_p = Path(vertices)
             inside_poly = path_p.contains_points(w, radius=0.1)
@@ -817,6 +820,8 @@ def get_rates_summary(cond_rates):
         all_nan = np.all(np.isnan(cond_rates[i, :]))
         if not all_nan:
             rate_sum[i, 1:] = util.calcHPD(cond_rates[i, :], .95)
+    needs_median = rate_sum[:, 0] > rate_sum[:, 2]
+    rate_sum[needs_median, 0] = np.median(cond_rates[needs_median, :], axis = 1)
     return rate_sum
 
 
@@ -2529,7 +2534,7 @@ def vector_shap2game(x, k_add, nAttr, coal_shap):
     return vector_shap2game
 
 
-def opt_Xbinary_wrand_allMethods(nEval, nAttr, k_add, coal_shap, X_train):
+def opt_Xbinary_wrand_allMethods(nEval, nAttr, k_add, coal_shap):
     ''' Return the matrix of coalitions used in Kernel SHAP (X), the transformation matrix used in the proposal (opt_data) '''
     # Select at random, but with probability distributions based on the SHAP weights
     weights_shap = np.zeros((nEval))
@@ -2540,11 +2545,11 @@ def opt_Xbinary_wrand_allMethods(nEval, nAttr, k_add, coal_shap, X_train):
         aux = np.append(aux, comb(nAttr, ii) * shapley_kernel(nAttr, ii))
         aux2[ii] = aux2[ii - 1] + comb(nAttr, ii)
 
-    selec_data_aux = np.zeros((nEval,))
+    selec_data_aux = np.zeros(nEval)
     p_aux = aux / sum(aux)
     for ii in range(nEval):
         p_aux = aux / np.sum(aux)
-        selec_data_aux[ii] = np.random.choice(np.arange(nAttr - 1) + 1, size=1, replace=False, p=p_aux)
+        selec_data_aux[ii] = np.random.choice(np.arange(nAttr - 1) + 1, size=1, replace=False, p=p_aux)[0]
         aux[int(selec_data_aux[ii] - 1)] -= shapley_kernel(nAttr, int(selec_data_aux[ii]))
         aux = np.maximum(aux, np.zeros((len(aux),)))
         p_aux = aux / np.sum(aux)
@@ -2569,9 +2574,9 @@ def opt_Xbinary_wrand_allMethods(nEval, nAttr, k_add, coal_shap, X_train):
 
     X = np.concatenate((np.concatenate((np.zeros((1, nAttr)), X), axis=0), np.ones((1, nAttr))), axis=0)
     X = np.concatenate((X, np.ones((nEval + 2, 1))), axis=1)
-    opt_data = np.concatenate((vector_shap2game(np.zeros((nAttr,)), k_add, nAttr, coal_shap).reshape(1, -1), opt_data),
+    opt_data = np.concatenate((vector_shap2game(np.zeros(nAttr), k_add, nAttr, coal_shap).reshape(1, -1), opt_data),
                               axis=0)
-    opt_data = np.concatenate((opt_data, vector_shap2game(np.ones((nAttr,)), k_add, nAttr, coal_shap).reshape(1, -1)),
+    opt_data = np.concatenate((opt_data, vector_shap2game(np.ones(nAttr), k_add, nAttr, coal_shap).reshape(1, -1)),
                               axis=0)
     weights_shap = np.append(10 ** 6, weights_shap)
     weights_shap = np.append(weights_shap, 10 ** 6)
@@ -2597,7 +2602,7 @@ def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, hidden_act_f, out_act_f, e
     trt_tbl_aux = trt_tbl_aux2.reshape(nEval * n_species, nAttr)
     rate_aux = get_rate_BDNN(1, trt_tbl_aux, cov_par, hidden_act_f, out_act_f)
     rate_aux = rate_aux.reshape(nEval, n_species)
-    exp_payoffs_ci = np.mean(rate_aux, axis = 1)
+    exp_payoffs_ci = 1.0 / np.mean(1.0 / rate_aux, axis = 1)
     exp_payoffs_shap = exp_payoffs_ci + 0.0
     exp_payoffs_ci = exp_payoffs_ci - exp_payoffs_ci[0]
     # For weighted random samples
@@ -2628,8 +2633,7 @@ def k_add_kernel_explainer(trt_tbl, cov_par, hidden_act_f, out_act_f):
                 # " By selecting weighted random samples (without replacement) "
                 with warnings.catch_warnings():
                     warnings.simplefilter('ignore', category = RuntimeWarning)
-                    X, opt_data, weights_shap = opt_Xbinary_wrand_allMethods(nEval - 2, nAttr, k_add,
-                                                                             coal_shap, trt_tbl)
+                    X, opt_data, weights_shap = opt_Xbinary_wrand_allMethods(nEval - 2, nAttr, k_add, coal_shap)
             except:
                 nEval = nEval_old
         weights = np.eye(nEval)
