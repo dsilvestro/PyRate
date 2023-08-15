@@ -2638,12 +2638,12 @@ def k_add_kernel_explainer(trt_tbl, cov_par, hidden_act_f, out_act_f):
                 nEval = nEval_old
         weights = np.eye(nEval)
         weights[0, 0], weights[-1, -1] = 10 ** 6, 10 ** 6
-        # Pre-computing
-        m = opt_data.T @ weights
-        explain_matrix = np.linalg.inv(m @ opt_data) @ m
-        X_w = X.T @ np.diag(weights_shap)  # This can be pre-computed once for all species
-        XX_w = np.linalg.inv(X_w @ X) @ X_w
         try:
+            # Pre-computing
+            m = opt_data.T @ weights
+            explain_matrix = np.linalg.inv(m @ opt_data) @ m
+            X_w = X.T @ np.diag(weights_shap)  # This can be pre-computed once for all species
+            XX_w = np.linalg.inv(X_w @ X) @ X_w
             _, _ = get_shap_species_i(0, nEval, trt_tbl, X, cov_par, hidden_act_f, out_act_f, explain_matrix, XX_w)
             k_add_not_ok = False
         except:
