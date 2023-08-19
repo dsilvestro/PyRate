@@ -25,13 +25,18 @@ from PyRate import get_DT
 from PyRate import get_binned_div_traj
 from PyRate import get_sp_in_frame_br_length
 
-#import fastshap
-#from fastshap.plotting import get_variable_interactions
-
-
 from scipy.special import bernoulli, binom
 from itertools import chain, combinations, product
 import random
+
+#import fastshap
+#from fastshap.plotting import get_variable_interactions
+# fastshap stuff
+from pandas import DataFrame as pd_DataFrame
+from pandas import Series as pd_Series
+from pandas import concat
+from sklearn.linear_model import LinearRegression
+
 
 
 def summarize_rate(r, n_rates):
@@ -294,14 +299,21 @@ def is_time_variable_feature(trait_tbl):
     n_features = trait_tbl.shape[-1]
     n_time_bins = trait_tbl.shape[0]
     time_bins = np.arange(0, n_time_bins)
-    time_var_feat = np.zeros(n_features, dtype = int)
+    var_feat = np.zeros((4, n_features), dtype = int)
     if trait_tbl.ndim == 3:
         for i in range(n_features):
             tr = trait_tbl[time_bins, :, i]
             std_tr = np.std(tr, axis = 0)
-            time_var_feat[i] = np.any(std_tr > 1e-10)
-    time_var_feat = time_var_feat.astype(bool)
-    return time_var_feat
+            varies_through_time = np.any(std_tr > 1e-10)
+            var_feat[0, i] = varies_through_time
+            if varies_through_time:
+                v = int(np.std(std_tr) > 1e-10)
+                var_feat[1 + v, i] = 1 # varies only through time (v = 0, 2nd row) or through species and time (v = 1, 3rd row)
+            else:
+                std_species = np.std(tr, axis = 1)
+                var_feat[3, i] = np.any(std_species > 1e-10) # varies among species
+    var_feat = var_feat.astype(bool)
+    return var_feat
 
 
 def get_idx_feature_without_variance(trt_tbl):
@@ -474,10 +486,12 @@ def get_plot_type_ij(i, m, b, j = np.nan, group_features = None):
     return pt
 
 
-def get_plot_type(m, b, group_features):
+def get_plot_type(m, b, group_features, do_inter_imp = True):
     n = m.shape[1]
     main = np.arange(n, dtype = float)
-    inter = np.array(list(combinations(range(0, n), 2)))
+    inter = np.array([])
+    if do_inter_imp:
+        inter = np.array(list(combinations(range(0, n), 2)))
     ij = np.zeros((n + inter.shape[0], 3))
     ij[:] = np.nan
     ij[:len(main), 0] = main
@@ -694,7 +708,8 @@ def build_conditional_trait_tbl(bdnn_obj,
                                 ts_post, te_post,
                                 len_cont = 100,
                                 rate_type = "speciation",
-                                combine_discr_features = ""):
+                                combine_discr_features = "",
+                                do_inter_imp = True):
     trait_tbl = get_trt_tbl(bdnn_obj, rate_type)
     names_features = get_names_features(bdnn_obj)
     # diversity-dependence
@@ -721,7 +736,8 @@ def build_conditional_trait_tbl(bdnn_obj,
                                                   binary_feature,
                                                   conc_comb_feat,
                                                   len_cont)
-    feature_is_time_variable = is_time_variable_feature(trait_tbl)
+    feature_variation = is_time_variable_feature(trait_tbl)
+    feature_is_time_variable = feature_variation[0,:]
     if np.any(feature_is_time_variable):
         fossil_age = get_fossil_age(bdnn_obj, tste, 'speciation')
         fossil_age = backscale_bdnn_time(fossil_age, bdnn_obj)
@@ -746,7 +762,7 @@ def build_conditional_trait_tbl(bdnn_obj,
             max_tste = np.max(tste_rescaled)
             if max_tste > minmaxmean_features[1, -1]:
                 minmaxmean_features[1, -1] = max_tste * 1.02
-    plot_type = get_plot_type(minmaxmean_features, binary_feature, idx_comb_feat)
+    plot_type = get_plot_type(minmaxmean_features, binary_feature, idx_comb_feat, do_inter_imp = do_inter_imp)
     plot_idx = get_plot_idx(plot_type, idx_comb_feat)
     plot_type = np.hstack((plot_type, plot_idx.reshape((len(plot_idx), 1))))
     plot_type = plot_type[~np.isnan(plot_type[:, 3]), :]
@@ -1104,7 +1120,7 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, tste, r_script,
     if rate_type == 'net diversification':
         rate_type2 = 'extinction'
     trait_tbl = get_trt_tbl(bdnn_obj, rate_type2)
-    feature_is_time_variable = is_time_variable_feature(trait_tbl)
+    feature_is_time_variable = is_time_variable_feature(trait_tbl)[0, :]
     fossil_age = get_fossil_age(bdnn_obj, tste, rate_type2)
     fossil_age = backscale_bdnn_time(fossil_age, bdnn_obj)
     fossil_bin = get_bin_from_fossil_age(bdnn_obj, tste, rate_type2)
@@ -1214,19 +1230,21 @@ def get_mean_inferred_tste(post_ts, post_te):
     return mean_tste
 
 
-def get_effect_objects(mcmc_file, pkl_file, burnin, thin, combine_discr_features = "", file_transf_features = "", num_processes = 1, show_progressbar = False):
+def get_effect_objects(mcmc_file, pkl_file, burnin, thin, combine_discr_features = "", file_transf_features = "", num_processes = 1, show_progressbar = False, do_inter_imp = True):
     bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
     mean_tste = get_mean_inferred_tste(post_ts, post_te)
     cond_trait_tbl_sp, names_features_sp = build_conditional_trait_tbl(bdnn_obj, mean_tste,
                                                                        post_ts, post_te,
                                                                        len_cont = 100,
                                                                        rate_type = "speciation",
-                                                                       combine_discr_features = combine_discr_features)
+                                                                       combine_discr_features = combine_discr_features,
+                                                                       do_inter_imp = do_inter_imp)
     cond_trait_tbl_ex, names_features_ex = build_conditional_trait_tbl(bdnn_obj, mean_tste,
                                                                        post_ts, post_te,
                                                                        len_cont = 100,
                                                                        rate_type = "extinction",
-                                                                       combine_discr_features = combine_discr_features)
+                                                                       combine_discr_features = combine_discr_features,
+                                                                       do_inter_imp = do_inter_imp)
     #sp_rate_cond = bdnn_lib.get_conditional_rates(bdnn_obj, cond_trait_tbl_sp, post_w_sp)
     #ex_rate_cond = bdnn_lib.get_conditional_rates(bdnn_obj, cond_trait_tbl_ex, post_w_ex)
     bdnn_time = get_bdnn_time(bdnn_obj, mean_tste[:, 0])
@@ -1543,7 +1561,7 @@ def get_prob_inter_2_con_trait(cond_rates_eff, trait_tbl_eff, incl_features, con
     return np.array([prob, mean_mag, mag_HPD[0], mag_HPD[1]])
 
 
-def get_prob_effects(cond_trait_tbl, cond_rates, bdnn_obj, names_features, rate_type = 'speciation'):
+def get_prob_effects(cond_trait_tbl, cond_rates, bdnn_obj, names_features, rate_type = 'speciation', ):
     names_features_original = np.array(get_names_features(bdnn_obj))
     not_obs = cond_trait_tbl[:, -1] == 0
     cond_rates[not_obs, :] = np.nan
@@ -1674,7 +1692,7 @@ def get_pdp_rate_it_i(arg):
                                       post_w_i,  # list of arrays
                                       bdnn_obj.bdnn_settings['hidden_act_f'],
                                       bdnn_obj.bdnn_settings['out_act_f'])
-            rate_it_i[j] = np.mean(rate_BDNN)
+            rate_it_i[j] = 1.0 / np.mean(1.0 / rate_BDNN) #np.mean(rate_BDNN)
     return rate_it_i
 
 
@@ -1790,7 +1808,7 @@ def get_pdp_rate_free_combination(bdnn_obj,
                                                   binary_feature,
                                                   conc_comb_feat,
                                                   len_cont)
-    feature_is_time_variable = is_time_variable_feature(trait_tbl)
+    feature_is_time_variable = is_time_variable_feature(trait_tbl)[0, :]
     if np.any(feature_is_time_variable):
         tste = get_mean_inferred_tste(ts_post, te_post)
         fossil_age = get_fossil_age(bdnn_obj, tste, 'speciation')
@@ -2031,7 +2049,7 @@ def get_bdnn_lik(bdnn_obj, bdnn_time, ts, te, w, trait_tbl_NN, rate_type):
     return bdnn_lik
 
 
-def create_perm_comb(bdnn_obj, combine_discr_features = None):
+def create_perm_comb(bdnn_obj, do_inter_imp = True, combine_discr_features = None):
     names_features = get_names_features(bdnn_obj)
     idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
     n_feature_groups = len(idx_comb_feat)
@@ -2050,31 +2068,32 @@ def create_perm_comb(bdnn_obj, combine_discr_features = None):
     for i in range(n_feature_groups):
         perm_names.append([names_features[idx_comb_feat[i][0]], 'none'])
         perm_feat_idx.append([ idx_comb_feat[i], None ])
-    # interaction between features expressed as single columns
-    interaction_not_comb_feat = list(combinations(idx_not_comb_feat, 2))
-    for i in range(len(interaction_not_comb_feat)):
-        inter = interaction_not_comb_feat[i]
-        name_inter = [names_features[inter[0]], names_features[inter[1]]]
-        perm_names.append(name_inter)
-        perm_feat_idx.append([ np.array([inter[0]]), np.array([inter[1]]) ])
-    # interaction between feature groups
-    interaction_comb_feat = list(combinations(np.arange(n_feature_groups), 2))
-    for i in range(len(interaction_comb_feat)):
-        inter = interaction_comb_feat[i]
-        fg0 = idx_comb_feat[inter[0]]
-        fg1 = idx_comb_feat[inter[1]]
-        name_inter = [names_features[fg0[0]], names_features[fg1[0]]]
-        perm_names.append(name_inter)
-        perm_feat_idx.append([fg0, fg1])
-    # interaction between single-column feature with feature group
-    interaction_sc_fg = expand_grid(idx_not_comb_feat, np.arange(n_feature_groups))
-    for i in range(len(interaction_sc_fg)):
-        inter = interaction_sc_fg[i]
-        sc = inter[0]
-        fg = idx_comb_feat[inter[1]]
-        name_inter = [names_features[sc], names_features[fg[0]]]
-        perm_names.append(name_inter)
-        perm_feat_idx.append([ np.array([sc]), fg ])
+    if do_inter_imp:
+        # interaction between features expressed as single columns
+        interaction_not_comb_feat = list(combinations(idx_not_comb_feat, 2))
+        for i in range(len(interaction_not_comb_feat)):
+            inter = interaction_not_comb_feat[i]
+            name_inter = [names_features[inter[0]], names_features[inter[1]]]
+            perm_names.append(name_inter)
+            perm_feat_idx.append([ np.array([inter[0]]), np.array([inter[1]]) ])
+        # interaction between feature groups
+        interaction_comb_feat = list(combinations(np.arange(n_feature_groups), 2))
+        for i in range(len(interaction_comb_feat)):
+            inter = interaction_comb_feat[i]
+            fg0 = idx_comb_feat[inter[0]]
+            fg1 = idx_comb_feat[inter[1]]
+            name_inter = [names_features[fg0[0]], names_features[fg1[0]]]
+            perm_names.append(name_inter)
+            perm_feat_idx.append([fg0, fg1])
+        # interaction between single-column feature with feature group
+        interaction_sc_fg = expand_grid(idx_not_comb_feat, np.arange(n_feature_groups))
+        for i in range(len(interaction_sc_fg)):
+            inter = interaction_sc_fg[i]
+            sc = inter[0]
+            fg = idx_comb_feat[inter[1]]
+            name_inter = [names_features[sc], names_features[fg[0]]]
+            perm_names.append(name_inter)
+            perm_feat_idx.append([ np.array([sc]), fg ])
     return perm_names, perm_feat_idx
 
 
@@ -2092,32 +2111,35 @@ def permute_trt_tbl(trt_tbl, feat_idx, feature_is_time_variable, bdnn_obj, post_
     # print(d)
     rng = np.random.default_rng(seed)
     if trt_tbl[0].ndim == 3:
-        if np.any(feature_is_time_variable[feat_idx]):
-            ## time-variable, one-hot encoded features will not work (hopefully nobody will use these type of features)
-            ## Swapping time for all species together among bins
-#            n_bins = trt_tbl[0].shape[0]
-#            bins_perm_idx = rng.permuted(np.arange(n_bins))
-#            trt_tbl[0][:, :, feat_idx] = trt_tbl[0][bins_perm_idx, :, :][:, :, feat_idx]
-#            trt_tbl[1][:, :, feat_idx] = trt_tbl[1][bins_perm_idx, :, :][:, :, feat_idx]
-            ## Free permutation
-#            feat_sp = trt_tbl[0][:, :, feat_idx]
-#            feat_ex = trt_tbl[1][:, :, feat_idx]
-#            n = len(feat_sp)
-#            rng = np.random.default_rng(seed)
-#            perm_idx = rng.permuted(np.arange(n))
-#            trt_tbl[0][:, :, feat_idx] = feat_sp[perm_idx]
-#            trt_tbl[1][:, :, feat_idx] = feat_ex[perm_idx]
-            ## Permutation according to relative length of each time-bin (what if there is no time e.g. only div-dep?)
-            n_species = trt_tbl[0].shape[1]
-            n_bins = trt_tbl[0].shape[0]
-            bdnn_time = get_bdnn_time(bdnn_obj, post_ts_i)
-            rel_time = np.abs(np.diff(bdnn_time)) / np.max(bdnn_time)
-            rng = np.random.default_rng(seed)
-            perm_idx = rng.choice(n_bins, n_bins * n_species, p = rel_time).reshape((n_bins, n_species))
-            trt_tbl_org = copy_lib.deepcopy(trt_tbl)
-            for s in range(n_species):
-                trt_tbl[0][:, s, feat_idx] = trt_tbl_org[0][:, s, feat_idx][perm_idx[:, s], :]
-                trt_tbl[1][:, s, feat_idx] = trt_tbl_org[1][:, s, feat_idx][perm_idx[:, s], :]
+        if np.any(feature_is_time_variable[0, feat_idx]):
+#            print(feat_idx)
+            if feature_is_time_variable[1, feat_idx]:
+                ## Swapping time for all species together among bins
+                ## time-variable, one-hot encoded features will not work (hopefully nobody will use these type of features)
+#                print('Varies through time but not species', feat_idx)
+                n_bins = trt_tbl[0].shape[0]
+                bins_perm_idx = rng.permuted(np.arange(n_bins))
+                trt_tbl[0][:, :, feat_idx] = trt_tbl[0][bins_perm_idx, :, :][:, :, feat_idx]
+                trt_tbl[1][:, :, feat_idx] = trt_tbl[1][bins_perm_idx, :, :][:, :, feat_idx]
+            if feature_is_time_variable[2, feat_idx]:
+#                print('Varies through time and species', feat_idx)
+                ## Free permutation
+                feat_sp = trt_tbl[0][:, :, feat_idx]
+                feat_ex = trt_tbl[1][:, :, feat_idx]
+                n = len(feat_sp)
+                perm_idx = rng.permuted(np.arange(n))
+                trt_tbl[0][:, :, feat_idx] = feat_sp[perm_idx]
+                trt_tbl[1][:, :, feat_idx] = feat_ex[perm_idx]
+                ## Permutation (sampling with replacement) according to relative length of each time-bin (what if there is no time e.g. only div-dep?)
+#                n_species = trt_tbl[0].shape[1]
+#                n_bins = trt_tbl[0].shape[0]
+#                bdnn_time = get_bdnn_time(bdnn_obj, post_ts_i)
+#                rel_time = np.abs(np.diff(bdnn_time)) / np.max(bdnn_time)
+#                perm_idx = rng.choice(n_bins, n_bins * n_species, p = rel_time).reshape((n_bins, n_species))
+#                trt_tbl_org = copy_lib.deepcopy(trt_tbl)
+#                for s in range(n_species):
+#                   trt_tbl[0][:, s, feat_idx] = trt_tbl_org[0][:, s, feat_idx][perm_idx[:, s], :]
+#                   trt_tbl[1][:, s, feat_idx] = trt_tbl_org[1][:, s, feat_idx][perm_idx[:, s], :]
         else:
             n_species = trt_tbl[0].shape[1]
             species_perm_idx = rng.permuted(np.arange(n_species))
@@ -2152,6 +2174,7 @@ def perm_mcmc_sample_i(arg):
     ex_lik_j = np.zeros((n_perm, n_perm_traits))
     rngint = np.random.default_rng()
     seeds = rngint.integers(low=0, high=1e10, size=n_features)
+#    print(perm_feature_idx)
     for j in range(n_perm_traits):
         perm_feature_idx_j = perm_feature_idx[j]
         for k in range(n_perm):
@@ -2199,7 +2222,7 @@ def remove_invariant_feature_from_featperm_results(bdnn_obj, res, trt_tbl, combi
     return res
 
 
-def feature_permutation(mcmc_file, pkl_file, burnin, thin, n_perm = 10, num_processes = 1, combine_discr_features = "", show_progressbar = False):
+def feature_permutation(mcmc_file, pkl_file, burnin, thin, n_perm = 10, num_processes = 1, combine_discr_features = "", show_progressbar = False, do_inter_imp = True):
     bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
     n_mcmc = post_ts.shape[0]
     trt_tbls = bdnn_obj.trait_tbls
@@ -2215,8 +2238,9 @@ def feature_permutation(mcmc_file, pkl_file, burnin, thin, n_perm = 10, num_proc
         trt_tbls[1][0, :, div_idx_trt_tbl] = 1.0
     sp_feature_is_time_variable = is_time_variable_feature(trt_tbls[0])
     ex_feature_is_time_variable = is_time_variable_feature(trt_tbls[1])
-    feature_is_time_variable = sp_feature_is_time_variable + ex_feature_is_time_variable
-    perm_traits, perm_feature_idx = create_perm_comb(bdnn_obj, combine_discr_features)
+    feature_is_time_variable = (sp_feature_is_time_variable + ex_feature_is_time_variable) > 0
+#    feature_is_time_variable = feature_is_time_variable.astype(int)
+    perm_traits, perm_feature_idx = create_perm_comb(bdnn_obj, do_inter_imp, combine_discr_features)
     n_perm_traits = len(perm_traits)
     args = []
     for i in range(n_mcmc):
@@ -2266,172 +2290,669 @@ def feature_permutation(mcmc_file, pkl_file, burnin, thin, n_perm = 10, num_proc
 
 # Fastshap
 ##########
-def get_num_interaction_bins(trt_tbl):
-    num_rows = trt_tbl.shape[0]
-    bin_credibility_threshold = 50
-    max_auto_bins = 10
-    ib = int(num_rows / bin_credibility_threshold)
-    ib = np.min([max_auto_bins, ib])
-    return ib
+# forked from https://github.com/AnotherSamWilson/fastshap/tree/master/fastshap
+# change from arithmetic mean for baseline (i.e. background_preds.mean(0) and data_preds.mean(0)) to harmonic mean
+def _assign_pd(table, location, values):
+        table.iloc[location] = values
 
 
-def get_interaction_R2(trt_tbl, shap_main):
-    s = trt_tbl.shape[1]
-    inter_r2 = np.zeros((s, s))
-    num_interaction_bins = get_num_interaction_bins(trt_tbl)
-    for i in range(s):
-        num_cat = len(np.unique(trt_tbl.iloc[:, i]))
-        nib = num_interaction_bins
-        if num_cat < num_interaction_bins:
-            nib = num_cat
-        try:
-            r2, r2_idx = get_variable_interactions(shap_main, trt_tbl, variable = i, interaction_bins = nib)
-        except:
-            r2, r2_idx = get_variable_interactions(shap_main, trt_tbl, variable = i, interaction_bins = 2)
-        inter_r2[i, r2_idx] = r2
-    inter_r2 = (np.triu(inter_r2) + np.triu(inter_r2.T)) / 2
-    inter_r2[np.tril_indices(s)] = inter_r2[np.triu_indices(s)]
-    return inter_r2
+def _view_pd(table, location):
+    return table.iloc[location]
 
 
-def interaction_R2_for_onehot_features(idx_comb_feat, si):
-    if len(idx_comb_feat) > 0:
-        drop = np.array([], dtype=int)
-        conc_comb_feat = np.concatenate(idx_comb_feat)
-        n = si.shape[0]
-        J = np.arange(n)
-        J = np.delete(J, conc_comb_feat)
-        # Cases of no interaction within another one-hot encoded feature
-        if len(J) > 0:
-            for i in range(len(idx_comb_feat)):
-                for j in J:
-                    inter_value = np.mean(si[j, idx_comb_feat[i]])
-                    si[j, idx_comb_feat[i][0]] = inter_value
-                    si[idx_comb_feat[i][0], j] = inter_value
-                drop = np.concatenate((drop, idx_comb_feat[i][1:]))
-        # Cases of interaction between two one-hot encoded features
-        if len(idx_comb_feat) > 1:
-            for i in range(len(idx_comb_feat)):
-                for k in range(1, len(idx_comb_feat)):
-                    inter_value = np.mean(si[idx_comb_feat[k], idx_comb_feat[i]])
-                    i1 = idx_comb_feat[k][0]
-                    i2 = idx_comb_feat[i][0]
-                    si[i1, i2] = inter_value
-                    si[i2, i1] = inter_value
-        si = np.delete(si, drop, axis = 0)
-        si = np.delete(si, drop, axis = 1)
-    return si
+def _concat_pd(pd_list, axis):
+    return concat(pd_list, axis=axis)
 
 
-def kernel_explainer(trt_tbl, cov_par, hidden_act_f, out_act_f, idx_comb_feat):
-    ke = fastshap.KernelExplainer(
-        model = lambda X: get_rate_BDNN(1, X, cov_par, hidden_act_f, out_act_f),
-        background_data = trt_tbl
-    )
-    shap_main = ke.calculate_shap_values(trt_tbl, verbose = False)
-    baseline = np.array([shap_main[0, -1]])
-    shap_main = shap_main[:,:-1] # remove expected value
-    shap_interaction = get_interaction_R2(trt_tbl, shap_main)
-    shap_main = main_shap_for_onehot_features(idx_comb_feat, shap_main)
-    shap_main_instances = shap_main.flatten()
-    shap_main = np.mean(np.abs(shap_main), axis = 0)
-    shap_interaction = interaction_R2_for_onehot_features(idx_comb_feat, shap_interaction)
-    iu1 = np.triu_indices(shap_interaction.shape[0], 1)
-    shap_interaction = shap_interaction[iu1]
-    return np.concatenate((shap_main, shap_interaction, baseline, shap_main_instances))
+def _assign_np(array, location, values):
+    array[location] = values
 
 
-def kernel_shap_i(arg):
-    [bdnn_obj, post_ts_i, post_te_i, post_w_sp_i, post_w_ex_i, hidden_act_f, out_act_f, trt_tbls, bdnn_dd, div_idx_trt_tbl, idx_comb_feat_sp, idx_comb_feat_ex, binary_feature_sp, binary_feature_ex] = arg
-    bdnn_time = get_bdnn_time(bdnn_obj, post_ts_i)
-    if bdnn_dd:
-        n_taxa = trt_tbls[0].shape[1]
-        bdnn_rescale_div = bdnn_obj.bdnn_settings['div_rescaler']
-        bdnn_time_div = np.arange(np.max(post_ts_i), 0.0, -0.001)
-        bdnn_div = get_DT(bdnn_time_div, post_ts_i, post_te_i)
-        bdnn_binned_div = get_binned_div_traj(bdnn_time, bdnn_time_div, bdnn_div)[:-1] / bdnn_rescale_div
-        bdnn_binned_div = np.repeat(bdnn_binned_div, n_taxa).reshape((len(bdnn_binned_div), n_taxa))
-        trt_tbls[0][:, :, div_idx_trt_tbl] = bdnn_binned_div
-        trt_tbls[1][:, :, div_idx_trt_tbl] = bdnn_binned_div
-    shap_trt_tbl_sp = get_shap_trt_tbl(post_ts_i, bdnn_time, trt_tbls[0])
-    shap_trt_tbl_ex = get_shap_trt_tbl(post_te_i, bdnn_time, trt_tbls[1])
-    shap_trt_tbl_sp = pd.DataFrame(shap_trt_tbl_sp)
-    shap_trt_tbl_ex = pd.DataFrame(shap_trt_tbl_ex)
-    shap_trt_tbl_sp[binary_feature_sp] = shap_trt_tbl_sp[binary_feature_sp].astype('int')
-    shap_trt_tbl_ex[binary_feature_ex] = shap_trt_tbl_ex[binary_feature_ex].astype('int')
-    lam_ke = kernel_explainer(shap_trt_tbl_sp, post_w_sp_i, hidden_act_f, out_act_f, idx_comb_feat_sp)
-    mu_ke = kernel_explainer(shap_trt_tbl_ex, post_w_ex_i, hidden_act_f, out_act_f, idx_comb_feat_ex)
-    return np.concatenate((lam_ke, mu_ke))
+def _view_np(array, location):
+    return array[location]
 
 
-
-def kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, combine_discr_features = "", show_progressbar = False):
-    bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
-    mcmc_samples = post_ts.shape[0]
-    trt_tbls = bdnn_obj.trait_tbls
-    binary_feature_sp = is_binary_feature(trt_tbls[0])[0]
-    binary_feature_ex = is_binary_feature(trt_tbls[1])[0]
-    binary_feature_sp = np.arange(trt_tbls[0].shape[-1])[binary_feature_sp].tolist()
-    binary_feature_ex = np.arange(trt_tbls[1].shape[-1])[binary_feature_ex].tolist()
-    names_features_sp = get_names_features(bdnn_obj)
-    names_features_ex = copy_lib.deepcopy(names_features_sp)
-    bdnn_dd = 'diversity' in names_features_sp
-    div_idx_trt_tbl = -1
-    if is_time_trait(bdnn_obj) and bdnn_dd:
-            div_idx_trt_tbl = -2
-    hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
-    out_act_f = bdnn_obj.bdnn_settings['out_act_f']
-    idx_comb_feat_sp = get_idx_comb_feat(names_features_sp, combine_discr_features)
-    idx_comb_feat_ex = get_idx_comb_feat(names_features_ex, combine_discr_features)
-    shap_names_sp = make_shap_names(names_features_sp, idx_comb_feat_sp, combine_discr_features)
-    shap_names_ex = make_shap_names(names_features_ex, idx_comb_feat_ex, combine_discr_features)
-    n_effects_sp = shap_names_sp.shape[0]
-    n_effects_ex = shap_names_ex.shape[0]
-    args = []
-    for i in range(mcmc_samples):
-        a = [bdnn_obj, post_ts[i, :], post_te[i, :], post_w_sp[i], post_w_ex[i], hidden_act_f, out_act_f,
-             trt_tbls, bdnn_dd, div_idx_trt_tbl, idx_comb_feat_sp, idx_comb_feat_ex, binary_feature_sp, binary_feature_ex]
-        args.append(a)
-    unixos = is_unix()
-    if unixos and num_processes > 1:
-        pool_perm = multiprocessing.Pool(num_processes)
-        shap_values = list(tqdm(pool_perm.imap_unordered(kernel_shap_i, args),
-                                total = mcmc_samples, disable = show_progressbar == False))
-        pool_perm.close()
+def _concat_np(np_list, axis):
+    if axis == 0:
+        return np.vstack(np_list)
     else:
-        shap_values = []
-        for i in tqdm(range(mcmc_samples), disable = show_progressbar == False):
-            shap_values.append(kernel_shap_i(args[i]))
-    shap_values = np.vstack(shap_values)
-    mean_shap = np.mean(shap_values, axis = 0)
-    mean_shap_sp = mean_shap[:n_effects_sp]
-    mean_shap_ex = mean_shap[n_effects_sp:(n_effects_sp + n_effects_ex)]
-    if bdnn_dd:
-        trt_tbls[0][0, :, div_idx_trt_tbl] = 1.0
-        trt_tbls[1][0, :, div_idx_trt_tbl] = 1.0
-    feature_without_variance_sp = get_idx_feature_without_variance(trt_tbls[0])
-    feature_without_variance_ex = get_idx_feature_without_variance(trt_tbls[1])
-    remove_sp = []
-    for i in feature_without_variance_sp:
-        remove_sp.append(np.where(shap_names_sp[:, 0] == names_features_sp[i])[0])
-        remove_sp.append(np.where(shap_names_sp[:, 1] == names_features_sp[i])[0])
-    remove_ex = []
-    for i in feature_without_variance_ex:
-        remove_ex.append(np.where(shap_names_ex[:, 0] == names_features_ex[i])[0])
-        remove_ex.append(np.where(shap_names_ex[:, 1] == names_features_ex[i])[0])
-    remove_sp = np.array(list(pd.core.common.flatten(remove_sp))).astype(int)
-    remove_ex = np.array(list(pd.core.common.flatten(remove_ex))).astype(int)
-    mean_shap_sp = np.delete(mean_shap_sp, remove_sp[remove_sp < len(mean_shap_sp)])
-    mean_shap_ex = np.delete(mean_shap_ex, remove_ex[remove_ex < len(mean_shap_ex)])
-    shap_names_sp = np.delete(shap_names_sp, remove_sp, axis = 0)
-    shap_names_ex = np.delete(shap_names_ex, remove_ex, axis = 0)
-    shap_values_sp = pd.DataFrame(mean_shap_sp, columns=['shap'])
-    shap_values_ex = pd.DataFrame(mean_shap_ex, columns=['shap'])
-    shap_names_sp = pd.DataFrame(shap_names_sp, columns = ['feature1', 'feature2'])
-    shap_names_ex = pd.DataFrame(shap_names_ex, columns = ['feature1', 'feature2'])
-    shap_lam = pd.concat([shap_names_sp, shap_values_sp], axis = 1)
-    shap_ex = pd.concat([shap_names_ex, shap_values_ex], axis = 1)
-    return shap_lam, shap_ex
+        return np.hstack(np_list)
+
+
+def _to_numpy(x):
+    if isinstance(x, np.ndarray):
+        return x
+    elif isinstance(x, pd_DataFrame):
+        return x.to_numpy()
+    elif isinstance(x, pd_Series):
+        if x.dtype.name == "category":
+            return x.cat.codes.to_numpy()
+        elif x.dtype.name == "object":
+            return x.fillna("").to_numpy()
+        else:
+            return x.to_numpy()
+    else:
+        raise ValueError("Unknown datatype")
+
+
+def _repeat(x, repeats, axis=0):
+    if isinstance(x, pd_DataFrame) or isinstance(x, pd_Series):
+        newind = np.arange(x.shape[0]).repeat(repeats)
+        return x.iloc[newind].reset_index(drop=True)
+    else:
+        return np.repeat(x, repeats, axis=axis)
+
+
+def _tile(x, reps):
+    if isinstance(x, pd_DataFrame) or isinstance(x, pd_Series):
+        new_ind = np.tile(np.arange(x.shape[0]), reps[0])
+        return x.iloc[new_ind].reset_index(drop=True)
+    else:
+        return np.tile(x, reps)
+
+def consecutive_slices(data):
+    runs = np.split(data, np.where(np.diff(data) != 1)[0] + 1)
+    return [slice(min(run), max(run) + 1) for run in runs]
+
+
+def stratified_continuous_folds(y, nfold):
+    """
+    Create primitive stratified folds for continuous data.
+    """
+    elements = len(y)
+    assert elements >= nfold, "more splits then elements."
+    sorted = np.argsort(y)
+    val = [sorted[range(i, len(y), nfold)] for i in range(nfold)]
+    return val
+
+
+def _get_variable_name_index(variable, data):
+    """
+    Returns the variable name as a string, and the variable index as an int,
+    whether a string or int is passed to a pd.DataFrame or numpy.ndarray
+
+    :param variable: str, int
+        The variable we want to return the name and index for.
+    :param data:
+        The data in which the variable resides.
+
+    :return:
+        variable_name (str), variable_index (int)
+    """
+    if isinstance(data, pd_DataFrame):
+        if isinstance(variable, str):
+            variable_name = variable
+            variable_index = data.columns.tolist().index(variable)
+        else:
+            variable_name = str(data.columns.tolist()[variable])
+            variable_index = variable
+
+    elif isinstance(data, np.ndarray):
+        assert isinstance(
+            variable, int
+        ), "data was numpy array, variable must be an integer"
+        variable_name = str(variable)
+        variable_index = variable
+    else:
+        raise ValueError("data not recognized. Must be numpy array or pd.DataFrame")
+
+    return variable_name, variable_index
+
+
+def _safe_isnan(x):
+    if isinstance(x, pd_DataFrame) or isinstance(x, pd_Series):
+        return x.isnull().values
+    elif isinstance(x, np.ndarray):
+        return np.isnan(x)
+    else:
+        raise ValueError("x not recognized")
+
+
+def _ensure_2d_array(a):
+    if a.ndim == 1:
+        return a.reshape(-1, 1)
+    else:
+        return a
+
+
+def _fill_missing_cat(x, s):
+    assert isinstance(
+        x, pd_Series
+    ), "Can only fill cat on pandas object or categorical series"
+    x_nan = x.isnull()
+    if x_nan.sum() > 0:
+        if x.dtype.name == "category":
+            x = x.cat.add_categories(s).fillna(s)
+        elif x.dtype.name == "object":
+            x = x.fillna(s)
+        else:
+            raise ValueError("Series datatype must be object or category.")
+    return x
+
+
+def _keep_top_n_cats_unique(x, n, s, m, codes=False):
+    """
+    Groups least popular categories together.
+    Can return the category codes.
+
+    :param x: pd.Series
+        The series to be grouped
+    :param n: int
+        The number of categories to leave unique (including nans)
+    :param s:
+        The value to impute non-popular categories as
+    :param m:
+        The value to impute missing values as.
+    :return:
+    """
+
+    return_type = "category" if codes else x.dtype.name
+    x = _fill_missing_cat(x, m)
+    c = x.value_counts().sort_values(ascending=False).index.to_numpy()[:n]
+    d = pd_Series(np.where(x.isin(c), x, s), dtype=return_type)
+    if codes:
+        d = d.cat.codes
+    return d
+
+
+def ampute_data(
+    data,
+    variables=None,
+    perc=0.1,
+    random_seed=None,
+):
+    """
+    Ampute Data
+
+    Returns a copy of data with specified variables amputed.
+
+    Parameters
+    ----------
+     data : Pandas DataFrame
+        The data to ampute
+     variables : None or list
+        If None, are variables are amputed.
+     perc : double
+        The percentage of the data to ampute.
+    random_state: None, int, or np.random.RandomState
+
+    Returns
+    -------
+    pandas DataFrame
+        The amputed data
+    """
+    amputed_data = data.copy()
+    data_shape = amputed_data.shape
+    amp_rows = int(perc * data_shape[0])
+    random_state = np.random.RandomState(random_seed)
+    if len(data_shape) > 1:
+        if variables is None:
+            variables = [i for i in range(amputed_data.shape[1])]
+        elif isinstance(variables, list):
+            if isinstance(variables[0], str):
+                variables = [data.columns.tolist().index(i) for i in variables]
+        if isinstance(amputed_data, pd_DataFrame):
+            for v in variables:
+                na_ind = random_state.choice(
+                    np.arange(data_shape[0]), replace=False, size=amp_rows
+                )
+                amputed_data.iloc[na_ind, v] = np.NaN
+        if isinstance(amputed_data, np.ndarray):
+            amputed_data = amputed_data.astype("float64")
+            for v in variables:
+                na_ind = random_state.choice(
+                    np.arange(data_shape[0]), replace=False, size=amp_rows
+                )
+                amputed_data[na_ind, v] = np.NaN
+    else:
+        na_ind = random_state.choice(
+            np.arange(data_shape[0]), replace=False, size=amp_rows
+        )
+        amputed_data[na_ind] = np.NaN
+    return amputed_data
+
+
+class Logger:
+    def __init__(self, verbose):
+        self.verbose = verbose
+
+    def log(self, message):
+        if self.verbose:
+            print(message)
+
+
+class KernelExplainer:
+    def __init__(self, model, background_data):
+        """
+        The KernelExplainer is capable of calculating shap values for any arbitrary function.
+
+        Parameters
+        ----------
+
+        model: Callable.
+            Some function which takes the background_data and return
+            a numpy array of shape (n, ).
+
+        background_data: pandas.DataFrame or np.ndarray
+            The background set which will be used to act as the "missing"
+            data when calculating shap values. Smaller background sets
+            will make the process fun faster, but may cause shap values
+            to drift from their "true" values.
+
+            It is possible to stratify this background set by running
+            .stratify_background_set()
+
+        """
+        self.model = model
+        self.background_data = [background_data]
+        self.num_columns = background_data.shape[1]
+        self.n_splits = 0
+        background_preds = model(background_data)
+        assert isinstance(background_preds, np.ndarray)
+        assert background_preds.ndim <= 2, "Maximum 2 dimensional outputs supported"
+        self.output_dim = 1 if background_preds.ndim == 1 else background_preds.shape[1]
+        self.return_type = background_preds.dtype
+
+        if isinstance(background_data, pd_DataFrame):
+            self.col_names = background_data.columns.tolist()
+            self.dtypes = {col: background_data[col].dtype for col in self.col_names}
+
+            #from .compat import _assign_pd, _view_pd, _concat_pd
+
+            self._assign = _assign_pd
+            self._view = _view_pd
+            self._concat = _concat_pd
+
+        if isinstance(background_data, np.ndarray):
+            #from .compat import _assign_np, _view_np, _concat_np
+
+            self._assign = _assign_np
+            self._view = _view_np
+            self._concat = _concat_np
+
+    def calculate_shap_values(
+        self,
+        data,
+        outer_batch_size=None,
+        inner_batch_size=None,
+        n_coalition_sizes=3,
+        background_fold_to_use=None,
+        linear_model=None,
+        verbose=False,
+    ):
+        """
+        Calculates approximate shap values for data.
+
+
+        Parameters
+        ----------
+
+        data: pandas.DataFrame or np.ndarray
+            The data to calculate the shap values for
+
+        outer_batch_size: int
+            Shap values are calculated all at once in the outer batch.
+            The outer batch requires the creation of the Linear Targets,
+            which is an array of size(`Total Coalitions`, `outer_batch_size`)
+
+            To determine an appropriate outer_batch_size, play around with
+            the .get_theoretical_array_expansion_sizes() function.
+
+        inner_batch_size: int
+            To get the Linear Targets, an array of the following size must
+            be evaluated by the model: (`inner_batch_size`, `# background samples`)
+            and then aggregated.
+
+            To determine an appropriate inner_batch_size, play around with
+            the .get_theoretical_array_expansion_sizes() function.
+
+        n_coalition_sizes: int
+            The coalition sizes, starting at 1, and their complements which will
+            be used to calculate the shap values.
+
+            Not all possible column combinations can be evaluated to calculate
+            the shap values. The shap kernel puts more weight on lower
+            coalition sizes (and their complements). These also tend to have
+            fewer possible combinations.
+
+            For example, if our dataset has 10 columns, and we set
+            n_coalition_sizes = 3, then the process will calculate the shap
+            values by integrating over all column combinations of
+            size 1, 9, 2, 8, 3, and 7.
+
+        background_fold_to_use: None or int
+            If the background dataset has been stratified, select one of
+            them to use to calculate the shap values.
+
+        linear_model: sklearn.linear_model
+            The linear model used to obtain the shap values.
+            Must have a fit method. Intercept should not be fit.
+            See github page for examples.
+
+        verbose: bool
+            Should progress be printed?
+
+
+        Returns
+        -------
+
+        If the output is multiple dimensions (multiclass problems):
+            Returns a numpy array of shape (# data rows, # columns + 1, output dimension).
+            So, for example, if you would like to access the shap values for the second
+            class in a multi-class output, you can use the slice shap_values[:,:,1],
+            which will return an array of shape (# data rows, # columns + 1). The final
+            column is the expected value for that class.
+
+        If the output is a single dimension (binary, regression problems):
+            Returns a numpy array of shape (# data rows, # columns + 1). The final
+            column is the expected value for that class.
+
+
+        """
+
+        logger = Logger(verbose)
+
+        if background_fold_to_use is not None:
+            assert (
+                background_fold_to_use < self.n_splits
+            ), f"There are only {self.n_splits} splits of the background dataset"
+        else:
+            background_fold_to_use = 0
+
+        if linear_model is None:
+            linear_model = LinearRegression(fit_intercept=False)
+        else:
+            assert hasattr(linear_model, "fit")
+
+        working_background_data = self.background_data[background_fold_to_use]
+        background_preds = _ensure_2d_array(self.model(working_background_data))
+        background_pred_mean = np.array([ 1.0 / np.mean(1.0 / background_preds) ]) #background_preds.mean(0)
+
+        # Do cursory glances at the background and new data
+        if isinstance(data, pd_DataFrame):
+            assert set(data.columns) == set(self.col_names), "Columns don't match"
+        else:
+            assert data.shape[1] == self.num_columns, "Different number of columns"
+
+        num_new_samples = data.shape[0]
+        col_array = np.arange(self.num_columns)
+        n_background_rows = working_background_data.shape[0]
+        outer_batch_size, inner_batch_size = self._configure_batch_sizes(
+            outer_batch_size=outer_batch_size,
+            inner_batch_size=inner_batch_size,
+            data=data,
+        )
+        index = np.arange(num_new_samples)
+        outer_batches = [
+            index[i : np.min([i + outer_batch_size, index[-1] + 1])]
+            for i in range(0, num_new_samples, outer_batch_size)
+        ]
+
+        data_preds = _ensure_2d_array(self.model(data))
+        shap_values = np.empty(
+            shape=(data.shape[0], data.shape[1] + 1, self.output_dim)
+        ).astype(
+            self.return_type
+        )  # +1 for expected value
+
+        # Determine how many coalition sizes in the symmetric kernel are paired.
+        # There may be one unpaired weight if the number of columns is even.
+        # This is because we calculate k and it's complement for each coalition size
+        # i.e. If we have 10 columns, when we evaluate the size 1 subsets, we also evaluate
+        # the complement, which consists of all the size 9 subsets. However, we shouldn't
+        # evaluate the complement of the size 5 subsets, because we would double count.
+        n_choose_k_midpoint = (self.num_columns - 1) / 2.0
+        coalition_sizes_to_combinate = np.min(
+            [np.ceil(n_choose_k_midpoint), n_coalition_sizes]
+        ).astype("int32")
+        symmetric_sizes_to_combinate = np.min(
+            [np.floor(n_choose_k_midpoint), n_coalition_sizes]
+        ).astype("int32")
+        coalition_pared_ind = [
+            (cs in range(symmetric_sizes_to_combinate))
+            for cs in range(coalition_sizes_to_combinate)
+        ]
+
+        # Number of coalition combinations (excluding complement) per coalition size.
+        coalitions_per_coalition_size = [
+            binom(self.num_columns, cs).astype("int32")
+            for cs in range(1, coalition_sizes_to_combinate + 1)
+        ]
+        # Number of coalition combinations (including complement) per coalition size.
+        total_coalitions_per_coalition_size = [
+            coalitions_per_coalition_size[i] * (2 if coalition_pared_ind[i] else 1)
+            for i in range(coalition_sizes_to_combinate)
+        ]
+        cc_cs = np.cumsum(coalitions_per_coalition_size)
+        num_total_coalitions_to_run = np.sum(total_coalitions_per_coalition_size)
+        logger.log(
+            f"Number of coalitions to run per sample: {str(num_total_coalitions_to_run)}"
+        )
+
+        # Theoretical weights if we use all possible coalition sizes (before scaling)
+        coalition_size_weights = np.array(
+            [
+                (self.num_columns - 1.0) / (i * (self.num_columns - i))
+                for i in range(1, self.num_columns)
+            ]
+        )
+        # Weights are symmetric, so we can
+        selected_coalition_size_weights = np.concatenate(
+            [
+                coalition_size_weights[:coalition_sizes_to_combinate],
+                coalition_size_weights[-symmetric_sizes_to_combinate:],
+            ]
+        )
+        selected_coalition_size_weights /= selected_coalition_size_weights.sum()
+
+        for outer_batch in outer_batches:
+            # outer_batch = outer_batches[0]
+            logger.log(f"Starting Samples {outer_batch[0]} - {outer_batch[-1]}")
+            outer_batch_length = len(outer_batch)
+            masked_coalition_avg = np.empty(
+                shape=(num_total_coalitions_to_run, outer_batch_length, self.output_dim)
+            ).astype(self.return_type)
+            mask_matrix = np.zeros(
+                shape=(num_total_coalitions_to_run, self.num_columns)
+            ).astype("int8")
+            coalition_weights = np.empty(num_total_coalitions_to_run)
+
+            inner_batches_relative = [
+                slice(i, i + inner_batch_size)
+                for i in range(0, outer_batch_length, inner_batch_size)
+            ]
+            inner_batches_absolute = [
+                slice(outer_batch[0] + i, outer_batch[0] + i + inner_batch_size)
+                for i in range(0, outer_batch_length, inner_batch_size)
+            ]
+            inner_batch_count = len(inner_batches_absolute)
+
+            for coalition_size in range(1, coalition_sizes_to_combinate + 1):
+                # coalition_size = 1
+                has_complement = coalition_size <= symmetric_sizes_to_combinate
+                choose_count = binom(self.num_columns, coalition_size).astype("int32")
+                model_evals = inner_batch_count * (choose_count * 2 + inner_batch_count)
+                logger.log(
+                    f"Coalition Size: {str(coalition_size)} - Model Evaluations: {model_evals}"
+                )
+                inds = combinations(np.arange(self.num_columns), coalition_size)
+                listinds = [list(i) for i in inds]
+                coalition_weight = (
+                    selected_coalition_size_weights[coalition_size - 1] / choose_count
+                )
+
+                # Get information about where these coalitions are stored in the arrays
+                start = (cc_cs - coalitions_per_coalition_size)[coalition_size - 1]
+                end = cc_cs[coalition_size - 1]
+                coalition_loc = np.arange(start, end)
+                mask_matrix[coalition_loc.reshape(-1, 1), listinds] = 1
+                coalition_weights[coalition_loc] = coalition_weight
+
+                if has_complement:
+                    end_c = num_total_coalitions_to_run - start
+                    start_c = num_total_coalitions_to_run - end
+                    coalition_c_loc = np.arange(start_c, end_c)
+                    mask_matrix[coalition_c_loc] = 1 - mask_matrix[coalition_loc]
+                    coalition_weights[coalition_c_loc] = coalition_weight
+
+                for inner_batch_i in range(inner_batch_count):
+                    # Inner loop is where things get expanded
+                    # inner_batch_i = 0
+                    slice_absolute = inner_batches_absolute[inner_batch_i]
+                    slice_relative = inner_batches_relative[inner_batch_i]
+                    inner_batch_size = len(
+                        range(*slice_relative.indices(masked_coalition_avg.shape[1]))
+                    )
+
+                    repeated_batch_data = _repeat(
+                        self._view(data, (slice_absolute, slice(None))),
+                        repeats=n_background_rows,
+                        axis=0,
+                    )
+
+                    # For each mask (and complement, if it is paired)
+                    for coalition_i in range(choose_count):
+                        masked_data = _tile(
+                            working_background_data,
+                            (inner_batch_size, 1),
+                        )
+
+                        if has_complement:
+                            masked_data_complement = masked_data.copy()
+                        else:
+                            masked_data_complement = None
+
+                        mask = listinds[coalition_i]
+                        mask_c = np.setdiff1d(col_array, mask)
+
+                        mask_slices = consecutive_slices(mask)
+                        mask_c_slices = consecutive_slices(mask_c)
+
+                        # Overwrite masked data with real batch data.
+                        # Order of masked_data is mask, background, batch
+                        # Broken up into possible slices for faster insertion
+                        for ms in mask_slices:
+                            self._assign(
+                                masked_data,
+                                (slice(None), ms),
+                                self._view(repeated_batch_data, (slice(None), ms)),
+                            )
+
+                        if has_complement:
+                            for msc in mask_c_slices:
+                                self._assign(
+                                    masked_data_complement,
+                                    (slice(None), msc),
+                                    self._view(repeated_batch_data, (slice(None), msc)),
+                                )
+
+                        masked_coalition_avg[
+                            coalition_loc[coalition_i], slice_relative
+                        ] = (
+                            self.model(masked_data)
+                            .reshape(
+                                inner_batch_size, n_background_rows, self.output_dim
+                            )
+                            .mean(axis=1)
+                        )
+                        if has_complement:
+                            masked_coalition_avg[
+                                coalition_c_loc[coalition_i], slice_relative
+                            ] = (
+                                self.model(masked_data_complement)
+                                .reshape(
+                                    inner_batch_size, n_background_rows, self.output_dim
+                                )
+                                .mean(axis=1)
+                            )
+
+                # Clean up inner batch
+                del repeated_batch_data
+                del masked_data
+                if has_complement:
+                    del masked_data_complement
+
+            # Back to outer batch
+            mean_model_output = np.array([ 1.0 / np.mean(1.0 / data_preds) ])#data_preds.mean(0)
+            linear_features = mask_matrix[:, :-1] - mask_matrix[:, -1].reshape(-1, 1)
+
+            for outer_batch_sample in range(outer_batch_length):
+                for output_dimension in range(self.output_dim):
+                    linear_target = (
+                        masked_coalition_avg[:, outer_batch_sample, output_dimension]
+                        - mean_model_output[output_dimension]
+                        - (
+                            mask_matrix[:, -1]
+                            * (
+                                data_preds[
+                                    outer_batch[outer_batch_sample], output_dimension
+                                ]
+                                - background_pred_mean[output_dimension]
+                            )
+                        )
+                    )
+                    linear_model.fit(
+                        X=linear_features,
+                        sample_weight=coalition_weights,
+                        y=linear_target,
+                    )
+                    shap_values[
+                        outer_batch[outer_batch_sample], :-2, output_dimension
+                    ] = linear_model.coef_
+
+        shap_values[:, -2, :] = data_preds - (
+            shap_values[:, :-2, :].sum(1) + background_pred_mean
+        )
+        shap_values[:, -1, :] = background_pred_mean
+
+        if self.output_dim == 1:
+            shap_values.resize(data.shape[0], data.shape[1] + 1)
+
+        return shap_values
+
+    def _configure_batch_sizes(self, outer_batch_size, inner_batch_size, data):
+        n_rows = data.shape[0]
+        outer_batch_size = n_rows if outer_batch_size is None else outer_batch_size
+        outer_batch_size = n_rows if outer_batch_size > n_rows else outer_batch_size
+        inner_batch_size = (
+            outer_batch_size if inner_batch_size is None else inner_batch_size
+        )
+        assert (
+            inner_batch_size <= outer_batch_size
+        ), "outer batch size < inner batch size"
+        return outer_batch_size, inner_batch_size
+
+    def stratify_background_set(self, n_splits=10, output_dim_to_stratify=0):
+        """
+        Helper function that breaks up the background
+        set into folds stratified by the model output
+        on the background set. The larger n_splits,
+        the smaller each background set is.
+
+        Parameters
+        ----------
+
+        n_splits: int
+            The number split datasets created. Raise
+            this number to calculate shap values
+            faster, at the expense of integrating
+            over a smaller dataset.
+
+        output_dim_to_stratify: int
+            If the model has multiple outputs, which
+            one should be used to stratify the
+            background set?
+
+        """
+
+        self.background_data = self._concat(self.background_data, axis=0)
+        background_preds = _ensure_2d_array(self.model(self.background_data))[
+            :, output_dim_to_stratify
+        ]
+        folds = stratified_continuous_folds(background_preds, n_splits)
+        self.background_data = [self._view(self.background_data, f) for f in folds]
+        self.n_splits = n_splits
+
 
 
 # k-additive Choque SHAP
@@ -2444,27 +2965,6 @@ def main_shap_for_onehot_features(idx_comb_feat, sm):
             drop = np.concatenate((drop, idx_comb_feat[i][1:]))
         sm = np.delete(sm, drop, axis = 1)
     return sm
-
-
-def make_shap_names(names_features, idx_comb_feat, combine_discr_features):
-    if idx_comb_feat:
-        names_features = replace_names_by_feature_group(names_features, idx_comb_feat, combine_discr_features)
-    names_features = np.array(names_features)
-    names_main_features = copy_lib.deepcopy(names_features)
-    u, ind = np.unique(names_main_features, return_index = True)
-    names_main_features = u[np.argsort(ind)]
-    l = len(names_features)
-    names_inter_features = np.repeat(names_features, l).reshape((l,l))
-    iu1 = np.triu_indices(l, 1)
-    names_inter_features = np.stack((names_inter_features[iu1], names_inter_features.T[iu1]), axis = 1)
-    names_inter_features_df = pd.DataFrame(names_inter_features)
-    keep = names_inter_features_df.duplicated() == False
-    names_inter_features = names_inter_features_df.loc[keep, :].to_numpy()
-    keep = names_inter_features[:, 0] != names_inter_features[:, 1]
-    names_inter_features = names_inter_features[keep, :]
-    names_main_features = np.stack((names_main_features, np.repeat('none', len(names_main_features))), axis = 1)
-    nf = np.vstack((names_main_features, names_inter_features))
-    return nf
 
 
 def nParam_kAdd(kAdd, nAttr):
@@ -2661,6 +3161,18 @@ def k_add_kernel_explainer(trt_tbl, cov_par, hidden_act_f, out_act_f):
     return shap_main, shap_inter
 
 
+def fastshap_kernel_explainer(trt_tbl, cov_par, hidden_act_f, out_act_f):
+    ke = KernelExplainer(
+        model = lambda X: get_rate_BDNN(1, X, cov_par, hidden_act_f, out_act_f),
+        background_data = trt_tbl
+    )
+#    shap_main = ke.calculate_shap_values(trt_tbl, verbose = False)
+    strata = np.ceil(trt_tbl.shape[0] / 100.0).astype(int)
+    ke.stratify_background_set(strata)
+    shap_main = ke.calculate_shap_values(trt_tbl, verbose = False, background_fold_to_use = 0)
+    return shap_main
+
+
 def inter_shap_for_onehot_features(idx_comb_feat, si):
     if len(idx_comb_feat) > 0:
         drop = np.array([], dtype=int)
@@ -2691,24 +3203,26 @@ def inter_shap_for_onehot_features(idx_comb_feat, si):
 
 
 
-def make_shap_names(names_features, idx_comb_feat, combine_discr_features):
+def make_shap_names(names_features, idx_comb_feat, combine_discr_features, do_inter_imp = True):
     if idx_comb_feat:
         names_features = replace_names_by_feature_group(names_features, idx_comb_feat, combine_discr_features)
     names_features = np.array(names_features)
     names_main_features = copy_lib.deepcopy(names_features)
     u, ind = np.unique(names_main_features, return_index = True)
     names_main_features = u[np.argsort(ind)]
-    l = len(names_features)
-    names_inter_features = np.repeat(names_features, l).reshape((l,l))
-    iu1 = np.triu_indices(l, 1)
-    names_inter_features = np.stack((names_inter_features[iu1], names_inter_features.T[iu1]), axis = 1)
-    names_inter_features_df = pd.DataFrame(names_inter_features)
-    keep = names_inter_features_df.duplicated() == False
-    names_inter_features = names_inter_features_df.loc[keep, :].to_numpy()
-    keep = names_inter_features[:, 0] != names_inter_features[:, 1]
-    names_inter_features = names_inter_features[keep, :]
     names_main_features = np.stack((names_main_features, np.repeat('none', len(names_main_features))), axis = 1)
-    nf = np.vstack((names_main_features, names_inter_features))
+    nf = names_main_features
+    if do_inter_imp:
+        l = len(names_features)
+        names_inter_features = np.repeat(names_features, l).reshape((l,l))
+        iu1 = np.triu_indices(l, 1)
+        names_inter_features = np.stack((names_inter_features[iu1], names_inter_features.T[iu1]), axis = 1)
+        names_inter_features_df = pd.DataFrame(names_inter_features)
+        keep = names_inter_features_df.duplicated() == False
+        names_inter_features = names_inter_features_df.loc[keep, :].to_numpy()
+        keep = names_inter_features[:, 0] != names_inter_features[:, 1]
+        names_inter_features = names_inter_features[keep, :]
+        nf = np.vstack((names_main_features, names_inter_features))
     return nf
 
 
@@ -2725,16 +3239,18 @@ def make_taxa_names_shap(taxa_names, n_species, shap_names):
 def combine_shap_featuregroup(shap_main_instances, shap_interaction_instances, idx_comb_feat):
     baseline = np.array([shap_main_instances[0, -1]])
     shap_main_instances = main_shap_for_onehot_features(idx_comb_feat, shap_main_instances[:, 0:-1])
-    shap_interaction_instances = inter_shap_for_onehot_features(idx_comb_feat, shap_interaction_instances)
     shap_main = np.mean(np.abs(shap_main_instances), axis = 0)
-    shap_interaction = np.mean(np.abs(shap_interaction_instances), axis = 0)
-    iu1 = np.triu_indices(shap_interaction.shape[0], 1)
-    shap_interaction = shap_interaction[iu1]
+    shap_interaction = np.array([])
+    if np.any(shap_interaction_instances):
+        shap_interaction_instances = inter_shap_for_onehot_features(idx_comb_feat, shap_interaction_instances)
+        shap_interaction = np.mean(np.abs(shap_interaction_instances), axis = 0)
+        iu1 = np.triu_indices(shap_interaction.shape[0], 1)
+        shap_interaction = shap_interaction[iu1]
     return np.concatenate((shap_main, shap_interaction, baseline, shap_main_instances.flatten()))
 
 
 def k_add_kernel_shap_i(arg):
-    [bdnn_obj, post_ts_i, post_te_i, post_w_sp_i, post_w_ex_i, hidden_act_f, out_act_f, trt_tbls, bdnn_dd, div_idx_trt_tbl, idx_comb_feat_sp, idx_comb_feat_ex] = arg
+    [bdnn_obj, post_ts_i, post_te_i, post_w_sp_i, post_w_ex_i, hidden_act_f, out_act_f, trt_tbls, bdnn_dd, div_idx_trt_tbl, idx_comb_feat_sp, idx_comb_feat_ex, do_inter_imp] = arg
     bdnn_time = get_bdnn_time(bdnn_obj, post_ts_i)
     if bdnn_dd:
         n_taxa = trt_tbls[0].shape[1]
@@ -2747,8 +3263,14 @@ def k_add_kernel_shap_i(arg):
         trt_tbls[1][:, :, div_idx_trt_tbl] = bdnn_binned_div
     shap_trt_tbl_sp = get_shap_trt_tbl(post_ts_i, bdnn_time, trt_tbls[0])
     shap_trt_tbl_ex = get_shap_trt_tbl(post_te_i, bdnn_time, trt_tbls[1])
-    shap_main_sp, shap_interaction_sp = k_add_kernel_explainer(shap_trt_tbl_sp, post_w_sp_i, hidden_act_f, out_act_f)
-    shap_main_ex, shap_interaction_ex = k_add_kernel_explainer(shap_trt_tbl_ex, post_w_ex_i, hidden_act_f, out_act_f)
+    if do_inter_imp:
+        shap_main_sp, shap_interaction_sp = k_add_kernel_explainer(shap_trt_tbl_sp, post_w_sp_i, hidden_act_f, out_act_f)
+        shap_main_ex, shap_interaction_ex = k_add_kernel_explainer(shap_trt_tbl_ex, post_w_ex_i, hidden_act_f, out_act_f)
+    else:
+        shap_main_sp = fastshap_kernel_explainer(shap_trt_tbl_sp, post_w_sp_i, hidden_act_f, out_act_f)
+        shap_main_ex = fastshap_kernel_explainer(shap_trt_tbl_ex, post_w_ex_i, hidden_act_f, out_act_f)
+        shap_interaction_sp = np.array([])
+        shap_interaction_ex = np.array([])
     lam_ke = combine_shap_featuregroup(shap_main_sp, shap_interaction_sp, idx_comb_feat_sp)
     mu_ke = combine_shap_featuregroup(shap_main_ex, shap_interaction_ex, idx_comb_feat_ex)
     return np.concatenate((lam_ke, mu_ke))
@@ -2809,7 +3331,9 @@ def make_shap_result_for_single_feature(names_features_sp, names_features_ex, co
     return shap_lam, shap_ex, taxa_shap_sp, taxa_shap_ex
 
 
-def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, combine_discr_features = {}, show_progressbar = False):
+def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, combine_discr_features = {}, show_progressbar = False, do_inter_imp = True):
+#    if do_inter_imp == False:
+#        from fastshap import KernelExplainer
     bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
     mcmc_samples = post_ts.shape[0]
     trt_tbls = bdnn_obj.trait_tbls
@@ -2830,8 +3354,8 @@ def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, comb
     out_act_f = bdnn_obj.bdnn_settings['out_act_f']
     idx_comb_feat_sp = get_idx_comb_feat(names_features_sp, combine_discr_features)
     idx_comb_feat_ex = get_idx_comb_feat(names_features_ex, combine_discr_features)
-    shap_names_sp = make_shap_names(names_features_sp, idx_comb_feat_sp, combine_discr_features)
-    shap_names_ex = make_shap_names(names_features_ex, idx_comb_feat_ex, combine_discr_features)
+    shap_names_sp = make_shap_names(names_features_sp, idx_comb_feat_sp, combine_discr_features, do_inter_imp = do_inter_imp)
+    shap_names_ex = make_shap_names(names_features_ex, idx_comb_feat_ex, combine_discr_features, do_inter_imp = do_inter_imp)
     n_main_eff_sp = np.sum(shap_names_sp[:,1] == 'none')
     n_main_eff_ex = np.sum(shap_names_ex[:, 1] == 'none')
     n_effects_sp = shap_names_sp.shape[0] + 1 + n_species * n_main_eff_sp
@@ -2839,7 +3363,7 @@ def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, comb
     args = []
     for i in range(mcmc_samples):
         a = [bdnn_obj, post_ts[i, :], post_te[i, :], post_w_sp[i], post_w_ex[i],
-             hidden_act_f, out_act_f, trt_tbls, bdnn_dd, div_idx_trt_tbl, idx_comb_feat_sp, idx_comb_feat_ex]
+             hidden_act_f, out_act_f, trt_tbls, bdnn_dd, div_idx_trt_tbl, idx_comb_feat_sp, idx_comb_feat_ex, do_inter_imp]
         args.append(a)
     unixos = is_unix()
     if unixos and num_processes > 1:

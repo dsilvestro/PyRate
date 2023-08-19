@@ -4357,6 +4357,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNpklfile', type=str, help='Load BDNN pickle file', default="", metavar="")
     p.add_argument('-BDNN_pred_importance', metavar='<input file>', type = str, help = "Predictor importance in BDNN: provide path and base name for 'mcmc.log' and '*.pkl' files (e.g. .../pyrate_mcmc_logs/example_BDS_BDNN_16_8Tc)", default = "")
     p.add_argument('-BDNN_pred_importance_nperm', type=int, help='Number of permutation for BDNN predictor importance', default=100, metavar=100)
+    p.add_argument('-BDNN_pred_importance_only_main', help='Obtain only importance of main effects and not of interactions', action='store_false', default=True)
     
     p.add_argument("-edge_indicator",      help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
     
@@ -4747,8 +4748,10 @@ if __name__ == '__main__':
         import pyrate_lib.bdnn_lib as bdnn_lib
         path_dir_log_files = args.BDNN_pred_importance
         bdnn_lib.get_coefficient_rate_variation(path_dir_log_files, burnin, thin = args.resample)
-        pkl_file = path_dir_log_files + ".pkl" 
+        pkl_file = path_dir_log_files + ".pkl"
+#        pkl_file = "/home/torsten/Work/BDNN/Proboscideans/PyRateAnalyses40Ma/Humans_Island_SpTemp_Grass_finetime/pyrate_mcmc_logs/proboscideans_1_G_BDS_BDNN_16_8TVcb.pkl"
         mcmc_file = path_dir_log_files + "_mcmc.log"
+        do_inter_imp = args.BDNN_pred_importance_only_main
         print("Getting permutation importance")
         sp_featperm, ex_featperm = bdnn_lib.feature_permutation(mcmc_file, pkl_file,
                                                                 burnin,
@@ -4756,14 +4759,16 @@ if __name__ == '__main__':
                                                                 n_perm = args.BDNN_pred_importance_nperm,
                                                                 num_processes = args.thread[0],
                                                                 combine_discr_features = args.BDNN_groups,
-                                                                show_progressbar = True)
+                                                                show_progressbar = True,
+                                                                do_inter_imp = do_inter_imp)
         print("Getting SHAP values")
         sp_shap, ex_shap, sp_taxa_shap, ex_taxa_shap = bdnn_lib.k_add_kernel_shap(mcmc_file, pkl_file,
                                                                                   burnin,
                                                                                   thin = args.resample,
                                                                                   num_processes = args.thread[0],
                                                                                   combine_discr_features = args.BDNN_groups,
-                                                                                  show_progressbar = True)
+                                                                                  show_progressbar = True,
+                                                                                  do_inter_imp = do_inter_imp)
         print("Getting credible differences")
         obj_effect = bdnn_lib.get_effect_objects(mcmc_file, pkl_file,
                                                  burnin,
@@ -4771,7 +4776,8 @@ if __name__ == '__main__':
                                                  combine_discr_features = args.BDNN_groups,
                                                  file_transf_features = args.plotBDNN_transf_features,
                                                  num_processes = args.thread[0],
-                                                 show_progressbar = True)
+                                                 show_progressbar = True,
+                                                 do_inter_imp = do_inter_imp)
         bdnn_obj, cond_trait_tbl_sp, cond_trait_tbl_ex, names_features_sp, names_features_ex, sp_rate_part, ex_rate_part, sp_fad_lad, backscale_par = obj_effect
         sp_pv = bdnn_lib.get_prob_effects(cond_trait_tbl_sp, sp_rate_part, bdnn_obj, names_features_sp, rate_type = 'speciation')
         ex_pv = bdnn_lib.get_prob_effects(cond_trait_tbl_ex, ex_rate_part, bdnn_obj, names_features_ex, rate_type = 'speciation')
