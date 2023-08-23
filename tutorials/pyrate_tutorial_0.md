@@ -41,4 +41,5 @@ You can check that PyRate can now be run in your virtual environment using:
 python your_path/PyRate-master/PyRate.py -v
 ```
 
+Note: In case the message `Module FastPyRateC was not found.` appears the program will still run but use a slower implemntation for some of the functions. You can follow these [instructions](https://github.com/dsilvestro/PyRate/blob/master/pyrate_lib/fastPyRateC/README.md) to install the fastPyRateC library.  
 

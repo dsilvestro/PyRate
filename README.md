@@ -5,19 +5,17 @@
 [![DOI](https://zenodo.org/badge/21620870.svg)](https://zenodo.org/badge/latestdoi/21620870)
 
 ---
-**PyRate requires Python v.3.** 
-To upgrade Python visit: [https://www.python.org/downloads/](https://www.python.org/downloads/). Older versions of PyRate for Python v.2 are available [here](https://github.com/dsilvestro/PyRate/tree/master/PyRate_for_Python2).
+PyRate requires Python v.3.8 or higher. 
+To install or upgrade Python visit: [python.org](https://www.python.org/downloads/). 
+To ensure all the dependencies are installed, you can **setup a virtual environment** as shown [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_0.md).
+Older versions of PyRate for Python v.2 are available [here](https://github.com/dsilvestro/PyRate/releases/tag/v3.1.1) (PyRate\_for\_Python2 directory).
 
-To ensure all the dependencies are installed, you can [setup a virtual environment as shown here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_0.md).
-
----
 
 PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-affero-general-public-license-v3-(agpl-3.0)#summary).
 
-#### The program's documentation is available here: 
-* [PyRate Tutorials](https://github.com/dsilvestro/PyRate/tree/master/tutorials) (Wiki pages are no longer being updated)
-* [System requirements](https://github.com/dsilvestro/PyRate/wiki#compatibility-and-installation) to run the program and [Instructions](https://github.com/dsilvestro/PyRate/blob/master/pyrate_lib/fastPyRateC/README.md) to install the fastPyRateC library 
-* For questions, suggestions or bugs [contact us](mailto:pyrate.help@gmail.com)
+The **program's documentation** is available in [PyRate Tutorials](https://github.com/dsilvestro/PyRate/tree/master/tutorials)
+
+For questions, suggestions or bugs [contact us](mailto:pyrate.help@gmail.com)
 
 
 ---
