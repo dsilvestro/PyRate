@@ -5,8 +5,10 @@
 [![DOI](https://zenodo.org/badge/21620870.svg)](https://zenodo.org/badge/latestdoi/21620870)
 
 ---
-**The latest version of PyRate uses Python v.3.** 
+**PyRate requires Python v.3.** 
 To upgrade Python visit: [https://www.python.org/downloads/](https://www.python.org/downloads/). Older versions of PyRate for Python v.2 are available [here](https://github.com/dsilvestro/PyRate/tree/master/PyRate_for_Python2).
+
+To ensure all the dependencies are installed, you can [setup a virtual environment as shown here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_0.md).
 
 ---
 
