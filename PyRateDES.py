@@ -869,7 +869,8 @@ if verbose == 1: print(ind_shift,time_series)
 Q_index=np.zeros(len(time_series))
 i,count=0,0
 for j in ind_shift[::-1]:
-	print(i, j, count)
+	if verbose == 1:
+		print(i, j, count)
 	Q_index[i:j]=count
 	i=j
 	count+=1
@@ -3856,12 +3857,11 @@ for it in range(n_generations * len(scal_fac_TI)):
 						opt_div = minimize(calc_diff_equil_one_area, x_init, method = 'nelder-mead')
 						carrying_capacity = np.array([opt_div.x[0] + opt_div.x[1]])
 					log_state = log_state + list(carrying_capacity)
-		log_state = log_state + list(trait_parD_A) + list(trait_parE_A)
+		log_state = log_state + list(trait_parD_A) + list(trait_parE_A) + list(trait_parS_A)
 		if argscatD != "":
 			log_state = log_state + list(np.exp(cat_parD_A)) + list(hp_catD_A)
 		if argscatE != "":
 			log_state = log_state + list(np.exp(cat_parE_A)) + list(hp_catE_A)
-		log_state = log_state + list(trait_parS_A)
 		log_state = log_state+[prior_exp_rate]+[scal_fac_TI[scal_fac_ind]]
 		if args.A == 3:
 			num_par = len(x)
