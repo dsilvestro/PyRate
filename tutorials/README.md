@@ -1,7 +1,15 @@
 <img src="https://github.com/dsilvestro/PyRate/blob/master/pyrate_lib/PyRate_logo1024.png" align="left" width="80">  
 
 # PyRate tutorials - index
+  
+  
+---
+PyRate requires Python v.3.8 or higher. 
+To install or upgrade Python visit: [python.org](https://www.python.org/downloads/). 
+To ensure all the dependencies are installed, you can **setup a virtual environment** as shown [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_0.md).
 
+For questions, suggestions or bugs [contact us](mailto:pyrate.help@gmail.com)
+---
 
 ### Preparing the input files
 * [Generate PyRate input file (option 1)](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#generate-pyrate-input-file-option-1)  
