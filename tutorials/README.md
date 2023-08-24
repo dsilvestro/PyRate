@@ -4,13 +4,12 @@
   
   
 ---
-PyRate requires Python v.3.8 or higher. 
-To install or upgrade Python visit: [python.org](https://www.python.org/downloads/). 
-To ensure all the dependencies are installed, you can **setup a virtual environment** as shown [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_0.md).
+### Installing PyRate
 
-For questions, suggestions or bugs [contact us](mailto:pyrate.help@gmail.com)
+* [Install PyRate and dependencies in a virtual environment](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_0.md).
 
 ---
+
 
 ### Preparing the input files
 * [Generate PyRate input file (option 1)](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#generate-pyrate-input-file-option-1)  

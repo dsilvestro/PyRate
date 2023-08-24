@@ -1,9 +1,9 @@
 # Setting up a virtual environment for PyRate
 
 ***
-
-You can run PyRate within a virtual environment to make sure all the compatible dependencies are included without affecting your system Python installation following the steps below. 
-Before you start, make sure Python (v.3.9 or above) is installed in your computer.    
+ 
+First, make sure **Python (v.3.8 or higher)** is installed on your computer. To install or upgrade Python visit: [python.org](https://www.python.org/downloads/).    
+You can run PyRate within a virtual environment to make sure all the compatible dependencies are included without affecting your system Python installation following the steps below.
 
 1) **Create a virtual environment** typing in a terminal console (or *command prompt* on Windows): 
 
