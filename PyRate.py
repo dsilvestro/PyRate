@@ -4749,13 +4749,13 @@ if __name__ == '__main__':
         path_dir_log_files = args.BDNN_pred_importance
         bdnn_lib.get_coefficient_rate_variation(path_dir_log_files, burnin, thin = args.resample)
         pkl_file = path_dir_log_files + ".pkl"
-#        pkl_file = "/home/torsten/Work/BDNN/Proboscideans/PyRateAnalyses40Ma/Humans_Island_SpTemp_Grass_finetime/pyrate_mcmc_logs/proboscideans_1_G_BDS_BDNN_16_8TVcb.pkl"
         mcmc_file = path_dir_log_files + "_mcmc.log"
         do_inter_imp = args.BDNN_pred_importance_only_main
         print("Getting permutation importance")
         sp_featperm, ex_featperm = bdnn_lib.feature_permutation(mcmc_file, pkl_file,
                                                                 burnin,
                                                                 thin = args.resample,
+                                                                min_dt = args.min_dt,
                                                                 n_perm = args.BDNN_pred_importance_nperm,
                                                                 num_processes = args.thread[0],
                                                                 combine_discr_features = args.BDNN_groups,
@@ -4769,7 +4769,7 @@ if __name__ == '__main__':
                                                                                   combine_discr_features = args.BDNN_groups,
                                                                                   show_progressbar = True,
                                                                                   do_inter_imp = do_inter_imp)
-        print("Getting credible differences")
+        print("Getting marginal probabilities")
         obj_effect = bdnn_lib.get_effect_objects(mcmc_file, pkl_file,
                                                  burnin,
                                                  thin = args.resample,

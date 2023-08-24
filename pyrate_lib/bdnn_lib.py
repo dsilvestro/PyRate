@@ -2222,10 +2222,55 @@ def remove_invariant_feature_from_featperm_results(bdnn_obj, res, trt_tbl, combi
     return res
 
 
-def feature_permutation(mcmc_file, pkl_file, burnin, thin, n_perm = 10, num_processes = 1, combine_discr_features = "", show_progressbar = False, do_inter_imp = True):
+def set_temporal_resolution(bdnn_obj, min_dt):
+    fixed_shifts = copy_lib.deepcopy(bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'])
+    trt_tbls = copy_lib.deepcopy(bdnn_obj.trait_tbls)
+    if trt_tbls[0].ndim == 3:
+        bin_size = np.diff(fixed_shifts)
+        if np.all(bin_size == bin_size[0]) is False and min_dt > 0.0:
+            print("\nDifferent bin sizes detected due to using -fixShift.\nPlease consider setting -min_dt for the BDNN post-processing to a value similar to the smallest bin but put a minus before the value (e.g., -min_dt -0.25).")
+        if min_dt < 0.0:
+            fixed_shifts = fixed_shifts[::-1]
+            fixed_shifts2 = np.concatenate((np.zeros(1), fixed_shifts), axis = None)
+            bin_size = np.diff(fixed_shifts2)
+            bin_size = np.concatenate((bin_size, bin_size[-1]), axis = None)
+            n_bins_lowres = trt_tbls[0].shape[0]
+            trt_tbl_lam = trt_tbls[0][::-1]
+            trt_tbl_mu = trt_tbls[1][::-1]
+            n_bins_highres = np.floor(bin_size / -min_dt).astype(int)
+            if np.all(n_bins_highres == 0):
+                sys.exit("\nError: Decreasing temporal resolution instead of increasing\n")
+            n_bins_highres[n_bins_highres == 0] = 1
+            bin_idx_lowres = np.repeat(np.arange(n_bins_lowres), repeats = n_bins_highres)
+            trt_tbl_lam_highres = trt_tbl_lam[bin_idx_lowres, :, :]
+            trt_tbl_mu_highres = trt_tbl_mu[bin_idx_lowres, :, :]
+            trt_tbls[0] = trt_tbl_lam_highres[::-1]
+            trt_tbls[1] = trt_tbl_mu_highres[::-1]
+            fixed_shifts = np.zeros(trt_tbls[0].shape[0] - 1)
+            for i in range(len(bin_size)):
+                if n_bins_highres[i] == 1:
+                     if i < len(bin_size):
+                         add_shifts = fixed_shifts2[i + 1]
+                     else:
+                         add_shifts = fixed_shifts2[i]
+                     fixed_shifts[np.sum(n_bins_highres[:i])] = add_shifts
+                else:
+                     add_shifts = (fixed_shifts2[i] - min_dt) + np.linspace(0.0, bin_size[i] + min_dt, n_bins_highres[i])
+                     idx = np.arange(np.sum(n_bins_highres[:i]), np.sum(n_bins_highres[:(i + 1)]), 1, dtype = int)
+                     if i == (len(bin_size) - 1):
+                         idx = idx[:-1]
+                         add_shifts = add_shifts[:-1]
+                     fixed_shifts[idx] = add_shifts
+            fixed_shifts = fixed_shifts[::-1]
+    return trt_tbls, fixed_shifts
+
+
+def feature_permutation(mcmc_file, pkl_file, burnin, thin, min_dt, n_perm = 10, num_processes = 1, combine_discr_features = "", show_progressbar = False, do_inter_imp = True):
     bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
     n_mcmc = post_ts.shape[0]
-    trt_tbls = bdnn_obj.trait_tbls
+    fixed_times_of_shift = copy_lib.deepcopy(bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'])
+    trt_tbls, bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'] = set_temporal_resolution(bdnn_obj, min_dt)
+    #trt_tbls = bdnn_obj.trait_tbls
     n_features = trt_tbls[0].shape[-1]
     names_features_sp = get_names_features(bdnn_obj)
     names_features_ex = copy_lib.deepcopy(names_features_sp)
@@ -2285,6 +2330,7 @@ def feature_permutation(mcmc_file, pkl_file, burnin, thin, n_perm = 10, num_proc
                                                                      combine_discr_features)
     ex_delta_lik_df = remove_invariant_feature_from_featperm_results(bdnn_obj, ex_delta_lik_df, trt_tbls[1],
                                                                      combine_discr_features)
+    bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'] = fixed_times_of_shift
     return sp_delta_lik_df, ex_delta_lik_df
 
 
