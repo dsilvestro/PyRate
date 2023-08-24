@@ -286,12 +286,16 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
         marginal_rates_list.append(marginal_rates)
     
     marginal_rates_list = np.array(marginal_rates_list)
-    mean_rates= np.median(marginal_rates_list,axis=0)
-    min_rates,max_rates=[],[]
+    mean_rates = np.nanmedian(marginal_rates_list,axis=0)
+    min_rates = np.zeros(nbins)
+    min_rates[:] = np.nan
+    max_rates = np.zeros(nbins)
+    max_rates[:] = np.nan
     for i in range(nbins):
-        hpd = util.calcHPD(marginal_rates_list[:,i],0.95)
-        min_rates += [hpd[0]]
-        max_rates += [hpd[1]]
+        r = marginal_rates_list[:,i]
+        hpd = util.calcHPD(r[~np.isnan(r)], 0.95)
+        min_rates[i] = hpd[0]
+        max_rates[i] = hpd[1]
     
     time_frames = bins_histogram-np.abs(bins_histogram[1]-bins_histogram[0])/2.
     #print time_frames, min(times_of_shift), min_age
@@ -299,7 +303,13 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
     time_frames = time_frames[1:]
     #print len(time_frames),len(mean_rates), 
     n_mcmc_samples = len(post_rate)-burnin # number of samples used to normalize frequencies of rate shifts
-    return [time_frames,mean_rates,np.array(min_rates),np.array(max_rates),np.array(times_of_shift),n_mcmc_samples, marginal_rates_list]
+    times_of_shift = np.array(times_of_shift)
+#    remove_nan = ~np.isnan(mean_rates)
+#    mean_rates = mean_rates[remove_nan]
+#    time_frames = time_frames[remove_nan]
+#    min_rates = min_rates[remove_nan]
+#    max_rates = max_rates[remove_nan]
+    return [time_frames,mean_rates, min_rates,max_rates, times_of_shift,n_mcmc_samples, marginal_rates_list]
 
 def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulation=1, plot_shifts=1, line_wd=2, n_reps=100000,min_allowed_t=1):
     
@@ -326,16 +336,18 @@ def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulat
     out_str += util.print_R_vec("\nrate",rates)
     out_str += util.print_R_vec("\nminHPD",rates_m)
     out_str += util.print_R_vec("\nmaxHPD",rates_M)
+    out_str += "\nremove_na = !is.na(rate)"
+    out_str += "\ntime = time[remove_na]"
     if plot_log==0:
         out_str += "\nplot(time,time,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = '%s', xlab = 'Time',main='%s' )" \
             % (0,1.1*np.nanmax(rates_M),-max_age,-min_age,parameter,plot_title) 
-        out_str += "\npolygon(c(time, rev(time)), c(maxHPD, rev(minHPD)), col = alpha('%s',0.3), border = NA)" % (col)
-        out_str += "\nlines(time,rate, col = '%s', lwd=%s)" % (col, line_wd)
+        out_str += "\npolygon(c(time, rev(time)), c(maxHPD[remove_na], rev(minHPD[remove_na])), col = alpha('%s',0.3), border = NA)" % (col)
+        out_str += "\nlines(time,rate[remove_na], col = '%s', lwd=%s)" % (col, line_wd)
     else:
         out_str += "\nplot(time,time,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = 'Log10 %s', xlab = 'Time',main='%s' )" \
             % (np.nanmin(np.log10(0.9*rates_m)),np.nanmax(np.log10(1.1*rates_M)),-max_age,-min_age,parameter,plot_title) 
-        out_str += "\npolygon(c(time, rev(time)), c(log10(maxHPD), rev(log10(minHPD))), col = alpha('%s',0.3), border = NA)" % (col)
-        out_str += "\nlines(time,log10(rate), col = '%s', lwd=%s)" % (col, line_wd)
+        out_str += "\npolygon(c(time, rev(time)), c(log10(maxHPD[remove_na]), rev(log10(minHPD[remove_na]))), col = alpha('%s',0.3), border = NA)" % (col)
+        out_str += "\nlines(time,log10(rate[remove_na]), col = '%s', lwd=%s)" % (col, line_wd)
         
     if plot_shifts:
         # add barplot rate shifts
@@ -374,13 +386,19 @@ def plot_net_rate(resS,resE,col,min_age,max_age,plot_title,n_bins):
     max_indx = np.min([resS_marginal_rate.shape[0], resE_marginal_rate.shape[0]])
     marginal_rates_list    = resS_marginal_rate[0:max_indx,:] - resE_marginal_rate[0:max_indx,:]
     
-    mean_rates= np.mean(marginal_rates_list,axis=0)
+    mean_rates= np.nanmean(marginal_rates_list,axis=0)
     min_rates,max_rates=[],[]
     time_ax = []
+    
+    min_rates = np.zeros(n_bins)
+    min_rates[:] = np.nan
+    max_rates = np.zeros(n_bins)
+    max_rates[:] = np.nan
     for i in range(n_bins):
-        hpd = util.calcHPD(marginal_rates_list[:,i],0.95)
-        min_rates += [hpd[0]]
-        max_rates += [hpd[1]]
+        r = marginal_rates_list[:,i]
+        hpd = util.calcHPD(r[~np.isnan(r)], 0.95)
+        min_rates[i] = hpd[0]
+        max_rates[i] = hpd[1]
     
     times = abs(resS[0])
     indx = np.intersect1d((times>=min_age).nonzero()[0], (times<=max_age).nonzero()[0])
@@ -390,21 +408,23 @@ def plot_net_rate(resS,resE,col,min_age,max_age,plot_title,n_bins):
     out_str += util.print_R_vec("\ntime",-times)
     minXaxis,maxXaxis= min_age,max_age
     
-    mean_rates = np.array(mean_rates)[::-1]
-    min_rates  = np.array(min_rates )[::-1]
-    max_rates  = np.array(max_rates )[::-1]
+    mean_rates = mean_rates[::-1]
+    min_rates  = min_rates[::-1]
+    max_rates  = max_rates[::-1]
     
     mean_rates = mean_rates[indx]
     min_rates  = min_rates[indx]
     max_rates  = max_rates[indx]
     
     out_str += util.print_R_vec("\nnet_rate",mean_rates)
-    out_str += util.print_R_vec("\nnet_minHPD",np.array(min_rates))
-    out_str += util.print_R_vec("\nnet_maxHPD",np.array(max_rates))
+    out_str += util.print_R_vec("\nnet_minHPD", min_rates)
+    out_str += util.print_R_vec("\nnet_maxHPD", max_rates)
+    out_str += "\nremove_na = !is.na(net_rate)"
+    out_str += "\ntime = time[remove_na]"
     out_str += "\nplot(time,time,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = 'Net Rate', xlab = 'Time',lwd=2, main='%s', col= '%s' )" \
             % (np.minimum(0,1.1*np.nanmin(min_rates)),1.1*np.nanmax(max_rates),-maxXaxis,-minXaxis,plot_title,col) 
-    out_str += "\npolygon(c(time, rev(time)), c(net_maxHPD, rev(net_minHPD)), col = alpha('%s',0.3), border = NA)" % (col)
-    out_str += "\nlines(time,net_rate, col = '%s', lwd=2)" % (col)
+    out_str += "\npolygon(c(time, rev(time)), c(net_maxHPD[remove_na], rev(net_minHPD[remove_na])), col = alpha('%s',0.3), border = NA)" % (col)
+    out_str += "\nlines(time,net_rate[remove_na], col = '%s', lwd=2)" % (col)
     out_str += "\nabline(h=0,lty=2)\n"
         
     return out_str
@@ -456,7 +476,7 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=0.,burnin=0.2,min_age=0,ma
             # net div rate
             r_str += plot_net_rate(resS,resE,col=colors[2],min_age=np.maximum(min_age_t,min_age),max_age=np.minimum(max_age,max_age_t),plot_title="Net diversification",n_bins= nbins)
             # longevity
-            lon_avg = 1./np.mean(resE[6],axis=0)    
+            lon_avg = 1./np.nanmean(resE[6],axis=0)    
             r_str += get_r_plot([resE[0],lon_avg,lon_avg,lon_avg,0],col=colors[3],parameter="Mean longevity",min_age=np.maximum(min_age_t,min_age),max_age=np.minimum(max_age,max_age_t),
                                 plot_title="Longevity",plot_log=logT,run_simulation=0,plot_shifts=0,line_wd=4, min_allowed_t=min_allowed_t)
         else: 
