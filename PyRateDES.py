@@ -413,7 +413,7 @@ if args.sum !="":
 	if burnin==0: 
 		print("""Burnin was set to 0. Use command -b to specify a higher burnin
 	(e.g. -b 100 will exclude the first 100 samples).""")
-	t=loadtxt(f, skiprows=1)
+	t = np.loadtxt(f, skiprows=1)
 	t = t[t[:,0] > burnin,:]
 
 	head = next(open(f)).split()
@@ -451,7 +451,7 @@ if plot_file != "":
 		if burnin == 0:
 			print("""Burnin was set to 0. Use command -b to specify a higher burnin
 (e.g. -b 100 will exclude the first 100 samples).""")
-		rtt = loadtxt(plot_file, skiprows=1)
+		rtt = np.loadtxt(plot_file, skiprows=1)
 		mcmc_rtt = rtt.ndim == 2
 		# No way to remove the TI steps because they are not logged in the rate file (and shouldn't!)
 		plotCI = np.sort(args.plotCI)[::-1]
