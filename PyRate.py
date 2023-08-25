@@ -4368,6 +4368,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNN_pred_importance', metavar='<input file>', type = str, help = "Predictor importance in BDNN: provide path and base name for 'mcmc.log' and '*.pkl' files (e.g. .../pyrate_mcmc_logs/example_BDS_BDNN_16_8Tc)", default = "")
     p.add_argument('-BDNN_pred_importance_nperm', type=int, help='Number of permutation for BDNN predictor importance', default=100, metavar=100)
     p.add_argument('-BDNN_pred_importance_only_main', help='Obtain only importance of main effects and not of interactions', action='store_false', default=True)
+    p.add_argument('-BDNN_pred_importance_window_size', type=float, help='Resample to time windows of a given size', default=-1.0, metavar=-1.0)
     
     p.add_argument("-edge_indicator",      help='Model - Gamma heterogeneity of preservation rate', action='store_true', default=False)
     
@@ -4765,7 +4766,7 @@ if __name__ == '__main__':
         sp_featperm, ex_featperm = bdnn_lib.feature_permutation(mcmc_file, pkl_file,
                                                                 burnin,
                                                                 thin = args.resample,
-                                                                min_dt = args.min_dt,
+                                                                min_bs = args.BDNN_pred_importance_window_size,
                                                                 n_perm = args.BDNN_pred_importance_nperm,
                                                                 num_processes = args.thread[0],
                                                                 combine_discr_features = args.BDNN_groups,

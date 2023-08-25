@@ -2222,22 +2222,24 @@ def remove_invariant_feature_from_featperm_results(bdnn_obj, res, trt_tbl, combi
     return res
 
 
-def set_temporal_resolution(bdnn_obj, min_dt):
+def set_temporal_resolution(bdnn_obj, min_bs):
     fixed_shifts = copy_lib.deepcopy(bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'])
+    fixed_shifts2 = np.concatenate((np.zeros(1), fixed_shifts[::-1]), axis = None)
     trt_tbls = copy_lib.deepcopy(bdnn_obj.trait_tbls)
     if trt_tbls[0].ndim == 3:
-        bin_size = np.diff(fixed_shifts)
-        if ~np.all(bin_size == np.mean(bin_size)) and min_dt > 0.0:
-            print("\nDifferent bin sizes detected due to using -fixShift.\nPlease consider setting -min_dt for the BDNN post-processing to a value similar to the smallest bin but put a minus before the value (e.g., -min_dt -0.25).")
-        if min_dt < 0.0:
-            fixed_shifts = fixed_shifts[::-1]
-            fixed_shifts2 = np.concatenate((np.zeros(1), fixed_shifts), axis = None)
-            bin_size = np.diff(fixed_shifts2)
+        bin_size = np.diff(fixed_shifts2)
+        if ~np.all(bin_size == np.mean(bin_size)) and min_bs < 0.0:
+            new_bs = np.min(bin_size)
+            print(("\nDifferent bin sizes detected due to using -fixShift.\nTime windows resampled to a resolution of %s." ) % new_bs)
+            print("Window size can be set with -BDNN_pred_importance_window_size")
+        else:
+            new_bs = min_bs
+        if new_bs > 0.0:
             bin_size = np.concatenate((bin_size, bin_size[-1]), axis = None)
             n_bins_lowres = trt_tbls[0].shape[0]
             trt_tbl_lam = trt_tbls[0][::-1]
             trt_tbl_mu = trt_tbls[1][::-1]
-            n_bins_highres = np.floor(bin_size / -min_dt).astype(int)
+            n_bins_highres = np.floor(bin_size / new_bs).astype(int)
             if np.all(n_bins_highres == 0):
                 sys.exit("\nError: Decreasing temporal resolution instead of increasing\n")
             n_bins_highres[n_bins_highres == 0] = 1
@@ -2255,7 +2257,7 @@ def set_temporal_resolution(bdnn_obj, min_dt):
                          add_shifts = fixed_shifts2[i]
                      fixed_shifts[np.sum(n_bins_highres[:i])] = add_shifts
                 else:
-                     add_shifts = (fixed_shifts2[i] - min_dt) + np.linspace(0.0, bin_size[i] + min_dt, n_bins_highres[i])
+                     add_shifts = (fixed_shifts2[i] + new_bs) + np.linspace(0.0, bin_size[i] - new_bs, n_bins_highres[i])
                      idx = np.arange(np.sum(n_bins_highres[:i]), np.sum(n_bins_highres[:(i + 1)]), 1, dtype = int)
                      if i == (len(bin_size) - 1):
                          idx = idx[:-1]
@@ -2265,11 +2267,11 @@ def set_temporal_resolution(bdnn_obj, min_dt):
     return trt_tbls, fixed_shifts
 
 
-def feature_permutation(mcmc_file, pkl_file, burnin, thin, min_dt, n_perm = 10, num_processes = 1, combine_discr_features = "", show_progressbar = False, do_inter_imp = True):
+def feature_permutation(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm = 10, num_processes = 1, combine_discr_features = "", show_progressbar = False, do_inter_imp = True):
     bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
     n_mcmc = post_ts.shape[0]
     fixed_times_of_shift = copy_lib.deepcopy(bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'])
-    trt_tbls, bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'] = set_temporal_resolution(bdnn_obj, min_dt)
+    trt_tbls, bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'] = set_temporal_resolution(bdnn_obj, min_bs)
     #trt_tbls = bdnn_obj.trait_tbls
     n_features = trt_tbls[0].shape[-1]
     names_features_sp = get_names_features(bdnn_obj)
