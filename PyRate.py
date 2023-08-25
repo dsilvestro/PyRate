@@ -8,23 +8,14 @@ import copy as copy_lib
 import json
 
 version= "PyRate"
-build  = "v3.1.3 - 20230117"
+build  = "v3.1.3 - 20230825"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
 Improved estimation of macroevolutionary rates from fossil data using a Bayesian framework. 
 Paleobiology, doi: 10.1017/pab.2019.23.
 """
-print(("""
-                 %s - %s
 
-          Bayesian estimation of origination,
-           extinction and preservation rates
-              from fossil occurrence data
-
-                 pyrate.help@gmail.com
-
-\n""" % (version, build)))
 # check python version
 V=list(sys.version_info[0:3])
 if V[0]<3: sys.exit("""\nYou need Python v.3 to run this version of PyRate""")
@@ -137,7 +128,7 @@ try:
     #import pyrate_lib.fastPyRateC.macOS._FastPyRateC
 
     hasFoundPyRateC = 1
-    print("Module FastPyRateC was loaded.")
+    # print("Module FastPyRateC was loaded.")
     # Set that to true to enable sanity check (comparing python and c++ results)
     sanityCheckForPyRateC = 0
     sanityCheckThreshold = 1e-10
@@ -145,7 +136,7 @@ try:
         print("Sanity check for FastPyRateC is enabled.")
         print("Python and C results will be compared and any divergence greater than ", sanityCheckThreshold, " will be reported.")
 except:
-    print("Module FastPyRateC was not found.")
+    # print("Module FastPyRateC was not found.")
     hasFoundPyRateC = 0
     sanityCheckForPyRateC = 0
 
@@ -1696,7 +1687,7 @@ def BD_partial_lik_lithology(arg):
 
 
 
-# BD-NN model
+# BDNN model
 def relu_f(z):
     z[z < 0] = 0
     return z
@@ -4211,6 +4202,25 @@ class bdnn():
 
 ########################## PARSE ARGUMENTS #######################################
 if __name__ == '__main__': 
+    
+    print(("""
+                     %s - %s
+
+              Bayesian estimation of origination,
+               extinction and preservation rates
+                  from fossil occurrence data
+
+                     pyrate.help@gmail.com
+
+    \n""" % (version, build)))
+    
+    if hasFoundPyRateC:
+        print("Module FastPyRateC was loaded.")
+    else:
+        print("Module FastPyRateC was not found.")
+    
+    
+    
     p = argparse.ArgumentParser() #description='<input file>')
 
     p.add_argument('-v',         action='version', version=version_details)
@@ -4344,11 +4354,11 @@ if __name__ == '__main__':
     p.add_argument('-qFilter', type=int, help='if set to zero all shifts in preservation rates are kept, even if outside observed timerange', default=1, metavar=1)
     p.add_argument('-FBDrange', type=int, help='use FBDrange likelihood (experimental)', default=0, metavar=0)
     p.add_argument('-BDNNmodel', type=int, help='use BD-NN model (requires trait_file)', default=0, metavar=0)
-    p.add_argument('-BDNNnodes', type=int, help='number of BD-NN nodes', nargs='+',default=[])
+    p.add_argument('-BDNNnodes', type=int, help='number of BD-NN nodes', nargs='+',default=[16, 8])
     p.add_argument('-BDNNfadlad', type=float, help='if > 0 include FAD LAD as traits (rescaled i.e. FAD * BDNNfadlad)', default=0, metavar=0)
-    p.add_argument('-BDNNtimetrait', type=float, help='if > 0 use (rescaled) time as a trait (only with -fixedShift option). if = -1 auto-rescaled', default=0, metavar=0)
-    p.add_argument('-BDNNconstbaseline', type=int, help='constant baseline rates (only with -fixedShift option AND time as a trait)', default=0, metavar=0)
-    p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) abs, 1) softPlus, 2) exp, 3) relu 4) sigmoid 5) sigmoid_rate', default=0, metavar=0)
+    p.add_argument('-BDNNtimetrait', type=float, help='if > 0 use (rescaled) time as a trait (only with -fixShift option). if = -1 auto-rescaled', default= -1, metavar= -1)
+    p.add_argument('-BDNNconstbaseline', type=int, help='constant baseline rates (only with -fixShift option AND time as a trait)', default=1, metavar=1)
+    p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) abs, 1) softPlus, 2) exp, 3) relu 4) sigmoid 5) sigmoid_rate', default=5, metavar=5)
     p.add_argument('-BDNNactfun', type=int, help='Activation function hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid', default=0, metavar=0)
     p.add_argument('-BDNNprior', type=float, help='sd normal prior', default=1, metavar=1)
     p.add_argument('-BDNNblockmodel',help='Block NN model', action='store_true', default=False)
@@ -4796,7 +4806,7 @@ if __name__ == '__main__':
         ex_taxa_shap_file = os.path.join(output_wd, name_file + '_ex_shap_per_species.csv')
         ex_taxa_shap.to_csv(ex_taxa_shap_file, na_rep = 'NA', index = False)
         # Plot contribution to species-specific rates
-#        bdnn_lib.plot_species_shap(pkl_file, output_wd, name_file, sp_taxa_shap, ex_taxa_shap, sp_main_consrank, ex_main_consrank)
+        # bdnn_lib.plot_species_shap(pkl_file, output_wd, name_file, sp_taxa_shap, ex_taxa_shap, sp_main_consrank, ex_main_consrank)
         bdnn_lib.dotplot_species_shap(mcmc_file, pkl_file, burnin, args.resample, output_wd, name_file,
                                       sp_taxa_shap, ex_taxa_shap, sp_main_consrank, ex_main_consrank,
                                       combine_discr_features = args.BDNN_groups,
@@ -5493,7 +5503,7 @@ if __name__ == '__main__':
             else:
                 BDNNtimetrait_rescaler = args.BDNNtimetrait
             rescaled_time = time_vec * BDNNtimetrait_rescaler
-            print("rescaled times", rescaled_time, len(rescaled_time))
+            # print("rescaled times", rescaled_time, len(rescaled_time))
         else:
             rescaled_time = []
             BDNNtimetrait_rescaler = 1
@@ -5825,7 +5835,7 @@ if __name__ == '__main__':
                    sp_fad_lad=sp_fad_lad,
                    occ_data=fossil)
 
-        print("obj.bdnn_settings", obj.bdnn_settings, cov_par_init_NN)
+        # print("obj.bdnn_settings", obj.bdnn_settings, cov_par_init_NN)
         out_file = "%s/%s.pkl" % (path_dir,suff_out)
         import pickle 
         with open(out_file, 'wb') as output:  # Overwrites any existing file.
