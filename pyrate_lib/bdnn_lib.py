@@ -2227,7 +2227,7 @@ def set_temporal_resolution(bdnn_obj, min_dt):
     trt_tbls = copy_lib.deepcopy(bdnn_obj.trait_tbls)
     if trt_tbls[0].ndim == 3:
         bin_size = np.diff(fixed_shifts)
-        if np.all(bin_size == bin_size[0]) is False and min_dt > 0.0:
+        if ~np.all(bin_size == np.mean(bin_size)) and min_dt > 0.0:
             print("\nDifferent bin sizes detected due to using -fixShift.\nPlease consider setting -min_dt for the BDNN post-processing to a value similar to the smallest bin but put a minus before the value (e.g., -min_dt -0.25).")
         if min_dt < 0.0:
             fixed_shifts = fixed_shifts[::-1]
