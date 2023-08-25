@@ -4706,8 +4706,9 @@ if __name__ == '__main__':
 
         elif plot_type == 7:
             import pyrate_lib.bdnn_lib as bdnn_lib
+            mcmc_file = path_dir_log_files
+            path_dir_log_files = path_dir_log_files.replace("_mcmc.log", "")
             pkl_file = path_dir_log_files + ".pkl"
-            mcmc_file = path_dir_log_files + "_mcmc.log"
             obj_effect_plot = bdnn_lib.get_effect_objects(mcmc_file, pkl_file,
                                                           burnin,
                                                           thin = args.resample,
@@ -4757,7 +4758,7 @@ if __name__ == '__main__':
         quit()
     elif args.BDNN_pred_importance != "":
         import pyrate_lib.bdnn_lib as bdnn_lib
-        path_dir_log_files = args.BDNN_pred_importance
+        path_dir_log_files = args.BDNN_pred_importance.replace("_mcmc.log", "")
         bdnn_lib.get_coefficient_rate_variation(path_dir_log_files, burnin, thin = args.resample)
         pkl_file = path_dir_log_files + ".pkl"
         mcmc_file = path_dir_log_files + "_mcmc.log"
