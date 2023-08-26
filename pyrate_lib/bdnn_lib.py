@@ -1248,7 +1248,7 @@ def get_effect_objects(mcmc_file, pkl_file, burnin, thin, combine_discr_features
     #sp_rate_cond = bdnn_lib.get_conditional_rates(bdnn_obj, cond_trait_tbl_sp, post_w_sp)
     #ex_rate_cond = bdnn_lib.get_conditional_rates(bdnn_obj, cond_trait_tbl_ex, post_w_ex)
     bdnn_time = get_bdnn_time(bdnn_obj, mean_tste[:, 0])
-    print("Getting partial dependence rates for speciation")
+    print("\nGetting partial dependence rates for speciation")
     sp_rate_cond = get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl_sp, post_w_sp, post_ts,
                                                 rate_type = 'speciation', num_processes = num_processes, show_progressbar = show_progressbar)
     print("Getting partial dependence rates for extinction")
@@ -1294,14 +1294,15 @@ def plot_effects(f,
                                                                                   cond_trait_tbl_sp)
     r_script = create_R_files_effects(cond_trait_tbl_netdiv, netdiv_rate_cond, bdnn_obj, tste, r_script, names_features_ex,
                                       backscale_par, rate_type = 'net diversification')
-    r_script += "\ndev.off()"
+    r_script += "\nn <- dev.off()"
     newfile.writelines(r_script)
     newfile.close()
     if platform.system() == "Windows" or platform.system() == "Microsoft":
         cmd = "cd %s & Rscript %s_%s.r" % (output_wd, name_file, suffix_pdf)
     else:
         cmd = "cd %s; Rscript %s_%s.r" % (output_wd, name_file, suffix_pdf)
-    print("cmd", cmd)
+    # print("cmd", cmd)
+    print("\nThe plot file %s_%s.r was saved in %s \n" % (name_file, suffix_pdf, output_wd))
     os.system(cmd)
 
 
