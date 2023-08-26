@@ -1,7 +1,7 @@
 <img src="https://github.com/dsilvestro/PyRate/blob/master/pyrate_lib/PyRate_logo1024.png" align="left" width="80">  
 
 # PyRate Tutorial \#3 RJMCMC
-#### Feb 2018
+  
 ***
 #### Contents
 * [Setting up an analysis using RJMCMC](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#setting-up-an-analysis-using-rjmcmc)  
