@@ -113,9 +113,31 @@ try:
                                                              PyRateC_NHPP_lik, PyRateC_FBD_T4
     elif platform.system() == "Windows" or platform.system() == "Microsoft": 
         os_spec_lib="Windows"
-        from pyrate_lib.fastPyRateC.Windows._FastPyRateC import PyRateC_BD_partial_lik, PyRateC_HOMPP_lik, PyRateC_setFossils, \
-                               PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
-                                                         PyRateC_NHPP_lik, PyRateC_FBD_T4
+        py_version = sys.version_info.minor
+        if py_version < 7:
+            from pyrate_lib.fastPyRateC.Windows.py36._FastPyRateC import PyRateC_BD_partial_lik, PyRateC_HOMPP_lik, PyRateC_setFossils, \
+                                   PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
+                                                             PyRateC_NHPP_lik, PyRateC_FBD_T4
+        elif py_version == 7:
+            from pyrate_lib.fastPyRateC.Windows.py37._FastPyRateC import PyRateC_BD_partial_lik, PyRateC_HOMPP_lik, PyRateC_setFossils, \
+                                   PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
+                                                             PyRateC_NHPP_lik, PyRateC_FBD_T4
+        elif py_version == 8:
+            from pyrate_lib.fastPyRateC.Windows.py38._FastPyRateC import PyRateC_BD_partial_lik, PyRateC_HOMPP_lik, PyRateC_setFossils, \
+                                   PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
+                                                             PyRateC_NHPP_lik, PyRateC_FBD_T4
+        elif py_version == 9:
+            from pyrate_lib.fastPyRateC.Windows.py39._FastPyRateC import PyRateC_BD_partial_lik, PyRateC_HOMPP_lik, PyRateC_setFossils, \
+                                   PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
+                                                             PyRateC_NHPP_lik, PyRateC_FBD_T4
+        elif py_version == 10:
+            from pyrate_lib.fastPyRateC.Windows.py310._FastPyRateC import PyRateC_BD_partial_lik, PyRateC_HOMPP_lik, PyRateC_setFossils, \
+                                   PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
+                                                             PyRateC_NHPP_lik, PyRateC_FBD_T4
+        elif py_version == 11:
+            from pyrate_lib.fastPyRateC.Windows.py311._FastPyRateC import PyRateC_BD_partial_lik, PyRateC_HOMPP_lik, PyRateC_setFossils, \
+                                   PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
+                                                             PyRateC_NHPP_lik, PyRateC_FBD_T4
     else: 
         os_spec_lib = "Other"
         from pyrate_lib.fastPyRateC.Other._FastPyRateC import PyRateC_BD_partial_lik, PyRateC_HOMPP_lik, PyRateC_setFossils, \
