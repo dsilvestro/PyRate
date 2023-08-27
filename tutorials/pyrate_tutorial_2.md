@@ -2,7 +2,6 @@
 
 # PyRate Tutorial \#2
 
-#### June 2018
 ***  
 #### Contents
 * [Birth-death models with time-continuous correlates](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#birth-death-models-with-time-continuous-correlates)  
@@ -133,10 +132,6 @@ Rates through time plots can be generated using the command `-plot` as shown abo
 `python PyRateContinuous.py -d .../Canidae_1_G_se_est.txt -m 0 -c temperature.txt -plot .../my_logfile.log -b 100`
 
 
-***
-## Models with rate shifts and time-continuous covariates
-
-More details soon...
 
 ***
 ## Model testing using Thermodynamic Integration (TI)

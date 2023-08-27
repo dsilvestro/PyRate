@@ -4723,8 +4723,6 @@ if __name__ == '__main__':
                 import pyrate_lib.bdnn_lib as bdnn_lib
                 sptt, extt, divtt, longtt, time_vec = bdnn_lib.get_bdnn_rtt(path_dir_log_files, burn = burnin)
                 bdnn_lib.plot_bdnn_rtt(path_dir_log_files, sptt, extt, divtt, longtt, time_vec)
-            #except: sys.exit("""\nWarning: library pyrate_lib not found.\nMake sure PyRate.py and pyrate_lib are in the same directory.
-            #You can download pyrate_lib here: <https://github.com/dsilvestro/PyRate> \n""")
 
         elif plot_type == 7:
             import pyrate_lib.bdnn_lib as bdnn_lib
