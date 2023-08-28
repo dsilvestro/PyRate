@@ -4594,12 +4594,12 @@ if __name__ == '__main__':
         
     fixed_times_of_shift_bdnn = []
     if (args.BDNNtimetrait != 0 or args.BDNNtimevar or args.BDNNdd) and args.BDNNmodel > 0:# and fix_Shift == 0:
-        if args.A == 4:
-            fixed_times_of_shift_bdnn = np.arange(1, 1000)[::-1]        
-            time_framesL_bdnn=len(fixed_times_of_shift_bdnn)+1
-            time_framesM_bdnn=len(fixed_times_of_shift_bdnn)+1
-            TDI = 4
-        elif fix_Shift == 1:
+        # if args.A == 4:
+            # fixed_times_of_shift_bdnn = np.arange(1, 1000)[::-1]
+            # time_framesL_bdnn=len(fixed_times_of_shift_bdnn)+1
+            # time_framesM_bdnn=len(fixed_times_of_shift_bdnn)+1
+            # TDI = 4
+        if fix_Shift == 1:
              fixed_times_of_shift_bdnn = fixed_times_of_shift
              time_framesL_bdnn = time_framesL
              time_framesM_bdnn = time_framesM
