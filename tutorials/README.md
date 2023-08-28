@@ -42,6 +42,7 @@
 * [Trait dependent birth-death models](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#trait-correlated-diversification)
 * [Age dependent extinction model](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#age-dependent-extinction-ade-model)
 * [Birth-death Chronospecies model](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_4.md#the-birth-death-chronospecies-bdc-model)
+* [Birth-death neural network (BDNN) model](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md)
 
 ---
 ### Dispersal Extinction Sampling models
