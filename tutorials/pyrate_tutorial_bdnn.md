@@ -1,38 +1,101 @@
 <img src="https://github.com/dsilvestro/PyRate/blob/master/pyrate_lib/PyRate_logo1024.png" align="left" width="80">  
 
-# The BD-NN models (work in progress)
+# The BDNN model 
 
-#### June 2021
+The birth-death neural-network model modulates speciation and extinction rates per lineage and through time as a function of 
+
+1. **time**
+2. one or multiple **categorical and/or continuous traits** (e.g. diet, body mass, geographic range)
+3. one or more **time-dependent variables** (e.g. paleotemperature)
+4. **phylogenetic relatedness** (e.g. classification into higher taxa or phylogenetic eigenvectors)
+
+As the function is based on a fully connected feed-forward neural network, it is not based on *a priori* assumptions about its shape. For instance, it can account for non-linear and non-monotonic responses of the rates to variation in the predictors.  
+It can also account for any interactions among the predictors. 
+
+The parameters of the BDNN model are estimated jointly with the origination and extinction times of all taxa and the preservation rates. 
+The output can be used to estimate rate variation through time, across species, and to identify the most important predictors of such variation and their individual or combined effects. 
+
 ---
 
-The BD-NN models use a neural network to model changes in origination and extinction rates as a function of one or more discrete and/or continuous traits and as a function of time. 
-The BD-NN model is available using a constant baseline rate (`-A 0`) or with time variable rate within fixed time frames (`-A 0 -fixShift <file>`).
-There are currently three flavors of the model:
+### Setting up a BDNN dataset
+The BDNN model requires occurrence data in the [standard PyRate format](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md). 
+It additionally can use species and time specific data. 
+A table with species-specific trait data can be loaded in the analysis using the `-trait_table` command, while a table with time-series predictors can be loaded using the `-BDNNtimevar` command. 
 
-1. Trait dependent time-homogeneous model
-`PyRate.py <data> -trait_file <file> -A 0 -BDNNmodel 1`
+We provide an [example dataset](https://github.com/dsilvestro/PyRate/tree/master/example_files/BDNN_examples/Carnivora) based on [Hauffe et al 2022 MEE](https://doi.org/10.1111/2041-210X.13845). This includes genus level occurrence data of northern hemisphere Cenozoic carnivores, a table with a paleotemperature time series, and a table with lineage-specific traits: log-transformed body mass, taxonomic information (family-level classification), and continent of occurrence (Eurasia and North America). The tables are simple tab-separated text files with a header. 
 
-2. Trait dependent time-variable model 
-`PyRate.py <data> -trait_file <file> -A 0 -BDNNmodel 1 -fixShift <file>`
-This model estimates trait-dependent effects while accounting for time-variable rates
-
-3. Trait dependent time-variable model with time as a trait
-`PyRate.py <data> -trait_file <file> -A 0 -BDNNmodel 1 -fixShift <file> -BDNNtimetrait <value>`
-This model estimates trait-dependent effects while accounting for time-variable rates and additionally includes time as a trait. The idea is that this way traits can have aa different effect on rates at different times. If the `<value>` is set to a positive number it will be used to rescale time as a trait such that `rescaled_time = time * value`. The time used as a trait is the mid age within each time bin defined through `-fixShift`. 
+Note that the log Body mass and paleotemperature data are z-transformed (and the original mean and standard deviation are stored in the `Backscale.txt` file for plotting). 
 
 
-4. Trait dependent time-variable model with time as a trait and constant baseline rates
-`PyRate.py <data> -trait_file <file> -A 0 -BDNNmodel 1 -fixShift <file> -BDNNtimetrait <value> -BDNNconstbaseline 1`
-This model is similar to model \#3 but the baseline rates are constant and set to 1. Thus the rates and all the rate variation is captured by the neural network. The good thing of this model is that the number of parameters is independent of the number of time bins, potentially allowing for a high resolution in how time is affecting the rates. 
-This in practice can be achieved by setting via `-fixShift` many small time slices, e.g. 1 per Myr. Note that a high number of time bins will increase computing time. 
-The potential limitation is that all rate variation is captured through the NN, which might mean that a higher number of nodes is necessary to make a good job (but this has not been verified yet). 
+---
+### Running a BDNN analysis
+To run a BDNN analysis we need to provide the occurrence file and use the command `-BDNNmodel 1`. By default the model will only use time as predictor, discretizing time in 1-myr bins. If you want to use different time bins (e.g. of different sizes) you can use the `-fixShift` command to provide a file defining the bins' boundaries.
 
-#### Additional settings
-There are currently two available activation functions for the output layer (while for the hidden layer it is set to ReLU), and which ensure that the resulting rates are positive: the softPlus function (`-BDNNoutputfun 0`) and the exponential function (`-BDNNoutputfun 1`). While the choice of activation function might have an effect on efficiency of the MCMC and convergence, this has not yet been explored and might depend on the dataset. 
+All [standard commands to define the preservation model](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#defining-the-preservation-model) can be used in combination with the BDNN model.
+Here we will use the `-qShift` command to specify time bins for a time-variable preservation process. 
 
-`-BDNNnodes <int> (default=3)`: number of nodes in the hidden layer
+The analysis is launched as follow:
+
+```
+python PyRate.py .../Carnivora_occs.py -fixShift .../Time_windows.txt -BDNNmodel 1 -BDNNtimevar .../Paleotemperature.txt -qShift .../Stages.txt -mG -A 0 -trait_file .../Traits.txt -s 10 -n 1000
+
+```
+where `-s` and `-n` are used to define sampling frequency and MCMC iterations. **Note** that `...` should be replaced with the absolute path to the files. 
 
 
 
 
+
+## Output postprocessing
+
+### Plotting the marginal rates through time
+The marginal speciation and extinction rates through time inferred by the BDNN model can be plotted using the standard `-plotRJ` [command](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#plot-rates-through-time-and-rate-shifts):
+
+```
+python PyRate.py -plotRJ .../pyrate_mcmc_logs -b 0.1
+```
+
+where `-b 0.1` specifies the burnin proportion. 
+The command will generate a PDF file and an R script with the rates-through-time plots, which will be saved in the `pyrate_mcmc_logs` directory. The R script file can be edited to customize the plot. 
+
+
+### Partial dependence plots
+We can now generate partial dependence plots to separate the individual effects of each predictor on the rates and the combined effects of each pair of predictors (to assess interactions). This is done using the `-plotBDNN_effects` command to load the `*mcmc.log` file and the `-plotBDNN_transf_features` to load the `Backscale.txt` file (to rescale correctly the traits in the plots). We additionally use the `-BDNN_groups` function to specify which variables belong in the same class (e.g. all families belong to a class here named `taxon`. 
+
+```
+python PyRate.py -plotBDNN_effects .../pyrate_mcmc_logs/Carnivora_1_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features .../Backscale.txt -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.1 -resample 100
+```
+
+We additionally specify the burnin fraction and the number of posterior samples considered in the PDP (`-resample`). 
+
+The command will generate a PDF file and an R script with the partial dependence plots, which will be saved in the `pyrate_mcmc_logs` directory. 
+The R script file can be edited to customize the PDPs. 
+ 
+
+### Predictor importance
+
+Finally we can calculate the importance of each predictor using a combination of three metrics: 1) the marginal posterior probability of an effect, 2) the effect size of the predictor on the rates (SHAP values), and 3) the effect of the predictor on model fit (feature permutation).  
+
+This is done using the `BDNN_pred_importance` command to load the `* mcmc.log` file. The number of permutations and posterior samples can be adjusted using the flags `-BDNN_pred_importance_nperm` and `-resample`, respectively. We use again the `-BDNN_groups` function to specify which variables belong in the same class. 
+
+
+```
+python3.10 PyRate.py -BDNN_pred_importance.../pyrate_mcmc_logs/Carnivora_1_BDS_BDNN_16_8TVc_mcmc.log -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.1 -resample 1 -BDNN_pred_importance_nperm 10
+```
+
+This command will generate two tab-separated tables with the estimated importance and ranking of each predictor on speciation and extinction rates. It will also generate a PDF file and an R script with the lineage-specific speciation and extinction rates and an estimation of how they are affected by the predictors' values. 
+
+
+### Other options
+
+A set of **Hyper-parameters** can be used to define the architecture of the neural network implemented in the BDNN. 
+
+
+`-BDNNnodes 16 8` defines the number of layers and nodes in each layer (default: two layers of 18 and 8 nodes)
+
+
+`-BDNNoutputfun`: Activation function of the output layer: 0) abs, 1) softPlus, 2) exp, 3) relu 4) sigmoid 5) sigmoid_rate (default=5)
+
+`-BDNNactfun`: Activation function of the hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid (default=0)
+ 
 
