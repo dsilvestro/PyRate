@@ -15,7 +15,7 @@ np.set_printoptions(precision=3) # rounds all array elements to 3rd digit
 
 def calc_diff_string(a,b):
     s = a==b
-    score = np.float(len(s[s == True]))/len(s)
+    score = float(len(s[s == True]))/len(s)
     s_diff = len(s[s == False])
     if s_diff==2: # teste inverted letters
         s1 = np.sort(a)==np.sort(b)
