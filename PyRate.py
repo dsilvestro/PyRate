@@ -5912,7 +5912,7 @@ if __name__ == '__main__':
 
         # OUTPUT 1 LOG MCMC
         out_log = "%s/%s_mcmc.log" % (path_dir, suff_out) #(path_dir, output_file, out_run)
-        logfile = open(out_log , "w")
+        logfile = open(out_log , "w", newline="")
         if fix_SE == 0:
             if TPP_model == 0:
                 head="it\tposterior\tprior\tPP_lik\tBD_lik\tq_rate\talpha\t"
@@ -5991,7 +5991,7 @@ if __name__ == '__main__':
             for i in taxa_names: head.append("%s_TE" % (i))
         wlog=csv.writer(logfile, delimiter='\t')
         wlog.writerow(head)
-
+        
         #logfile.writelines(head)
         logfile.flush()
         os.fsync(logfile)
