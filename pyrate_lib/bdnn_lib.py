@@ -3791,13 +3791,13 @@ def get_consensus_ranking(pv, sh, fp):
     main_consrank = np.zeros(1)
     if feat_main_ranked.shape[1] > 1:
         main_consranks = quickcons(feat_main_ranked)
-        main_consrank = stats.mode(main_consranks[0], axis = 0)[0]
+        main_consrank = stats.mode(main_consranks[0], axis = 0)[0].flatten()
     inter_consrank = np.array([])
     if feat_inter_ranked.shape[0] > 0:
         inter_consrank = np.zeros(1)
         if feat_inter_ranked.shape[1] > 1:
             inter_consranks = quickcons(feat_inter_ranked)
-            inter_consrank = stats.mode(inter_consranks[0], axis = 0)[0]
+            inter_consrank = stats.mode(inter_consranks[0], axis = 0)[0].flatten()
     rank_df = pd.DataFrame(np.concatenate((main_consrank, inter_consrank)) + 1.0, columns = ['rank'])
     r = pd.concat([pv_reordered[['feature1', 'feature2']], rank_df], axis = 1)
     feat_merged = merge_results_feat_import(pv, sh, fp, r)
