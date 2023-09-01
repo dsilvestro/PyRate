@@ -246,7 +246,7 @@ if args.fossil != "":
 		name_file = os.path.splitext(os.path.basename(args.fossil))[0]
 		out = "%s/%s_raw_div.r" % (output_wd, name_file)
 		
-		newfile = open(out, "w")
+		newfile = open(out, "w", newline="")
 		if platform.system() == "Windows" or platform.system() == "Microsoft":
 			wd_forward = os.path.abspath(output_wd).replace('\\', '/')
 			r_script = "pdf(file='%s/%s_raw_div.pdf', width = 0.6*20, height = 0.6*10, useDingbats = FALSE)\n" % (wd_forward, name_file)
@@ -421,7 +421,7 @@ if args.sum !="":
 	j=0
 
 	outfile=os.path.dirname(f)+"/"+os.path.splitext(os.path.basename(f))[0]+"_sum.txt"
-	out=open(outfile, "w")
+	out=open(outfile, "w", newline="")
 
 	out.writelines("parameter\tmean\tmode\tHPDm\tHPDM\n")
 	for i in range(start_column,len(head)-1):
@@ -1810,7 +1810,7 @@ if plot_file != "":
 
 
 #### INIT LOG FILES
-logfile = open(out_log , "w")
+logfile = open(out_log , "w", newline="")
 head="it\tposterior\tprior\tlikelihood"
 Q_times_header = np.concatenate((0., Q_times), axis = None)[::-1]
 for i in range(len(dis_rate_vec)): head+= "\td12_t%s\td21_t%s" % (Q_times_header[i],Q_times_header[i])
@@ -1866,7 +1866,7 @@ head=head.split("\t")
 wlog=csv.writer(logfile, delimiter='\t')
 wlog.writerow(head)
 
-ratesfile = open(out_rates , "w") 
+ratesfile = open(out_rates , "w", newline="") 
 head="it"
 ts_rev = time_series[1:][::-1]
 for i in range(len(time_varD)): head+= "\td12_%s" % (ts_rev[i])
@@ -1879,7 +1879,7 @@ rlog.writerow(head)
 
 if args.log_div:
 	out_div ="%s/%s_%s%s%s%s%s_diversity.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag,model_tag,args.out)
-	divfile = open(out_div, "w")
+	divfile = open(out_div, "w", newline="")
 	head="it"
 	for i in range(len(ts_rev)): head+= "\tdiv1_%s" % (ts_rev[i])
 	for i in range(len(ts_rev)): head+= "\tdiv2_%s" % (ts_rev[i])
@@ -1888,7 +1888,7 @@ if args.log_div:
 	divlog.writerow(head)
 if args.log_dis:
 	out_dis ="%s/%s_%s%s%s%s%s_dispersal.log" % (output_wd,name_file,simulation_no,Q_times_str,ti_tag,model_tag,args.out)
-	disfile = open(out_dis, "w")
+	disfile = open(out_dis, "w", newline="")
 	head="it"
 	for i in range(len(ts_rev)): head+= "\tdis12_%s" % (ts_rev[i])
 	for i in range(len(ts_rev)): head+= "\tdis21_%s" % (ts_rev[i])
@@ -1897,7 +1897,7 @@ if args.log_dis:
 	dislog.writerow(head)
 if args.log_sp_q_rates:
 	out_spq = "%s/%s_%s%s%s%s%s_sp_q.log" % (output_wd, name_file, simulation_no, Q_times_str, ti_tag, model_tag, args.out)
-	spqfile = open(out_spq, "w")
+	spqfile = open(out_spq, "w", newline="")
 	head = "it"
 	for i in range(len(taxa_input)): head += "\t%s" % (taxa_input[i])
 	head = head.split("\t")
@@ -1906,7 +1906,7 @@ if args.log_sp_q_rates:
 argslogdistr = args.log_distr
 if argslogdistr:
 	out_distr ="%s/%s_%s%s%s%s%s_distr.log" % (output_wd, name_file, simulation_no, Q_times_str, ti_tag, model_tag, args.out)
-	distrfile = open(out_distr, "w")
+	distrfile = open(out_distr, "w", newline="")
 	head = "it"
 	for y in range(len(taxa_input)):
 		for i in range(len(ts_rev)): head += "\t%s_A_%s" % (taxa_input[y], ts_rev[i])

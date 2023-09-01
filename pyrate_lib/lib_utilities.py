@@ -74,7 +74,7 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True, n_sampl
         name_file = os.path.splitext(os.path.basename(files[0]))[0]
         name_file = name_file.split("_mcmc")[0]    
         outfile="%s/%s_se_est.txt" % (path_dir, name_file)
-        newfile = open(outfile, "w") 
+        newfile = open(outfile, "w", newline="") 
         wlog=csv.writer(newfile, delimiter='\t')
         head="clade\tspecies"+ ("\tts\tte"*(len(files)*n_samples))
         wlog.writerow(head.split('\t'))
@@ -95,7 +95,7 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True, n_sampl
             if len(files)>1 and tag=="":
                 name_file1 = name_file.split("_mcmc")[0]    
                 outfile="%s/%s_se_est.txt" % (path_dir, name_file1)
-                newfile = open(outfile, "w") 
+                newfile = open(outfile, "w", newline="") 
                 wlog=csv.writer(newfile, delimiter='\t')
                 head="clade\tspecies"+ ("\tts\tte"*(n_samples))
                 wlog.writerow(head.split('\t'))
@@ -489,7 +489,7 @@ def reduce_log_file(log_file,burnin=1): # written by Tobias Hofmann (tobias.hofm
 def write_des_in(out_list, reps, all_taxa_list, taxon, time, input_wd, filename):
     for i in range(reps):
         in_file = "%s/%s_%s.txt" % (input_wd, filename, i + 1)
-        w_in_file = open(in_file, "w")
+        w_in_file = open(in_file, "w", newline="")
         writer = csv.writer(w_in_file, delimiter='\t')
         head = [taxon] + list(time)
         _ = writer.writerow(head)
