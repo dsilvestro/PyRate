@@ -1773,7 +1773,7 @@ def get_pdp_rate_it_i_free_combination(arg):
                                   post_w_i,  # list of arrays
                                   bdnn_obj.bdnn_settings['hidden_act_f'],
                                   bdnn_obj.bdnn_settings['out_act_f'])
-        rate_it_i[j] = np.mean(rate_BDNN)
+        rate_it_i[j] = 1.0 / np.mean(1.0/rate_BDNN)
     return rate_it_i
 
 
