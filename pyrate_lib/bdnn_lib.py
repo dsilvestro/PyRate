@@ -1850,6 +1850,8 @@ def get_pdp_rate_free_combination(bdnn_obj,
         a = [bdnn_obj, w_post[i], trait_tbl_a, all_comb_tbl, names_comb_idx_conc]
         args.append(a)
     trait_tbl_mean = np.mean(trait_tbl_for_mean, axis = 0)
+    b = binary_feature[names_comb_idx_conc]
+    trait_tbl_mean[:, b] = stats.mode(trait_tbl_for_mean[:, :, b], axis = 0)[0]
     unixos = is_unix()
     if unixos and num_processes > 1:
         pool_perm = multiprocessing.Pool(num_processes)

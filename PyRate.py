@@ -4836,7 +4836,7 @@ if __name__ == '__main__':
         quit()
     elif args.BDNN_interaction != "":
         import pyrate_lib.bdnn_lib as bdnn_lib
-        path_dir_log_files = args.BDNN_interaction
+        path_dir_log_files = args.BDNN_interaction.replace("_mcmc.log", "")
         pkl_file = path_dir_log_files + ".pkl"
         mcmc_file = path_dir_log_files + "_mcmc.log"
         bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, ts_post, te_post = bdnn_lib.bdnn_parse_results(mcmc_file, pkl_file, burnin, args.resample)
