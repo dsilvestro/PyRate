@@ -2116,15 +2116,14 @@ def permute_trt_tbl(trt_tbl, feat_idx, feature_is_time_variable, bdnn_obj, post_
     if trt_tbl[0].ndim == 3:
         if np.any(feature_is_time_variable[0, feat_idx]):
 #            print(feat_idx)
-            if feature_is_time_variable[1, feat_idx]:
+            if np.any(feature_is_time_variable[1, feat_idx]):
                 ## Swapping time for all species together among bins
-                ## time-variable, one-hot encoded features will not work (hopefully nobody will use these type of features)
 #                print('Varies through time but not species', feat_idx)
                 n_bins = trt_tbl[0].shape[0]
                 bins_perm_idx = rng.permuted(np.arange(n_bins))
                 trt_tbl[0][:, :, feat_idx] = trt_tbl[0][bins_perm_idx, :, :][:, :, feat_idx]
                 trt_tbl[1][:, :, feat_idx] = trt_tbl[1][bins_perm_idx, :, :][:, :, feat_idx]
-            if feature_is_time_variable[2, feat_idx]:
+            if np.any(feature_is_time_variable[2, feat_idx]):
 #                print('Varies through time and species', feat_idx)
                 ## Free permutation
                 feat_sp = trt_tbl[0][:, :, feat_idx]
