@@ -1,5 +1,5 @@
 import numpy as np
-from numpy import *
+# from numpy import *
 import sys, argparse, os, csv
 import importlib.util
 import scipy.stats
@@ -21,6 +21,7 @@ p.add_argument('-j',      type=int,   help='max PyRate replicate', default = 1)
 p.add_argument('-v',      type=int,   help='verbose', default = 0)
 p.add_argument('-N',      type=int,   help='specify diversity in first bin', default = -1)
 p.add_argument('-rescale',type=int,   help='rescale time axis', default = 1)
+p.add_argument('-seed'   ,type=int,   help='rnd seed', default = -1)
 
 
 args = p.parse_args()
@@ -38,6 +39,10 @@ n_bins = args.b               # mcmc logfile output (reversed in get_q_rates_tim
 verbose = args.v 
 modern_diversity = args.N
 
+if args.seed==-1:
+    rseed=np.random.randint(0,9999)
+else: rseed=args.seed
+np.random.seed(rseed)
 
 
 
@@ -55,12 +60,12 @@ def parse_pyrate_file(j, time_bins):
     occs = np.array(occs)
     occs= np.sort(occs)
     occs = occs[occs>0]
-    time_zero = floor(min(occs))
+    time_zero = np.floor(np.min(occs))
     hist_occurrences = np.histogram(occs,bins=time_bins)[0]
     
     # get number of sampled species per time bin
     hsp = np.zeros(len(hist_occurrences))
-    root_age,tips_age = 0,np.inf
+    root_age,tips_age = 0, np.inf
     for i in range(len(x)):
         x_temp = x[i]
         x_temp = x_temp[x_temp>0]
@@ -127,22 +132,22 @@ def get_q_rates_time_any_bins(q_rates,q_shifts,time_bins):
 
 
 def update_multiplier_freq(q,d=1.1,f=0.25):
-    S=np.shape(q)
-    ff=np.random.binomial(1,f,S)
+    S = np.shape(q)
+    ff = np.random.binomial(1,f,S)
     u = np.random.uniform(0,1,S)
-    l = 2*log(d)
-    m = exp(l*(u-.5))
+    l = 2 * np.log(d)
+    m = np.exp(l * (u - .5))
     m[ff==0] = 1.
     new_q = q * m
-    U=sum(log(m))
+    U = np.sum(np.log(m))
     return new_q,U
 
 def update_multiplier(q,d=1.1):
     u = np.random.uniform(0,1)
-    l = 2*np.log(d)
-    m = np.exp(l*(u-.5))
+    l = 2 * np.log(d)
+    m = np.exp(l * (u - .5))
     new_q = q * m
-    U=np.log(m)
+    U = np.log(m)
     return new_q,U
 
 
@@ -245,7 +250,7 @@ q_multi = q_multi_A
 freq_resample_q = 2500
 freq_resample_occs = 1000
 
-print(x_obs)
+print(x_obs, "modern_diversity", modern_diversity)
 
 for iteration in range(args.n):
     rr= np.random.random()
@@ -259,6 +264,7 @@ for iteration in range(args.n):
         u1,u2,u3 = 0,0,0
     else:
         n_multi, u1 = update_multiplier_freq(n_multi_A,f=0.4)
+        # print("n_multi", n_multi)
         q_multi, u2 = q_multi_A, 0 #update_multiplier(q_multi_A,1.3)
         sig2, u3     = update_multiplier(sig2_A,1.2)
         if modern_diversity >= 0:
@@ -272,14 +278,24 @@ for iteration in range(args.n):
     prior = np.sum(scipy.stats.norm.logpdf(  np.diff(np.log(n_est)), 0, np.sqrt(sig2*dTime[:-1]) ))
     prior += scipy.stats.gamma.logpdf(sig2,1,scale=1) #+ scipy.stats.norm.logpdf(np.log(q_multi),0,1) # +
     prior += scipy.stats.gamma.logpdf(q_multi,1,scale=1) 
-    lik   = np.sum(scipy.stats.binom.logpmf( x_obs, n_est, rho_bins ))
-    if ( prior-prior_A + lik-lik_A + u1+u2+u3 ) >= np.log(np.random.random()) or rr < 0.002: # or iteration % freq_resample_q==0:
+    lik   = np.sum(scipy.stats.binom.logpmf( np.round(x_obs).astype(int), 
+                                             np.round(n_est).astype(int), rho_bins ))
+    if np.isfinite(lik):
+        pass
+    else:
+        print("x_obs", list(x_obs))
+        print("n_est", list(n_est))
+        print("rho_bins", list(rho_bins))
+        quit()
+    p = np.log(np.random.random())
+    if ( prior-prior_A + lik-lik_A + u1+u2+u3 ) >= p or rr < 0.002: # or iteration % freq_resample_q==0:
         n_multi_A = n_multi
         q_multi_A = q_multi
         sig2_A = sig2
         prior_A = prior
         lik_A = lik
-    
+    # print(np.array([lik, lik_A, prior, prior_A, u1+u2+u3,  prior-prior_A + lik-lik_A + u1+u2+u3, p]))
+
     if iteration % args.p ==0:
         print(iteration, lik_A,q_multi_A, sig2_A, alpha )
     if iteration % args.s ==0:
