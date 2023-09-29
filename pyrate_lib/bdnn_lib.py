@@ -1249,10 +1249,10 @@ def get_effect_objects(mcmc_file, pkl_file, burnin, thin, combine_discr_features
     #ex_rate_cond = bdnn_lib.get_conditional_rates(bdnn_obj, cond_trait_tbl_ex, post_w_ex)
     bdnn_time = get_bdnn_time(bdnn_obj, mean_tste[:, 0])
     print("\nGetting partial dependence rates for speciation")
-    sp_rate_cond = get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl_sp, post_w_sp, post_ts,
+    sp_rate_cond = get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl_sp, post_w_sp, post_ts, combine_discr_features = combine_discr_features,
                                                 rate_type = 'speciation', num_processes = num_processes, show_progressbar = show_progressbar)
     print("Getting partial dependence rates for extinction")
-    ex_rate_cond = get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl_ex, post_w_ex, post_te,
+    ex_rate_cond = get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl_ex, post_w_ex, post_te, combine_discr_features = combine_discr_features,
                                                 rate_type = 'extinction', num_processes = num_processes, show_progressbar = show_progressbar)
     cond_trait_tbl_sp, cond_trait_tbl_ex, backscale_par = backscale_bdnn_features(file_transf_features,
                                                                                   bdnn_obj,
@@ -1668,26 +1668,41 @@ def get_shap_trt_tbl(tse, times, trt_tbl):
     return shap_trt_tbl
 
 
-def take_traits_from_trt_tbl(trait_tbl, cond_trait_tbl, j):
+def insert_onehot(trait_tbl_tmp, idx_comb_feat, idx_feat):
+    len_comb = len(idx_comb_feat)
+    if len_comb > 0:
+        if np.isin(idx_feat, np.concatenate(idx_comb_feat)):
+            for l in range(len_comb):
+                idx_comb_feat_l = idx_comb_feat[l]
+                if np.isin(idx_feat, idx_comb_feat_l):
+                    not_idx_feat = idx_comb_feat_l[idx_feat != idx_comb_feat_l]
+                    trait_tbl_tmp[:, not_idx_feat] = 0.0
+    return trait_tbl_tmp
+
+
+
+def take_traits_from_trt_tbl(trait_tbl, cond_trait_tbl, j, idx_comb_feat):
     trait_tbl_tmp = trait_tbl + 0.0
     idx_feat1 = int(cond_trait_tbl[j, -6])
     idx_feat2 = cond_trait_tbl[j, -5]
     trait_tbl_tmp[: , idx_feat1] = cond_trait_tbl[j, idx_feat1]
+    trait_tbl_tmp = insert_onehot(trait_tbl_tmp, idx_comb_feat, idx_feat1)
     if not np.isnan(idx_feat2):
         idx_feat2 = int(idx_feat2)
         trait_tbl_tmp[:, idx_feat2] = cond_trait_tbl[j, idx_feat2]
+        trait_tbl_tmp = insert_onehot(trait_tbl_tmp, idx_comb_feat, idx_feat2)
     return trait_tbl_tmp
 
 
 def get_pdp_rate_it_i(arg):
-    [bdnn_obj, post_w_i, trait_tbl, cond_trait_tbl] = arg
+    [bdnn_obj, post_w_i, trait_tbl, cond_trait_tbl, idx_comb_feat] = arg
     nrows_cond_trait_tbl = len(cond_trait_tbl)
     rate_it_i = np.zeros(nrows_cond_trait_tbl)
     rate_it_i[:] = np.nan
     obs = cond_trait_tbl[:, -1] == 1
     for j in range(nrows_cond_trait_tbl):
         if obs[j]:
-            trait_tbl_tmp = take_traits_from_trt_tbl(trait_tbl, cond_trait_tbl, j)
+            trait_tbl_tmp = take_traits_from_trt_tbl(trait_tbl, cond_trait_tbl, j, idx_comb_feat)
             rate_BDNN = get_rate_BDNN(1,  # constant baseline
                                       trait_tbl_tmp,
                                       post_w_i,  # list of arrays
@@ -1697,15 +1712,17 @@ def get_pdp_rate_it_i(arg):
     return rate_it_i
 
 
-def get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl, post_w, post_tse,
+def get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl, post_w, post_tse, combine_discr_features = '',
                                  rate_type = 'speciation', num_processes = 1, show_progressbar = False):
     num_it = len(post_w)
     trait_tbl = get_trt_tbl(bdnn_obj, rate_type)
+    names_features = get_names_features(bdnn_obj)
+    idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
     args = []
     for i in range(num_it):
         trait_tbl_a = trait_tbl + 0.0
         trait_tbl_a = get_shap_trt_tbl(post_tse[i, :], bdnn_time, trait_tbl_a)
-        a = [bdnn_obj, post_w[i], trait_tbl_a, cond_trait_tbl]
+        a = [bdnn_obj, post_w[i], trait_tbl_a, cond_trait_tbl, idx_comb_feat]
         args.append(a)
     unixos = is_unix()
     if unixos and num_processes > 1:
@@ -1863,6 +1880,7 @@ def get_pdp_rate_free_combination(bdnn_obj,
         for i in tqdm(range(num_it), disable = show_progressbar == False):
             rate_pdp.append(get_pdp_rate_it_i_free_combination(args[i]))
     rate_pdp = np.stack(rate_pdp, axis = 1)
+    #np.savetxt("/home/torsten/Work/BDNN/Proboscideans/PyRateAnalyses40Ma/Humans_Island_SpTemp_Grass/NMDS2_Humans/NMDS2_Humans_" + rate_type + ".txt", rate_pdp, delimiter="\t")
     rate_pdp_sum = get_rates_summary(rate_pdp)
     rate_pdp_sum_df = pd.DataFrame(rate_pdp_sum, columns = ['mean', 'lwr', 'upr'])
     names_features = names_features[names_comb_idx_conc]
@@ -3225,7 +3243,6 @@ def fastshap_kernel_explainer(trt_tbl, cov_par, hidden_act_f, out_act_f):
 
 def inter_shap_for_onehot_features(idx_comb_feat, si):
     if len(idx_comb_feat) > 0:
-        drop = np.array([], dtype=int)
         conc_comb_feat = np.concatenate(idx_comb_feat)
         n = si.shape[1]
         J = np.arange(n)
@@ -3237,7 +3254,6 @@ def inter_shap_for_onehot_features(idx_comb_feat, si):
                     inter_value = np.sum(si[:, :, idx_comb_feat[i]][:, j, :], axis = 1)
                     si[:, j, idx_comb_feat[i][0]] = inter_value
                     si[:, idx_comb_feat[i][0], j] = inter_value
-                drop = np.concatenate((drop, idx_comb_feat[i][1:]))
         # Cases of interaction between two one-hot encoded features
         if len(idx_comb_feat) > 1:
             for i in range(len(idx_comb_feat)):
@@ -3247,6 +3263,9 @@ def inter_shap_for_onehot_features(idx_comb_feat, si):
                     i2 = idx_comb_feat[i][0]
                     si[:, i1, i2] = inter_value
                     si[:, i2, i1] = inter_value
+        drop = np.array([], dtype=int)
+        for i in range(len(idx_comb_feat)):
+            drop = np.concatenate((drop, idx_comb_feat[i][1:]))
         si = np.delete(si, drop, axis = 1)
         si = np.delete(si, drop, axis = 2)
     return si
@@ -3394,8 +3413,13 @@ def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, comb
     n_states = 1
     if len(combine_discr_features) > 0:
         n_states = len(combine_discr_features[list(combine_discr_features.keys())[0]])
-    if n_features == 1 or (n_states == n_features):
-        return make_shap_result_for_single_feature(names_features_sp, names_features_ex, combine_discr_features)
+#    if n_features == 1 or (n_states == n_features):
+#        return make_shap_result_for_single_feature(names_features_sp, names_features_ex, combine_discr_features)
+    if n_features == 1:
+        if n_states > n_features:
+            do_inter_imp = False
+        else:
+            return make_shap_result_for_single_feature(names_features_sp, names_features_ex, combine_discr_features)
     bdnn_dd = 'diversity' in names_features_sp
     div_idx_trt_tbl = -1
     if is_time_trait(bdnn_obj) and bdnn_dd:
@@ -3406,10 +3430,12 @@ def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, comb
     idx_comb_feat_ex = get_idx_comb_feat(names_features_ex, combine_discr_features)
     shap_names_sp = make_shap_names(names_features_sp, idx_comb_feat_sp, combine_discr_features, do_inter_imp = do_inter_imp)
     shap_names_ex = make_shap_names(names_features_ex, idx_comb_feat_ex, combine_discr_features, do_inter_imp = do_inter_imp)
-    n_main_eff_sp = np.sum(shap_names_sp[:,1] == 'none')
+    n_main_eff_sp = np.sum(shap_names_sp[:, 1] == 'none')
     n_main_eff_ex = np.sum(shap_names_ex[:, 1] == 'none')
-    n_effects_sp = shap_names_sp.shape[0] + 1 + n_species * n_main_eff_sp
-    n_effects_ex = shap_names_ex.shape[0] + 1 + n_species * n_main_eff_ex
+    n_inter_eff_sp = int(n_main_eff_sp * (n_main_eff_sp - 1) / 2)
+    n_inter_eff_ex = int(n_main_eff_sp * (n_main_eff_sp - 1) / 2)
+    n_effects_sp = n_main_eff_sp + n_inter_eff_sp + 1 + n_species * n_main_eff_sp # np.concatenate((shap_main, shap_interaction, baseline, shap_main_instances.flatten()))
+    n_effects_ex = n_main_eff_ex + n_inter_eff_ex + 1 + n_species * n_main_eff_ex
     args = []
     for i in range(mcmc_samples):
         a = [bdnn_obj, post_ts[i, :], post_te[i, :], post_w_sp[i], post_w_ex[i],
@@ -3427,10 +3453,10 @@ def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, comb
             shap_values.append(k_add_kernel_shap_i(args[i]))
     shap_values = np.vstack(shap_values)
     shap_summary = get_rates_summary(shap_values.T)
-    mean_shap_sp = shap_summary[:shap_names_sp.shape[0], :]
-    mean_shap_ex = shap_summary[n_effects_sp:(n_effects_sp + shap_names_ex.shape[0]), :]
-    taxa_shap_sp = shap_summary[shap_names_sp.shape[0]:n_effects_sp, :] # First row is baseline
-    taxa_shap_ex = shap_summary[(n_effects_sp + shap_names_ex.shape[0]):, :]
+    mean_shap_sp = shap_summary[:(n_main_eff_sp + n_inter_eff_sp), :]
+    mean_shap_ex = shap_summary[n_effects_sp:(n_effects_sp + n_main_eff_ex + n_inter_eff_ex), :]
+    taxa_shap_sp = shap_summary[(n_main_eff_sp + n_inter_eff_sp):n_effects_sp, :] # First row is baseline
+    taxa_shap_ex = shap_summary[(n_effects_sp + n_main_eff_ex + n_inter_eff_ex):, :]
     if bdnn_dd:
         trt_tbls[0][0, :, div_idx_trt_tbl] = 1.0
         trt_tbls[1][0, :, div_idx_trt_tbl] = 1.0
@@ -3463,9 +3489,9 @@ def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, comb
                                                        shap_names_sp, taxa_shap_sp)
     taxa_shap_ex = delete_invariantfeat_from_taxa_shap(feature_without_variance_ex, names_features_ex,
                                                        shap_names_ex, taxa_shap_ex)
-    sp_from_shap = get_species_rates_from_shap(shap_values[:, shap_names_sp.shape[0]:n_effects_sp],
+    sp_from_shap = get_species_rates_from_shap(shap_values[:, (n_main_eff_sp + n_inter_eff_sp):n_effects_sp],
                                                n_species, n_main_eff_sp, mcmc_samples)
-    ex_from_shap = get_species_rates_from_shap(shap_values[:, (n_effects_sp + shap_names_ex.shape[0]):],
+    ex_from_shap = get_species_rates_from_shap(shap_values[:, (n_effects_sp + n_main_eff_ex + n_inter_eff_ex):],
                                                n_species, n_main_eff_ex, mcmc_samples)
     taxa_shap_sp = merge_taxa_shap_and_species_rates(taxa_shap_sp, taxa_names_shap_sp, sp_from_shap, n_species)
     taxa_shap_ex = merge_taxa_shap_and_species_rates(taxa_shap_ex, taxa_names_shap_ex, ex_from_shap, n_species)
@@ -3980,7 +4006,7 @@ def get_rscript_species_shap(r_script, species_names, taxa_shap, consrank, rate_
     for i in range(nfeat):
         r_script += "\nfeat_names = c(feat_names, '%s')" % feat_names[i].split('__')[-1]
     r_script += "\nord = ord_by_importance(shap, consrank, rate)"
-    r_script += "\nshap_ord = shap[ord, consrank]"
+    r_script += "\nshap_ord = shap[ord, consrank, drop = FALSE]"
     r_script += "\nrates_ord = rates[ord, ]"
     r_script += "\nspecies_names_ord = species_names[ord]"
     r_script += "\nfeat_names_ord = feat_names[consrank]"
@@ -4059,7 +4085,7 @@ def get_dotplot_rscript_species_shap(r_script, species_names, taxa_shap, consran
     for i in range(nfeat):
         r_script += "\nfeat_names = c(feat_names, '%s')" % feat_names[i]
     r_script += "\nord = ord_by_importance(shap, consrank, rate)"
-    r_script += "\nshap_ord = shap[ord, consrank2]"
+    r_script += "\nshap_ord = shap[ord, consrank2, drop = FALSE]"
     r_script += "\nrates_ord = rates[ord, ]"
     r_script += "\nspecies_names_ord = species_names[ord]"
     r_script += "\nfeat_names_ord = feat_names[consrank2]"
