@@ -3434,6 +3434,9 @@ def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, comb
     n_main_eff_ex = np.sum(shap_names_ex[:, 1] == 'none')
     n_inter_eff_sp = int(n_main_eff_sp * (n_main_eff_sp - 1) / 2)
     n_inter_eff_ex = int(n_main_eff_sp * (n_main_eff_sp - 1) / 2)
+    if do_inter_imp is False:
+        n_inter_eff_sp = 0
+        n_inter_eff_ex = 0
     n_effects_sp = n_main_eff_sp + n_inter_eff_sp + 1 + n_species * n_main_eff_sp # np.concatenate((shap_main, shap_interaction, baseline, shap_main_instances.flatten()))
     n_effects_ex = n_main_eff_ex + n_inter_eff_ex + 1 + n_species * n_main_eff_ex
     args = []
