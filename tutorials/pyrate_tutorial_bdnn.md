@@ -63,7 +63,7 @@ The command will generate a PDF file and an R script with the rates-through-time
 We can now generate partial dependence plots to separate the individual effects of each predictor on the rates and the combined effects of each pair of predictors (to assess interactions). This is done using the `-plotBDNN_effects` command to load the `*mcmc.log` file and the `-plotBDNN_transf_features` to load the `Backscale.txt` file (to rescale correctly the traits in the plots). We additionally use the `-BDNN_groups` function to specify which variables belong in the same class (e.g. all families belong to a class here named `taxon`. 
 
 ```
-python PyRate.py -plotBDNN_effects .../pyrate_mcmc_logs/Carnivora_1_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features .../Backscale.txt -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.1 -resample 100
+python PyRate.py -plotBDNN_effects .../pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features .../Backscale.txt -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.1 -resample 100
 ```
 
 We additionally specify the burnin fraction and the number of posterior samples considered in the PDP (`-resample`). 
@@ -74,13 +74,13 @@ The R script file can be edited to customize the PDPs.
 
 ### Predictor importance
 
-Finally we can calculate the importance of each predictor using a combination of three metrics: 1) the marginal posterior probability of an effect, 2) the effect size of the predictor on the rates (SHAP values), and 3) the effect of the predictor on model fit (feature permutation).  
+Finally we can calculate the importance of each predictor using a combination of three metrics: 1) the marginal posterior probability of an effect, 2) the effect size of the predictor on the rates (SHAP values), and 3) the effect of the predictor on model fit (feature permutation).
 
 This is done using the `BDNN_pred_importance` command to load the `* mcmc.log` file. The number of permutations and posterior samples can be adjusted using the flags `-BDNN_pred_importance_nperm` and `-resample`, respectively. We use again the `-BDNN_groups` function to specify which variables belong in the same class and to speed up the analysis we can use `-BDNN_pred_importance_only_main` to limit the importance estimation to single predictors (i.e. without testing for combinations of multiple predictors). 
 
 
 ```
-python3.10 PyRate.py -BDNN_pred_importance.../pyrate_mcmc_logs/Carnivora_1_BDS_BDNN_16_8TVc_mcmc.log -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.1 -resample 1 -BDNN_pred_importance_nperm 10 -BDNN_pred_importance_only_main
+python PyRate.py -BDNN_pred_importance.../pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.1 -resample 1 -BDNN_pred_importance_nperm 10 -BDNN_pred_importance_only_main
 ```
 
 This command will generate two tab-separated tables with the estimated importance and ranking of each predictor on speciation and extinction rates. It will also generate a PDF file and an R script with the lineage-specific speciation and extinction rates and an estimation of how they are affected by the predictors' values. 
@@ -93,9 +93,8 @@ A set of **Hyper-parameters** can be used to define the architecture of the neur
 
 `-BDNNnodes 16 8` defines the number of layers and nodes in each layer (default: two layers of 18 and 8 nodes)
 
-
 `-BDNNoutputfun`: Activation function of the output layer: 0) abs, 1) softPlus, 2) exp, 3) relu 4) sigmoid 5) sigmoid_rate (default=5)
 
 `-BDNNactfun`: Activation function of the hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid (default=0)
- 
+
 
