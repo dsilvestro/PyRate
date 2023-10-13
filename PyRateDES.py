@@ -2970,7 +2970,10 @@ if args.A == 3:
 		opt_base.set_upper_bounds(new_upper_bounds)
 		opt_base.set_max_objective(lik_opt)
 		opt_base.set_xtol_rel(args.A3set[0])
-		opt_base.set_maxeval(int(args.A3set[2]/3 * round(1.25**frombound)))
+		maxeval = int(args.A3set[2]/3 * round(1.25**frombound))
+		if maxeval > 1000000000:
+			maxeval = 1000000000
+		opt_base.set_maxeval(maxeval)
 		opt_base.set_ftol_abs(args.A3set[1])
 		opt_base.set_maxtime(args.A3set[3]/3)
 		x_base = opt_base.optimize(x0)
@@ -3009,7 +3012,10 @@ if args.A == 3:
 		opt_dis_cov.set_upper_bounds(new_upper_bounds2)
 		opt_dis_cov.set_max_objective(lik_opt)
 		opt_dis_cov.set_xtol_rel(args.A3set[0])
-		opt_dis_cov.set_maxeval(int(args.A3set[2]/3 * round(1.25**frombound)))
+		maxeval = int(args.A3set[2]/3 * round(1.25**frombound))
+		if maxeval > 1000000000:
+			maxeval = 1000000000
+		opt_dis_cov.set_maxeval(maxeval)
 		opt_dis_cov.set_ftol_abs(args.A3set[1])
 		opt_dis_cov.set_maxtime(args.A3set[3]/3)
 		x_dis_cov = opt_dis_cov.optimize(x0)
@@ -3033,7 +3039,10 @@ if args.A == 3:
 		opt_ext_cov.set_upper_bounds(new_upper_bounds2)
 		opt_ext_cov.set_max_objective(lik_opt)
 		opt_ext_cov.set_xtol_rel(args.A3set[0])
-		opt_ext_cov.set_maxeval(int(args.A3set[2]/3 * round(1.25**frombound)))
+		maxeval = int(args.A3set[2]/3 * round(1.25**frombound))
+		if maxeval > 1000000000:
+			maxeval = 1000000000
+		opt_ext_cov.set_maxeval(maxeval)
 		opt_ext_cov.set_ftol_abs(args.A3set[1])
 		opt_ext_cov.set_maxtime(args.A3set[3]/3)
 		x_ext_cov = opt_ext_cov.optimize(x0)
@@ -3047,7 +3056,10 @@ if args.A == 3:
 	opt.set_upper_bounds(upper_bounds)
 	opt.set_max_objective(lik_opt)
 	opt.set_xtol_rel(args.A3set[0])
-	opt.set_maxeval(int(args.A3set[2]/div_iter * round(1.25**len(x0))))
+	maxeval = int(args.A3set[2]/div_iter * round(1.25**len(x0)))
+	if maxeval > 1000000000:
+		maxeval = 1000000000
+	opt.set_maxeval(maxeval)
 	opt.set_ftol_abs(args.A3set[1])
 	opt.set_maxtime(args.A3set[3]/div_timeout)
 	x = opt.optimize(x0)
