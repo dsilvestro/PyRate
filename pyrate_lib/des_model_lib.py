@@ -179,7 +179,7 @@ def make_Q_Covar4VDdE(dv_list, ev_list, time_var_d1, time_var_d2, time_var_e1, t
                              (env_d21 / (1. - (offset_dis_div2/covar_par[1]))) * (1. - (diversity_d2/covar_par[1]))]).T
         transf_d[transf_d <= 0] = 1e-5
         transf_d[np.isnan(transf_d)] = 1e-5
-    elif transf_d==6: # exponential environmental dependence with rate shifts
+    elif transf_d==8: # exponential environmental dependence with rate shifts
         idx1 = np.arange(0, len(covar_parD), 2, dtype = int)
         idx2 = np.arange(1, len(covar_parD), 2, dtype = int)
         l = len(dv_list)

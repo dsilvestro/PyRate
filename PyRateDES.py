@@ -168,7 +168,7 @@ p.add_argument('-translate', type=float, help='shift data towards the present (e
 p.add_argument('-site',     type=str, help='name of column indicating same sites', default="site", metavar="")
 p.add_argument('-plot_raw', help='plot raw diversity curves', action='store_true', default=False)
 
-p.add_argument('-log_div', help='log modeled diversity (DivdD or DivdE models)', action='store_true', default=False)
+p.add_argument('-log_div', help='log modeled diversity', action='store_true', default=False)
 p.add_argument('-log_dis', help='log modeled dispersal (DdE)', action='store_true', default=False)
 p.add_argument('-log_distr', help='log estimated taxon distribution', action='store_true', default=False)
 p.add_argument('-log_sp_q_rates', help='log species-specific relative sampling rates', action='store_true', default=False)
@@ -187,7 +187,8 @@ simulation_no = args.i
 
 if args.seed==-1:
     rseed=np.random.randint(0,9999)
-else: rseed=args.seed
+else:
+    rseed=args.seed
 
 random.seed(rseed)
 np.random.seed(rseed)
@@ -329,7 +330,8 @@ input_data= args.d
 Q_times=np.sort(args.qtimes)
 n_Q_times = len(Q_times)+1
 output_wd = args.wd
-if output_wd=="": output_wd= self_path
+if output_wd=="":
+    output_wd= self_path
 
 equal_d = args.symd
 equal_e = args.syme
@@ -344,10 +346,14 @@ d12_prior_idx = n_Q_times
 d21_prior_idx = n_Q_times
 e1_prior_idx = n_Q_times
 e2_prior_idx = n_Q_times
-if np.isin(0, constraints): d12_prior_idx = 1
-if np.isin(1, constraints): d21_prior_idx = 1
-if np.isin(2, constraints): e1_prior_idx = 1
-if np.isin(3, constraints): e2_prior_idx = 1
+if np.isin(0, constraints):
+    d12_prior_idx = 1
+if np.isin(1, constraints):
+    d21_prior_idx = 1
+if np.isin(2, constraints):
+    e1_prior_idx = 1
+if np.isin(3, constraints):
+    e2_prior_idx = 1
 
 do_DivdD = args.DivdD
 do_DivdE = args.DivdE
@@ -2058,12 +2064,12 @@ def dis_dep_ext_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, covar_mu1, covar_mu2)
 #div_int
 
 def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec, 
-            do_DivdD, do_DivdE, do_varD, do_varE, do_DdE,
-            argsG, r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ, weight_per_taxon,
-            covar_par, covar_parD, covar_parE, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-            time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp,
-            trait_parD, traitD, trait_parE, traitE,
-            cat_parD, catD, cat_parE, catE, argstraitD, argstraitE, argscatD, argscatE, argslogdistr):
+                    transf_d, transf_e, #do_DivdD, do_DivdE, do_varD, do_varE, do_DdE,
+                    argsG, r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ, weight_per_taxon,
+                    covar_par, covar_parD, covar_parE, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
+                    time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp,
+                    trait_parD, traitD, trait_parE, traitE,
+                    cat_parD, catD, cat_parE, catE, argstraitD, argstraitE, argscatD, argscatE, argslogdistr):
     if argsG:
         YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
         sa = np.zeros((pp_gamma_ncat, nTaxa))
@@ -2103,37 +2109,40 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
         for i in range(1, len_time_series):
             k_d1 = np.inf
             k_d2 = np.inf
-            if do_varD:
-                dis_rate_vec_i = dis_rate_vec[0,:]
+            if transf_d == 0: # Skyline or constant dispersal
+                dis_rate_vec_i = dis_rate_vec[i - 1, :]
+            elif transf_d == 1: # Environmental-dependent dispersal
+                dis_rate_vec_i = dis_rate_vec[0, :]
                 dis_rate_vec_i = np.array([dis_rate_vec_i[0] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[i - 1, :])), dis_rate_vec_i[1] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[i - 1, :]))])
-            if do_DivdD:
-                if do_varD is False:
-                    dis_rate_vec_i = dis_rate_vec[0,:]
+            elif transf_d == 4: # Linear diversity-dependence
+                dis_rate_vec_i = dis_rate_vec[0, :]
                 k_d1 = covar_par[0]
                 k_d2 = covar_par[1]
                 dis_rate_vec_i = dis_rate_vec_i / (1.- [offset_dis_div2, offset_dis_div1]/covar_par[0:2])
-            if do_DivdD is False and do_varD is False:
-                dis_rate_vec_i = dis_rate_vec[i - 1, ]
+            elif transf_d == 8: # Skyline + environmental-dependent dispersal
+                dis_rate_vec_i = dis_rate_vec[i - 1, :]
+                dis_rate_vec_i = np.array([dis_rate_vec_i[0] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[i - 1, :])), dis_rate_vec_i[1] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[i - 1, :]))])
 
             k_e1 = np.inf
             k_e2 = np.inf
-            if do_varE:
-                ext_rate_vec_i = ext_rate_vec[0,:]
+            if transf_e == 0: # Skyline or constant extinction
+                ext_rate_vec_i = ext_rate_vec[i - 1, :]
+            elif transf_e == 1: # Environmental-dependent extinction
+                ext_rate_vec_i = ext_rate_vec[0, :]
                 ext_rate_vec_i = np.array([ext_rate_vec_i[0] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[i - 1, :])), ext_rate_vec_i[1] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[i - 1, :]))])
-            if do_DivdE:
-                if do_varE is False:
-                    ext_rate_vec_i = ext_rate_vec[0,:]
+            elif transf_e == 3: # Linear dependence on dispersal fraction
+                ext_rate_vec_i = ext_rate_vec[0, :]
+                covar_mu1 = covar_par[2]
+                covar_mu2 = covar_par[3]
+            if transf_e == 4: # Linear diversity dependence
+                ext_rate_vec_i = ext_rate_vec[0, :]
                 k_e1 = covar_par[2]
                 k_e2 = covar_par[3]
                 ext_rate_vec_i = ext_rate_vec_i * (1 - ([offset_ext_div1, offset_ext_div2]/covar_par[2:4]))
                 ext_rate_vec_i[np.isfinite(ext_rate_vec_i) == False] = 1e-5 # nan for data_in_area
-            if do_DdE:
-                if do_varE is False:
-                    ext_rate_vec_i = ext_rate_vec[0,:]
-                covar_mu1 = covar_par[2]
-                covar_mu2 = covar_par[3]
-            if do_varE is False and do_DivdE is False and do_DdE is False:
-                ext_rate_vec_i = ext_rate_vec[i - 1,:]
+            elif transf_e == 8: # Skyline + environmental-dependent extinction
+                ext_rate_vec_i = ext_rate_vec[i - 1, :]
+                ext_rate_vec_i = np.array([ext_rate_vec_i[0] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[i - 1, :])), ext_rate_vec_i[1] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[i - 1, :]))])
 
             d12 = dis_rate_vec_i[0]
             d21 = dis_rate_vec_i[1]
@@ -2156,7 +2165,7 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
             div_t[1] = div_2[i - 1]
             div_t[2] = div_3[i - 1]
 
-            if do_DdE:
+            if transf_e == 3:
                 div_int = odeint(dis_dep_ext_dt, div_t, dt, args = (d12, d21, mu1, mu2, k_d1, k_d2, covar_mu1, covar_mu2), mxstep = 100)
             else:
                 div_int = odeint(div_dt, div_t, dt, args = (d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2))
@@ -2596,7 +2605,7 @@ def lik_opt(x, grad):
     elif args.TdD and do_varD: # time- and environment-dependent dispersal
         dis_vec = dis_vec[Q_index,:]
         dis_vec = dis_vec[0:-1]
-        transf_d = 6
+        transf_d = 8
     else: # temp dependent D
         transf_d=1
         if args.lgD:
@@ -2736,13 +2745,12 @@ def lik_opt(x, grad):
         weight_per_taxon = np.ones((pp_gamma_ncat, nTaxa)) / pp_gamma_ncat
     # Only for diversity or dispersal dependence
     if do_approx_div_traj: #transf_d == 4 or transf_d == 5 or transf_e == 3 or transf_e == 4 or transf_e == 5:
-        approx_d1,approx_d2,numD21,numD12,pres = approx_div_traj(nTaxa, dis_vec, ext_vec,
-                                    do_DivdD, do_DivdE, do_varD, do_varE, do_DdE, argsG,
-                                    r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ, weight_per_taxon,
-                                    covar_par, covar_parD, covar_parE, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-                                    time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp,
-                                    trait_parD, traitD, trait_parE, traitE,
-                                    cat_parD, catD, cat_parE, catE, argstraitD, argstraitE, argscatD, argscatE, argslogdistr)
+        approx_d1,approx_d2,numD21,numD12,pres = approx_div_traj(nTaxa, dis_vec, ext_vec, transf_d, transf_e, argsG,
+                                                                 r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ, weight_per_taxon,
+                                                                 covar_par, covar_parD, covar_parE, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
+                                                                 time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp,
+                                                                 trait_parD, traitD, trait_parE, traitE,
+                                                                 cat_parD, catD, cat_parE, catE, argstraitD, argstraitE, argscatD, argscatE, argslogdistr)
         diversity_d2 = approx_d1 # Limits dispersal into 1
         diversity_d1 = approx_d2 # Limits dispersal into 2
         diversity_e1 = approx_d1
@@ -3606,7 +3614,7 @@ for it in range(n_generations * len(scal_fac_TI)):
         dis_vec = dis_rate_vec
         do_approx_div_traj = 1
     elif args.TdD and do_varD: # Skyline rates plus environmental dependence
-        transf_d=6
+        transf_d = 8
         dis_vec = dis_rate_vec[Q_index,:]
         dis_vec = dis_vec[0:-1]
         do_approx_div_traj = 0 # Check later if this works
@@ -3668,13 +3676,12 @@ for it in range(n_generations * len(scal_fac_TI)):
     if (it % sampling_freq == 0 or args.A == 3):
         do_approx_div_traj = 1
     if do_approx_div_traj == 1:
-        approx_d1,approx_d2,numD21,numD12,pres = approx_div_traj(nTaxa, dis_vec, ext_vec,
-                                    do_DivdD, do_DivdE, do_varD, do_varE, do_DdE, argsG,
-                                    r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ, weight_per_taxon,
-                                    covar_par, covar_parD, covar_parE, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-                                    time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp,
-                                    trait_parD, traitD, trait_parE, traitE,
-                                    cat_parD, catD, cat_parE, catE, argstraitD, argstraitE, argscatD, argscatE, argslogdistr)
+        approx_d1,approx_d2,numD21,numD12,pres = approx_div_traj(nTaxa, dis_vec, ext_vec, transf_d, transf_e, argsG,
+                                                                 r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ, weight_per_taxon,
+                                                                 covar_par, covar_parD, covar_parE, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
+                                                                 time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp,
+                                                                 trait_parD, traitD, trait_parE, traitE,
+                                                                 cat_parD, catD, cat_parE, catE, argstraitD, argstraitE, argscatD, argscatE, argslogdistr)
         diversity_d2 = approx_d1 # Limits dispersal into 1
         diversity_d1 = approx_d2 # Limits dispersal into 2
         diversity_e1 = approx_d1
