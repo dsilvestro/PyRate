@@ -76,9 +76,11 @@ The following code produces the DES input files.
 
 * `-age2` is an optional argument specifying the name of the column with the latest age in case it is not *latestAge*.
 
+* `-timeline` is an optional argument allowing time bins of different duration by specifying the boundaries between bins. In this case, `-bin_size` is ignored. For instance `python ./PyRateDES.py -fossil ./example_files/DES_examples/Carnivora/CarnivoraFossils.txt -recent ./example_files/DES_examples/Carnivora/CarnivoraRecent.txt -wd ./example_files/DES_examples/Carnivora -filename Carnivora -timeline 0.5 2.0 5.0 10.0 20.0 -rep 10`
+
 * `-site` is an optional argument specifying the name of the column in the `-recent` text file with the ID of the assemblage for each occurrence. By default a column named `site` is assumed (but not required). If there is a column `site`, but the randomization of ages should not be linked to the site, use `-site ""`
 
-* `-data_in_area 1` is an argument to code fossil occurrences for a DES analysis where lineages are only known from a single area.  For instance `python ./PyRateDES.py -fossil .../example_files/DES_examples/Diatoms_Lake_Ohrid/DiatomFossils.txt -recent .../example_files/DES_examples/Diatoms_Lake_Ohrid/DiatomRecent.txt -wd .../example_files/DES_examples/Diatoms_Lake_Ohrid -filename Diatoms -bin_size 0.5 -rep 10`
+* `-data_in_area 1` is an argument to code fossil occurrences for a DES analysis where lineages are only known from a single area. For instance `python ./PyRateDES.py -fossil .../example_files/DES_examples/Diatoms_Lake_Ohrid/DiatomFossils.txt -recent .../example_files/DES_examples/Diatoms_Lake_Ohrid/DiatomRecent.txt -wd .../example_files/DES_examples/Diatoms_Lake_Ohrid -filename Diatoms -bin_size 0.5 -rep 10`
 
 * `-plot_raw` is an optional argument to generate a plot in PDF format in `-wd` of the observed diversity trajectories and their 95% credible interval in the two area. This requires that R is installed on your PC to execute the shell command Rscript. If you are using Windows, please make sure that the path to Rscript.exe is included in the PATH environment variables (default in Mac/Linux).
 
