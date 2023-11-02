@@ -165,6 +165,7 @@ p.add_argument('-age1',     type=str, help='earliest age', default="earliestAge"
 p.add_argument('-age2',     type=str, help='latest age', default="latestAge", metavar="")
 p.add_argument('-trim_age', type=float, help='trim DES input to maximum age',  default=[])
 p.add_argument('-translate', type=float, help='shift data towards the present (e.g., -translate 10 when group of taxa is completely extinct since 10 Ma)', default=[])
+p.add_argument('-timeline', type=float, help='list of boundaries between time bins instead of -bin_size (e.g., 2.5 5.0 10.0 20.0)', default=[], nargs='+')
 p.add_argument('-site',     type=str, help='name of column indicating same sites', default="site", metavar="")
 p.add_argument('-plot_raw', help='plot raw diversity curves', action='store_true', default=False)
 
@@ -200,7 +201,7 @@ if verbose == 1:
 # generate DES input
 if args.fossil != "":
     reps = args.rep
-    desin_list, time = des_in(args.fossil, args.recent, args.wd, args.filename, taxon = args.taxon, area = args.area, age1 = args.age1, age2 = args.age2, site = args.site, binsize = args.bin_size, reps = reps, trim_age = args.trim_age, translate = args.translate, data_in_area = args.data_in_area)
+    desin_list, time = des_in(args.fossil, args.recent, args.wd, args.filename, taxon = args.taxon, area = args.area, age1 = args.age1, age2 = args.age2, site = args.site, binsize = args.bin_size, reps = reps, trim_age = args.trim_age, translate = args.translate, data_in_area = args.data_in_area, timeline = args.timeline)
     if args.plot_raw:
         len_time = len(time)
         desin_div1 = np.zeros((reps, len_time))

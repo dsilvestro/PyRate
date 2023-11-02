@@ -499,7 +499,7 @@ def write_des_in(out_list, reps, all_taxa_list, taxon, time, input_wd, filename)
         w_in_file.flush()
         os.fsync(w_in_file)
 
-def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "higherGeography", age1 = "earliestAge", age2 = "latestAge", site = "site", binsize = 5., reps = 3, trim_age = [], translate = [], data_in_area = []):
+def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "higherGeography", age1 = "earliestAge", age2 = "latestAge", site = "site", binsize = 5., reps = 3, trim_age = [], translate = [], data_in_area = [], timeline = []):
     dat = np.genfromtxt(x, dtype=str, delimiter='\t')
     dat_names = dat[0,:]
     dat = dat[1:,:]
@@ -534,12 +534,19 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
         dat_ages = dat_ages - translate
         if np.min(dat_ages) < 0.0:
             sys.exit(print("Shifting completely extinct group beyond the present"))
+        if len(timeline) > 0:
+            sys.exit(print("Translating and timeline not compatible"))
     max_age = np.max(dat_ages)
     if np.array(trim_age) > 0:
         max_age = np.array(trim_age)
         if translate:
             max_age = max_age - translate
-    cutter = np.arange(0., max_age + binsize, binsize)
+    if len(timeline) == 0:
+        cutter = np.arange(0., max_age + binsize, binsize)
+    else:
+        timeline = np.sort(timeline)
+        timeline = timeline[timeline <= max_age]
+        cutter = np.concatenate(( np.zeros(1), timeline, np.array([max_age + binsize]) )) # , np.array([max_age + binsize])
     if translate:
         trans_bin = np.array([binsize/10.0])
         cutter = np.concatenate((cutter[0], trans_bin, cutter[1:]), axis = None)
@@ -618,10 +625,17 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
         for i in range(reps):
             out_list[i] = out_list[i][:,keep_rows:]
         cutter = cutter[:-keep_rows] # Truncate cutter to dim2 of out_list
-    tdiff = np.diff(cutter)[-1]
-    time = np.arange(0., np.max(cutter) + tdiff + tdiff/1000., tdiff)
-    time[1:] = time[1:] - tdiff/2
-    time = time[::-1]
+    if len(timeline) == 0:
+        tdiff = np.diff(cutter)[-1]
+        time = np.arange(0., np.max(cutter) + tdiff + tdiff/1000., tdiff)
+        time[1:] = time[1:] - tdiff/2
+        time = time[::-1]
+    else:
+        tdiff = np.diff(cutter)/2
+        tdiff = np.concatenate((np.zeros(1), tdiff))
+        time = cutter - tdiff
+        time = np.concatenate(( time, np.array([cutter[-1]]) ))
+        time = time[::-1]
     if translate:
         time = np.concatenate((time[:-1], trans_bin, time[-1]), axis = None)
     write_des_in(out_list, reps, all_taxa_list, taxon, time, input_wd, filename)
