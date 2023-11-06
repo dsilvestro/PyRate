@@ -1223,6 +1223,7 @@ def update_parameter_normal_vec(oldL,d,f=.25):
     S = oldL.shape
     ii = np.random.normal(0,d,S)
     ff = np.random.binomial(1,np.min([f, 1]),S)
+    # print(np.sum(ff), S, f)
     s= oldL + ii*ff
     return s
 
@@ -3327,9 +3328,9 @@ def MCMC(all_arg):
             if use_BDNNmodel:
                 rnd_layer = np.random.randint(0, len(cov_parA[0]))
                 # update layers B rate
-                cov_par[0][rnd_layer]=update_parameter_normal_vec(cov_parA[0][rnd_layer],d=0.05,f= .1 * len(cov_parA[0][rnd_layer])) 
+                cov_par[0][rnd_layer]=update_parameter_normal_vec(cov_parA[0][rnd_layer],d=0.05,f= bdnn_update_f[rnd_layer] ) 
                 # update layers D rate
-                cov_par[1][rnd_layer]=update_parameter_normal_vec(cov_parA[1][rnd_layer],d=0.05,f= .1 * len(cov_parA[1][rnd_layer])) 
+                cov_par[1][rnd_layer]=update_parameter_normal_vec(cov_parA[1][rnd_layer],d=0.05,f= bdnn_update_f[rnd_layer] ) 
                 if BDNN_MASK_lam:
                     for i_layer in range(len(cov_parA[0])):
                         cov_par[0][i_layer] *= BDNN_MASK_lam[i_layer]
@@ -4271,6 +4272,7 @@ if __name__ == '__main__':
     p.add_argument('-log_marginal_rates',type=int,help='0) save summary file, default for -A 4; 1) save marginal rate file, default for -A 0,2 ', default=-1,metavar=-1)
     p.add_argument('-log_sp_q_rates', help='Save species-specific relative preservation rates', action='store_true', default=False)
     p.add_argument("-drop_zero",  type=float, help='remove 0s from occs data (set to 1 to drop all)', default=0, metavar=0)
+    p.add_argument("-drop_internal",  action='store_true', default=False)
 
     # phylo test
     p.add_argument('-tree',       type=str,help="Tree file (NEXUS format)",default="", metavar="")
@@ -4385,6 +4387,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNprior', type=float, help='sd normal prior', default=1, metavar=1)
     p.add_argument('-BDNNblockmodel',help='Block NN model', action='store_true', default=False)
     p.add_argument('-BDNNtimevar', type=str, help='Time variable file (e.g. PhanerozoicTempSmooth.txt), several variable in different columns possible', default="", metavar="")
+    p.add_argument('-BDNNupdate_f', type=float, help='fraction of updated weights', default=[0.1], metavar=[0.1], nargs='+')
     p.add_argument('-BDNNdd', help='Diversity-dependent BDNN', action='store_true', default=False)
     p.add_argument('-BDNNpklfile', type=str, help='Load BDNN pickle file', default="", metavar="")
     p.add_argument('-BDNN_pred_importance', metavar='<input file>', type = str, help = "Predictor importance in BDNN: provide path and base name for 'mcmc.log' and '*.pkl' files (e.g. .../pyrate_mcmc_logs/example_BDS_BDNN_16_8Tc)", default = "")
@@ -4951,6 +4954,11 @@ if __name__ == '__main__':
         have_record=list()
         singletons_excluded = list()
         taxa_included = list()
+        
+        if args.drop_internal:
+            foss = [np.array([np.min(f), np.max(f)]) for f in fossil_complete if len(f) > 1]
+            fossil_complete = foss
+        
         for i in range(len(fossil_complete)):
             if len(fossil_complete[i])==1 and fossil_complete[i][0]==0: pass # exclude taxa with no fossils
 
@@ -5474,6 +5482,13 @@ if __name__ == '__main__':
         # model_cov = 6
         f_cov_par = [0.4, 0.5,0.9,1]
         f_update_se = 0.6
+        if len(args.BDNNupdate_f) == 1:
+            bdnn_update_f = args.BDNNupdate_f * (len(args.BDNNnodes) + 1)
+            print("bdnn_update_f", bdnn_update_f)
+        elif len(args.BDNNupdate_f) != (len(args.BDNNnodes) + 1):
+            sys.exit("BDNNupdate_f flag should be called with 1 or %s values for a model with %s layers " % (len(args.BDNNnodes) + 1, len(args.BDNNnodes)))
+        else:
+            bdnn_update_f = args.BDNNupdate_f
     
         if bdnn_const_baseline:
             [f_update_q,f_update_lm,f_update_cov]=f_update_se+ np.array([0.1, 0,1-f_update_se])
