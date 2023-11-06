@@ -293,7 +293,9 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
     max_rates[:] = np.nan
     for i in range(nbins):
         r = marginal_rates_list[:,i]
-        hpd = util.calcHPD(r[~np.isnan(r)], 0.95)
+        r = r[~np.isnan(r)]
+        if len(r) > 2:
+            hpd = util.calcHPD(r, 0.95)
         min_rates[i] = hpd[0]
         max_rates[i] = hpd[1]
     
@@ -396,7 +398,9 @@ def plot_net_rate(resS,resE,col,min_age,max_age,plot_title,n_bins):
     max_rates[:] = np.nan
     for i in range(n_bins):
         r = marginal_rates_list[:,i]
-        hpd = util.calcHPD(r[~np.isnan(r)], 0.95)
+        r = r[~np.isnan(r)]
+        if len(r) > 2:
+            hpd = util.calcHPD(r, 0.95)
         min_rates[i] = hpd[0]
         max_rates[i] = hpd[1]
     
