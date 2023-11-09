@@ -537,21 +537,25 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
         if len(timeline) > 0:
             sys.exit(print("Translating and timeline not compatible"))
     max_age = np.max(dat_ages)
-    if np.array(trim_age) > 0:
-        max_age = np.array(trim_age)
+    trim_age = np.array(trim_age)
+    if trim_age > 0:
+        max_age = trim_age + 0.0
         if translate:
             max_age = max_age - translate
+            trim_age = trim_age - translate
     if len(timeline) == 0:
         cutter = np.arange(0., max_age + binsize, binsize)
     else:
         timeline = np.sort(timeline)
         timeline = timeline[timeline <= max_age]
-        cutter = np.concatenate(( np.zeros(1), timeline, np.array([max_age + binsize]) )) # , np.array([max_age + binsize])
+        b = np.array([max_age]) + timeline[-1] - timeline[-2]
+        cutter = np.concatenate(( np.zeros(1), timeline, b ))
     if translate:
         trans_bin = np.array([binsize/10.0])
         cutter = np.concatenate((cutter[0], trans_bin, cutter[1:]), axis = None)
     cutter_len = len(cutter)
     for i in range(reps):
+        dat_taxa2 = dat_taxa
         age_ran = np.zeros(dat.shape[0])
         dat_names_site = np.where(dat_names == site)[0]
         if len(dat_names_site) == 0:
@@ -571,7 +575,12 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
             area_fossil[np.array(dat[:,dat_names_area] == areas[1]).flatten()] = 2
         elif data_in_area == 1:
             area_fossil = area_fossil + 1
-        all_taxa = np.concatenate((np.unique(dat_taxa), np.unique(rece_taxa)), axis = None)
+        if trim_age > 0.0:
+            keep = age_ran <= trim_age
+            binnedage = binnedage[keep]
+            dat_taxa2 = dat_taxa2[keep]
+            area_fossil = area_fossil[keep]
+        all_taxa = np.concatenate((np.unique(dat_taxa2), np.unique(rece_taxa)), axis = None)
         all_taxa = np.unique(all_taxa)
         # First column is the most recent time bin and we reverse this latter
         out = np.zeros((len(all_taxa), cutter_len + 1))
@@ -580,7 +589,7 @@ def des_in(x, recent, input_wd, filename, taxon = "scientificName", area = "high
         elif data_in_area == 2:
             out = out + 1
         for a in range(len(all_taxa)):
-            idx = np.where(dat_taxa == all_taxa[a])
+            idx = np.where(dat_taxa2 == all_taxa[a])
             idx = np.array(idx).flatten()
             if idx.size > 0:
                 binnedage_taxon = binnedage[idx]
