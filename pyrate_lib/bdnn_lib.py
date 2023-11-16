@@ -775,7 +775,9 @@ def build_conditional_trait_tbl(bdnn_obj,
     counter = 0
     for k in range(plot_type.shape[0]):
         i = int(plot_type[k, 0])
+        v2_constant = False
         v1 = np.linspace(minmaxmean_features[0, i], minmaxmean_features[1, i], int(minmaxmean_features[3, i]))
+        v1_constant = np.ptp(v1) == 0.0
         v1 = v1.reshape((len(v1), 1))
         j = plot_type[k, 1]
         feat_idx = [i]
@@ -783,6 +785,7 @@ def build_conditional_trait_tbl(bdnn_obj,
             j = int(j)
             feat_idx.append(j)
             v2 = np.linspace(minmaxmean_features[0, j], minmaxmean_features[1, j], int(minmaxmean_features[3, j]))
+            v2_constant = np.ptp(v2) == 0.0
             v1 = expand_grid(v1.flatten(), v2)
         lv = len(v1)
         cond_trait_tbl[counter:(counter + lv), feat_idx] = v1
@@ -794,7 +797,7 @@ def build_conditional_trait_tbl(bdnn_obj,
             # plot involves features of a feature-group
             cond_trait_tbl = modify_feature_group(cond_trait_tbl, i, j, idx_comb_feat, counter, lv)
         cond_trait_tbl[counter:(counter + lv), -2] = k
-        comparison_incl_feature_without_variance = np.any(np.isin([i, j], feature_without_variance))
+        comparison_incl_feature_without_variance = np.any(np.isin([i, j], feature_without_variance)) or v1_constant or v2_constant
         cond_trait_tbl[counter:(counter + lv), -1] = trait_combination_exists(cond_trait_tbl[counter:(counter + lv), feat_idx],
                                                                               trait_tbl,
                                                                               i, j,
@@ -1171,7 +1174,16 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, tste, r_script,
                 names_states_feat_2 = np.unique(trait_tbl_plt[:, feat_2]).tolist()
             if np.isin(pt, np.array([8.0, 10.0, 11.0])):
                 names = np.unique(names_features[incl_features])
+#                print('plot index', i)
+#                print('plot type', pt)
+#                print(cond_trait_tbl[idx, :])
+#                print('names_features', names_features)
+#                print('names', names)
+#                print('incl_features', incl_features)
                 feat_1, feat_2 = get_feat_idx(names_features, names, incl_features)
+#                print('feat_1', feat_1)
+#                print('feat_2', feat_2)
+#                print('trait_tbl_plt', trait_tbl_plt)
                 if len(feat_1) > 1:
                     names_states_feat_1 = names_features_original[incl_features][feat_1]
                 else:
@@ -1180,6 +1192,7 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, tste, r_script,
                     names_states_feat_2 = names_features_original[incl_features][feat_2]
                 else:
                     names_states_feat_2 = np.unique(trait_tbl_plt[:, feat_2]).tolist()
+            print('states', names_states_feat_1, names_states_feat_2)
             r_script = plot_bdnn_inter_discr_discr(rates_sum_plt, cond_rates_plt, trait_tbl_plt, r_script, feat_1, feat_2, names, names_states_feat_1, names_states_feat_2, rate_type)
     return r_script
 
