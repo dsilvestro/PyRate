@@ -1884,14 +1884,18 @@ def init_trait_and_weights(trait_tbl,time_var_tbl,nodes,bias_node=False,fadlad=0
             print(i.shape)
         print(trait_tbl_lam.shape)
     elif isinstance(loaded_tbls[0], np.ndarray):
-        if num_fixed_times_of_shift - 1 != loaded_tbls[0].shape[0]:
+        if use_time_as_trait and num_fixed_times_of_shift - 1 != loaded_tbls[0].shape[0]:
             sys.exit("Number of taxon-time specific tables must be the same than age of the oldest fossil + 1 or -fixShifts ")
         if loaded_tbls[0].ndim == 3:
             trait_tbl_lam = loaded_tbls[0][::-1,:,:]
             trait_tbl_mu = loaded_tbls[1][::-1,:,:]
+            n_features_sp = trait_tbl_lam[0].shape[1]
+            n_features_ex = trait_tbl_mu[0].shape[1]
         else:
             trait_tbl_lam = loaded_tbls[0][::-1,:]
             trait_tbl_mu = loaded_tbls[1][::-1,:]
+            n_features_sp = trait_tbl_lam.shape[1]
+            n_features_ex = trait_tbl_mu.shape[1]
         if dd:
             n_taxa = trait_tbl_lam.shape[1]
             n_bins = trait_tbl_lam.shape[1]
@@ -1905,8 +1909,8 @@ def init_trait_and_weights(trait_tbl,time_var_tbl,nodes,bias_node=False,fadlad=0
             rescaled_time = rescaled_time.reshape((num_fixed_times_of_shift - 1, n_taxa, 1))
             trait_tbl_lam = np.c_[trait_tbl_lam, rescaled_time]
             trait_tbl_mu = np.c_[trait_tbl_mu, rescaled_time]
-        w_lam = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_lam[0].shape[1], size_output=1, init_std=0.01, bias_node=bias_node)
-        w_mu = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_mu[0].shape[1], size_output=1, init_std=0.01, bias_node=bias_node)
+        w_lam = init_weight_prm(n_nodes=nodes, n_features=n_features_sp, size_output=1, init_std=0.01, bias_node=bias_node)
+        w_mu = init_weight_prm(n_nodes=nodes, n_features=n_features_ex, size_output=1, init_std=0.01, bias_node=bias_node)
     else:
         if fadlad:
             trait_tbl_lam = 0+np.hstack((trait_tbl, (fadlad*FA).reshape((trait_tbl.shape[0],1)))) 
@@ -4132,7 +4136,7 @@ def MCMC(all_arg):
                 w_marg_ex.writerow(list(MA) + list(timesMA[1:len(timesMA)-1]))
                 marginal_ex_rate_file.flush()
                 os.fsync(marginal_ex_rate_file)
-            elif use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbl_timevar):
+            elif use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar):
                 # log harmonic mean of rates
                 rj_ind_lam = 0
                 rj_ind_mu = 0
@@ -4416,7 +4420,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNprior', type=float, help='sd normal prior', default=1, metavar=1)
     p.add_argument('-BDNNblockmodel',help='Block NN model', action='store_true', default=False)
     p.add_argument('-BDNNtimevar', type=str, help='Time variable file (e.g. PhanerozoicTempSmooth.txt), several variable in different columns possible', default="", metavar="")
-    p.add_argument('-BDNNpath_taxon_time_tables', type=str, help='Path to directory with tables with taxon-time specific predictors', default=["", ""], nargs='+')
+    p.add_argument('-BDNNpath_taxon_time_tables', type=str, help='Path to director(y|ies) with table(s) of taxon-time specific predictors. One path for identical speciation/extinction predictors, two paths if they differ.', default=["", ""], nargs='+')
     p.add_argument('-BDNNupdate_f', type=float, help='fraction of updated weights', default=[0.1], metavar=[0.1], nargs='+')
     p.add_argument('-BDNNdd', help='Diversity-dependent BDNN', action='store_true', default=False)
     p.add_argument('-BDNNpklfile', type=str, help='Load BDNN pickle file', default="", metavar="")
@@ -5642,7 +5646,7 @@ if __name__ == '__main__':
             if block_nn_model or has_loaded_invariant_pred:
                 # mask block - 1st layer
                 if len(bdnn_loaded_invariant_pred) > 0:
-                    num_zeros = bdnn_loaded_tbls[0].shape[2]
+                    num_zeros = bdnn_loaded_tbls[0].shape[-1]
                 else:
                     num_zeros = trait_values.shape[1] + add_to_bdnnblock_mask
                 indx_input_list_1 = np.zeros(num_zeros) # includes +1 for time, diversity dependence and temperature

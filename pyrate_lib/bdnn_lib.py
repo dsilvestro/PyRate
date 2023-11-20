@@ -44,21 +44,29 @@ def load_trait_tbl(path):
     sp_pred_names_tbls = sorted(os.listdir(path_sp_pred))
     sp_pred_tbls = []
     print('\nOrder taxon-time specific speciation tables:')
-    for t in sp_pred_names_tbls:
-        print(t)
-        sp_tbl = np.loadtxt(os.path.join(path_sp_pred, t), skiprows = 1)
-        sp_pred_tbls.append(sp_tbl)
-    sp_pred_tbls = np.array(sp_pred_tbls)
+    if len(sp_pred_names_tbls) > 1:
+        for t in sp_pred_names_tbls:
+            print(t)
+            sp_tbl = np.loadtxt(os.path.join(path_sp_pred, t), skiprows = 1)
+            sp_pred_tbls.append(sp_tbl)
+        sp_pred_tbls = np.array(sp_pred_tbls)
+    else:
+        print(sp_pred_names_tbls[0])
+        sp_pred_tbls = np.loadtxt(os.path.join(path_sp_pred, sp_pred_names_tbls[0]), skiprows = 1)
     loaded_trait_tbls.append(sp_pred_tbls)
     path_ex_pred = path[len(path) - 1] #os.path.join(path, 'extinction')
     ex_pred_names_tbls = sorted(os.listdir(path_ex_pred))
     ex_pred_tbls = []
     print('\nOrder taxon-time specific extinction tables:')
-    for t in ex_pred_names_tbls:
-        print(t)
-        ex_tbl = np.loadtxt(os.path.join(path_ex_pred, t), skiprows = 1)
-        ex_pred_tbls.append(ex_tbl)
-    ex_pred_tbls = np.array(ex_pred_tbls)
+    if len(ex_pred_names_tbls) > 1:
+        for t in ex_pred_names_tbls:
+            print(t)
+            ex_tbl = np.loadtxt(os.path.join(path_ex_pred, t), skiprows = 1)
+            ex_pred_tbls.append(ex_tbl)
+        ex_pred_tbls = np.array(ex_pred_tbls)
+    else:
+        print(ex_pred_names_tbls[0])
+        ex_pred_tbls = np.loadtxt(os.path.join(path_ex_pred, ex_pred_names_tbls[0]), skiprows = 1)
     loaded_trait_tbls.append(ex_pred_tbls)
     colnames = np.loadtxt(os.path.join(path_ex_pred, ex_pred_names_tbls[0]), max_rows = 1, dtype = str).tolist()
     sp_time_variable_pred = is_time_variable_feature(sp_pred_tbls)[0,:]
