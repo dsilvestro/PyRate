@@ -50,8 +50,8 @@ def load_trait_tbl(path):
         sp_pred_tbls.append(sp_tbl)
     sp_pred_tbls = np.array(sp_pred_tbls)
     loaded_trait_tbls.append(sp_pred_tbls)
-    path_ex_pred = path[1] #os.path.join(path, 'extinction')
-    ex_pred_names_tbls = sorted(os.listdir(path_sp_pred))
+    path_ex_pred = path[len(path) - 1] #os.path.join(path, 'extinction')
+    ex_pred_names_tbls = sorted(os.listdir(path_ex_pred))
     ex_pred_tbls = []
     print('\nOrder taxon-time specific extinction tables:')
     for t in ex_pred_names_tbls:

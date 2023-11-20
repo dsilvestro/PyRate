@@ -4416,7 +4416,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNprior', type=float, help='sd normal prior', default=1, metavar=1)
     p.add_argument('-BDNNblockmodel',help='Block NN model', action='store_true', default=False)
     p.add_argument('-BDNNtimevar', type=str, help='Time variable file (e.g. PhanerozoicTempSmooth.txt), several variable in different columns possible', default="", metavar="")
-    p.add_argument('-BDNNpath_taxon_time_tables', type=str, help='Path to directory with tables with taxon-time specific predictors', default=["", ""], nargs=2)
+    p.add_argument('-BDNNpath_taxon_time_tables', type=str, help='Path to directory with tables with taxon-time specific predictors', default=["", ""], nargs='+')
     p.add_argument('-BDNNupdate_f', type=float, help='fraction of updated weights', default=[0.1], metavar=[0.1], nargs='+')
     p.add_argument('-BDNNdd', help='Diversity-dependent BDNN', action='store_true', default=False)
     p.add_argument('-BDNNpklfile', type=str, help='Load BDNN pickle file', default="", metavar="")
