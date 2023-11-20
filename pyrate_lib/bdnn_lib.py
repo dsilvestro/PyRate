@@ -38,6 +38,36 @@ from pandas import concat
 from sklearn.linear_model import LinearRegression
 
 
+def load_trait_tbl(path):
+    loaded_trait_tbls = []
+    path_sp_pred = path[0] #os.path.join(path, 'speciation')
+    sp_pred_names_tbls = sorted(os.listdir(path_sp_pred))
+    sp_pred_tbls = []
+    print('\nOrder taxon-time specific speciation tables:')
+    for t in sp_pred_names_tbls:
+        print(t)
+        sp_tbl = np.loadtxt(os.path.join(path_sp_pred, t), skiprows = 1)
+        sp_pred_tbls.append(sp_tbl)
+    sp_pred_tbls = np.array(sp_pred_tbls)
+    loaded_trait_tbls.append(sp_pred_tbls)
+    path_ex_pred = path[1] #os.path.join(path, 'extinction')
+    ex_pred_names_tbls = sorted(os.listdir(path_sp_pred))
+    ex_pred_tbls = []
+    print('\nOrder taxon-time specific extinction tables:')
+    for t in ex_pred_names_tbls:
+        print(t)
+        ex_tbl = np.loadtxt(os.path.join(path_ex_pred, t), skiprows = 1)
+        ex_pred_tbls.append(ex_tbl)
+    ex_pred_tbls = np.array(ex_pred_tbls)
+    loaded_trait_tbls.append(ex_pred_tbls)
+    colnames = np.loadtxt(os.path.join(path_ex_pred, ex_pred_names_tbls[0]), max_rows = 1, dtype = str).tolist()
+    sp_time_variable_pred = is_time_variable_feature(sp_pred_tbls)[0,:]
+    ex_time_variable_pred = is_time_variable_feature(ex_pred_tbls)[0,:]
+    time_variable_pred = np.any(np.concatenate((sp_time_variable_pred, ex_time_variable_pred), axis = None))
+    invariant_pred = [get_idx_feature_without_variance(sp_pred_tbls), get_idx_feature_without_variance(ex_pred_tbls)]
+    # Should we check if all colnames are in the same order?
+    return loaded_trait_tbls, colnames, time_variable_pred, invariant_pred
+
 
 def summarize_rate(r, n_rates):
     r_sum = np.zeros((n_rates, 3))
@@ -777,7 +807,7 @@ def build_conditional_trait_tbl(bdnn_obj,
         i = int(plot_type[k, 0])
         v2_constant = False
         v1 = np.linspace(minmaxmean_features[0, i], minmaxmean_features[1, i], int(minmaxmean_features[3, i]))
-        v1_constant = np.ptp(v1) == 0.0
+        v1_constant = np.ptp(v1) == 0.0 and minmaxmean_features[3, i] > 1.0
         v1 = v1.reshape((len(v1), 1))
         j = plot_type[k, 1]
         feat_idx = [i]
@@ -785,7 +815,7 @@ def build_conditional_trait_tbl(bdnn_obj,
             j = int(j)
             feat_idx.append(j)
             v2 = np.linspace(minmaxmean_features[0, j], minmaxmean_features[1, j], int(minmaxmean_features[3, j]))
-            v2_constant = np.ptp(v2) == 0.0
+            v2_constant = np.ptp(v2) == 0.0 and minmaxmean_features[3, j] > 1.0
             v1 = expand_grid(v1.flatten(), v2)
         lv = len(v1)
         cond_trait_tbl[counter:(counter + lv), feat_idx] = v1
@@ -1192,7 +1222,6 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, tste, r_script,
                     names_states_feat_2 = names_features_original[incl_features][feat_2]
                 else:
                     names_states_feat_2 = np.unique(trait_tbl_plt[:, feat_2]).tolist()
-            print('states', names_states_feat_1, names_states_feat_2)
             r_script = plot_bdnn_inter_discr_discr(rates_sum_plt, cond_rates_plt, trait_tbl_plt, r_script, feat_1, feat_2, names, names_states_feat_1, names_states_feat_2, rate_type)
     return r_script
 

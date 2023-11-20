@@ -1849,14 +1849,16 @@ def init_weight_prm(n_nodes, n_features, size_output, init_std=0.1, bias_node=0)
     return w_layers
 
 def init_trait_and_weights(trait_tbl,time_var_tbl,nodes,bias_node=False,fadlad=0.1,
-                            verbose=False,fixed_times_of_shift=[],
-                            use_time_as_trait=False,dd=False,n_taxa=None):
+                           verbose=False,fixed_times_of_shift=[],
+                           use_time_as_trait=False,dd=False,n_taxa=None,
+                           loaded_tbls=""):
     # if bias_node:
     #     trait_tbl = 0+np.hstack((trait_tbl,np.ones((trait_tbl.shape[0],1))))
-    if use_time_as_trait or time_var_tbl is not None or dd: # only availble with -fixShift option
+    num_fixed_times_of_shift = len(fixed_times_of_shift)
+    if (use_time_as_trait or time_var_tbl is not None or dd) and isinstance(loaded_tbls[0], np.ndarray) is False: # only availble with -fixShift option
         # create a list of trait tables, one for each time frame
         trait_tbl_list = []
-        for i in range(1,len(fixed_times_of_shift)):
+        for i in range(1, num_fixed_times_of_shift):
             rescaled_time = np.mean([fixed_times_of_shift[i-1],fixed_times_of_shift[i]])
             if trait_tbl is not None:
                 trait_tbl_tmp = trait_tbl + 0.0
@@ -1881,7 +1883,30 @@ def init_trait_and_weights(trait_tbl,time_var_tbl,nodes,bias_node=False,fadlad=0
         for i in w_lam:
             print(i.shape)
         print(trait_tbl_lam.shape)
-    
+    elif isinstance(loaded_tbls[0], np.ndarray):
+        if num_fixed_times_of_shift - 1 != loaded_tbls[0].shape[0]:
+            sys.exit("Number of taxon-time specific tables must be the same than age of the oldest fossil + 1 or -fixShifts ")
+        if loaded_tbls[0].ndim == 3:
+            trait_tbl_lam = loaded_tbls[0][::-1,:,:]
+            trait_tbl_mu = loaded_tbls[1][::-1,:,:]
+        else:
+            trait_tbl_lam = loaded_tbls[0][::-1,:]
+            trait_tbl_mu = loaded_tbls[1][::-1,:]
+        if dd:
+            n_taxa = trait_tbl_lam.shape[1]
+            n_bins = trait_tbl_lam.shape[1]
+            add_zeros = np.zeros(n_taxa * n_bins).reshape((n_bins, n_taxa, 1))
+            trait_tbl_lam = np.c_[trait_tbl_lam, add_zeros]
+            trait_tbl_mu = np.c_[trait_tbl_mu, add_zeros]
+        if use_time_as_trait:
+            rescaled_time = (fixed_times_of_shift[:-1] + fixed_times_of_shift[1:]) / 2
+            n_taxa = trait_tbl_lam.shape[1]
+            rescaled_time = np.repeat(rescaled_time, n_taxa)
+            rescaled_time = rescaled_time.reshape((num_fixed_times_of_shift - 1, n_taxa, 1))
+            trait_tbl_lam = np.c_[trait_tbl_lam, rescaled_time]
+            trait_tbl_mu = np.c_[trait_tbl_mu, rescaled_time]
+        w_lam = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_lam[0].shape[1], size_output=1, init_std=0.01, bias_node=bias_node)
+        w_mu = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_mu[0].shape[1], size_output=1, init_std=0.01, bias_node=bias_node)
     else:
         if fadlad:
             trait_tbl_lam = 0+np.hstack((trait_tbl, (fadlad*FA).reshape((trait_tbl.shape[0],1)))) 
@@ -3578,7 +3603,7 @@ def MCMC(all_arg):
                 else:
                     args=list()
                     if use_ADE_model == 0: # speciation rate is not used under ADE model
-                        if use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd):
+                        if use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar):
                             for temp_l in range(len(timesL)-1):
                                 up, lo = timesL[temp_l], timesL[temp_l+1]
                                 l = L[temp_l]
@@ -3593,7 +3618,7 @@ def MCMC(all_arg):
                     for temp_m in range(len(timesM)-1):
                         up, lo = timesM[temp_m], timesM[temp_m+1]
                         m = M[temp_m]
-                        if use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd):
+                        if use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar):
                             args.append([ts, te, up, lo, m, 'm', cov_par[1],temp_m]) 
                         elif use_ADE_model == 0:
                             args.append([ts, te, up, lo, m, 'm', cov_par[1],np.nan])
@@ -4107,7 +4132,7 @@ def MCMC(all_arg):
                 w_marg_ex.writerow(list(MA) + list(timesMA[1:len(timesMA)-1]))
                 marginal_ex_rate_file.flush()
                 os.fsync(marginal_ex_rate_file)
-            elif use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd):
+            elif use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbl_timevar):
                 # log harmonic mean of rates
                 rj_ind_lam = 0
                 rj_ind_mu = 0
@@ -4157,7 +4182,7 @@ def MCMC(all_arg):
                 sp_lam_vec = np.zeros(len(tsA))
                 sp_mu_vec = np.zeros(len(tsA))
                 for i in range(len(tsA)):
-                    if use_time_as_trait or time_var is not None or bdnn_dd:
+                    if use_time_as_trait or time_var is not None or bdnn_dd or bdnn_loaded_tbls_timevar:
                         trait_tbl_sp_i_lam = trait_tbl_NN[0][digitized_ts[i],i,:] + 0
                         trait_tbl_sp_i_mu = trait_tbl_NN[1][digitized_te[i],i,:] + 0
                         if use_time_as_trait:
@@ -4391,6 +4416,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNprior', type=float, help='sd normal prior', default=1, metavar=1)
     p.add_argument('-BDNNblockmodel',help='Block NN model', action='store_true', default=False)
     p.add_argument('-BDNNtimevar', type=str, help='Time variable file (e.g. PhanerozoicTempSmooth.txt), several variable in different columns possible', default="", metavar="")
+    p.add_argument('-BDNNpath_taxon_time_tables', type=str, help='Path to directory with tables with taxon-time specific predictors', default=["", ""], nargs=2)
     p.add_argument('-BDNNupdate_f', type=float, help='fraction of updated weights', default=[0.1], metavar=[0.1], nargs='+')
     p.add_argument('-BDNNdd', help='Diversity-dependent BDNN', action='store_true', default=False)
     p.add_argument('-BDNNpklfile', type=str, help='Load BDNN pickle file', default="", metavar="")
@@ -4600,7 +4626,16 @@ if __name__ == '__main__':
         fix_Shift = 0
         
     fixed_times_of_shift_bdnn = []
-    if (args.BDNNtimetrait != 0 or args.BDNNtimevar or args.BDNNdd) and args.BDNNmodel > 0:# and fix_Shift == 0:
+    bdnn_loaded_tbls = args.BDNNpath_taxon_time_tables
+    bdnn_loaded_tbls_timevar = False
+    bdnn_loaded_timevar_pred = False
+    bdnn_loaded_invariant_pred = []
+    if bdnn_loaded_tbls[0] != "":
+        import pyrate_lib.bdnn_lib as bdnn_lib
+        bdnn_loaded_tbls, bdnn_loaded_names_traits, bdnn_loaded_timevar_pred, bdnn_loaded_invariant_pred = bdnn_lib.load_trait_tbl(bdnn_loaded_tbls)
+        if bdnn_loaded_tbls[0].ndim == 3:
+            bdnn_loaded_tbls_timevar = True
+    if (args.BDNNtimetrait != 0 or args.BDNNtimevar or args.BDNNdd or bdnn_loaded_tbls_timevar) and args.BDNNmodel > 0:# and fix_Shift == 0:
         # if args.A == 4:
             # fixed_times_of_shift_bdnn = np.arange(1, 1000)[::-1]
             # time_framesL_bdnn=len(fixed_times_of_shift_bdnn)+1
@@ -5445,7 +5480,7 @@ if __name__ == '__main__':
 
     if fix_Shift == 1 and use_ADE_model == 0: 
         est_hyperP = 1
-    if (args.BDNNtimetrait != 0 or bdnn_timevar or bdnn_dd) and args.BDNNmodel > 0 and bdnn_const_baseline:
+    if (args.BDNNtimetrait != 0 or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar) and args.BDNNmodel > 0 and bdnn_const_baseline:
         est_hyperP = 0
     # define hyper-prior function for BD rates
     if tot_extant==-1 or TDI ==3 or use_poiD == 1:
@@ -5537,7 +5572,7 @@ if __name__ == '__main__':
             time_vec = np.sort(np.array([np.max(FA), np.min(LO)] + list(fixed_times_of_shift_bdnn)))[::-1]
         else:
             time_vec = np.sort(np.array([np.max(FA), np.min(LO)] + list(fixed_times_of_shift)))[::-1]
-        if args.BDNNtimetrait or bdnn_timevar or bdnn_dd:
+        if args.BDNNtimetrait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
             if args.BDNNtimetrait == -1:
                 BDNNtimetrait_rescaler = 1 / np.max(time_vec)
                 args.BDNNtimetrait = BDNNtimetrait_rescaler
@@ -5584,12 +5619,13 @@ if __name__ == '__main__':
             trait_tbl_NN, cov_par_init_NN = init_trait_and_weights(trait_values,
                                                                    time_var,
                                                                    n_BDNN_nodes,
-                                                                   bias_node=True, 
+                                                                   bias_node=True,
                                                                    fadlad=args.BDNNfadlad,
                                                                    use_time_as_trait=use_time_as_trait,
                                                                    dd = bdnn_dd,
                                                                    fixed_times_of_shift=rescaled_time,
-                                                                   n_taxa=n_taxa)
+                                                                   n_taxa=n_taxa,
+                                                                   loaded_tbls= bdnn_loaded_tbls)
             cov_par_init_NN.append(0) # cov_par_init_NN[2] = covar prm for preservation rate (currently not used)
             prior_bdnn_w_sd = [np.ones(cov_par_init_NN[0][i].shape) * args.BDNNprior for i in range(len(cov_par_init_NN[0]))] 
             # prior_bdnn_w_sd[-1][0][0] = prior_bdnn_w_sd[-1][0][0] * 10 # prior on bias weight
@@ -5600,9 +5636,16 @@ if __name__ == '__main__':
             #     print(i.shape, i[10,:])
             # quit()
             #---
-            if block_nn_model:
+            has_loaded_invariant_pred = False
+            if len(bdnn_loaded_invariant_pred) > 0:
+                has_loaded_invariant_pred = np.sum(np.concatenate(bdnn_loaded_invariant_pred)) > 0
+            if block_nn_model or has_loaded_invariant_pred:
                 # mask block - 1st layer
-                indx_input_list_1 = np.zeros(trait_values.shape[1] + add_to_bdnnblock_mask) # includes +1 for time, diversity dependence and temperature
+                if len(bdnn_loaded_invariant_pred) > 0:
+                    num_zeros = bdnn_loaded_tbls[0].shape[2]
+                else:
+                    num_zeros = trait_values.shape[1] + add_to_bdnnblock_mask
+                indx_input_list_1 = np.zeros(num_zeros) # includes +1 for time, diversity dependence and temperature
                 indx_input_list_1[-1] = 1 # different block for time
                 # mask block - 2nd layer (equal split trait, time)
                 nodes_traits = int(n_BDNN_nodes[0] / 2)
@@ -5627,8 +5670,16 @@ if __name__ == '__main__':
                                            # nodes_per_feature_list=[[1, 1], [1, 1], []])
                                            nodes_per_feature_list=nodes_per_feature_list) # [[4, 4], [1, 1], []]
                 # create_mask(w_layers, indx_input_list, nodes_per_feature_list)
-                [print("\n", i) for i in BDNN_MASK_lam]
-            
+                if has_loaded_invariant_pred:
+                    # Block input of invariant predictors into neural network
+                    if block_nn_model is False:
+                        for i in range(len(BDNN_MASK_lam)):
+                            BDNN_MASK_lam[i][:] = 1.0
+                            BDNN_MASK_mu[i][:] = 1.0
+                    BDNN_MASK_lam[0][:, bdnn_loaded_invariant_pred[0]] = 0.0
+                    BDNN_MASK_mu[0][:, bdnn_loaded_invariant_pred[1]] = 0.0
+                else:
+                    [print("\n", i) for i in BDNN_MASK_lam]
             
             else:
                 BDNN_MASK_lam = None
@@ -5822,7 +5873,7 @@ if __name__ == '__main__':
         suff_out+="_".join(map(str, n_BDNN_nodes))
         if use_time_as_trait:
             suff_out+= "T"
-        if bdnn_timevar:
+        if bdnn_timevar or bdnn_loaded_timevar_pred:
             suff_out+= "V"
         if bdnn_dd:
             suff_out+= "DD"
@@ -5833,6 +5884,8 @@ if __name__ == '__main__':
         
         # save BDNN object
         names_features = []
+        if isinstance(bdnn_loaded_tbls[0], np.ndarray):
+            names_traits = bdnn_loaded_names_traits
         names_features += names_traits
         names_features += names_time_var
         if bdnn_dd:
