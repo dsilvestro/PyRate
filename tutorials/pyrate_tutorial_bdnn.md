@@ -44,8 +44,6 @@ where `-s` and `-n` are used to define sampling frequency and MCMC iterations. *
 
 
 
-
-
 ## Output postprocessing
 
 ### Plotting the marginal rates through time
@@ -91,10 +89,22 @@ This command will generate two tab-separated tables with the estimated importanc
 A set of **Hyper-parameters** can be used to define the architecture of the neural network implemented in the BDNN. 
 
 
-`-BDNNnodes 16 8` defines the number of layers and nodes in each layer (default: two layers of 18 and 8 nodes)
+`-BDNNnodes 16 8`: defines the number of layers and nodes in each layer (default: two layers of 18 and 8 nodes)
 
 `-BDNNoutputfun`: Activation function of the output layer: 0) abs, 1) softPlus, 2) exp, 3) relu 4) sigmoid 5) sigmoid_rate (default=5)
 
 `-BDNNactfun`: Activation function of the hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid (default=0)
 
+
+### Specifying custom predictors
+
+A regular BDNN analysis with traits specified by `-trait_file` and paleoenvironmental variables included with the `-BDNNtimevar` command assumes that species traits do not change over time and all species experience the same environmental conditions over time. It is possible to relax this assumption by subjecting custom build tables to the analysis. For instance, temperature trajectories could differ among geographic range or humans could influence extinction while an effect on speciation is not plausible.
+Such an analysis can be set-up using custom tables, which have the same format as the standard `-trait_file` (i.e., species in rows and traits, including paleoenvironment, in columns). For an analysis that includes an effect of time (i.e., invoked by the default setting `-BDNNtimetrait -1`), one custom table per time-bin is needed. When no boundaries between time-bins are specified with `-fixShift`, this means one table per 1 million years. Otherwise, the number of tables need to equal the number of boundaries. The file name of the custom tables need to reflect the time-bins, for instance, *01.txt* for the most recent one, *02.txt* for the following (older) bin etc.
+Custom tables are subjected to the BDNN analysis using the `-BDNNpath_taxon_time_tables` command, which takes the path to a folder containing the custom tables. If a single path is provided, the custom tables are used as predictors for speciation and extinction rates. If two paths are given, the first one is for the predictors of speciation rates and the second for extinction rates.
+No `-trait_file` and `-BDNNtimevar` should be provided.
+
+The following example uses custom tables with humans being present during the past 500,000 years in Eurasia but not in North America, which could influence the extinction rate but not speciation.
+```
+python PyRate.py .../Carnivora_occs.py -fixShift .../Time_windows.txt -BDNNmodel 1 -BDNNpath_taxon_time_tables .../load_predictors/speciation .../load_predictors/extinction -qShift .../Stages.txt -mG -A 0  -s 10 -n 1000
+```
 
