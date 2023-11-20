@@ -1902,6 +1902,8 @@ def init_trait_and_weights(trait_tbl,time_var_tbl,nodes,bias_node=False,fadlad=0
             add_zeros = np.zeros(n_taxa * n_bins).reshape((n_bins, n_taxa, 1))
             trait_tbl_lam = np.c_[trait_tbl_lam, add_zeros]
             trait_tbl_mu = np.c_[trait_tbl_mu, add_zeros]
+            n_features_sp += 1
+            n_features_ex += 1
         if use_time_as_trait:
             rescaled_time = (fixed_times_of_shift[:-1] + fixed_times_of_shift[1:]) / 2
             n_taxa = trait_tbl_lam.shape[1]
@@ -1909,6 +1911,8 @@ def init_trait_and_weights(trait_tbl,time_var_tbl,nodes,bias_node=False,fadlad=0
             rescaled_time = rescaled_time.reshape((num_fixed_times_of_shift - 1, n_taxa, 1))
             trait_tbl_lam = np.c_[trait_tbl_lam, rescaled_time]
             trait_tbl_mu = np.c_[trait_tbl_mu, rescaled_time]
+            n_features_sp += 1
+            n_features_ex += 1
         w_lam = init_weight_prm(n_nodes=nodes, n_features=n_features_sp, size_output=1, init_std=0.01, bias_node=bias_node)
         w_mu = init_weight_prm(n_nodes=nodes, n_features=n_features_ex, size_output=1, init_std=0.01, bias_node=bias_node)
     else:
