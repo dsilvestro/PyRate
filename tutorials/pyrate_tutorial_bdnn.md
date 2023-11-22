@@ -103,7 +103,7 @@ Such an analysis can be set-up using custom tables, which have the same format a
 Custom tables are subjected to the BDNN analysis using the `-BDNNpath_taxon_time_tables` command, which takes the path to a folder containing the custom tables. If a single path is provided, the custom tables are used as predictors for speciation and extinction rates. If two paths are given, the first one is for the predictors of speciation rates and the second for extinction rates.
 No `-trait_file` and `-BDNNtimevar` should be provided.
 
-The following example uses custom tables with humans being present during the past 500,000 years in Eurasia but not in North America, which could influence the extinction rate but not speciation.
+The following example uses custom tables with humans being present during the past 500,000 years in Eurasia but not in North America, which could influence the extinction rate but not speciation. Additionally, trajectories of paleotemperature are continent specific.
 ```
 python PyRate.py .../Carnivora_occs.py -fixShift .../Time_windows.txt -BDNNmodel 1 -BDNNpath_taxon_time_tables .../load_predictors/speciation .../load_predictors/extinction -qShift .../Stages.txt -mG -A 0  -s 10 -n 1000
 ```
