@@ -40,35 +40,33 @@ from sklearn.linear_model import LinearRegression
 
 def load_trait_tbl(path):
     loaded_trait_tbls = []
-    path_sp_pred = path[0] #os.path.join(path, 'speciation')
-    sp_pred_names_tbls = sorted(os.listdir(path_sp_pred))
+    sp_pred_names_tbls = sorted(glob.glob(os.path.join(path[0], "*")))
     sp_pred_tbls = []
     print('\nOrder taxon-time specific speciation tables:')
     if len(sp_pred_names_tbls) > 1:
         for t in sp_pred_names_tbls:
-            print(t)
-            sp_tbl = np.loadtxt(os.path.join(path_sp_pred, t), skiprows = 1)
+            print(os.path.basename(t))
+            sp_tbl = np.loadtxt(t, skiprows = 1)
             sp_pred_tbls.append(sp_tbl)
         sp_pred_tbls = np.array(sp_pred_tbls)
     else:
-        print(sp_pred_names_tbls[0])
-        sp_pred_tbls = np.loadtxt(os.path.join(path_sp_pred, sp_pred_names_tbls[0]), skiprows = 1)
+        print(os.path.basename(sp_pred_names_tbls[0]))
+        sp_pred_tbls = np.loadtxt(sp_pred_names_tbls[0], skiprows = 1)
     loaded_trait_tbls.append(sp_pred_tbls)
-    path_ex_pred = path[len(path) - 1] #os.path.join(path, 'extinction')
-    ex_pred_names_tbls = sorted(os.listdir(path_ex_pred))
+    ex_pred_names_tbls = sorted(glob.glob(os.path.join(path[len(path) - 1], "*")))
     ex_pred_tbls = []
     print('\nOrder taxon-time specific extinction tables:')
     if len(ex_pred_names_tbls) > 1:
         for t in ex_pred_names_tbls:
-            print(t)
-            ex_tbl = np.loadtxt(os.path.join(path_ex_pred, t), skiprows = 1)
+            print(os.path.basename(t))
+            ex_tbl = np.loadtxt(t, skiprows = 1)
             ex_pred_tbls.append(ex_tbl)
         ex_pred_tbls = np.array(ex_pred_tbls)
     else:
         print(ex_pred_names_tbls[0])
-        ex_pred_tbls = np.loadtxt(os.path.join(path_ex_pred, ex_pred_names_tbls[0]), skiprows = 1)
+        ex_pred_tbls = np.loadtxt(ex_pred_names_tbls[0], skiprows = 1)
     loaded_trait_tbls.append(ex_pred_tbls)
-    colnames = np.loadtxt(os.path.join(path_ex_pred, ex_pred_names_tbls[0]), max_rows = 1, dtype = str).tolist()
+    colnames = np.loadtxt(ex_pred_names_tbls[0], max_rows = 1, dtype = str).tolist()
     sp_time_variable_pred = is_time_variable_feature(sp_pred_tbls)[0,:]
     ex_time_variable_pred = is_time_variable_feature(ex_pred_tbls)[0,:]
     time_variable_pred = np.any(np.concatenate((sp_time_variable_pred, ex_time_variable_pred), axis = None))
