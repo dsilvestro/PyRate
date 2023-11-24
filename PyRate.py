@@ -1884,7 +1884,7 @@ def init_trait_and_weights(trait_tbl,time_var_tbl,nodes,bias_node=False,fadlad=0
             print(i.shape)
         print(trait_tbl_lam.shape)
     elif isinstance(loaded_tbls[0], np.ndarray):
-        if use_time_as_trait and num_fixed_times_of_shift - 1 != loaded_tbls[0].shape[0]:
+        if use_time_as_trait and num_fixed_times_of_shift - 1 > loaded_tbls[0].shape[0]:
             sys.exit("Number of taxon-time specific tables must be the same than age of the oldest fossil + 1 or -fixShifts ")
         if loaded_tbls[0].ndim == 3:
             trait_tbl_lam = loaded_tbls[0][::-1,:,:]
@@ -1906,6 +1906,7 @@ def init_trait_and_weights(trait_tbl,time_var_tbl,nodes,bias_node=False,fadlad=0
             n_features_ex += 1
         if use_time_as_trait:
             rescaled_time = (fixed_times_of_shift[:-1] + fixed_times_of_shift[1:]) / 2
+            rescaled_time = rescaled_time[:loaded_tbls[0].shape[0]]
             n_taxa = trait_tbl_lam.shape[1]
             rescaled_time = np.repeat(rescaled_time, n_taxa)
             rescaled_time = rescaled_time.reshape((num_fixed_times_of_shift - 1, n_taxa, 1))
@@ -5624,6 +5625,13 @@ if __name__ == '__main__':
 #            n_free_prm = 
 #            log_per_species_rates = True
         else:
+#            if isinstance(rescaled_time, ndarray):
+#                print('rescaled_time before', rescaled_time / BDNNtimetrait_rescaler, len(rescaled_time))
+#                print("FA", np.max(FA))
+#                print("LO", np.min(LO))
+#                rescaled_time = rescaled_time[rescaled_time / BDNNtimetrait_rescaler < np.max(FA)]
+#                rescaled_time = rescaled_time[rescaled_time / BDNNtimetrait_rescaler >= np.min(LO)]
+#                print('rescaled_time after', rescaled_time / BDNNtimetrait_rescaler, len(rescaled_time))
             trait_tbl_NN, cov_par_init_NN = init_trait_and_weights(trait_values,
                                                                    time_var,
                                                                    n_BDNN_nodes,
