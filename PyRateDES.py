@@ -2395,15 +2395,15 @@ def get_marginal_traitrate(baserate, nTaxa, pres, traits, cont_trait, cont_trait
 def lik_DES_taxon(args):
     [l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp,
     delta_t, r_vec, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
-    traits, cat, use_Pade_approx] = args
-    len_delta_t = len(delta_t)
+    traits, cat, Pt, use_Pade_approx] = args
+    len_delta_t = len(delta_t) # Check this if we do skip np.repeat(delta_t, 4).reshape((len(delta_t), 4)) from calc_likelihood_mQ_eigen_precompute!
     qwvl_idx = np.arange(0, len_delta_t)
     if traits or cat:
         qwvl_idx = np.arange(0 + l * len_delta_t, len_delta_t + l * len_delta_t)
     if use_Pade_approx==0:
-        l_temp = calc_likelihood_mQ_eigen([delta_t,r_vec,w_list[qwvl_idx,:],vl_list[qwvl_idx,:],vl_inv_list[qwvl_idx,:],rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp,bin_last_occ[l]])
+        l_temp = calc_likelihood_mQ_eigen_precompute([delta_t, r_vec, w_list[qwvl_idx,:], vl_list[qwvl_idx,:], vl_inv_list[qwvl_idx,:], rho_at_present_LIST[l], r_vec_indexes_LIST[l],sign_list_LIST[l], OrigTimeIndex[l], Q_index, Q_index_temp, bin_last_occ[l], Pt])
     else:
-        l_temp = calc_likelihood_mQ([delta_t,r_vec,Q_list[qwvl_idx,:],rho_at_present_LIST[l],r_vec_indexes_LIST[l],sign_list_LIST[l],OrigTimeIndex[l],Q_index,Q_index_temp,bin_last_occ[l]])
+        l_temp = calc_likelihood_mQ([delta_t, r_vec, Q_list[qwvl_idx,:], rho_at_present_LIST[l], r_vec_indexes_LIST[l], sign_list_LIST[l], OrigTimeIndex[l], Q_index, Q_index_temp, bin_last_occ[l]])
     return(l_temp)
 
 # Start pool after defining function
@@ -2449,8 +2449,18 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
     col_sum = -np.einsum('ijk->ik', Q_list) # Colsum per slice
     s0,s1,s2 = Q_list.shape
     Q_list.reshape(s0,-1)[:,::s2+1] = col_sum
+    Pt = None
     if use_Pade_approx==0:
         w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
+        if traits is False and cat is False: 
+            # precompute probabilities for fast likelihood, but only possible if there are no traits; ONLY IF BIN_LAST_OCC IS THE SAME FOR ALL SPECIES !?
+            recursive = np.arange(np.min(OrigTimeIndex), len(delta_t))[::-1]
+            delta_t2 = np.repeat(delta_t, 4).reshape((len(delta_t), 4))
+            d = np.exp(w_list * delta_t2)
+            m1 = np.zeros((len(recursive), 4, 4))
+            np.einsum('ijj->ij', m1)[...] = d[recursive, :] # Fill diagonal of a 3D array
+            Pt1 = np.matmul(vl_list[recursive, :], m1)
+            Pt = np.matmul(Pt1, vl_inv_list[recursive, :])
     if num_processes==0:
         lik = 0
         if argsG is False:
@@ -2463,11 +2473,10 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
                     r_vec2_rate = -np.log(r_vec2[:,idx_r_vec2])/bin_size
                     r_vec2_rate = r_vec2_rate * np.exp(np.sum(trait_parS * traitS[l]))
                     r_vec2[:,idx_r_vec2] = np.exp(-bin_size * r_vec2_rate)
-#                    print(l)
-#                    print(r_vec2)
+#                print('Taxon', l)
                 lik_tmp = lik_DES_taxon([l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp,
                             delta_t, r_vec2, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
-                            traits, cat, use_Pade_approx])
+                            traits, cat, Pt, use_Pade_approx])
                 lik += lik_tmp
 #                lik += lik_DES_taxon([l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp,
 #                            delta_t, r_vec2, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
@@ -2494,7 +2503,7 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
                     lik_vec[i] = lik_DES_taxon([l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp, delta_t,
                             r_vec_Gamma, # Only difference to homogeneous sampling
                             rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
-                            traits, cat, use_Pade_approx])
+                            traits, cat, Pt, use_Pade_approx])
 #                print(lik_vec)
                 lik_vec_max = np.max(lik_vec)
                 lik2 = lik_vec - lik_vec_max
@@ -2509,7 +2518,7 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
             args_mt_lik = [ [l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp, delta_t,
                     r_vec,
                     rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
-                    traits, cat, use_Pade_approx] for l in list_taxa_index ]
+                    traits, cat, Pt, use_Pade_approx] for l in list_taxa_index ]
             lik = np.sum(np.array(pool_lik.map(lik_DES_taxon, args_mt_lik)))
         else:
             YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
@@ -2525,7 +2534,7 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
                 args_mt_lik = [ [l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp, delta_t,
                         r_vec_Gamma, # Only difference to homogeneous sampling
                         rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
-                        traits, cat, use_Pade_approx] for l in list_taxa_index ]
+                        traits, cat, Pt, use_Pade_approx] for l in list_taxa_index ]
                 liktmp[i,:] = np.array(pool_lik.map(lik_DES_taxon, args_mt_lik))
             liktmpmax = np.amax(liktmp, axis = 0)
             liktmp2 = liktmp - liktmpmax
