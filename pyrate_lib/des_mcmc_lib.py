@@ -6,7 +6,6 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
-#from numpy import *
 import numpy as np
 import scipy
 import scipy.linalg
@@ -19,6 +18,7 @@ np.set_printoptions(suppress=True) # prints floats, no scientific notation
 np.set_printoptions(precision=3) # rounds all array elements to 3rd digit
 import math
 small_number= 1e-5
+#import numba as nb
 
 def update_positive_rate_vec(i, d):
     I=np.random.choice(len(i))
@@ -139,16 +139,38 @@ def calc_likelihood_mQ_compr(args):
     PvDes_final=L[-1,:]
     return np.log(np.sum(PvDes_final))
 
-#def get_eigen_list(Q_list):
-#    L=len(Q_list)
-#    w_list,vl_list,vl_inv_list = [],[],[]
-#    for Q in Q_list:
-#        w, vl = scipy.linalg.eig(Q,left=True, right=False) # w = eigenvalues; vl = eigenvectors
-#        vl_inv = np.linalg.inv(vl)
-#        w_list.append(w)
-#        vl_list.append(vl)
-#        vl_inv_list.append(vl_inv)
-#    return w_list,vl_list,vl_inv_list
+
+def shape_sign_for_fastlik(sl, argsG, gamma_ncat):
+    len_sl = len(sl)
+    new_sl = []
+    for i in range(len_sl):
+        sli = np.array(sl[i])
+        if argsG:
+            s = sli.shape
+            sli2 = np.zeros(s[0] * s[1] * s[2] * gamma_ncat).reshape((s[0], gamma_ncat, s[1], s[2]))
+            for j in range(gamma_ncat):
+                sli2[:, j, :, :] = sli
+            new_sl.append(sli2)
+        else:
+            new_sl.append(sli)
+    return new_sl
+
+
+def shape_r_vec_indexes_for_fastlik(rl, argsG, gamma_ncat):
+    len_rl = len(rl)
+    new_rl = []
+    nbins = len(rl[0])
+    if argsG:
+        for i in range(len_rl):
+            r_vec_ind = np.array(rl[i]).flatten().reshape((nbins, 8)) # Rows: Time, cols: r_indices replicated by gamma categories
+            r_vec_ind = np.tile(r_vec_ind, gamma_ncat)
+            r_vec_ind = r_vec_ind.flatten() + np.repeat(np.arange(0, 4 * nbins * gamma_ncat, 4), 8)
+            new_rl.append(r_vec_ind)
+    else:
+        for i in range(len_rl):
+            r_vec_ind = np.array(rl[i]).flatten() + np.repeat(np.arange(0, 4 * nbins, 4), 8)
+            new_rl.append(r_vec_ind)
+    return new_rl
 
 
 def precompute_Pt(delta_t, w_list, vl_list, vl_inv_list, nTaxa, traits, cat):
@@ -167,6 +189,18 @@ def precompute_Pt(delta_t, w_list, vl_list, vl_inv_list, nTaxa, traits, cat):
     return Pt
 
 
+#def get_eigen_list(Q_list):
+#    L=len(Q_list)
+#    w_list,vl_list,vl_inv_list = [],[],[]
+#    for Q in Q_list:
+#        w, vl = scipy.linalg.eig(Q,left=True, right=False) # w = eigenvalues; vl = eigenvectors
+#        vl_inv = np.linalg.inv(vl)
+#        w_list.append(w)
+#        vl_list.append(vl)
+#        vl_inv_list.append(vl_inv)
+#    return w_list,vl_list,vl_inv_list
+
+
 def get_eigen_list(QT_array):
     # Requires 3D array with transposed Q matrices along axis 0!
     w, vl = np.linalg.eig(QT_array)
@@ -176,41 +210,38 @@ def get_eigen_list(QT_array):
     return w, vl, vl_inv
 
 
+#@nb.njit(fastmath = True, parallel = False)
+#def calc_lik_bin_numba(L, len_rec, Pt_taxon, rho_vec2): # Only tested for -mG model!
+#    m = L[0, :, :].shape[0]
+#    n = Pt_taxon[0, :, :].shape[1]
+#    ncol = L[0, :, :].shape[1]
+#    for j in range(len_rec):
+#        for row_ind in range(m):
+#            for col_ind in range(n):
+#                for k in range(ncol):
+#                    L[j + 1, row_ind, col_ind] += L[j, row_ind, k] * Pt_taxon[j, k, col_ind] * rho_vec2[j, row_ind, col_ind]
+#    return L
+
+
 def calc_likelihood_mQ_eigen_precompute(args):
-    [r_vec_list, rho_at_present, r_vec_indexes, sign_list, sp_OrigTimeIndex, index_r, index_q, last_occ, Pt_taxon] = args
+    [r_vec_list, rho_at_present, r_vec_indexes, sign_list, sp_OrigTimeIndex, index_r, last_occ, Pt_taxon] = args
     recursive = np.arange(sp_OrigTimeIndex, last_occ)[::-1]
     len_rec = len(recursive)
-
+    nbins = len(index_r)
     rho_gamma = r_vec_list[0].ndim > 1
     
+    r_vec = r_vec_list[index_r] # Sampling through time
     r_vec2 = []
-    sign_array = np.array(sign_list)
+    m = r_vec.flatten()[r_vec_indexes]
     if rho_gamma:
         gamma_ncat = r_vec_list[0].shape[0]
-        s = sign_array.shape
-        sign_array2 = np.zeros(s[0] * s[1] * s[2] * gamma_ncat).reshape((s[0], gamma_ncat, s[1], s[2]))
-        for i in range(gamma_ncat):
-            sign_array2[:, i, :, :] = sign_array
-        sign_array = sign_array2
-        for j in range(len_rec):
-            i = recursive[j]
-            r_vec = r_vec_list[index_r[i]]
-            r_ind = r_vec_indexes[i]
-            r = np.zeros((gamma_ncat, 4, 2))
-            for z in range(gamma_ncat):
-                r[z, :, :] = r_vec[z, r_ind]
-            r_vec2.append(r)
+        m = m.reshape((nbins, gamma_ncat, 4, 2))
     else:
-        for j in range(len_rec):
-            i = recursive[j]
-            r_vec = r_vec_list[index_r[i]]
-            r_ind = r_vec_indexes[i]
-            r_vec2.append(r_vec[r_ind])
-    
-    r_vec2 = np.array(r_vec2)
-    rho_vec2 = np.prod(np.abs(sign_array[recursive] - r_vec2), axis = -1)
-    
+        m = m.reshape((nbins, 4, 2))
+
+    rho_vec2 = np.prod(np.abs(sign_list[recursive] - m[recursive]), axis = -1)
     PvDes = rho_at_present
+
     if rho_gamma:
         L = np.zeros((len_rec + 1, gamma_ncat, 4))
         L[0, :, :] = np.tile(PvDes, gamma_ncat).reshape((gamma_ncat, 4))
@@ -226,6 +257,7 @@ def calc_likelihood_mQ_eigen_precompute(args):
         L[j + 1] = (L[j] @ Pt_taxon[j, :, :]) * rho_vec2[j, :]
     
     [calc_lik_bin(j, L) for j in range(len_rec)]
+    #L = calc_lik_bin_numba(L, len_rec, Pt_taxon, rho_vec2)
     
     PvDes_final = L[-1]
     lik_mQ = np.sum(PvDes_final, axis = -1)

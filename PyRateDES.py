@@ -91,7 +91,7 @@ p.add_argument('-thread',   type=int, help='no threads',  default=0)
 p.add_argument('-A3set',    type=float, help='settings for -A 3 ML (stopping criteria: tolerance of parameters and likelihood, maximum iterations*1.25^K, maximum time (in s)) stepwise parameter optimization (1: yes, 0: no))',  default=[1e-2, 1e-4, 1000, 86400, 1], metavar=0, nargs='+')
 p.add_argument('-A3init',   type=float,  help='initial values for maximum likelihood search',  default=[], metavar=0, nargs='+')
 p.add_argument('-ver',      type=int, help='verbose',   default=0, metavar=0)
-p.add_argument('-pade',     type=int, help='0) Matrix decomposition 1) Use Pade approx (slow)', default=0, metavar=0)
+p.add_argument('-pade',     type=int, help='0) Matrix decomposition 1) Use Pade approx (slow) 2) Fast matrix decomposition', default=2, metavar=0)
 p.add_argument('-qtimes',   type=float, help='shift time (Q)',  default=[], metavar=0, nargs='+')
 p.add_argument('-symd',     help='symmetric dispersal rates', action='store_true', default=False)
 p.add_argument('-syme',     help='symmetric extinction rates', action='store_true', default=False)
@@ -831,6 +831,10 @@ for l in range(nTaxa):
     r_vec_indexes_LIST.append(r_vec_indexes)
     sign_list_LIST.append(sign_list)
 #####    
+
+if use_Pade_approx == 2:
+    sign_list_LIST = shape_sign_for_fastlik(sign_list_LIST, argsG, pp_gamma_ncat) # skip when using (slower) calc_likelihood_mQ_eigen
+    r_vec_indexes_LIST = shape_r_vec_indexes_for_fastlik(r_vec_indexes_LIST, argsG, pp_gamma_ncat)
 
 #dis_rate_vec= np.array([.1,.1]  ) #__ np.zeros(nareas)+.5 # np.random.uniform(0,1,nareas)
 #ext_rate_vec= np.array([.005,.005]) #__ np.zeros(nareas)+.05 # np.random.uniform(0,1,nareas)
@@ -2400,26 +2404,22 @@ def lik_DES_taxon(args):
     qwvl_idx = np.arange(0, len_delta_t)
     if traits or cat:
         qwvl_idx = np.arange(0 + l * len_delta_t, len_delta_t + l * len_delta_t)
-    if use_Pade_approx==0:
-        l_temp = calc_likelihood_mQ_eigen_precompute([r_vec, rho_at_present_LIST[l],
-                                                      r_vec_indexes_LIST[l], sign_list_LIST[l], OrigTimeIndex[l],
-                                                      Q_index, Q_index_temp, bin_last_occ[l], Pt[qwvl_idx , :, :]])
-#        Old, 2x slower way
-#        rho_gamma = r_vec[0].ndim > 1
-#        if rho_gamma:
-#            gamma_ncat = r_vec[0].shape[0]
-#            l_temp = np.zeros(gamma_ncat)
-#            for i in range(gamma_ncat):
-#                l_temp[i] = calc_likelihood_mQ_eigen([delta_t, r_vec[:,i,:],
-#                                                      w_list[qwvl_idx,:], vl_list[qwvl_idx,:], vl_inv_list[qwvl_idx,:], rho_at_present_LIST[l],
-#                                                      r_vec_indexes_LIST[l],sign_list_LIST[l], OrigTimeIndex[l],
-#                                                      Q_index, Q_index_temp, bin_last_occ[l]])
-#        else:
-#            l_temp = calc_likelihood_mQ_eigen([delta_t, r_vec,
-#                                               w_list[qwvl_idx,:], vl_list[qwvl_idx,:], vl_inv_list[qwvl_idx,:], rho_at_present_LIST[l],
-#                                               r_vec_indexes_LIST[l],sign_list_LIST[l], OrigTimeIndex[l],
-#                                               Q_index, Q_index_temp, bin_last_occ[l]])
-    else:
+    if use_Pade_approx == 0:
+        rho_gamma = r_vec[0].ndim > 1
+        if rho_gamma:
+            gamma_ncat = r_vec[0].shape[0]
+            l_temp = np.zeros(gamma_ncat)
+            for i in range(gamma_ncat):
+                l_temp[i] = calc_likelihood_mQ_eigen([delta_t, r_vec[:,i,:],
+                                                      w_list[qwvl_idx,:], vl_list[qwvl_idx,:], vl_inv_list[qwvl_idx,:], rho_at_present_LIST[l],
+                                                      r_vec_indexes_LIST[l],sign_list_LIST[l], OrigTimeIndex[l],
+                                                      Q_index, Q_index_temp, bin_last_occ[l]])
+        else:
+            l_temp = calc_likelihood_mQ_eigen([delta_t, r_vec,
+                                               w_list[qwvl_idx,:], vl_list[qwvl_idx,:], vl_inv_list[qwvl_idx,:], rho_at_present_LIST[l],
+                                               r_vec_indexes_LIST[l],sign_list_LIST[l], OrigTimeIndex[l],
+                                               Q_index, Q_index_temp, bin_last_occ[l]])
+    elif use_Pade_approx == 1:
         rho_gamma = r_vec[0].ndim > 1
         if rho_gamma:
             gamma_ncat = r_vec[0].shape[0]
@@ -2432,6 +2432,11 @@ def lik_DES_taxon(args):
             l_temp = calc_likelihood_mQ([delta_t, r_vec, Q_list[qwvl_idx,:], rho_at_present_LIST[l],
                                          r_vec_indexes_LIST[l], sign_list_LIST[l], OrigTimeIndex[l],
                                          Q_index, Q_index_temp, bin_last_occ[l]])
+    if use_Pade_approx == 2:
+        l_temp = calc_likelihood_mQ_eigen_precompute([r_vec, rho_at_present_LIST[l],
+                                                      r_vec_indexes_LIST[l], sign_list_LIST[l], OrigTimeIndex[l],
+                                                      Q_index, bin_last_occ[l], Pt[qwvl_idx , :, :]])
+
     return(l_temp)
 
 # Start pool after defining function
@@ -2478,9 +2483,11 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
     s0,s1,s2 = Q_list.shape
     Q_list.reshape(s0,-1)[:,::s2+1] = col_sum
     Pt = None
-    if use_Pade_approx==0:
-        w_list,vl_list,vl_inv_list = get_eigen_list(Q_list)
+    if use_Pade_approx in [0, 2]:
+        w_list, vl_list, vl_inv_list = get_eigen_list(Q_list)
+    if use_Pade_approx == 2:
         Pt = precompute_Pt(delta_t, w_list, vl_list, vl_inv_list, nTaxa, traits, cat)
+        #Pt = np.asfortranarray(Pt) # Faster for numba?
     if num_processes==0:
         lik = 0
         if argsG is False:
@@ -2497,8 +2504,8 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
                 lik += lik_tmp
         else:
             liktmp = np.zeros((pp_gamma_ncat, nTaxa)) # row: ncat column: species
+            YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
             for l in list_taxa_index:
-                YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
                 #lik_vec = np.zeros(pp_gamma_ncat)
                 r_vec2 = np.copy(r_vec)
                 if do_traitS:
