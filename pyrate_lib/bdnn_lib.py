@@ -81,7 +81,10 @@ def export_trait_tbl(trait_tbls, names_features, output_wd):
     num_tbls = len(trait_tbls[0])
     digits_file_name = "{:0%sd}" % len(str(num_tbls))
     for i in range(num_tbls):
-        tbl_df = pd.DataFrame(trait_tbls[0][i], columns = names_features)
+        tbl = trait_tbls[0][i]
+        if 'time' in names_features:
+            tbl = tbl[:, :-1]
+        tbl_df = pd.DataFrame(tbl, columns = names_features[0:tbl.shape[1]])
         file_name = str(digits_file_name.format(i + 1)) + ".txt"
         tbl_df_file = os.path.join(path_predictors, file_name)
         tbl_df.to_csv(tbl_df_file, index = False, sep ='\t')

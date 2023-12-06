@@ -108,3 +108,8 @@ The following example uses custom tables with humans being present during the pa
 python PyRate.py .../Carnivora_occs.py -fixShift .../Time_windows.txt -BDNNmodel 1 -BDNNpath_taxon_time_tables .../load_predictors/speciation .../load_predictors/extinction -qShift .../Stages.txt -mG -A 0  -s 10 -n 1000
 ```
 
+To help settin-up the correct number of custum tables and getting their format right, PyRate allows to export the tables containing traits and environmental predictors from an BDNN analysis. These tables could than be modified using a text editor or spreadsheet software.
+```
+python PyRate.py .../Carnivora_occs.py -fixShift .../Time_windows.txt -BDNNmodel 1 -BDNNtimevar .../Paleotemperature.txt -qShift .../Stages.txt -mG -A 0 -trait_file .../Traits.txt -BDNNexport_taxon_time_tables
+```
+
