@@ -75,6 +75,19 @@ def load_trait_tbl(path):
     return loaded_trait_tbls, colnames, time_variable_pred, invariant_pred
 
 
+def export_trait_tbl(trait_tbls, names_features, output_wd):
+    path_predictors = os.path.join(output_wd, 'BDNN_predictors')
+    os.makedirs(path_predictors, exist_ok = True)
+    num_tbls = len(trait_tbls[0])
+    digits_file_name = "{:0%sd}" % len(str(num_tbls))
+    for i in range(num_tbls):
+        tbl_df = pd.DataFrame(trait_tbls[0][i], columns = names_features)
+        file_name = str(digits_file_name.format(i + 1)) + ".txt"
+        tbl_df_file = os.path.join(path_predictors, file_name)
+        tbl_df.to_csv(tbl_df_file, index = False, sep ='\t')
+    return path_predictors
+
+
 def summarize_rate(r, n_rates):
     r_sum = np.zeros((n_rates, 3))
     r_sum[:, 0] = np.nanmean(r, axis = 0)
@@ -1449,20 +1462,29 @@ def get_prob_inter_bin_con_trait(rates_eff, state0):
 
 def get_prob_discr_ord(cond_rates_eff, names, names_states):
     # discrete and ordinal features
-    n = len(names_states) #cond_rates_eff.shape[0]
+    n = len(names_states)
     all_combinations = list(combinations(np.arange(n), 2))
     n_comb = len(all_combinations)
-    p = np.zeros((n_comb, 8))
-    p[:] = np.nan
-    p_df = pd.DataFrame(p)
+    col0 = []
+    col1 = []
+    col2 = []
+    col3 = []
+    col4 = []
+    col5 = []
+    col6 = []
+    col7 = []
     for j in range(n_comb):
         l = list(all_combinations[j])
-        p_df.loc[j, 0] = names
-        p_df.loc[j, 1] = 'none'
-        p_df.loc[j, 2] = str(names_states[l[0]]) + '_' + str(names_states[l[1]])
-        p_df.loc[j, 3] = 'none'
-        p_df.loc[j, 4:] = get_prob_1_bin_trait(cond_rates_eff[l,:])
-    p_df.columns = ['0', '1', '2', '3', '4', '5', '6', '7']
+        col0.append(names)
+        col1.append('none')
+        col2.append(str(names_states[l[0]]) + '_' + str(names_states[l[1]]))
+        col3.append('none')
+        p = get_prob_1_bin_trait(cond_rates_eff[l,:])
+        col4.append(p[0])
+        col5.append(p[1])
+        col6.append(p[2])
+        col7.append(p[3])
+    p_df = pd.DataFrame({'0': col0, '1': col1, '2': col2, '3': col3, '4': col4, '5': col5, '6': col6, '7': col7})
     return p_df
 
 
@@ -1525,9 +1547,14 @@ def get_prob_inter_cont_discr_ord(cond_rates_eff, trait_tbl_eff, names_cont, nam
     n = len(names_states)
     all_combinations = list(combinations(np.arange(n), 2))
     n_comb = len(all_combinations)
-    p = np.zeros((n_comb, 8))
-    p[:] = np.nan
-    p_df = pd.DataFrame(p)
+    col0 = []
+    col1 = []
+    col2 = []
+    col3 = []
+    col4 = []
+    col5 = []
+    col6 = []
+    col7 = []
     for j in range(n_comb):
         l = list(all_combinations[j])
         if trait_tbl_eff.shape[1] > 2:
@@ -1545,12 +1572,16 @@ def get_prob_inter_cont_discr_ord(cond_rates_eff, trait_tbl_eff, names_cont, nam
             state0 = trait_tbl_j[:, l[0] + 1] == 1
         else:
             state0 = trait_tbl_j[:, 1] == l[0]
-        p_df.loc[j, 0] = names_cont
-        p_df.loc[j, 1] = names_discr_ord
-        p_df.loc[j, 2] = 'none'
-        p_df.loc[j, 3] = str(names_states[l[0]]) + '_' + str(names_states[l[1]])
-        p_df.loc[j, 4:] = get_prob_inter_bin_con_trait(cond_rates_eff_j, state0)
-    p_df.columns = ['0', '1', '2', '3', '4', '5', '6', '7']
+        col0.append(names_cont)
+        col1.append(names_discr_ord)
+        col2.append('none')
+        col3.append(str(names_states[l[0]]) + '_' + str(names_states[l[1]]))
+        p = get_prob_inter_bin_con_trait(cond_rates_eff_j, state0)
+        col4.append(p[0])
+        col5.append(p[1])
+        col6.append(p[2])
+        col7.append(p[3])
+    p_df = pd.DataFrame({'0': col0, '1': col1, '2': col2, '3': col3, '4': col4, '5': col5, '6': col6, '7': col7})
     return p_df
 
 
@@ -3789,8 +3820,6 @@ def highest_pvalue_from_interaction(p):
 def get_same_order(pv, sh, fp):
     pv_reord = highest_pvalue_from_interaction(pv)
     nrows = len(pv_reord)
-    sh_reord = pd.DataFrame(columns = ['feature1', 'feature2', 'shap', 'lwr_shap', 'upr_shap'])
-    fp_reord = pd.DataFrame(columns = ['feature1', 'feature2', 'delta_lik', 'lwr_delta_lik', 'upr_delta_lik'])
     for i in range(nrows):
         sh_tmp = sh[(sh['feature1'] == pv_reord.loc[i, 'feature1']) &
                     (sh['feature2'] == pv_reord.loc[i, 'feature2']) |
@@ -3800,8 +3829,12 @@ def get_same_order(pv, sh, fp):
                     (fp['feature2'] == pv_reord.loc[i, 'feature2']) |
                     (fp['feature1'] == pv_reord.loc[i, 'feature2']) &
                     (fp['feature2'] == pv_reord.loc[i, 'feature1'])]
-        sh_reord = pd.concat([sh_reord, sh_tmp], axis = 0, ignore_index = True)
-        fp_reord = pd.concat([fp_reord, fp_tmp], axis = 0, ignore_index = True)
+        if i == 0:
+            sh_reord = sh_tmp
+            fp_reord = fp_tmp
+        else:
+            sh_reord = pd.concat([sh_reord, sh_tmp], axis = 0, ignore_index = True)
+            fp_reord = pd.concat([fp_reord, fp_tmp], axis = 0, ignore_index = True)
     return pv_reord, sh_reord, fp_reord
 
 
@@ -3838,9 +3871,6 @@ def rank_features(pv_reord, sh_reord, fp_reord):
 
 def merge_results_feat_import(pv, sh, fp, rr):
     nrows = len(pv)
-    sh_merge = pd.DataFrame(columns = ['shap', 'lwr_shap', 'upr_shap'])
-    fp_merge = pd.DataFrame(columns = ['delta_lik', 'lwr_delta_lik', 'upr_delta_lik'])
-    rr_merge = pd.DataFrame(columns = ['rank'])
     for i in range(nrows):
         pv_feat1 = pv.loc[i, 'feature1']
         pv_feat2 = pv.loc[i, 'feature2']
@@ -3856,9 +3886,14 @@ def merge_results_feat_import(pv, sh, fp, rr):
                     (rr['feature2'] == pv_feat2) |
                     (rr['feature1'] == pv_feat2) &
                     (rr['feature2'] == pv_feat1)]
-        sh_merge = pd.concat([sh_merge, sh_tmp[['shap', 'lwr_shap', 'upr_shap']]], axis = 0, ignore_index = True)
-        fp_merge = pd.concat([fp_merge, fp_tmp[['delta_lik', 'lwr_delta_lik', 'upr_delta_lik']]], axis = 0, ignore_index = True)
-        rr_merge = pd.concat([rr_merge, rr_tmp[['rank']]], axis = 0, ignore_index = True)
+        if i == 0:
+            sh_merge = sh_tmp[['shap', 'lwr_shap', 'upr_shap']]
+            fp_merge = fp_tmp[['delta_lik', 'lwr_delta_lik', 'upr_delta_lik']]
+            rr_merge = rr_tmp[['rank']]
+        else:
+            sh_merge = pd.concat([sh_merge, sh_tmp[['shap', 'lwr_shap', 'upr_shap']]], axis = 0, ignore_index = True)
+            fp_merge = pd.concat([fp_merge, fp_tmp[['delta_lik', 'lwr_delta_lik', 'upr_delta_lik']]], axis = 0, ignore_index = True)
+            rr_merge = pd.concat([rr_merge, rr_tmp[['rank']]], axis = 0, ignore_index = True)
     merged = pd.concat([pv, sh_merge, fp_merge, rr_merge], axis = 1)
     return merged
 

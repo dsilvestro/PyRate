@@ -4426,6 +4426,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNblockmodel',help='Block NN model', action='store_true', default=False)
     p.add_argument('-BDNNtimevar', type=str, help='Time variable file (e.g. PhanerozoicTempSmooth.txt), several variable in different columns possible', default="", metavar="")
     p.add_argument('-BDNNpath_taxon_time_tables', type=str, help='Path to director(y|ies) with table(s) of taxon-time specific predictors. One path for identical speciation/extinction predictors, two paths if they differ.', default=["", ""], nargs='+')
+    p.add_argument('-BDNNexport_taxon_time_tables', help='Export BDNN predictors. Creates a new directory with one text file per time bin (from most recent to earliest).', action='store_true', default=False)
     p.add_argument('-BDNNupdate_f', type=float, help='fraction of updated weights', default=[0.1], metavar=[0.1], nargs='+')
     p.add_argument('-BDNNdd', help='Diversity-dependent BDNN', action='store_true', default=False)
     p.add_argument('-BDNNpklfile', type=str, help='Load BDNN pickle file', default="", metavar="")
@@ -5652,6 +5653,7 @@ if __name__ == '__main__':
             #     print(i.shape, i[10,:])
             # quit()
             #---
+            
             has_loaded_invariant_pred = False
             if len(bdnn_loaded_invariant_pred) > 0:
                 has_loaded_invariant_pred = np.sum(np.concatenate(bdnn_loaded_invariant_pred)) > 0
@@ -5908,6 +5910,11 @@ if __name__ == '__main__':
             names_features += ['diversity']
         if bdnn_timevar or use_time_as_trait:
             names_features += ['time']
+        
+        if args.BDNNexport_taxon_time_tables:
+            import pyrate_lib.bdnn_lib as bdnn_lib
+            path_predictors = bdnn_lib.export_trait_tbl(trait_tbl_NN, names_features, output_wd)
+            sys.exit("BDNN predictors export into %s" % path_predictors)
         
         # store fad/lad 
         sp_fad_lad = []
