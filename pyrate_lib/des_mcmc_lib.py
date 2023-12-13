@@ -8,17 +8,16 @@ os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import numpy as np
 import scipy
-import scipy.linalg
+import scipy.linalg as linalg
 from des_model_lib import *
 from mcmc_lib import *
-linalg = scipy.linalg
 import scipy.stats
 import random as rand
 np.set_printoptions(suppress=True) # prints floats, no scientific notation
 np.set_printoptions(precision=3) # rounds all array elements to 3rd digit
 import math
 small_number= 1e-5
-#import numba as nb
+
 
 def update_positive_rate_vec(i, d):
     I=np.random.choice(len(i))
@@ -210,75 +209,83 @@ def get_eigen_list(QT_array):
     return w, vl, vl_inv
 
 
-#@nb.njit(fastmath = True, parallel = False)
-#def calc_lik_bin_numba(L, len_rec, Pt_taxon, rho_vec2): # Only tested for -mG model!
-#    m = L[0, :, :].shape[0]
-#    n = Pt_taxon[0, :, :].shape[1]
-#    ncol = L[0, :, :].shape[1]
-#    for j in range(len_rec):
-#        for row_ind in range(m):
-#            for col_ind in range(n):
-#                for k in range(ncol):
-#                    L[j + 1, row_ind, col_ind] += L[j, row_ind, k] * Pt_taxon[j, k, col_ind] * rho_vec2[j, row_ind, col_ind]
-#    return L
+# If numba is installed, use compiled matrix product (20% faster likelihood calculation than with numpy)
+try:
+    import numba as nb
+    @nb.njit(fastmath = True, parallel = False)
+    def calc_lik_bin(L, len_rec, Pt_taxon, rho_vec2):
+        for j in range(len_rec):
+            for col_ind in range(4):
+                for k in range(4):
+                    L[j + 1, col_ind] += L[j, k] * Pt_taxon[j, k, col_ind]
+                L[j + 1, col_ind] = L[j + 1, col_ind] * rho_vec2[j, col_ind]
+        return L
+
+    @nb.njit(fastmath = True, parallel = False) #['(float64[:,:,:], int64, float64[:,:,:], float64[:,:])']
+    def calc_lik_bin_gamma(L, len_rec, Pt_taxon, rho_vec2, ncat):
+        for j in range(len_rec):
+            for row_ind in range(ncat):
+                for col_ind in range(4):
+                    for k in range(4):
+                        L[j + 1, row_ind, col_ind] += L[j, row_ind, k] * Pt_taxon[j, k, col_ind]
+                    L[j + 1, row_ind, col_ind] = L[j + 1, row_ind, col_ind] * rho_vec2[j, row_ind, col_ind]
+        return L
+
+except:
+    def calc_lik_bin(L, len_rec, Pt_taxon, rho_vec2):
+        for j in range(len_rec):
+            L[j + 1] = (L[j] @ Pt_taxon[j, :, :]) * rho_vec2[j, :]
+        return L
+
+    def calc_lik_bin_gamma(L, len_rec, Pt_taxon, rho_vec2, ncat):
+        for j in range(len_rec):
+            #PvDes_temp = L[j]
+            #condLik_temp = PvDes_temp @ Pt_taxon[j, :, :]
+            #PvDes = condLik_temp * rho_vec2[j, :]
+            L[j + 1] = (L[j] @ Pt_taxon[j, :, :]) * rho_vec2[j, :]
+        return L
 
 
 def calc_likelihood_mQ_eigen_precompute(args):
-    [r_vec_list, rho_at_present, r_vec_indexes, sign_list, sp_OrigTimeIndex, index_r, last_occ, Pt_taxon] = args
-    recursive = np.arange(sp_OrigTimeIndex, last_occ)[::-1]
+    [r_vec, rho_at_present, r_vec_indexes, sign_list, recursive, Pt_taxon] = args
     len_rec = len(recursive)
-    nbins = len(index_r)
-    rho_gamma = r_vec_list[0].ndim > 1
-    
-    r_vec = r_vec_list[index_r] # Sampling through time
-    r_vec2 = []
+    nbins = len(sign_list)
+    rho_gamma = r_vec[0].ndim > 1
     m = r_vec.flatten()[r_vec_indexes]
     if rho_gamma:
-        gamma_ncat = r_vec_list[0].shape[0]
+        gamma_ncat = r_vec[0].shape[0]
         m = m.reshape((nbins, gamma_ncat, 4, 2))
     else:
         m = m.reshape((nbins, 4, 2))
 
     rho_vec2 = np.prod(np.abs(sign_list[recursive] - m[recursive]), axis = -1)
-    PvDes = rho_at_present
 
     if rho_gamma:
         L = np.zeros((len_rec + 1, gamma_ncat, 4))
-        L[0, :, :] = np.tile(PvDes, gamma_ncat).reshape((gamma_ncat, 4))
+        L[0, :, :] = np.tile(rho_at_present, gamma_ncat).reshape((gamma_ncat, 4))
+        L = calc_lik_bin_gamma(L, len_rec, Pt_taxon, rho_vec2, gamma_ncat)
     else:
         L = np.zeros((len_rec + 1, 4))
-        L[0, :] = PvDes
+        L[0, :] = rho_at_present
+        L = calc_lik_bin(L, len_rec, Pt_taxon, rho_vec2)
     
-    def calc_lik_bin(j, L):
-        #PvDes_temp = L[j]
-        #condLik_temp = PvDes_temp @ Pt_taxon[j, :, :]
-        #PvDes = condLik_temp * rho_vec2[j, :]
-        #L[j + 1] = PvDes
-        L[j + 1] = (L[j] @ Pt_taxon[j, :, :]) * rho_vec2[j, :]
-    
-    [calc_lik_bin(j, L) for j in range(len_rec)]
-    #L = calc_lik_bin_numba(L, len_rec, Pt_taxon, rho_vec2)
-    
-    PvDes_final = L[-1]
-    lik_mQ = np.sum(PvDes_final, axis = -1)
-    if np.any(lik_mQ <= 0):
-        return -np.inf
+    lik_mQ = np.sum(L[-1], axis = -1)
+    if np.any(lik_mQ > 0):
+        return lik_mQ
     else: 
-        return np.log(lik_mQ)
+        return -np.inf
 
 
 def calc_likelihood_mQ_eigen(args):
-    [delta_t,r_vec_list,w_list,vl_list,vl_inv_list,rho_at_present,r_vec_indexes,sign_list,sp_OrigTimeIndex,index_r,index_q,last_occ]=args
+    [delta_t,r_vec_list,w_list,vl_list,vl_inv_list,rho_at_present,r_vec_indexes,sign_list,recursive,index_r,index_q]=args
     PvDes= rho_at_present
-    #recursive = np.arange(sp_OrigTimeIndex,len(delta_t))[::-1]
-    recursive = np.arange(sp_OrigTimeIndex, last_occ)[::-1]
     L = np.zeros((len(recursive)+1,4))
     L[0,:]=PvDes
     
     def calc_lik_bin(j,L):
         i = recursive[j]
         ind_Q = index_q[i]
-        r_vec=r_vec_list[index_r[i]]
+        r_vec=r_vec_list[i]#r_vec_list[index_r[i]]
         t=delta_t[i] 
         r_ind= r_vec_indexes[i]
         sign=  sign_list[i]
@@ -299,7 +306,7 @@ def calc_likelihood_mQ_eigen(args):
         #print np.sum(PvDes_final), list(PvDes_final)
         return -np.inf
     else: 
-        return np.log(np.sum(PvDes_final))
+        return np.sum(PvDes_final)
 
 
 def calc_likelihood_mQ_eigen_aprx(args):
@@ -368,15 +375,13 @@ def calc_likelihood_mQ_eigen_aprx(args):
 
 
 def calc_likelihood_mQ(args):
-    [delta_t,r_vec_list,Q_list,rho_at_present,r_vec_indexes,sign_list,sp_OrigTimeIndex,index_r,index_q,last_occ]=args
+    [delta_t,r_vec_list,Q_list,rho_at_present,r_vec_indexes,sign_list,recursive,index_r,index_q]=args
     PvDes= rho_at_present
     #print rho_at_present
-    #recursive = np.arange(sp_OrigTimeIndex,len(delta_t))[::-1]
-    recursive = np.arange(sp_OrigTimeIndex, last_occ)[::-1]
     for i in recursive:
         #print "here",i, Q_index[i]
         Q = Q_list[index_q[i],:]
-        r_vec=r_vec_list[index_r[i]]
+        r_vec=r_vec_list[i]#r_vec_list[index_r[i]]
         # get time span
         t=delta_t[i] 
         # get rho vector
@@ -392,7 +397,7 @@ def calc_likelihood_mQ(args):
     if np.sum(PvDes) <= 0: 
         print(np.sum(PvDes), list(PvDes))
     
-    return np.log(np.sum(PvDes))
+    return np.sum(PvDes)
 
 
 

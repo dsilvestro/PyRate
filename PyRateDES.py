@@ -1,16 +1,15 @@
 #!/usr/bin/env python 
 # Created by Daniele Silvestro on 04/04/2018 => pyrate.help@gmail.com 
-import os,csv,platform
+import os, csv, platform
 # Prevent blas from using all CPU cores
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
-import argparse, os,sys, glob, time
+import argparse, sys, glob, time
 import math
 import fnmatch
-#from numpy import *
 import numpy as np
 import scipy
 import scipy.linalg
@@ -51,6 +50,7 @@ except:
     mcmc_lib = SourceFileLoader("mcmc_lib", "%s/pyrate_lib/des_mcmc_lib.py" % (self_path)).load_module()
     lib_DD_likelihood = SourceFileLoader("lib_DD_likelihood", "%s/pyrate_lib/lib_DD_likelihood.py" % (self_path)).load_module()
     lib_utilities = SourceFileLoader("lib_utilities", "%s/pyrate_lib/lib_utilities.py" % (self_path)).load_module()
+
 
 from des_model_lib import *
 from mcmc_lib import *
@@ -197,6 +197,7 @@ np.random.seed(rseed)
 verbose= args.ver
 if verbose == 1:
     print("Random seed: ", rseed)
+
 
 # generate DES input
 if args.fossil != "":
@@ -836,6 +837,9 @@ if use_Pade_approx == 2:
     sign_list_LIST = shape_sign_for_fastlik(sign_list_LIST, argsG, pp_gamma_ncat) # skip when using (slower) calc_likelihood_mQ_eigen
     r_vec_indexes_LIST = shape_r_vec_indexes_for_fastlik(r_vec_indexes_LIST, argsG, pp_gamma_ncat)
 
+recursive_LIST = []
+for i in range(nTaxa):
+    recursive_LIST.append(np.arange(OrigTimeIndex[i], bin_last_occ[i])[::-1])
 #dis_rate_vec= np.array([.1,.1]  ) #__ np.zeros(nareas)+.5 # np.random.uniform(0,1,nareas)
 #ext_rate_vec= np.array([.005,.005]) #__ np.zeros(nareas)+.05 # np.random.uniform(0,1,nareas)
 #r_vec= np.array([0]+list(np.zeros(nareas)+0.001) +[1])
@@ -2398,7 +2402,7 @@ def get_marginal_traitrate(baserate, nTaxa, pres, traits, cont_trait, cont_trait
 # Avoid code redundancy in mcmc and maximum likelihood
 def lik_DES_taxon(args):
     [l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp,
-    delta_t, r_vec, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
+    delta_t, r_vec, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, recursive_LIST, Q_index,
     traits, cat, Pt, use_Pade_approx] = args
     len_delta_t = len(delta_t)
     qwvl_idx = np.arange(0, len_delta_t)
@@ -2412,13 +2416,13 @@ def lik_DES_taxon(args):
             for i in range(gamma_ncat):
                 l_temp[i] = calc_likelihood_mQ_eigen([delta_t, r_vec[:,i,:],
                                                       w_list[qwvl_idx,:], vl_list[qwvl_idx,:], vl_inv_list[qwvl_idx,:], rho_at_present_LIST[l],
-                                                      r_vec_indexes_LIST[l],sign_list_LIST[l], OrigTimeIndex[l],
-                                                      Q_index, Q_index_temp, bin_last_occ[l]])
+                                                      r_vec_indexes_LIST[l],sign_list_LIST[l], recursive_LIST[l],
+                                                      Q_index, Q_index_temp])
         else:
             l_temp = calc_likelihood_mQ_eigen([delta_t, r_vec,
                                                w_list[qwvl_idx,:], vl_list[qwvl_idx,:], vl_inv_list[qwvl_idx,:], rho_at_present_LIST[l],
-                                               r_vec_indexes_LIST[l],sign_list_LIST[l], OrigTimeIndex[l],
-                                               Q_index, Q_index_temp, bin_last_occ[l]])
+                                               r_vec_indexes_LIST[l],sign_list_LIST[l], recursive_LIST[l],
+                                               Q_index, Q_index_temp])
     elif use_Pade_approx == 1:
         rho_gamma = r_vec[0].ndim > 1
         if rho_gamma:
@@ -2426,16 +2430,16 @@ def lik_DES_taxon(args):
             l_temp = np.zeros(gamma_ncat)
             for i in range(gamma_ncat):
                 l_temp[i] = calc_likelihood_mQ([delta_t, r_vec[:,i,:], Q_list[qwvl_idx,:], rho_at_present_LIST[l],
-                                                r_vec_indexes_LIST[l], sign_list_LIST[l], OrigTimeIndex[l],
-                                                Q_index, Q_index_temp, bin_last_occ[l]])
+                                                r_vec_indexes_LIST[l], sign_list_LIST[l], recursive_LIST[l],
+                                                Q_index, Q_index_temp])
         else:
             l_temp = calc_likelihood_mQ([delta_t, r_vec, Q_list[qwvl_idx,:], rho_at_present_LIST[l],
-                                         r_vec_indexes_LIST[l], sign_list_LIST[l], OrigTimeIndex[l],
-                                         Q_index, Q_index_temp, bin_last_occ[l]])
+                                         r_vec_indexes_LIST[l], sign_list_LIST[l], recursive_LIST[l],
+                                         Q_index, Q_index_temp])
     if use_Pade_approx == 2:
         l_temp = calc_likelihood_mQ_eigen_precompute([r_vec, rho_at_present_LIST[l],
-                                                      r_vec_indexes_LIST[l], sign_list_LIST[l], OrigTimeIndex[l],
-                                                      Q_index, bin_last_occ[l], Pt[qwvl_idx , :, :]])
+                                                      r_vec_indexes_LIST[l], sign_list_LIST[l], recursive_LIST[l],
+                                                      Pt[qwvl_idx , :, :]])
 
     return(l_temp)
 
@@ -2445,7 +2449,7 @@ if use_seq_lik is True:
 if num_processes>0:
     pool_lik = multiprocessing.Pool(num_processes) # likelihood
 
-def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time_var_e2, diversity_d1, diversity_d2, diversity_e1, diversity_e2, dis_into_1, dis_into_2, covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex,Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, bin_last_occ, traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, catE, cat_parE, do_traitS, trait_parS, traitS, list_taxa_index, nTaxa):
+def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time_var_e2, diversity_d1, diversity_d2, diversity_e1, diversity_e2, dis_into_1, dis_into_2, covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE, transf_d, transf_e, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, recursive_LIST, Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, catE, cat_parE, do_traitS, trait_parS, traitS, list_taxa_index, nTaxa):
     # weight per gamma cat per species: multiply 
     weight_per_taxon = np.ones((pp_gamma_ncat, nTaxa)) / pp_gamma_ncat
     Q_list = np.zeros(1)
@@ -2487,47 +2491,43 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
         w_list, vl_list, vl_inv_list = get_eigen_list(Q_list)
     if use_Pade_approx == 2:
         Pt = precompute_Pt(delta_t, w_list, vl_list, vl_inv_list, nTaxa, traits, cat)
-        #Pt = np.asfortranarray(Pt) # Faster for numba?
     if num_processes==0:
         lik = 0
+        idx_r_vec_traits = [1,2]
         if argsG is False:
             for l in list_taxa_index:
-                r_vec2 = np.copy(r_vec)
+                r_vec2 = np.copy(r_vec)[Q_index]
+                r_vec_traits = np.copy(r_vec2)
                 if do_traitS:
-                    idx_r_vec2 = [1,2]
-                    r_vec2_rate = -np.log(r_vec2[:,idx_r_vec2])/bin_size
+                    r_vec2_rate = -np.log(r_vec_traits[:,idx_r_vec_traits])/bin_size
                     r_vec2_rate = r_vec2_rate * np.exp(np.sum(trait_parS * traitS[l]))
-                    r_vec2[:,idx_r_vec2] = np.exp(-bin_size * r_vec2_rate)
+                    r_vec2[:,idx_r_vec_traits] = np.exp(-bin_size * r_vec2_rate)
                 lik_tmp = lik_DES_taxon([l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp, delta_t,
-                                         r_vec2, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
+                                         r_vec2, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, recursive_LIST, Q_index,
                                          traits, cat, Pt, use_Pade_approx])
-                lik += lik_tmp
+                lik += math.log(lik_tmp) # faster than numpy log for scalars
         else:
             liktmp = np.zeros((pp_gamma_ncat, nTaxa)) # row: ncat column: species
             YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
+            r_vec2 = np.copy(r_vec)[Q_index]
+            r_vec_Gamma_all = np.zeros((r_vec2.shape[0], pp_gamma_ncat, 4)) # sampling strata (-qtimes), gamma cats, 4
+            for i in range(pp_gamma_ncat):
+                r_vec_Gamma_all[:,i,:] = np.exp(-bin_size * YangGamma[i] * -np.log(r_vec2)/bin_size)
+            r_vec_Gamma_all[:,:,0] = 0.0
+            r_vec_Gamma_all[:,:,3] = 1.0
+            if args.data_in_area == 1:
+                r_vec_Gamma_all[:,:,2] = small_number
+            elif args.data_in_area == 2:
+                r_vec_Gamma_all[:,:,1] = small_number
+            r_vec_Gamma_traits = np.copy(r_vec_Gamma_all)
             for l in list_taxa_index:
-                #lik_vec = np.zeros(pp_gamma_ncat)
-                r_vec2 = np.copy(r_vec)
                 if do_traitS:
-                    idx_r_vec2 = [1,2]
-                    r_vec2[:,idx_r_vec2] = np.exp(-bin_size * np.exp(np.sum(trait_parS * traitS[l])) * -np.log(r_vec2[:,idx_r_vec2])/bin_size)
-#                a = -np.log(r_vec2)/bin_size
-#                b = np.tile(a, pp_gamma_ncat).reshape((pp_gamma_ncat, r_vec2.shape[0], 4))
-#                c = np.repeat(-bin_size * YangGamma, pp_gamma_ncat * r_vec2.shape[0]).reshape((pp_gamma_ncat, r_vec2.shape[0], 4))
-#                r_vec_Gamma_all = np.exp(c * b)
-                r_vec_Gamma_all = np.zeros((r_vec2.shape[0], pp_gamma_ncat, 4)) # sampling strata (-qtimes), gamma cats, 4
-                for i in range(pp_gamma_ncat):
-                    r_vec_Gamma_all[:,i,:] = np.exp(-bin_size * YangGamma[i] * -np.log(r_vec2)/bin_size)
-                r_vec_Gamma_all[:,:,0] = 0.0
-                r_vec_Gamma_all[:,:,3] = 1.0
-                if args.data_in_area == 1:
-                    r_vec_Gamma_all[:,:,2] = small_number
-                elif args.data_in_area == 2:
-                    r_vec_Gamma_all[:,:,1] = small_number
+                    r_vec_Gamma_all[:,:,idx_r_vec_traits] = np.exp(-bin_size * np.exp(np.sum(trait_parS * traitS[l])) * -np.log(r_vec_Gamma_traits[:,:,idx_r_vec_traits])/bin_size)
                 liktmp[:, l] = lik_DES_taxon([l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp, delta_t,
                                               r_vec_Gamma_all, # Only difference to homogeneous sampling
-                                              rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
+                                              rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, recursive_LIST, Q_index,
                                               traits, cat, Pt, use_Pade_approx])
+            liktmp = np.log(liktmp)
             liktmpmax = np.amax(liktmp, axis = 0)
             liktmp2 = liktmp - liktmpmax
             lik = np.sum(np.log(np.sum( np.exp(liktmp2), axis = 0 )/pp_gamma_ncat) + liktmpmax)
@@ -2537,15 +2537,16 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
     else: # multi=processing
         sys.exit("Multi-threading not available") # Not working on windows and massive slow down on linux
         if argsG is False:
+            r_vec2 = np.copy(r_vec)[Q_index]
             args_mt_lik = [ [l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp, delta_t,
-                             r_vec,
-                             rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
+                             r_vec2,
+                             rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, recursive_LIST, Q_index,
                              traits, cat, Pt, use_Pade_approx] for l in list_taxa_index ]
             lik = np.sum(np.array(pool_lik.map(lik_DES_taxon, args_mt_lik)))
         else:
             liktmp = np.zeros((pp_gamma_ncat, nTaxa)) # row: ncat column: species
             YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
-            r_vec2 = np.copy(r_vec)
+            r_vec2 = np.copy(r_vec)[Q_index]
             r_vec_Gamma_all = np.zeros((r_vec2.shape[0], pp_gamma_ncat, 4)) # sampling strata (-qtimes), gamma cats, 4
             for i in range(pp_gamma_ncat):
                 r_vec_Gamma_all[:,i,:] = np.exp(-bin_size * YangGamma[i] * -np.log(r_vec2)/bin_size)
@@ -2557,9 +2558,10 @@ def lik_DES(dis_vec, ext_vec, r_vec, time_var_d1, time_var_d2, time_var_e1, time
                 r_vec_Gamma_all[:,:,1] = small_number
             args_mt_lik = [ [l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp, delta_t,
                              r_vec_Gamma_all, # Only difference to homogeneous sampling
-                             rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, OrigTimeIndex, Q_index, bin_last_occ,
+                             rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, recursive_LIST, Q_index,
                              traits, cat, Pt, use_Pade_approx] for l in list_taxa_index ]
             liktmp = np.array(pool_lik.map(lik_DES_taxon, args_mt_lik))
+            liktmp = np.log(liktmp)
             liktmp = liktmp.T
             liktmpmax = np.amax(liktmp, axis = 0)
             liktmp2 = liktmp - liktmpmax
@@ -2816,8 +2818,8 @@ def lik_opt(x, grad):
                         diversity_d1, diversity_d2, diversity_e1, diversity_e2, dis_into_1, dis_into_2,
                         covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE, transf_d, transf_e,
                         offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-                        rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST,OrigTimeIndex,
-                        Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, bin_last_occ,
+                        rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, recursive_LIST,
+                        Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx,
                         traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, catE, cat_parE, do_traitS, trait_parS, traitS,
                         list_taxa_index, nTaxa)
     else:
@@ -3746,8 +3748,8 @@ for it in range(n_generations * len(scal_fac_TI)):
                     diversity_d1, diversity_d2, diversity_e1, diversity_e2, dis_into_1, dis_into_2,
                     covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE, transf_d, transf_e,
                     offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-                    rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST,OrigTimeIndex,
-                    Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx, bin_last_occ,
+                    rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, recursive_LIST,
+                    Q_index, alpha, YangGammaQuant, pp_gamma_ncat, num_processes, use_Pade_approx,
                     traits, trait_parD, traitD, trait_parE, traitE, cat, cat_parD, catD, catE, cat_parE, do_traitS, trait_parS, traitS,
                     list_taxa_index, nTaxa)
 
