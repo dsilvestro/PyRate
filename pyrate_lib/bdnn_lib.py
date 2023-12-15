@@ -1881,10 +1881,11 @@ def get_pdp_rate_free_combination(bdnn_obj,
                                   ts_post, te_post, w_post,
                                   names_comb,
                                   backscale_par,
-                                  len_cont = 100,
-                                  rate_type = "speciation",
-                                  num_processes = 1,
-                                  show_progressbar = False):
+                                  len_cont=100,
+                                  rate_type="speciation",
+                                  fix_observed=False,
+                                  num_processes=1,
+                                  show_progressbar=False):
     trait_tbl = get_trt_tbl(bdnn_obj, rate_type)
     names_features = get_names_features(bdnn_obj)
     # diversity-dependence
@@ -1909,8 +1910,8 @@ def get_pdp_rate_free_combination(bdnn_obj,
                                                   conc_comb_feat,
                                                   len_cont)
     feature_is_time_variable = is_time_variable_feature(trait_tbl)[0, :]
+    tste = get_mean_inferred_tste(ts_post, te_post)
     if np.any(feature_is_time_variable):
-        tste = get_mean_inferred_tste(ts_post, te_post)
         fossil_age = get_fossil_age(bdnn_obj, tste, 'speciation')
         fossil_age = backscale_bdnn_time(fossil_age, bdnn_obj)
         fossil_bin_ts = get_bin_from_fossil_age(bdnn_obj, tste, 'speciation')
@@ -1934,8 +1935,16 @@ def get_pdp_rate_free_combination(bdnn_obj,
             max_tste = np.max(tste_rescaled)
             if max_tste > minmaxmean_features[1, -1]:
                 minmaxmean_features[1, -1] = max_tste * 1.02
-    all_comb_tbl = get_all_combination(names_comb_idx, minmaxmean_features)
-    bdnn_time = get_bdnn_time(bdnn_obj, np.mean(ts_post, axis = 0))
+    if fix_observed is False:
+        all_comb_tbl = get_all_combination(names_comb_idx, minmaxmean_features)
+    else:
+        all_comb_tbl = trait_tbl[0]
+        if rate_type == "speciation":
+            all_comb_tbl[:, feature_is_time_variable] = trait_at_ts[:, feature_is_time_variable]
+        else:
+            all_comb_tbl[:, feature_is_time_variable] = trait_at_te[:, feature_is_time_variable]
+        all_comb_tbl = all_comb_tbl[:, names_comb_idx_conc]
+    bdnn_time = get_bdnn_time(bdnn_obj, tste[:, int(rate_type == "extinction")])
     num_it = len(w_post)
     trait_tbl_for_mean = np.zeros((num_it, trait_tbl.shape[-2], len(names_comb_idx_conc)))
     args = []
@@ -1951,6 +1960,8 @@ def get_pdp_rate_free_combination(bdnn_obj,
     trait_tbl_mean = np.mean(trait_tbl_for_mean, axis = 0)
     b = binary_feature[names_comb_idx_conc]
     trait_tbl_mean[:, b] = stats.mode(trait_tbl_for_mean[:, :, b], axis = 0)[0]
+    if fix_observed:
+        trait_tbl_mean = all_comb_tbl + 0.0
     unixos = is_unix()
     if unixos and num_processes > 1:
         pool_perm = multiprocessing.Pool(num_processes)

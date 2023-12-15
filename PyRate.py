@@ -4324,12 +4324,13 @@ if __name__ == '__main__':
     p.add_argument('-plot3',      metavar='<input file>', type=str,help="RTT plot for fixed number of shifts: provide 'mcmc.log' file",default="")
     p.add_argument('-plotRJ',     metavar='<input file>', type=str,help="RTT plot for runs with '-log_marginal_rates 0': provide path to 'mcmc.log' files",default="")
     p.add_argument('-plotBDNN',   metavar='<input file>', type=str,help="RTT plot for BDNN runs: provide path to 'mcmc.log' and '*.pkl' files",default="")
-    p.add_argument('-plotBDNN_effects',   metavar='<input file>', type = str, help = "Effect plot for BDNN runs: provide path and base name for 'mcmc.log' and '*.pkl' files (e.g. .../pyrate_mcmc_logs/example_BDS_BDNN_16_8Tc)", default = "")
-    p.add_argument('-plotBDNN_transf_features', metavar='<input file>', type = str,
-                   help = "Optional back transformation of z-standardized BDNN features (text file with name of the feature as header, its mean, and standard deviation before z-standardization", default = "")
-    p.add_argument('-BDNN_groups', metavar='<dict>', type = json.loads,
-                    help = """dictionary with features to plot together (e.g. on-hot encoded discrete features). E.g.: '{"Trait1": ["T1_state1", "T1_state2", "T1_state3"], "Trait2": ["T2_state1", "T2_state2", "T2_state3", "T2_state4"]}'""", default = '{}')
-    p.add_argument('-BDNN_interaction',   metavar='<input file>', type = str, help = """Create text files with rates for k-way interactions for BDNN runs: provide path and base name for 'mcmc.log' and '*.pkl' files (e.g. .../pyrate_mcmc_logs/example_BDS_BDNN_16_8Tc); use -BDNN_groups to specify features. E.g. '{"Trait1": ["Trait1"], "Trait2": ["Trait2"], "Trait3": ["T3_state1", "T3_state2", "T3_state3"]}'""", default = "")
+    p.add_argument('-plotBDNN_effects',   metavar='<input file>', type=str, help="Effect plot for BDNN runs: provide path and base name for 'mcmc.log' file (e.g. .../pyrate_mcmc_logs/example_BDS_BDNN_16_8Tc_mcmc.log)", default = "")
+    p.add_argument('-plotBDNN_transf_features', metavar='<input file>', type=str,
+                   help="Optional back transformation of z-standardized BDNN features (text file with name of the feature as header, its mean, and standard deviation before z-standardization", default = "")
+    p.add_argument('-BDNN_groups', metavar='<dict>', type=json.loads,
+                    help="""dictionary with features to plot together (e.g. on-hot encoded discrete features). E.g.: '{"Trait1": ["T1_state1", "T1_state2", "T1_state3"], "Trait2": ["T2_state1", "T2_state2", "T2_state3", "T2_state4"]}'""", default = '{}')
+    p.add_argument('-BDNN_interaction',   metavar='<input file>', type=str, help="""Create text files with PDP rates for k-way interactions for BDNN runs: provide path for 'mcmc.log' file (e.g. .../pyrate_mcmc_logs/example_BDS_BDNN_16_8Tc_mcmc.log); use -BDNN_groups to specify features. E.g. '{"Trait1": ["Trait1"], "Trait2": ["Trait2"], "Trait3": ["T3_state1", "T3_state2", "T3_state3"]}'""", default = "")
+    p.add_argument("-BDNN_interaction_fix", help='Fix predictors specified for "-BDNN_interaction" to the ones in the trait file', action='store_true', default=False)
     p.add_argument('-n_prior',     type=int,help="n. samples from the prior to compute Bayes factors",default=100000)
     p.add_argument('-plotQ',      metavar='<input file>', type=str,help="Plot preservation rates through time: provide 'mcmc.log' file and '-qShift' argument ",default="")
     p.add_argument('-grid_plot',  type=float, help='Plot resolution in Myr (only for plot3 and plotRJ commands). If set to 0: 100 equal time bins', default=0, metavar=0)
@@ -4430,7 +4431,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNupdate_f', type=float, help='fraction of updated weights', default=[0.1], metavar=[0.1], nargs='+')
     p.add_argument('-BDNNdd', help='Diversity-dependent BDNN', action='store_true', default=False)
     p.add_argument('-BDNNpklfile', type=str, help='Load BDNN pickle file', default="", metavar="")
-    p.add_argument('-BDNN_pred_importance', metavar='<input file>', type = str, help = "Predictor importance in BDNN: provide path and base name for 'mcmc.log' and '*.pkl' files (e.g. .../pyrate_mcmc_logs/example_BDS_BDNN_16_8Tc)", default = "")
+    p.add_argument('-BDNN_pred_importance', metavar='<input file>', type = str, help = "Predictor importance in BDNN: provide path for 'mcmc.log' file (e.g. .../pyrate_mcmc_logs/example_BDS_BDNN_16_8Tc_mcmc.log)", default = "")
     p.add_argument('-BDNN_pred_importance_nperm', type=int, help='Number of permutation for BDNN predictor importance', default=100, metavar=100)
     p.add_argument('-BDNN_pred_importance_only_main', help='Obtain only importance of main effects and not of interactions', action='store_false', default=True)
     p.add_argument('-BDNN_pred_importance_window_size', type=float, help='Resample to time windows of a given size', default=-1.0, metavar=-1.0)
@@ -4896,15 +4897,17 @@ if __name__ == '__main__':
         sp_inter, sp_trt_tbl, names_features = bdnn_lib.get_pdp_rate_free_combination(bdnn_obj, sp_fad_lad, ts_post, te_post, post_w_sp,
                                                                                       args.BDNN_groups,
                                                                                       backscale_par,
-                                                                                      len_cont = 100, rate_type = "speciation",
-                                                                                      num_processes = args.thread[0],
-                                                                                      show_progressbar = True)
+                                                                                      len_cont=100, rate_type="speciation",
+                                                                                      fix_observed=args.BDNN_interaction_fix,
+                                                                                      num_processes=args.thread[0],
+                                                                                      show_progressbar=True)
         ex_inter, ex_trt_tbl, names_features = bdnn_lib.get_pdp_rate_free_combination(bdnn_obj, sp_fad_lad, ts_post, te_post, post_w_ex,
                                                                                       args.BDNN_groups,
                                                                                       backscale_par,
-                                                                                      len_cont = 100, rate_type = "extinction",
-                                                                                      num_processes = args.thread[0],
-                                                                                      show_progressbar = True)
+                                                                                      len_cont=100, rate_type="extinction",
+                                                                                      fix_observed=args.BDNN_interaction_fix,
+                                                                                      num_processes=args.thread[0],
+                                                                                      show_progressbar=True)
         output_wd = os.path.dirname(path_dir_log_files)
         name_file = '_'.join(names_features)
         sp_trt_tbl_file = os.path.join(output_wd, name_file + '_at_speciation.csv')
