@@ -3041,6 +3041,7 @@ def get_init_values(mcmc_log_file,taxa_names):
         print("Excluded", len(ts_index) - len(ts_index_temp), "taxa")
 
     alpha_pp=1
+    cov_par = 1
     try:
         q_rates_index = np.array([head.index("alpha"), head.index("q_rate")])
         q_rates = tbl[last_row,q_rates_index]
@@ -3068,9 +3069,24 @@ def get_init_values(mcmc_log_file,taxa_names):
         lam = np.array([float(len(ts))/sum(ts-te)      ])    # const rate ML estimator
         mu  = np.array([float(len(te[te>0]))/sum(ts-te)])    # const rate ML estimator
         hyp = np.ones(2)
+
+    if use_BDNNmodel:
+        from pyrate_lib.bdnn_lib import bdnn_reshape_w
+        pkl_file = mcmc_log_file.replace("_mcmc.log", "") + ".pkl"
+        bdnn_obj = load_pkl(pkl_file)
+        cov_par = []
+        w_lam_index = [head.index(i) for i in head if "w_lam_" in i]
+        w_mu_index = [head.index(i) for i in head if "w_mu_" in i]
+        w_lam = tbl[last_row, w_lam_index].reshape((1, len(w_lam_index)))
+        w_mu = tbl[last_row, w_mu_index].reshape((1, len(w_mu_index)))
+        w_lam = bdnn_reshape_w(w_lam, bdnn_obj)[0]
+        w_mu = bdnn_reshape_w(w_mu, bdnn_obj)[0]
+        cov_par.append(w_lam)
+        cov_par.append(w_mu)
+        cov_par.append(0) # covar prm for preservation rate (currently not used)
     #print
 
-    return [ts,te,q_rates,lam,mu,hyp,alpha_pp]
+    return [ts,te,q_rates,lam,mu,hyp,alpha_pp, cov_par]
 
 ########################## MCMC #########################################
 
@@ -3182,7 +3198,8 @@ def MCMC(all_arg):
             covar_prior = 1.
             cov_parA = np.random.random(3)*f_cov_par # f_cov_par is 0 or >0 depending on COVAR model
         else: covar_prior = covar_prior_fixed
-
+        if restore_chain == 1:
+            cov_parA = restore_init_values[7]
 
         #if fix_hyperP == 0:    hyperPA=np.ones(2)
         hyperPA = hypP_par
@@ -4881,7 +4898,6 @@ if __name__ == '__main__':
         ex_taxa_shap_file = os.path.join(output_wd, name_file + '_ex_shap_per_species.csv')
         ex_taxa_shap.to_csv(ex_taxa_shap_file, na_rep = 'NA', index = False)
         # Plot contribution to species-specific rates
-        # bdnn_lib.plot_species_shap(pkl_file, output_wd, name_file, sp_taxa_shap, ex_taxa_shap, sp_main_consrank, ex_main_consrank)
         bdnn_lib.dotplot_species_shap(mcmc_file, pkl_file, burnin, args.resample, output_wd, name_file,
                                       sp_taxa_shap, ex_taxa_shap, sp_main_consrank, ex_main_consrank,
                                       combine_discr_features = args.BDNN_groups,
