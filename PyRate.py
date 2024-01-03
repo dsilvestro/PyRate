@@ -1738,7 +1738,11 @@ def sigmoid_rate(z):
     
 def tanh_f(z):
     return np.tanh(z)
-    
+
+def tanh_f_approx(z):
+    tanh = 1.0 - ( 2.0 / ( np.exp(2.0 * z) + 1.0 ) )
+    return tanh
+
 def softPlus(z):
     return np.log(np.exp(z) + 1)
 
@@ -1747,9 +1751,11 @@ def expFun(z):
 
 def MatrixMultiplication(x1,x2):
     if x1.shape[1] == x2.shape[1]:
-        z1 = np.einsum('nj,ij->ni', x1, x2)
+        #z1 = np.einsum('nj,ij->ni', x1, x2)
+        z1 = np.dot(x1, x2.T)
     else:
-        z1 = np.einsum('nj,ij->ni', x1, x2[:, 1:]) # w/ bias node
+        #z1 = np.einsum('nj,ij->ni', x1, x2[:, 1:]) # w/ bias node
+        z1 = np.dot(x1, x2[:, 1:].T)
         z1 += x2[:, 0].T
     return z1
 
@@ -1802,7 +1808,7 @@ def get_act_f(i):
     return [np.abs, softPlus, expFun, relu_f, sigmoid_f, sigmoid_rate][i]
 
 def get_hidden_act_f(i):
-    return [tanh_f, relu_f, leaky_relu_f, swish_f, sigmoid_f][i]
+    return [tanh_f, relu_f, leaky_relu_f, swish_f, sigmoid_f, tanh_f_approx][i]
     
 def create_mask(w_layers, indx_input_list, nodes_per_feature_list):
     m_layers = []
@@ -4439,7 +4445,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNtimetrait', type=float, help='if > 0 use (rescaled) time as a trait (only with -fixShift option). if = -1 auto-rescaled', default= -1, metavar= -1)
     p.add_argument('-BDNNconstbaseline', type=int, help='constant baseline rates (only with -fixShift option AND time as a trait)', default=1, metavar=1)
     p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) abs, 1) softPlus, 2) exp, 3) relu 4) sigmoid 5) sigmoid_rate', default=5, metavar=5)
-    p.add_argument('-BDNNactfun', type=int, help='Activation function hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid', default=0, metavar=0)
+    p.add_argument('-BDNNactfun', type=int, help='Activation function hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid, 5) fast approximation tanh', default=5, metavar=0)
     p.add_argument('-BDNNprior', type=float, help='sd normal prior', default=1, metavar=1)
     p.add_argument('-BDNNblockmodel',help='Block NN model', action='store_true', default=False)
     p.add_argument('-BDNNtimevar', type=str, help='Time variable file (e.g. PhanerozoicTempSmooth.txt), several variable in different columns possible', default="", metavar="")
