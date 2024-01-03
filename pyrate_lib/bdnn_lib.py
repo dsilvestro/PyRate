@@ -1097,14 +1097,16 @@ def plot_bdnn_inter_discr_discr(rs, r, tr, r_script, feat_idx_1, feat_idx_2, nam
     else:
         # Binary or ordinal features
         states_feat_1 = tr[:, feat_idx_1].flatten()
-    n_states_feat_1 = len(np.unique(states_feat_1))
+    unique_states_feat_1 = np.unique(states_feat_1)
+    n_states_feat_1 = len(unique_states_feat_1)
     if len(feat_idx_2) > 1:
         # One-hot encoded discrete feature
         states_feat_2 = convert_onehot_to_numeric(tr[:, feat_idx_2])
     else:
         # Binary or ordinal features
         states_feat_2 = tr[:, feat_idx_2].flatten()
-    n_states_feat_2 = len(np.unique(states_feat_2))
+    unique_states_feat_2 = np.unique(states_feat_2)
+    n_states_feat_2 = len(unique_states_feat_2)
     rate_max = np.nanmax(rs[:, 2])
     rate_min = np.nanmin(rs[:, 1])
     rate_max += 0.2 * rate_max
@@ -1119,10 +1121,11 @@ def plot_bdnn_inter_discr_discr(rs, r, tr, r_script, feat_idx_1, feat_idx_2, nam
         r_script += "\ncol = colorRampPalette(c(rgb(255, 143, 118, maxColorValue = 255), 'darkred'))(%s)" % n_states_feat_2
     else:
         r_script += "\ncol = colorRampPalette(c('grey75', 'grey25'))(%s)" % n_states_feat_2
+    cex_labels = 1.8 / expand_grid(unique_states_feat_1, unique_states_feat_2).shape[0]**(1.0/2.5)
     counter = 0
     for i in range(n_states_feat_1):
         for j in range(n_states_feat_2):
-            idx = np.logical_and(states_feat_1 == i, states_feat_2 == j)
+            idx = np.logical_and(states_feat_1 == unique_states_feat_1[i], states_feat_2 == unique_states_feat_2[j])
             r_tmp = r[idx, :]
             r_tmp = r_tmp[r_tmp < rate_max]
             r_tmp = r_tmp[r_tmp > rate_min]
@@ -1134,7 +1137,7 @@ def plot_bdnn_inter_discr_discr(rs, r, tr, r_script, feat_idx_1, feat_idx_2, nam
                 # r_script += "\nlines(rep(%s, 2), c(%s, %s), col = col[%s])" % (counter, float(rs[idx, 1]), float(rs[idx, 2]), j + 1)
                 # r_script += "\npoints(%s, %s, pch = 19, col = col[%s])" % (counter, float(rs[idx, 0]), j + 1)
                 # , padj = 0.5
-            r_script += "\naxis(side = 1, at = %s, labels = paste0('%s', ': ', '%s', '\n', '%s', ': ', '%s'))" % (counter, names[0], names_states_feat_1[i], names[1], names_states_feat_2[j])
+            r_script += "\naxis(side = 1, at = %s, labels = paste0('%s', ': ', '%s', '\n', '%s', ': ', '%s'), cex.axis = %s)" % (counter, names[0], names_states_feat_1[i], names[1], names_states_feat_2[j], cex_labels)
             counter += 1
     r_script += "\ntitle(main = paste0('%s', ' x ', '%s'))" % (names[0], names[1])
     r_script += "\npar(las = 1, mar = c(4, 4, 1.5, 0.5))"
@@ -1210,7 +1213,8 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, tste, r_script,
             names = names[np.argsort(b)]
             trait_tbl_plt = trait_tbl_plt[:, np.argsort(b)] # Continuous feature always in column 0
             obs = obs[:, np.argsort(b)]
-            obs[:,0] = backscale_tbl(bdnn_obj, backscale_par, [names[0]], obs[:,0].reshape((obs.shape[0],1))).flatten()
+            obs[:, 0] = backscale_tbl(bdnn_obj, backscale_par, [names[0]], obs[:, 0].reshape((obs.shape[0], 1))).flatten()
+            obs[:, 1] = backscale_tbl(bdnn_obj, backscale_par, [names[1]], obs[:, 1].reshape((obs.shape[0], 1))).flatten()
             obs = backscale_bdnn_diversity(obs, bdnn_obj, names)
             r_script = plot_bdnn_inter_discr_cont(rates_sum_plt, trait_tbl_plt, r_script, names, names_states, plot_time, obs, rate_type)
         elif pt == 7.0:
