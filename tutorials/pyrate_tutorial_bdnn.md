@@ -113,3 +113,12 @@ To help settin-up the correct number of custum tables and getting their format r
 python PyRate.py .../Carnivora_occs.py -fixShift .../Time_windows.txt -BDNNmodel 1 -BDNNtimevar .../Paleotemperature.txt -qShift .../Stages.txt -mG -A 0 -trait_file .../Traits.txt -BDNNexport_taxon_time_tables
 ```
 
+
+### Combining BDNN files across replicates
+
+To combine log files from different replicates into one you can use the command:
+
+`PyRate.py -combBDNN path_to_your_log_files -tag 16_8TVc -b 100`
+
+where `path_to_your_log_files` specifies the directory where the log files are (e.g., the pyrate_mcmc_logs); `-tag 16_8TVc` sets PyRate to combine all files that contain 16_8TVc in the file name; and `-b 100` specifies that the first 100 samples from each file should be excluded as burnin – the appropriate number of burnin samples to be excluded should be determined after inspecting the mcmc.log files, e.g. using Tracer.
+

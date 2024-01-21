@@ -2021,6 +2021,12 @@ def get_binned_div_traj(timebins, times, values):
     return binned_div
 
 
+def write_pkl(obj, out_file):
+    import pickle
+    with open(out_file, 'wb') as output:  # Overwrites any existing file.
+        pickle.dump(obj, output, pickle.HIGHEST_PROTOCOL)
+
+
 # ADE model
 def cdf_WR(W_shape,W_scale,x):
     return (x/W_scale)**(W_shape)
@@ -4368,6 +4374,7 @@ if __name__ == '__main__':
     p.add_argument('-ginput',     type=str,help='generate SE table from *mcmc.log files', default="", metavar="<path_to_mcmc.log>")
     p.add_argument('-combLog',    type=str,help='Combine (and resample) log files', default="", metavar="<path_to_log_files>")
     p.add_argument('-combLogRJ',  type=str,help='Combine (and resample) all log files form RJMCMC', default="", metavar="<path_to_log_files>")
+    p.add_argument('-combBDNN',  type=str,help='Combine (and resample) all log files form BDNN', default="", metavar="<path_to_log_files>")
     p.add_argument('-resample',   type=int,help='Number of samples for each log file (-combLog). Use 0 to keep all samples. Number of ts/te estimates (-ginput). Number of BDNN samples (-plotBDNN and -plotBDNN_effects)', default=0, metavar=0)
     p.add_argument('-col_tag',    type=str,help='Columns to be combined using combLog', default=[], metavar="column names",nargs='+')
     p.add_argument('-check_names',type=str,help='Automatic check for typos in taxa names (provide SpeciesList file)', default="", metavar="<*_SpeciesList.txt file>")
@@ -4954,6 +4961,15 @@ if __name__ == '__main__':
         sys.exit("\n")
     elif args.combLogRJ != "": # COMBINE LOG FILES
         comb_log_files_smart(args.combLogRJ,burnin,args.tag,resample=args.resample,col_tag=args.col_tag)
+        sys.exit("\n")
+    elif args.combBDNN != "":
+        from pyrate_lib.bdnn_lib import combine_pkl
+        tag = args.tag
+        combine_pkl(args.combBDNN, tag)
+        tag_mcmc_log = tag + "_mcmc"
+        comb_log_files(args.combBDNN, burnin, tag_mcmc_log, resample=args.resample, col_tag=args.col_tag)
+        tag_rates_log = tag + "_per_species_rates"
+        comb_log_files(args.combBDNN, burnin, tag_rates_log, resample=args.resample)
         sys.exit("\n")
     elif len(args.input_data)==0 and args.d == "": sys.exit("\nInput file required. Use '-h' for command list.\n")
 
@@ -5978,11 +5994,9 @@ if __name__ == '__main__':
                    occ_data=fossil)
 
         # print("obj.bdnn_settings", obj.bdnn_settings, cov_par_init_NN)
-        out_file = "%s/%s.pkl" % (path_dir,suff_out)
-        import pickle 
-        with open(out_file, 'wb') as output:  # Overwrites any existing file.
-            pickle.dump(obj, output, pickle.HIGHEST_PROTOCOL)
-        print("\n\nBDNN object saved as:", out_file, "\n")
+        bdnn_obj_out_file = "%s/%s.pkl" % (path_dir,suff_out)
+        write_pkl(obj, bdnn_obj_out_file)
+        print("\n\nBDNN object saved as:", bdnn_obj_out_file, "\n")
         # sys.exit()
     
 

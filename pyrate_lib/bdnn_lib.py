@@ -20,10 +20,12 @@ from scipy import stats
 import pyrate_lib.lib_utilities as util
 from PyRate import check_burnin
 from PyRate import load_pkl
+from PyRate import write_pkl
 from PyRate import get_rate_BDNN
 from PyRate import get_DT
 from PyRate import get_binned_div_traj
 from PyRate import get_sp_in_frame_br_length
+from PyRate import bdnn
 
 from scipy.special import bernoulli, binom
 from itertools import chain, combinations, product
@@ -89,6 +91,51 @@ def export_trait_tbl(trait_tbls, names_features, output_wd):
         tbl_df_file = os.path.join(path_predictors, file_name)
         tbl_df.to_csv(tbl_df_file, index = False, sep ='\t')
     return path_predictors
+
+
+def combine_pkl(path_to_files, tag):
+    infile = path_to_files
+    sys.path.append(infile)
+    direct_pkl = "%s/*%s.pkl" % (infile, tag)
+    files_pkl = glob.glob(direct_pkl)
+    files_pkl = np.sort(files_pkl)
+    pkl_list = []
+    if len(files_pkl) > 0:
+        pkl_list = [load_pkl(fp) for fp in files_pkl]
+
+        num_replicates = len(pkl_list)
+        bdnn_rescale_div = np.zeros(num_replicates)
+        time_rescaler = np.zeros(num_replicates)
+        n_bins = np.zeros(num_replicates)
+        for i in range(num_replicates):
+            bdnn_rescale_div[i] = pkl_list[i].bdnn_settings['div_rescaler']
+            time_rescaler[i] = pkl_list[i].bdnn_settings['time_rescaler']
+            if pkl_list[i].trait_tbls[0].ndim == 3:
+                n_bins[i] = len(pkl_list[i].bdnn_settings['fixed_times_of_shift_bdnn'])
+        pkl_most_bins = np.argmax(n_bins)
+
+        bdnn_dict = {
+            'layers_shapes': pkl_list[0].bdnn_settings['layers_shapes'],
+            'layers_sizes': pkl_list[0].bdnn_settings['layers_sizes'],
+            'mask_lam': pkl_list[0].bdnn_settings['mask_lam'],
+            'mask_mu': pkl_list[0].bdnn_settings['mask_mu'],
+            'fixed_times_of_shift_bdnn': pkl_list[pkl_most_bins].bdnn_settings['fixed_times_of_shift_bdnn'],
+            'use_time_as_trait': pkl_list[0].bdnn_settings['use_time_as_trait'],
+            'time_rescaler': np.mean(time_rescaler),
+            'bdnn_const_baseline': pkl_list[0].bdnn_settings['bdnn_const_baseline'],
+            'out_act_f': pkl_list[0].bdnn_settings['out_act_f'],
+            'hidden_act_f': pkl_list[0].bdnn_settings['hidden_act_f'],
+            'block_nn_model': pkl_list[0].bdnn_settings['block_nn_model'],
+            'names_features': pkl_list[0].bdnn_settings['names_features'],
+            'div_rescaler': np.mean(bdnn_rescale_div)
+        }
+        obj = bdnn(bdnn_settings=bdnn_dict,
+                   weights=pkl_list[0].weights,
+                   trait_tbls=pkl_list[pkl_most_bins].trait_tbls,
+                   sp_fad_lad=pkl_list[0].sp_fad_lad,
+                   occ_data=pkl_list[0].occ_data)
+        combined_pkl_file = "%s/combined_%s%s.pkl" % (infile, num_replicates, tag)
+        write_pkl(obj, combined_pkl_file)
 
 
 def summarize_rate(r, n_rates):
@@ -325,9 +372,10 @@ def get_trt_tbl(bdnn_obj, rate_type):
 
 
 def get_bdnn_time(bdnn_obj, ts):
-    bdnn_time = np.concatenate((np.array([np.max(ts)+ 0.001]),
-                                bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'],
-                                np.zeros(1)))
+    max_age = np.max(ts) + 0.001
+    shift_times = bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn']
+    shift_times = shift_times[shift_times <= max_age]
+    bdnn_time = np.concatenate((np.array([max_age]),  shift_times, np.zeros(1)))
     return bdnn_time
 
 
@@ -2118,12 +2166,6 @@ def get_greenwells_interaction_importance(rates, feat):
 
 # Feature permutation
 #####################
-def get_bdnn_time(bdnn_obj, ts):
-    bdnn_time = np.concatenate((np.array([np.max(ts)+ 0.001]), # (np.array([sp_fad_lad['FAD'].max()])
-                                bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'],
-                                np.zeros(1)))
-    return bdnn_time
-
 
 # trait_tbl_NN, hidden_act_f, out_act_f added
 def BDNN_partial_lik(arg):
@@ -4091,7 +4133,7 @@ def get_rscript_species_shap(r_script, species_names, taxa_shap, consrank, rate_
     r_script += "\nconsrank = order(consrank, decreasing = TRUE)"
     r_script += "\nshap_list = list()"
     for i in range(nfeat):
-        r_script += util.print_R_vec("\nshap_list[[%s]]", shap[:, i]) % (i + 1)
+        r_script += util.print_R_vec("\nshap_list[[%s]]", np.round(shap[:, i], 1)) % (i + 1)
     r_script += "\nshap = do.call('cbind', shap_list)"
     r_script += "\nbaseline = %s" % baseline
     r = taxa_shap.loc[1:, 'rate']
