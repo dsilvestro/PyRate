@@ -374,8 +374,9 @@ def get_trt_tbl(bdnn_obj, rate_type):
 def get_bdnn_time(bdnn_obj, ts):
     max_age = np.max(ts) + 0.001
     shift_times = bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn']
-    shift_times = shift_times[shift_times <= max_age]
-    bdnn_time = np.concatenate((np.array([max_age]),  shift_times, np.zeros(1)))
+    if len(shift_times) > 0:
+        shift_times = shift_times[shift_times <= max_age]
+    bdnn_time = np.concatenate((np.array([max_age]), shift_times, np.zeros(1)))
     return bdnn_time
 
 
