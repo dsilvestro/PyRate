@@ -1408,6 +1408,25 @@ def gibbs_update_ts_te(q_rates_L,q_rates_M,q_time_frames):
         new_te.append(e)
     return np.array(new_ts), np.array(new_te)
 
+def gibbs_update_ts_te_bdnn(q_rates,sp_rates_L, sp_rates_M, q_time_frames):
+    #print q_rates,q_time_frames
+    q_times= q_time_frames + 0
+    q_times[0] = np.inf
+    new_ts = []
+    new_te = []
+    for sp_indx in range(0,len(FA)):
+        #print "sp",sp_indx
+        s,e = draw_se_gibbs(FA[sp_indx],
+                            LO[sp_indx],
+                            q_rates + sp_rates_L[sp_indx],
+                            q_rates + sp_rates_M[sp_indx],,
+                            q_times)
+        new_ts.append(s)
+        new_te.append(e)
+    return np.array(new_ts), np.array(new_te)
+
+
+
 def seed_missing(x,m,s): # assigns random normally distributed trait values to missing data
     return np.isnan(x)*np.random.normal(m,s)+np.nan_to_num(x)
 
@@ -3322,8 +3341,13 @@ def MCMC(all_arg):
                     ts,te=update_ts_te(tsA,teA,mod_d1)
                 
             if use_gibbs_se_sampling or it < fast_burnin:
-                if sum(timesL[1:-1])==np.sum(times_q_shift):
-                    ts,te = gibbs_update_ts_te(q_ratesA+LA,q_ratesA+MA,np.sort(np.array([np.inf,0]+times_q_shift))[::-1])
+                if use_BDNNmodel:
+                    sp_rates_L = "per_species_rates"
+                    sp_rates_M = "per_species_rates"
+                    ts, te = gibbs_update_ts_te_bdnn(q_ratesA,sp_rates_L, sp_rates_M, np.sort(np.array([np.inf,0]+times_q_shift))[::-1])
+                
+                elif sum(timesL[1:-1])==np.sum(times_q_shift):
+                    ts,te = gibbs_update_ts_te(q_ratesA+LA, q_ratesA+MA, np.sort(np.array([np.inf,0]+times_q_shift))[::-1])
                 else:
                     times_q_temp = np.sort(np.array([np.inf,0]+times_q_shift))[::-1]
                     q_temp_time = np.sort(np.unique(list(times_q_shift)+list(timesLA[1:])+list(timesMA[1:])))[::-1]
