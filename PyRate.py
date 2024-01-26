@@ -1419,7 +1419,7 @@ def gibbs_update_ts_te_bdnn(q_rates,sp_rates_L, sp_rates_M, q_time_frames):
         s,e = draw_se_gibbs(FA[sp_indx],
                             LO[sp_indx],
                             q_rates + sp_rates_L[sp_indx],
-                            q_rates + sp_rates_M[sp_indx],,
+                            q_rates + sp_rates_M[sp_indx],
                             q_times)
         new_ts.append(s)
         new_te.append(e)
