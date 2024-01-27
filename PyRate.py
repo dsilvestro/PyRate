@@ -2046,6 +2046,34 @@ def write_pkl(obj, out_file):
         pickle.dump(obj, output, pickle.HIGHEST_PROTOCOL)
 
 
+def get_taxon_rates_bdnn(arg):
+    [tsA, teA, BDNNtimetrait_rescaler, timesLA, timesMA, trait_tbl_NN, cov_parA, hidden_act_f, out_act_f, use_time_as_trait, time_var, bdnn_dd, bdnn_loaded_tbls_timevar] = arg
+    rescaled_ts = tsA * BDNNtimetrait_rescaler
+    rescaled_te = teA * BDNNtimetrait_rescaler
+    digitized_ts = np.digitize(tsA, timesLA) - 1
+    digitized_te = np.digitize(teA, timesMA) - 1
+    digitized_ts[digitized_ts < 0] = 0 # fixed index of oldest ts in the dataset
+    sp_rates_L = np.zeros(len(tsA))
+    sp_rates_M = np.zeros(len(tsA))
+    for i in range(len(tsA)):
+        if use_time_as_trait or time_var is not None or bdnn_dd or bdnn_loaded_tbls_timevar:
+            trait_tbl_sp_i_lam = trait_tbl_NN[0][digitized_ts[i],i,:] + 0
+            trait_tbl_sp_i_mu = trait_tbl_NN[1][digitized_te[i],i,:] + 0
+            if use_time_as_trait:
+                trait_tbl_sp_i_lam[-1] = rescaled_ts[i]
+                trait_tbl_sp_i_mu[-1] = rescaled_te[i]
+        else:
+            trait_tbl_sp_i_lam = trait_tbl_NN[0][i,:] + 0
+            trait_tbl_sp_i_mu = trait_tbl_NN[1][i,:] + 0
+        if bdnn_const_baseline:
+            sp_rates_L[i] = get_rate_BDNN(1, np.array([trait_tbl_sp_i_lam]), cov_parA[0], hidden_act_f, out_act_f)[0]
+            sp_rates_M[i] = get_rate_BDNN(1, np.array([trait_tbl_sp_i_mu]), cov_parA[1], hidden_act_f, out_act_f)[0]
+        else:
+            sp_rates_L[i] = get_rate_BDNN(LA[digitized_ts[i]], np.array([trait_tbl_sp_i_lam]), cov_parA[0], hidden_act_f, out_act_f)[0]
+            sp_rates_M[i] = get_rate_BDNN(MA[digitized_te[i]], np.array([trait_tbl_sp_i_mu]), cov_parA[1], hidden_act_f, out_act_f)[0]
+    return sp_rates_L, sp_rates_M
+
+
 # ADE model
 def cdf_WR(W_shape,W_scale,x):
     return (x/W_scale)**(W_shape)
@@ -3342,9 +3370,11 @@ def MCMC(all_arg):
                 
             if use_gibbs_se_sampling or it < fast_burnin:
                 if use_BDNNmodel:
-                    sp_rates_L = "per_species_rates"
-                    sp_rates_M = "per_species_rates"
-                    ts, te = gibbs_update_ts_te_bdnn(q_ratesA,sp_rates_L, sp_rates_M, np.sort(np.array([np.inf,0]+times_q_shift))[::-1])
+                    arg_axon_rates = [tsA, teA, BDNNtimetrait_rescaler, timesLA, timesMA,
+                                      trait_tbl_NN, cov_parA, hidden_act_f, out_act_f,
+                                      use_time_as_trait, time_var, bdnn_dd, bdnn_loaded_tbls_timevar]
+                    sp_rates_L, sp_rates_M =get_taxon_rates_bdnn(arg_axon_rates)
+                    ts, te = gibbs_update_ts_te_bdnn(q_ratesA, sp_rates_L, sp_rates_M, np.sort(np.array([np.inf,0]+times_q_shift))[::-1])
                 
                 elif sum(timesL[1:-1])==np.sum(times_q_shift):
                     ts,te = gibbs_update_ts_te(q_ratesA+LA, q_ratesA+MA, np.sort(np.array([np.inf,0]+times_q_shift))[::-1])
@@ -4235,32 +4265,10 @@ def MCMC(all_arg):
                 
             # get time-trait dependent rate at ts (speciation) and te (extinction) | (only works with bdnn_const_baseline)
             if use_BDNNmodel and log_per_species_rates:
-                # print(trait_tbl_NN[0].shape) # <- shape: time bins x species x (traits + rescaled_time)
-                rescaled_ts = tsA * BDNNtimetrait_rescaler
-                rescaled_te = teA * BDNNtimetrait_rescaler
-                digitized_ts = np.digitize(tsA, timesLA) - 1
-                digitized_te = np.digitize(teA, timesMA) - 1
-                digitized_ts[digitized_ts < 0] = 0 # fixed index of oldest ts in the dataset
-                sp_lam_vec = np.zeros(len(tsA))
-                sp_mu_vec = np.zeros(len(tsA))
-                for i in range(len(tsA)):
-                    if use_time_as_trait or time_var is not None or bdnn_dd or bdnn_loaded_tbls_timevar:
-                        trait_tbl_sp_i_lam = trait_tbl_NN[0][digitized_ts[i],i,:] + 0
-                        trait_tbl_sp_i_mu = trait_tbl_NN[1][digitized_te[i],i,:] + 0
-                        if use_time_as_trait:
-                            trait_tbl_sp_i_lam[-1] = rescaled_ts[i]
-                            trait_tbl_sp_i_mu[-1] = rescaled_te[i]
-                        # get sp-specific rates: using '1' as baseline rate (only works with bdnn_const_baseline)
-                    else:
-                        trait_tbl_sp_i_lam = trait_tbl_NN[0][i,:] + 0
-                        trait_tbl_sp_i_mu = trait_tbl_NN[1][i,:] + 0
-                    if bdnn_const_baseline:
-                        sp_lam_vec[i] = get_rate_BDNN(1, np.array([trait_tbl_sp_i_lam]), cov_parA[0], hidden_act_f, out_act_f)[0]
-                        sp_mu_vec[i] =  get_rate_BDNN(1, np.array([trait_tbl_sp_i_mu]), cov_parA[1], hidden_act_f, out_act_f)[0]
-                    else:
-                        sp_lam_vec[i] = get_rate_BDNN(LA[digitized_ts[i]], np.array([trait_tbl_sp_i_lam]), cov_parA[0], hidden_act_f, out_act_f)[0]
-                        sp_mu_vec[i] =  get_rate_BDNN(MA[digitized_te[i]], np.array([trait_tbl_sp_i_mu]), cov_parA[1], hidden_act_f, out_act_f)[0]
-                        
+                arg_axon_rates = [tsA, teA, BDNNtimetrait_rescaler, timesLA, timesMA,
+                                  trait_tbl_NN, cov_parA, hidden_act_f, out_act_f,
+                                  use_time_as_trait, time_var, bdnn_dd, bdnn_loaded_tbls_timevar]
+                sp_lam_vec, sp_mu_vec =get_taxon_rates_bdnn(arg_axon_rates)
                 species_rate_writer.writerow([it] + list(sp_lam_vec) + list(sp_mu_vec))
                 species_rate_file.flush()
                 os.fsync(species_rate_file)
