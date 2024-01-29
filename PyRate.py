@@ -4490,6 +4490,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNtimevar', type=str, help='Time variable file (e.g. PhanerozoicTempSmooth.txt), several variable in different columns possible', default="", metavar="")
     p.add_argument('-BDNNpath_taxon_time_tables', type=str, help='Path to director(y|ies) with table(s) of taxon-time specific predictors. One path for identical speciation/extinction predictors, two paths if they differ.', default=["", ""], nargs='+')
     p.add_argument('-BDNNexport_taxon_time_tables', help='Export BDNN predictors. Creates a new directory with one text file per time bin (from most recent to earliest).', action='store_true', default=False)
+    p.add_argument('-BDNNupdate_se_f', type=float, help='fraction of updated times of origination and extinction', default=0.6, metavar=0.6, nargs=1)
     p.add_argument('-BDNNupdate_f', type=float, help='fraction of updated weights', default=[0.1], metavar=[0.1], nargs='+')
     p.add_argument('-BDNNdd', help='Diversity-dependent BDNN', action='store_true', default=False)
     p.add_argument('-BDNNpklfile', type=str, help='Load BDNN pickle file', default="", metavar="")
@@ -5603,7 +5604,7 @@ if __name__ == '__main__':
     if use_BDNNmodel:
         # model_cov = 6
         f_cov_par = [0.4, 0.5,0.9,1]
-        f_update_se = 0.6
+        f_update_se = args.BDNNupdate_se_f[0]
         if len(args.BDNNupdate_f) == 1:
             bdnn_update_f = args.BDNNupdate_f * (len(args.BDNNnodes) + 1)
             print("bdnn_update_f", bdnn_update_f)
