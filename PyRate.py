@@ -2047,7 +2047,7 @@ def write_pkl(obj, out_file):
 
 
 def get_taxon_rates_bdnn(arg):
-    [tsA, teA, BDNNtimetrait_rescaler, timesLA, timesMA, trait_tbl_NN, cov_parA, hidden_act_f, out_act_f, use_time_as_trait, time_var, bdnn_dd, bdnn_loaded_tbls_timevar] = arg
+    [tsA, teA, BDNNtimetrait_rescaler, timesLA, timesMA, trait_tbl_NN, cov_parA, hidden_act_f, out_act_f, use_time_as_trait, time_var, bdnn_dd, bdnn_loaded_tbls_timevar, bdnn_const_baseline] = arg
     rescaled_ts = tsA * BDNNtimetrait_rescaler
     rescaled_te = teA * BDNNtimetrait_rescaler
     digitized_ts = np.digitize(tsA, timesLA) - 1
@@ -3372,8 +3372,8 @@ def MCMC(all_arg):
                 if use_BDNNmodel:
                     arg_axon_rates = [tsA, teA, BDNNtimetrait_rescaler, timesLA, timesMA,
                                       trait_tbl_NN, cov_parA, hidden_act_f, out_act_f,
-                                      use_time_as_trait, time_var, bdnn_dd, bdnn_loaded_tbls_timevar]
-                    sp_rates_L, sp_rates_M =get_taxon_rates_bdnn(arg_axon_rates)
+                                      use_time_as_trait, time_var, bdnn_dd, bdnn_loaded_tbls_timevar, bdnn_const_baseline]
+                    sp_rates_L, sp_rates_M = get_taxon_rates_bdnn(arg_axon_rates)
                     ts, te = gibbs_update_ts_te_bdnn(q_ratesA, sp_rates_L, sp_rates_M, np.sort(np.array([np.inf,0]+times_q_shift))[::-1])
                 
                 elif sum(timesL[1:-1])==np.sum(times_q_shift):
@@ -4267,7 +4267,7 @@ def MCMC(all_arg):
             if use_BDNNmodel and log_per_species_rates:
                 arg_axon_rates = [tsA, teA, BDNNtimetrait_rescaler, timesLA, timesMA,
                                   trait_tbl_NN, cov_parA, hidden_act_f, out_act_f,
-                                  use_time_as_trait, time_var, bdnn_dd, bdnn_loaded_tbls_timevar]
+                                  use_time_as_trait, time_var, bdnn_dd, bdnn_loaded_tbls_timevar, bdnn_const_baseline]
                 sp_lam_vec, sp_mu_vec =get_taxon_rates_bdnn(arg_axon_rates)
                 species_rate_writer.writerow([it] + list(sp_lam_vec) + list(sp_mu_vec))
                 species_rate_file.flush()
@@ -4490,7 +4490,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNtimevar', type=str, help='Time variable file (e.g. PhanerozoicTempSmooth.txt), several variable in different columns possible', default="", metavar="")
     p.add_argument('-BDNNpath_taxon_time_tables', type=str, help='Path to director(y|ies) with table(s) of taxon-time specific predictors. One path for identical speciation/extinction predictors, two paths if they differ.', default=["", ""], nargs='+')
     p.add_argument('-BDNNexport_taxon_time_tables', help='Export BDNN predictors. Creates a new directory with one text file per time bin (from most recent to earliest).', action='store_true', default=False)
-    p.add_argument('-BDNNupdate_se_f', type=float, help='fraction of updated times of origination and extinction', default=0.6, metavar=0.6, nargs=1)
+    p.add_argument('-BDNNupdate_se_f', type=float, help='fraction of updated times of origination and extinction', default=[0.6], metavar=[0.6], nargs=1)
     p.add_argument('-BDNNupdate_f', type=float, help='fraction of updated weights', default=[0.1], metavar=[0.1], nargs='+')
     p.add_argument('-BDNNdd', help='Diversity-dependent BDNN', action='store_true', default=False)
     p.add_argument('-BDNNpklfile', type=str, help='Load BDNN pickle file', default="", metavar="")
