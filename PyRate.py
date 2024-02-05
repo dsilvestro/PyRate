@@ -1778,6 +1778,18 @@ def MatrixMultiplication(x1,x2):
         z1 += x2[:, 0].T
     return z1
 
+def MatrixMultiplication3D(x1, x2):
+    if x1.shape[-1] == x2.shape[1]:
+#        z1 = np.einsum('tnj,ij->tni', x1, x2, optimize=True)
+        z1 = np.tensordot(x1, x2.T, axes=([-1], [0]))
+#        z1 = np.array([np.dot(x1[i], x2.T) for i in range(len(x1))])
+    else:
+#        z1 = np.einsum('tnj,ij->tni', x1, x2[:, 1:], optimize=True) # w/ bias node
+        z1 = np.tensordot(x1, x2[:, 1:].T, axes=([-1], [0]))
+#        z1 = np.array([np.dot(x1[i], x2[:, 1:].T) for i in range(len(x1))])
+        z1 += x2[:, 0].T
+    return z1
+
 def get_rate_BDNN(rate, x, w, act_f, out_act_f): 
     tmp = x+0
     for i in range(len(w)-1):
@@ -1786,6 +1798,17 @@ def get_rate_BDNN(rate, x, w, act_f, out_act_f):
     tmp = MatrixMultiplication(tmp, w[i+1])
     # output
     rates = out_act_f(tmp).flatten() * rate + small_number #
+    return rates
+
+def get_rate_BDNN_3D(rate, x, w, act_f, out_act_f):
+    tmp = x+0
+    for i in range(len(w)-1):
+        tmp = act_f(MatrixMultiplication3D(tmp, w[i]))
+    
+    tmp = MatrixMultiplication3D(tmp, w[i+1])
+    tmp = np.squeeze(tmp).T
+    # output
+    rates = out_act_f(tmp) * rate + small_number
     return rates
 
 def BDNN_likelihood(arg):
@@ -1819,8 +1842,21 @@ def BDNN_partial_lik(arg):
         else:
             r = get_rate_BDNN(rate, trait_tbl_NN[1], nn_prm, hidden_act_f, out_act_f)
     
-    # print(par, r[0].flatten())
+#    print(par, r)
     lik= np.sum(log(r[i_events])) + np.sum(-r[n_all_inframe]*n_S) 
+    return lik
+
+def BDNN_fast_partial_lik(arg):
+    [ts, te, up, lo, r, par]=arg
+    # indexes of the species within time frame
+    if par=="l":
+        i_events=np.intersect1d((ts <= up).nonzero()[0], (ts > lo).nonzero()[0])
+    else:
+        i_events=np.intersect1d((te <= up).nonzero()[0], (te > lo).nonzero()[0])
+
+    n_all_inframe, n_S = get_sp_in_frame_br_length(ts,te,up,lo)
+
+    lik= np.sum(log(r[i_events])) + np.sum(-r[n_all_inframe]*n_S)
     return lik
 
 def get_act_f(i):
@@ -2047,7 +2083,7 @@ def write_pkl(obj, out_file):
 
 
 def get_taxon_rates_bdnn(arg):
-    [tsA, teA, BDNNtimetrait_rescaler, timesLA, timesMA, trait_tbl_NN, cov_parA, hidden_act_f, out_act_f, use_time_as_trait, time_var, bdnn_dd, bdnn_loaded_tbls_timevar, bdnn_const_baseline] = arg
+    [tsA, teA, BDNNtimetrait_rescaler, timesLA, timesMA, trait_tbl_NN, cov_parA, hidden_act_f, out_act_f, use_time_as_trait, time_var, bdnn_dd, bdnn_loaded_tbls_timevar, bdnn_const_baseline, MA, LA] = arg
     rescaled_ts = tsA * BDNNtimetrait_rescaler
     rescaled_te = teA * BDNNtimetrait_rescaler
     digitized_ts = np.digitize(tsA, timesLA) - 1
@@ -3243,6 +3279,14 @@ def MCMC(all_arg):
             if bdnn_const_baseline:
                 LA = np.ones(len(timesLA)-1)
                 MA = np.ones(len(timesMA)-1)
+            if use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
+                bdnn_lam_ratesA = get_rate_BDNN_3D(1, trait_tbl_NN[0], cov_parA[0], hidden_act_f, out_act_f)
+                bdnn_mu_ratesA = get_rate_BDNN_3D(1, trait_tbl_NN[1], cov_parA[1], hidden_act_f, out_act_f)
+            else:
+                bdnn_lam_ratesA = get_rate_BDNN(1, trait_tbl_NN[0], cov_parA[0], hidden_act_f, out_act_f)
+                bdnn_mu_ratesA = get_rate_BDNN(1, trait_tbl_NN[1], cov_parA[0], hidden_act_f, out_act_f)
+            bdnn_prior_cov_parA = np.sum([np.sum(prior_normal(cov_parA[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_parA[0]))])
+            bdnn_prior_cov_parA += np.sum([np.sum(prior_normal(cov_parA[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_parA[1]))])
         
         alpha_pp_gammaA = 1.
         if TPP_model == 1: # init multiple q rates
@@ -3344,6 +3388,9 @@ def MCMC(all_arg):
         alpha_pp_gamma=alpha_pp_gammaA
         if use_BDNNmodel:
             cov_par = copy_lib.deepcopy(cov_parA)
+            bdnn_lam_rates = bdnn_lam_ratesA
+            bdnn_mu_rates = bdnn_mu_ratesA
+            bdnn_prior_cov_par = bdnn_prior_cov_parA
         else:
             cov_par=np.zeros(3)
         L,M = np.zeros(len(LA)),np.zeros(len(MA))
@@ -3370,10 +3417,10 @@ def MCMC(all_arg):
                 
             if use_gibbs_se_sampling or it < fast_burnin:
                 if use_BDNNmodel:
-                    arg_axon_rates = [tsA, teA, BDNNtimetrait_rescaler, timesLA, timesMA,
+                    arg_taxon_rates = [tsA, teA, BDNNtimetrait_rescaler, timesLA, timesMA,
                                       trait_tbl_NN, cov_parA, hidden_act_f, out_act_f,
-                                      use_time_as_trait, time_var, bdnn_dd, bdnn_loaded_tbls_timevar, bdnn_const_baseline]
-                    sp_rates_L, sp_rates_M = get_taxon_rates_bdnn(arg_axon_rates)
+                                      use_time_as_trait, time_var, bdnn_dd, bdnn_loaded_tbls_timevar, bdnn_const_baseline, MA, LA]
+                    sp_rates_L, sp_rates_M = get_taxon_rates_bdnn(arg_taxon_rates)
                     ts, te = gibbs_update_ts_te_bdnn(q_ratesA, sp_rates_L, sp_rates_M, np.sort(np.array([np.inf,0]+times_q_shift))[::-1])
                 
                 elif sum(timesL[1:-1])==np.sum(times_q_shift):
@@ -3458,6 +3505,16 @@ def MCMC(all_arg):
                 if BDNN_MASK_mu:
                     for i_layer in range(len(cov_parA[1])):
                         cov_par[1][i_layer] *= BDNN_MASK_mu[i_layer]
+                # Recalculate bdnn rates when we updated cov_par
+                if use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
+                    bdnn_lam_rates = get_rate_BDNN_3D(1, trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f)
+                    bdnn_mu_rates = get_rate_BDNN_3D(1, trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f)
+                else:
+                    bdnn_lam_rates = get_rate_BDNN(1, trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f)
+                    bdnn_mu_rates = get_rate_BDNN(1, trait_tbl_NN[1], cov_par[0], hidden_act_f, out_act_f)
+                bdnn_prior_cov_par = np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[0]))])
+                bdnn_prior_cov_par += np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[1]))])
+
             else:
                 rcov=np.random.random()
                 if est_COVAR_prior == 1 and rcov<0.05:
@@ -3699,7 +3756,8 @@ def MCMC(all_arg):
                             for temp_l in range(len(timesL)-1):
                                 up, lo = timesL[temp_l], timesL[temp_l+1]
                                 l = L[temp_l]
-                                args.append([ts, te, up, lo, l, 'l', cov_par[0],temp_l])
+                                # args.append([ts, te, up, lo, l, 'l', cov_par[0],temp_l])
+                                args.append([ts, te, up, lo, bdnn_lam_rates[:, temp_l], 'l'])
                         else:
                             for temp_l in range(len(timesL)-1):
                                 up, lo = timesL[temp_l], timesL[temp_l+1]
@@ -3711,7 +3769,8 @@ def MCMC(all_arg):
                         up, lo = timesM[temp_m], timesM[temp_m+1]
                         m = M[temp_m]
                         if use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar):
-                            args.append([ts, te, up, lo, m, 'm', cov_par[1],temp_m]) 
+                            # args.append([ts, te, up, lo, m, 'm', cov_par[1],temp_m]) 
+                            args.append([ts, te, up, lo, bdnn_mu_rates[:, temp_m], 'm'])
                         elif use_ADE_model == 0:
                             args.append([ts, te, up, lo, m, 'm', cov_par[1],np.nan])
                         elif use_ADE_model >= 1:
@@ -3758,14 +3817,14 @@ def MCMC(all_arg):
                             # i=0
                             for i in range(len(args)):
                                 if use_BDNNmodel:
-                                    likBDtemp[i] = BDNN_partial_lik(args[i])
+                                    likBDtemp[i] = BDNN_fast_partial_lik(args[i])
                                 else:
                                     likBDtemp[i] = BPD_partial_lik(args[i])
                                 # i+=1
                         # multi-thread computation of lik and prior (rates)
                         else:
                             if use_BDNNmodel:
-                                likBDtemp = np.array(pool_lik.map(BDNN_partial_lik, args))
+                                likBDtemp = np.array(pool_lik.map(BDNN_fast_partial_lik, args))
                             else:
                                 likBDtemp = np.array(pool_lik.map(BPD_partial_lik, args))
                     
@@ -3928,8 +3987,7 @@ def MCMC(all_arg):
                 prior +=  np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i], mu=mu_empirical_prior[0][i])) for i in range(len(cov_par[0]))])
                 prior +=  np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i], mu=mu_empirical_prior[1][i])) for i in range(len(cov_par[1]))])
             else:
-                prior +=  np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[0]))])
-                prior +=  np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[1]))])
+                prior += bdnn_prior_cov_par
             
 
         # exponential prior on root age
@@ -4024,7 +4082,14 @@ def MCMC(all_arg):
                 if FBDrange:
                     res_FBD_A = res_FBD
                     FBD_temp_A = [times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp]
-
+                if use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar):
+                    bdnn_lam_ratesA = bdnn_lam_rates
+                    bdnn_mu_ratesA = bdnn_mu_rates
+                    bdnn_prior_cov_parA = bdnn_prior_cov_par
+            elif use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar):
+                bdnn_lam_rates = bdnn_lam_ratesA
+                bdnn_mu_rates = bdnn_mu_ratesA
+                bdnn_prior_cov_parA = bdnn_prior_cov_par
 
         if it % print_freq ==0 or it==burnin:
             try: l=[round(y, 2) for y in [PostA, likA, priorA, SA]]
@@ -4265,10 +4330,10 @@ def MCMC(all_arg):
                 
             # get time-trait dependent rate at ts (speciation) and te (extinction) | (only works with bdnn_const_baseline)
             if use_BDNNmodel and log_per_species_rates:
-                arg_axon_rates = [tsA, teA, BDNNtimetrait_rescaler, timesLA, timesMA,
+                arg_taxon_rates = [tsA, teA, BDNNtimetrait_rescaler, timesLA, timesMA,
                                   trait_tbl_NN, cov_parA, hidden_act_f, out_act_f,
-                                  use_time_as_trait, time_var, bdnn_dd, bdnn_loaded_tbls_timevar, bdnn_const_baseline]
-                sp_lam_vec, sp_mu_vec =get_taxon_rates_bdnn(arg_axon_rates)
+                                  use_time_as_trait, time_var, bdnn_dd, bdnn_loaded_tbls_timevar, bdnn_const_baseline, MA, LA]
+                sp_lam_vec, sp_mu_vec = get_taxon_rates_bdnn(arg_taxon_rates)
                 species_rate_writer.writerow([it] + list(sp_lam_vec) + list(sp_mu_vec))
                 species_rate_file.flush()
                 os.fsync(species_rate_file)
