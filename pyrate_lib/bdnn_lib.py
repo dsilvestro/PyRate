@@ -937,8 +937,10 @@ def get_rates_summary(cond_rates):
     rate_sum[:] = np.nan
     rate_sum[:, 0] = np.mean(cond_rates, axis = 1)
     for i in range(nrows_cond_rates):
-        all_nan = np.all(np.isnan(cond_rates[i, :]))
-        if not all_nan:
+        rate_isnan = np.isnan(cond_rates[i, :])
+        all_nan = np.all(rate_isnan)
+        n_rates = len(cond_rates[i, ~rate_isnan])
+        if not all_nan and n_rates > 1:
             rate_sum[i, 1:] = util.calcHPD(cond_rates[i, :], .95)
     needs_median = rate_sum[:, 0] > rate_sum[:, 2]
     rate_sum[needs_median, 0] = np.median(cond_rates[needs_median, :], axis = 1)
@@ -1426,10 +1428,9 @@ def plot_effects(f,
 # Coefficient of rate variation
 ###############################
 def get_cv(x):
-    cv_it = np.std(x, axis = 1) / np.mean(x, axis = 1)
+    x_mean = np.mean(x, axis = 0)
     cv = np.zeros(3)
-    cv[0] = np.mean(cv_it)
-    cv[1:] = util.calcHPD(cv_it, .95)
+    cv[0] = np.std(x_mean) / np.mean(x_mean)
     return cv
 
 
@@ -1467,7 +1468,9 @@ def get_prob_1_bin_trait(cond_rates_eff):
     prob = get_prob(d1, d2, len(d1))
     mag = d1 / d2
     mean_mag = np.mean(mag)
-    mag_HPD = util.calcHPD(mag, .95)
+    mag_HPD = np.array([np.nan, np.nan])
+    if np.sum(~np.isnan(mag)) > 2:
+        mag_HPD = util.calcHPD(mag[~np.isnan(mag)], .95)
     return np.array([prob, mean_mag, mag_HPD[0], mag_HPD[1]])
 
 
@@ -1481,7 +1484,9 @@ def get_prob_1_con_trait(cond_rates_eff):
     prob = n / len(d)
     mag = d1 / d2
     mean_mag = np.mean(mag)
-    mag_HPD = util.calcHPD(mag, .95)
+    mag_HPD = np.array([np.nan, np.nan])
+    if np.sum(~np.isnan(mag)) > 2:
+        mag_HPD = util.calcHPD(mag[~np.isnan(mag)], .95)
     return np.array([prob, mean_mag, mag_HPD[0], mag_HPD[1]])
 
 
@@ -1688,7 +1693,9 @@ def get_prob_inter_2_con_trait(cond_rates_eff, trait_tbl_eff, incl_features, con
     #prob = get_prob(d1, d2, niter_mcmc)
     mag = d1 / d2
     mean_mag = np.mean(mag)
-    mag_HPD = util.calcHPD(mag, .95)
+    mag_HPD = np.array([np.nan, np.nan])
+    if np.sum(~np.isnan(mag)) > 2:
+        mag_HPD = util.calcHPD(mag[~np.isnan(mag)], .95)
     # Magnitude interaction greater than for the more important feature of both?
     if np.mean(mag) > 1:
         prob = np.sum(mag > mag_single_feat) / niter_mcmc
@@ -4048,7 +4055,7 @@ def plot_species_shap(pkl_file, output_wd, name_file, sp_taxa_shap, ex_taxa_shap
     r_script += "\n  layout(matrix(1:4, nrow = 2, ncol = 2), heights = heights, widths = c(0.9, 0.1))"
     r_script += "\n  # Rates per species"
     r_script += "\n  par(las = 1, mar = c(0.1, 6, 0.5, 0.1), mgp = c(3, 1, 0))"
-    r_script += "\n  y_tck = pretty(range(rates), n = 5)"
+    r_script += "\n  y_tck = pretty(range(rates, na.rm = TRUE), n = 5)"
     r_script += "\n  plot(0, 0, type = 'n', xaxs = 'i', yaxs = 'i',"
     r_script += "\n       xlim = c(0, nspecies), ylim = range(y_tck),"
     r_script += "\n       axes = FALSE, ylab = rate_name)"
@@ -4369,7 +4376,7 @@ def dotplot_species_shap(mcmc_file, pkl_file, burnin, thin, output_wd, name_file
     r_script += "\n  par(las = 1, mar = c(0.1, 6, 0.5, 0.1), mgp = c(5, 1, 0))"
     r_script += "\n  cex_lab = 2 / sqrt(length(feat_names))"
     r_script += "\n  cex_lab = ifelse(cex_lab > 1, 1, cex_lab)"
-    r_script += "\n  y_tck = pretty(range(rates), n = 5)"
+    r_script += "\n  y_tck = pretty(range(rates, na.rm = TRUE), n = 5)"
     r_script += "\n  plot(0, 0, type = 'n', xaxs = 'i', yaxs = 'i',"
     r_script += "\n       xlim = c(0, nspecies), ylim = range(y_tck),"
     r_script += "\n       axes = FALSE, ylab = rate_name, cex.lab = cex_lab)"
