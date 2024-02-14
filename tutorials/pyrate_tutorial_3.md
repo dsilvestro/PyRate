@@ -8,7 +8,8 @@
 * [RJMCMC output](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#rjmcmc-output)  
 * [Summarize model probabilities](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#summarize-model-probabilities)    
 * [Plot rates through time and rate shifts](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#plot-rates-through-time-and-rate-shifts)  
-* [Combine log files from multiple replicates](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#combine-log-files-from-multiple-replicates)  
+* [Combine log files from multiple replicates](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#combine-log-files-from-multiple-replicates)
+* [Running PyRate on large datasets](https://github.com/dsilvestro/PyRate/edit/master/tutorials/pyrate_tutorial_3.md#estimate-rate-variation-using-reversible-jump-mcmc)
 
 * [Return to Index](https://github.com/dsilvestro/PyRate/tree/master/tutorials#pyrate-tutorials---index)  
 
@@ -99,4 +100,9 @@ specifies that 100 random samples should be taken from each replicate and saved 
 
 For the `mcmc.log` file you can also use the command `-combLog` (see also [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#combine-log-files-across-replicates)) to select which columns you want to include in the combined log file. For instance, adding the flag `-col_tag posterior root_age death_age` will combine only the three columns with headers `posterior`,`root_age`, and `death_age` (while ignoring all other parameters). Note that only `root_age`, and `death_age` are needed to run the [`-plotRJ`](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#plot-rates-through-time-and-rate-shifts) function.
 
+## Running PyRate on large datasets
+Running PyRate analyses on very large dataset (e.g. hundreds or thousands of lineages) may require long computing time for the MCMC to reach convergence. To speed up the process an approximate Gibbs sampler can be used to sample more efficiently the times of origination and extinction, as described in the paper by [Moharrek et al. 2022 Palaeontology](https://doi.org/10.1111/pala.12586). To set up an analysis using this option you can use the flag `-se_gibbs` and modify the update frequencies to set most of the updates (> 90%) to focus on speciation, extinction, and preservation rates:
 
+`python PyRate.py .../Rhinocerotidae_PyRate.py -qShift .../epochs_q.txt -se_gibbs -fU 0.35 0.6 0`
+
+Note that this model only works for preservation models based on homogenous or time-variable Poisson processes (HPP or TPP). 
