@@ -22,6 +22,8 @@
 * [Birth-death with rate shifts using RJMCMC (recommended algorithm)](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#estimate-rate-variation-using-reversible-jump-mcmc)
 * [Birth-death with rate shifts using BDMCMC](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#estimation-of-speciation-and-extinction-rates-through-time)
 * [Birth-death models with fixed times bins](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#speciation-and-extinction-rates-within-fixed-time-bins)
+* [Running PyRate on large datasets](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#running-pyrate-on-large-datasets)
+
 
 ### Plotting and summarizing output
 * [Plotting marginal rates (RJMCMC)](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#plot-rates-through-time-and-rate-shifts)
