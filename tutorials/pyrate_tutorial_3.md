@@ -9,7 +9,7 @@
 * [Summarize model probabilities](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#summarize-model-probabilities)    
 * [Plot rates through time and rate shifts](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#plot-rates-through-time-and-rate-shifts)  
 * [Combine log files from multiple replicates](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#combine-log-files-from-multiple-replicates)
-* [Running PyRate on large datasets](https://github.com/dsilvestro/PyRate/edit/master/tutorials/pyrate_tutorial_3.md#estimate-rate-variation-using-reversible-jump-mcmc)
+* [Running PyRate on large datasets](https://github.com/dsilvestro/PyRate/edit/master/tutorials/pyrate_tutorial_3.md#estimate-rate-variation-using-reversible-jump-mcmc)(https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#running-pyrate-on-large-datasets)
 
 * [Return to Index](https://github.com/dsilvestro/PyRate/tree/master/tutorials#pyrate-tutorials---index)  
 
