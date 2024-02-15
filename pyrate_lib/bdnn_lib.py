@@ -928,8 +928,6 @@ def build_conditional_trait_tbl(bdnn_obj,
         counter = counter + lv
     # Remove comparisons when there is no variance of the features
     cond_trait_tbl = cond_trait_tbl[~np.isnan(cond_trait_tbl[:, -1]),:]
-    file_trt_tbl = '/home/torsten/Work/BDNN/Interaction/pyrate_mcmc_logs/cond_trait_tbl_shuffle_%s.txt' % rate_type
-    np.savetxt(file_trt_tbl, cond_trait_tbl, delimiter='\t', fmt='%f')
     return cond_trait_tbl, names_features
 
 
