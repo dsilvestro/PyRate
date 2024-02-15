@@ -1372,13 +1372,13 @@ def get_effect_objects(mcmc_file, pkl_file, burnin, thin, combine_discr_features
     mean_tste = get_mean_inferred_tste(post_ts, post_te)
     cond_trait_tbl_sp, names_features_sp = build_conditional_trait_tbl(bdnn_obj, mean_tste,
                                                                        post_ts, post_te,
-                                                                       len_cont = 10,
+                                                                       len_cont = 100,
                                                                        rate_type = "speciation",
                                                                        combine_discr_features = combine_discr_features,
                                                                        do_inter_imp = do_inter_imp)
     cond_trait_tbl_ex, names_features_ex = build_conditional_trait_tbl(bdnn_obj, mean_tste,
                                                                        post_ts, post_te,
-                                                                       len_cont = 10,
+                                                                       len_cont = 100,
                                                                        rate_type = "extinction",
                                                                        combine_discr_features = combine_discr_features,
                                                                        do_inter_imp = do_inter_imp)
