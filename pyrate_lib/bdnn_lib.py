@@ -553,6 +553,8 @@ def get_feature_type(k, m, b, conc_group):
             tk = 3 # ordinal 0, 1, 2 etc
         else:
             tk = 1 # binary feature
+    elif np.isin(k, conc_group):
+        tk = 15 # continuous feature part of a feature group
     return tk
 
 
@@ -584,10 +586,16 @@ def get_plot_type_ij(i, m, b, j = np.nan, group_features = None):
             pt = 13 # one-hot x continuous
         if (ti == 3 and tj == 4) or (ti == 4 and tj == 3):
             pt = 14 # ordinal x continuous
+        if ti == 15 or tj == 15:
+            pt = 16 # any interaction between a feature group containing several continuous features and any other feature (i.e. evetnually bypassing this type of interaction)
     return pt
 
 
 def get_plot_type(m, b, group_features, do_inter_imp = True):
+    """
+    :return:
+        2D numpy.ndarray with 3 columns: 1st feature, 2nd feature (can be None), and what type of plot this will be (violine, line, surface, interaction etc.)
+    """
     n = m.shape[1]
     main = np.arange(n, dtype = float)
     inter = np.array([])
@@ -654,12 +662,18 @@ def get_plot_idx(p, group_features):
                             if g1 > -1 and g2 == -1:
                                 # i part of a feature-group but j not
                                 g1_idx = group_features[g1]
-                                pidx[np.logical_and(np.isin(p[:, 0], g1_idx), p[:, 1] == p[k, 1])] = counter
+                                # When features of group are not in sequential columns of the trait table,
+                                # then there are two possibilities where we have to assign their interaction plot.
+                                possibility1 = np.logical_and(np.isin(p[:, 0], g1_idx), p[:, 1] == p[k, 1])
+                                possibility2 = np.logical_and(np.isin(p[:, 1], g1_idx), p[:, 0] == p[k, 1])
+                                pidx[np.logical_or(possibility1, possibility2)] = counter
                                 counter += 1
                             elif g1 == -1 and g2 > -1:
                                 # i not part of a feature-group but j
                                 g2_idx = group_features[g2]
-                                pidx[np.logical_and(p[:, 0] == p[k, 0], np.isin(p[:, 1], g2_idx))] = counter
+                                possibility1 = np.logical_and(p[:, 0] == p[k, 0], np.isin(p[:, 1], g2_idx))
+                                possibility2 = np.logical_and(p[:, 1] == p[k, 0], np.isin(p[:, 0], g2_idx))
+                                pidx[np.logical_or(possibility1, possibility2)] = counter
                                 counter += 1
                             else:
                                 # i part of one feature-group and j part of a different feature-group
@@ -716,7 +730,7 @@ def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_
             min_t = np.min(t) - delta_w
             outside_obs = np.logical_or(w > max_t, w < min_t)
             comb_exists[outside_obs] = 0.0
-    else:
+    elif pt < 15:
         # Interactions
         i_bin, j_bin = is_binary_feature(trait_tbl)[0][[i, j]]
         i_time_var = feature_is_time_variable[i]
@@ -801,6 +815,8 @@ def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_
             comb_exists[inside_poly] = 1.0
             tmin = np.min(t[:, [i, j]], axis = 0)
             tmax = np.max(t[:, [i, j]], axis = 0)
+    else:
+        comb_exists = 1.0 # Multiple continuous features combined in a feature group. Do not plot this but keep for predictor importance.
     return comb_exists
 
 
@@ -911,7 +927,9 @@ def build_conditional_trait_tbl(bdnn_obj,
             cond_trait_tbl[counter:(counter + lv), -1] = np.nan
         counter = counter + lv
     # Remove comparisons when there is no variance of the features
-    cond_trait_tbl = cond_trait_tbl[~np.isnan(cond_trait_tbl[:, -1]), ]
+    cond_trait_tbl = cond_trait_tbl[~np.isnan(cond_trait_tbl[:, -1]),:]
+    file_trt_tbl = '/home/torsten/Work/BDNN/Interaction/pyrate_mcmc_logs/cond_trait_tbl_shuffle_%s.txt' % rate_type
+    np.savetxt(file_trt_tbl, cond_trait_tbl, delimiter='\t', fmt='%f')
     return cond_trait_tbl, names_features
 
 
@@ -1354,13 +1372,13 @@ def get_effect_objects(mcmc_file, pkl_file, burnin, thin, combine_discr_features
     mean_tste = get_mean_inferred_tste(post_ts, post_te)
     cond_trait_tbl_sp, names_features_sp = build_conditional_trait_tbl(bdnn_obj, mean_tste,
                                                                        post_ts, post_te,
-                                                                       len_cont = 100,
+                                                                       len_cont = 10,
                                                                        rate_type = "speciation",
                                                                        combine_discr_features = combine_discr_features,
                                                                        do_inter_imp = do_inter_imp)
     cond_trait_tbl_ex, names_features_ex = build_conditional_trait_tbl(bdnn_obj, mean_tste,
                                                                        post_ts, post_te,
-                                                                       len_cont = 100,
+                                                                       len_cont = 10,
                                                                        rate_type = "extinction",
                                                                        combine_discr_features = combine_discr_features,
                                                                        do_inter_imp = do_inter_imp)
@@ -1789,9 +1807,22 @@ def get_prob_effects(cond_trait_tbl, cond_rates, bdnn_obj, names_features, rate_
             trait_tbl_eff = trait_tbl_eff[:, np.argsort(b)]  # Continuous feature always in column 0
             prob = get_prob_inter_cont_discr_ord(cond_rates_eff, trait_tbl_eff, names[0], names[1], names_states)
             prob_effects = pd.concat([prob_effects, prob], ignore_index = True)
+        elif pt == 15.0: # Multiple continuous features combined in a feature group
+            names = np.unique(names_features[incl_features])
+            prob = pd.DataFrame({'0': names[0], '1': 'none', '2': 'none', '3': 'none',
+                                 '4': -1.0, '5': np.nan, '6': np.nan, '7': np.nan},
+                                index=[0])
+            prob_effects = pd.concat([prob_effects, prob], ignore_index = True)
+        elif pt == 16.0: # Interaction of multiple continuous features with any other feature
+            names = np.sort(np.unique(names_features[incl_features]))
+            prob = pd.DataFrame({'0': names[0], '1': names[1], '2': 'none', '3': 'none',
+                                 '4': -1.0, '5': np.nan, '6': np.nan, '7': np.nan},
+                                index=[0])
+            prob_effects = pd.concat([prob_effects, prob], ignore_index = True)
     prob_effects.columns = ['feature1', 'feature2', 'feature1_state', 'feature2_state',
                             'posterior_probability',
                             'magnitude_effect', 'magnitude_lwr_CI', 'magnitude_upr_CI']
+    prob_effects = prob_effects[~prob_effects.duplicated(['feature1', 'feature2', 'feature1_state', 'feature2_state'])] # Feature groups with multiple continuous features are appearing several times. MAybe only when they are not in adjecent columns? Remove this.
     return prob_effects
 
 
@@ -3433,6 +3464,7 @@ def make_shap_names(names_features, idx_comb_feat, combine_discr_features, do_in
         names_inter_features = np.repeat(names_features, l).reshape((l,l))
         iu1 = np.triu_indices(l, 1)
         names_inter_features = np.stack((names_inter_features[iu1], names_inter_features.T[iu1]), axis = 1)
+        names_inter_features = np.sort(names_inter_features, axis=1)
         names_inter_features_df = pd.DataFrame(names_inter_features)
         keep = names_inter_features_df.duplicated() == False
         names_inter_features = names_inter_features_df.loc[keep, :].to_numpy()
@@ -3872,9 +3904,11 @@ def highest_pvalue_from_interaction(p):
         p_tmp = p[(p['feature1'] == unique_features.loc[i, 'feature1']) &
                   (p['feature2'] == unique_features.loc[i, 'feature2'])]
         p_tmp = p_tmp.reset_index()
-        h = p_tmp['posterior_probability'].argmax()
-        has_probs = h != -1
+        has_probs = p_tmp['posterior_probability'].isnull().all() is False
+#        h = p_tmp['posterior_probability'].argmax()
+#        has_probs = h != -1
         if has_probs:
+            h = p_tmp['posterior_probability'].argmax()
             p_tmp = p_tmp.loc[h, columns].to_frame().T
         else:
             a = np.zeros(4)
@@ -3886,17 +3920,24 @@ def highest_pvalue_from_interaction(p):
 
 
 def get_same_order(pv, sh, fp):
+    pv = pv.reset_index(drop=True)
     pv_reord = highest_pvalue_from_interaction(pv)
     nrows = len(pv_reord)
     for i in range(nrows):
-        sh_tmp = sh[(sh['feature1'] == pv_reord.loc[i, 'feature1']) &
-                    (sh['feature2'] == pv_reord.loc[i, 'feature2']) |
-                    (sh['feature1'] == pv_reord.loc[i, 'feature2']) &
-                    (sh['feature2'] == pv_reord.loc[i, 'feature1'])]
-        fp_tmp = fp[(fp['feature1'] == pv_reord.loc[i, 'feature1']) &
-                    (fp['feature2'] == pv_reord.loc[i, 'feature2']) |
-                    (fp['feature1'] == pv_reord.loc[i, 'feature2']) &
-                    (fp['feature2'] == pv_reord.loc[i, 'feature1'])]
+        pv_feat1 = pv.loc[i, 'feature1']
+        pv_feat2 = pv.loc[i, 'feature2']
+        sh_tmp = sh[(sh['feature1'] == pv_feat1) &
+                    (sh['feature2'] == pv_feat2) |
+                    (sh['feature1'] == pv_feat2) &
+                    (sh['feature2'] == pv_feat1)].reset_index(drop=True)
+        sh_tmp.loc[0, 'feature1'] = pv_feat1
+        sh_tmp.loc[0, 'feature2'] = pv_feat2
+        fp_tmp = fp[(fp['feature1'] == pv_feat1) &
+                    (fp['feature2'] == pv_feat2) |
+                    (fp['feature1'] == pv_feat2) &
+                    (fp['feature2'] == pv_feat1)].reset_index(drop=True)
+        fp_tmp.loc[0, 'feature1'] = pv_feat1
+        fp_tmp.loc[0, 'feature2'] = pv_feat2
         if i == 0:
             sh_reord = sh_tmp
             fp_reord = fp_tmp
@@ -3938,6 +3979,7 @@ def rank_features(pv_reord, sh_reord, fp_reord):
 
 
 def merge_results_feat_import(pv, sh, fp, rr):
+    pv = pv.reset_index(drop=True)
     nrows = len(pv)
     for i in range(nrows):
         pv_feat1 = pv.loc[i, 'feature1']
@@ -3982,6 +4024,7 @@ def get_consensus_ranking(pv, sh, fp):
     rank_df = pd.DataFrame(np.concatenate((main_consrank, inter_consrank)) + 1.0, columns = ['rank'])
     r = pd.concat([pv_reordered[['feature1', 'feature2']], rank_df], axis = 1)
     feat_merged = merge_results_feat_import(pv, sh, fp, r)
+#    feat_merged = merge_results_feat_import(pv_reordered, sh_reordered, fp_reordered, r)
     return feat_merged, main_consrank
 
 

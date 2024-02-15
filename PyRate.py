@@ -4993,7 +4993,7 @@ if __name__ == '__main__':
                                                  do_inter_imp = do_inter_imp)
         bdnn_obj, cond_trait_tbl_sp, cond_trait_tbl_ex, names_features_sp, names_features_ex, sp_rate_part, ex_rate_part, sp_fad_lad, backscale_par = obj_effect
         sp_pv = bdnn_lib.get_prob_effects(cond_trait_tbl_sp, sp_rate_part, bdnn_obj, names_features_sp, rate_type = 'speciation')
-        ex_pv = bdnn_lib.get_prob_effects(cond_trait_tbl_ex, ex_rate_part, bdnn_obj, names_features_ex, rate_type = 'speciation')
+        ex_pv = bdnn_lib.get_prob_effects(cond_trait_tbl_ex, ex_rate_part, bdnn_obj, names_features_ex, rate_type = 'extinction')
         # consensus among 3 feature importance methods
         print("Getting consensus ranking")
         sp_feat_importance, sp_main_consrank = bdnn_lib.get_consensus_ranking(sp_pv, sp_shap, sp_featperm)
