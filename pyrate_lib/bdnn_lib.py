@@ -386,11 +386,11 @@ def is_binary_feature(trait_tbl):
     freq_state = np.zeros(n_features, dtype = int)
     for i in range(n_features):
         if len(trait_tbl.shape) == 3:
-            values, counts = np.unique(trait_tbl[:, :, i], return_counts = True)
+            values, counts = np.unique(trait_tbl[:, :, i], return_counts=True)
         else:
             values, counts = np.unique(trait_tbl[:, i], return_counts=True)
-        n_values = len(values)
-        b[i] = np.all(np.isin(values, np.arange(n_values)))
+        values_range = np.arange(np.min(values), np.max(values) + 1)
+        b[i] = np.all(np.isin(values, values_range))
         freq_state[i] = values[np.argmax(counts)]
     b = b.astype(bool)
     return b, freq_state
