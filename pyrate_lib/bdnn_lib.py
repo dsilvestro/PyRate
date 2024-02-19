@@ -3902,7 +3902,12 @@ def highest_pvalue_from_interaction(p):
         p_tmp = p[(p['feature1'] == unique_features.loc[i, 'feature1']) &
                   (p['feature2'] == unique_features.loc[i, 'feature2'])]
         p_tmp = p_tmp.reset_index()
-        has_probs = p_tmp['posterior_probability'].isnull().all() is False
+        has_probs = not p_tmp['posterior_probability'].isnull().all()
+#        pp = p_tmp['posterior_probability'].to_numpy()
+#        has_probs = ~np.all(np.isnan(pp))
+#        print('p\n', pp)
+#        print('has probs', has_probs)
+#        print('has_probs 2\n', np.__bool__(has_probs))
 #        h = p_tmp['posterior_probability'].argmax()
 #        has_probs = h != -1
         if has_probs:
@@ -3922,8 +3927,8 @@ def get_same_order(pv, sh, fp):
     pv_reord = highest_pvalue_from_interaction(pv)
     nrows = len(pv_reord)
     for i in range(nrows):
-        pv_feat1 = pv.loc[i, 'feature1']
-        pv_feat2 = pv.loc[i, 'feature2']
+        pv_feat1 = pv_reord.loc[i, 'feature1']
+        pv_feat2 = pv_reord.loc[i, 'feature2']
         sh_tmp = sh[(sh['feature1'] == pv_feat1) &
                     (sh['feature2'] == pv_feat2) |
                     (sh['feature1'] == pv_feat2) &
