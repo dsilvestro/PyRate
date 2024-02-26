@@ -1820,7 +1820,14 @@ def BDNN_likelihood(arg):
     likL = np.sum(np.log(lam) - lam*s)
     likM = np.sum(np.log(mu[te>0])) - np.sum(mu*s)
     return likL + likM
- 
+
+def BDNN_fast_likelihood(arg):
+    [ts,te,lam,mu] = arg
+    s = ts - te
+    likL = np.sum(np.log(lam) - lam*s)
+    likM = np.sum(np.log(mu[te>0])) - np.sum(mu*s)
+    return likL + likM
+
 def BDNN_partial_lik(arg):
     [ts,te,up,lo,rate,par, nn_prm,indx]=arg
     # indexes of the species within time frame
@@ -1847,17 +1854,23 @@ def BDNN_partial_lik(arg):
     return lik
 
 def BDNN_fast_partial_lik(arg):
-    [ts, te, up, lo, r, par]=arg
-    # indexes of the species within time frame
-    if par=="l":
-        i_events=np.intersect1d((ts <= up).nonzero()[0], (ts > lo).nonzero()[0])
-    else:
-        i_events=np.intersect1d((te <= up).nonzero()[0], (te > lo).nonzero()[0])
-
-    n_all_inframe, n_S = get_sp_in_frame_br_length(ts,te,up,lo)
-
+    [i_events, n_all_inframe, n_S, r]=arg
     lik= np.sum(log(r[i_events])) + np.sum(-r[n_all_inframe]*n_S)
     return lik
+
+def get_events_inframe_ns_list(ts, te, times):
+    i_events_sp = []
+    i_events_ex = []
+    n_all_inframe = []
+    n_S = []
+    for i in range(len(times)-1):
+        up, lo = times[i], times[i + 1]
+        i_events_sp.append(np.intersect1d((ts <= up).nonzero()[0], (ts > lo).nonzero()[0]))
+        i_events_ex.append(np.intersect1d((te <= up).nonzero()[0], (te > lo).nonzero()[0]))
+        n_all_inframe_temp, n_S_temp = get_sp_in_frame_br_length(ts, te, up, lo)
+        n_all_inframe.append(n_all_inframe_temp)
+        n_S.append(n_S_temp)
+    return i_events_sp, i_events_ex, n_all_inframe, n_S
 
 def get_act_f(i):
     return [np.abs, softPlus, expFun, relu_f, sigmoid_f, sigmoid_rate][i]
@@ -3282,9 +3295,10 @@ def MCMC(all_arg):
             if use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
                 bdnn_lam_ratesA = get_rate_BDNN_3D(1, trait_tbl_NN[0], cov_parA[0], hidden_act_f, out_act_f)
                 bdnn_mu_ratesA = get_rate_BDNN_3D(1, trait_tbl_NN[1], cov_parA[1], hidden_act_f, out_act_f)
+                i_events_spA, i_events_exA, n_all_inframeA, n_SA = get_events_inframe_ns_list(tsA, teA, timesLA)
             else:
                 bdnn_lam_ratesA = get_rate_BDNN(1, trait_tbl_NN[0], cov_parA[0], hidden_act_f, out_act_f)
-                bdnn_mu_ratesA = get_rate_BDNN(1, trait_tbl_NN[1], cov_parA[0], hidden_act_f, out_act_f)
+                bdnn_mu_ratesA = get_rate_BDNN(1, trait_tbl_NN[1], cov_parA[1], hidden_act_f, out_act_f)
             bdnn_prior_cov_parA = np.sum([np.sum(prior_normal(cov_parA[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_parA[0]))])
             bdnn_prior_cov_parA += np.sum([np.sum(prior_normal(cov_parA[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_parA[1]))])
         
@@ -3391,6 +3405,11 @@ def MCMC(all_arg):
             bdnn_lam_rates = bdnn_lam_ratesA
             bdnn_mu_rates = bdnn_mu_ratesA
             bdnn_prior_cov_par = bdnn_prior_cov_parA
+            if use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
+                i_events_sp = i_events_spA
+                i_events_ex = i_events_exA
+                n_all_inframe = n_all_inframeA
+                n_S = n_SA
         else:
             cov_par=np.zeros(3)
         L,M = np.zeros(len(LA)),np.zeros(len(MA))
@@ -3445,6 +3464,8 @@ def MCMC(all_arg):
                 bdnn_binned_div = np.repeat(bdnn_binned_div, n_taxa).reshape((len(bdnn_binned_div), n_taxa))
                 trait_tbl_NN[0][ :, :, div_idx_trt_tbl] = bdnn_binned_div
                 trait_tbl_NN[1][ :, :, div_idx_trt_tbl] = bdnn_binned_div
+            if use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar):
+                i_events_sp, i_events_ex, n_all_inframe, n_S = get_events_inframe_ns_list(ts, te, timesL)
 
             tot_L=np.sum(ts-te)
         
@@ -3511,7 +3532,7 @@ def MCMC(all_arg):
                     bdnn_mu_rates = get_rate_BDNN_3D(1, trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f)
                 else:
                     bdnn_lam_rates = get_rate_BDNN(1, trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f)
-                    bdnn_mu_rates = get_rate_BDNN(1, trait_tbl_NN[1], cov_par[0], hidden_act_f, out_act_f)
+                    bdnn_mu_rates = get_rate_BDNN(1, trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f)
                 bdnn_prior_cov_par = np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[0]))])
                 bdnn_prior_cov_par += np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[1]))])
 
@@ -3725,8 +3746,10 @@ def MCMC(all_arg):
         ### DPP end
         
         elif use_BDNNmodel and TDI == 0 and fix_Shift == 0:
-            arg = [ts,te,trait_tbl_NN,L,M,cov_par]
-            likBDtemp = BDNN_likelihood(arg)            
+            # arg = [ts,te,trait_tbl_NN,L,M,cov_par]
+            # likBDtemp = BDNN_likelihood(arg)
+            arg = [ts, te, bdnn_lam_rates, bdnn_mu_rates]
+            likBDtemp = BDNN_fast_likelihood(arg)
 
         elif FBDrange == 0:
             if TDI==4 and np.random.random()<0.01:
@@ -3757,7 +3780,7 @@ def MCMC(all_arg):
                                 up, lo = timesL[temp_l], timesL[temp_l+1]
                                 l = L[temp_l]
                                 # args.append([ts, te, up, lo, l, 'l', cov_par[0],temp_l])
-                                args.append([ts, te, up, lo, bdnn_lam_rates[:, temp_l], 'l'])
+                                args.append([i_events_sp[temp_l], n_all_inframe[temp_l], n_S[temp_l], bdnn_lam_rates[:, temp_l]])
                         else:
                             for temp_l in range(len(timesL)-1):
                                 up, lo = timesL[temp_l], timesL[temp_l+1]
@@ -3769,8 +3792,8 @@ def MCMC(all_arg):
                         up, lo = timesM[temp_m], timesM[temp_m+1]
                         m = M[temp_m]
                         if use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar):
-                            # args.append([ts, te, up, lo, m, 'm', cov_par[1],temp_m]) 
-                            args.append([ts, te, up, lo, bdnn_mu_rates[:, temp_m], 'm'])
+                            # args.append([ts, te, up, lo, m, 'm', cov_par[1],temp_m])
+                            args.append([i_events_ex[temp_m], n_all_inframe[temp_m], n_S[temp_m], bdnn_mu_rates[:, temp_m]])
                         elif use_ADE_model == 0:
                             args.append([ts, te, up, lo, m, 'm', cov_par[1],np.nan])
                         elif use_ADE_model >= 1:
@@ -4082,14 +4105,24 @@ def MCMC(all_arg):
                 if FBDrange:
                     res_FBD_A = res_FBD
                     FBD_temp_A = [times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp]
-                if use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar):
+                if use_BDNNmodel: # and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar)
                     bdnn_lam_ratesA = bdnn_lam_rates
                     bdnn_mu_ratesA = bdnn_mu_rates
-                    bdnn_prior_cov_parA = bdnn_prior_cov_par
-            elif use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar):
+                    if use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
+                        bdnn_prior_cov_parA = bdnn_prior_cov_par
+                        i_events_spA = i_events_sp
+                        i_events_exA = i_events_ex
+                        n_all_inframeA = n_all_inframe
+                        n_SA = n_S
+            elif use_BDNNmodel: # and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar)
                 bdnn_lam_rates = bdnn_lam_ratesA
                 bdnn_mu_rates = bdnn_mu_ratesA
-                bdnn_prior_cov_parA = bdnn_prior_cov_par
+                if use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
+                    bdnn_prior_cov_parA = bdnn_prior_cov_par
+                    i_events_sp = i_events_spA
+                    i_events_ex = i_events_exA
+                    n_all_inframe = n_all_inframeA
+                    n_S = n_SA
 
         if it % print_freq ==0 or it==burnin:
             try: l=[round(y, 2) for y in [PostA, likA, priorA, SA]]
