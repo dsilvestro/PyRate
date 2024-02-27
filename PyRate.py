@@ -5097,9 +5097,9 @@ if __name__ == '__main__':
         from pyrate_lib.bdnn_lib import combine_pkl
         tag = args.tag
         combine_pkl(args.combBDNN, tag)
-        tag_mcmc_log = tag + "_mcmc"
+        tag_mcmc_log = tag + "*_mcmc"
         comb_log_files(args.combBDNN, burnin, tag_mcmc_log, resample=args.resample, col_tag=args.col_tag)
-        tag_rates_log = tag + "_per_species_rates"
+        tag_rates_log = tag + "*_per_species_rates"
         comb_log_files(args.combBDNN, burnin, tag_rates_log, resample=args.resample)
         sys.exit("\n")
     elif len(args.input_data)==0 and args.d == "": sys.exit("\nInput file required. Use '-h' for command list.\n")
