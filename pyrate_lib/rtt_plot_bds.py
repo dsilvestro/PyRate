@@ -353,13 +353,13 @@ def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulat
         
     if plot_shifts:
         # add barplot rate shifts
-        bins_histogram = np.linspace(0 ,max_age,len(res[0]))
+        bins_histogram = np.linspace(min_age ,max_age,len(res[0]))
         if len(shifts)>1: # rate shift sampled at least once
             h = np.histogram(shifts,bins =bins_histogram) #,density=1)
         else:
             h = [np.zeros(len(bins_histogram)-1),bins_histogram]
         a = h[1]
-        mid = (a-a[1]/2.)[1:]
+        mid = (a-(a[1]-a[0])/2.)[1:]
         mid_filter = mid[mid < max_age]
         mid_filter = mid[mid > min_age]
         out_str += util.print_R_vec("\nmids",-mid_filter)
@@ -376,7 +376,7 @@ or -grid_plot 0.1 for bins of size 0.1.\n
 """)
         out_str += util.print_R_vec("\ncounts",h_0/float(res_5))
         out_str += "\nplot(mids,counts,type = 'h', xlim = c(%s,%s), ylim=c(0,%s), ylab = 'Frequency of rate shift', xlab = 'Time',lwd=5,col='%s')" \
-            % (-max_age,-min_age,np.maximum(np.max(h_0/float(res_5)),0.2),col)
+            % (-max_age,-min_age,np.max([np.max(h_0 / float(res_5)), 0.2]), col)
         # get BFs
         if run_simulation==1:
             BFs = get_prior_shift(min_age,max_age,bins_histogram,n_reps,min_allowed_t)
