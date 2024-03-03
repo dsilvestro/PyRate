@@ -80,6 +80,7 @@ def load_trait_tbl(path):
 def export_trait_tbl(trait_tbls, names_features, output_wd):
     path_predictors = os.path.join(output_wd, 'BDNN_predictors')
     os.makedirs(path_predictors, exist_ok = True)
+    trait_tbls[0] = trait_tbls[0][::-1, :, :]
     num_tbls = len(trait_tbls[0])
     digits_file_name = "{:0%sd}" % len(str(num_tbls))
     for i in range(num_tbls):
