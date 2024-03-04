@@ -3464,8 +3464,10 @@ def MCMC(all_arg):
                 bdnn_binned_div = np.repeat(bdnn_binned_div, n_taxa).reshape((len(bdnn_binned_div), n_taxa))
                 trait_tbl_NN[0][ :, :, div_idx_trt_tbl] = bdnn_binned_div
                 trait_tbl_NN[1][ :, :, div_idx_trt_tbl] = bdnn_binned_div
-            if use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar):
-                i_events_sp, i_events_ex, n_all_inframe, n_S = get_events_inframe_ns_list(ts, te, timesL)
+#            # This causes root age to ever increase when mG and shifts in sampling over time
+#            # But not when doing this in line 3779. Fix this later because it makes BDNN ca. 20% faster
+#            if use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar):
+#                i_events_sp, i_events_ex, n_all_inframe, n_S = get_events_inframe_ns_list(ts, te, timesL)
 
             tot_L=np.sum(ts-te)
         
@@ -3774,6 +3776,7 @@ def MCMC(all_arg):
                         likBDtemp = BD_age_lik_vec_times([ts,te,timesL,W_shape,M,q_rates])
                 else:
                     args=list()
+                    i_events_sp, i_events_ex, n_all_inframe, n_S = get_events_inframe_ns_list(ts, te, timesL)
                     if use_ADE_model == 0: # speciation rate is not used under ADE model
                         if use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar):
                             for temp_l in range(len(timesL)-1):
