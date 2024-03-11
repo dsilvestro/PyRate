@@ -263,12 +263,27 @@ def bdnn_read_mcmc_file(mcmc_file, burn, thin):
     w_ex = np_m[burnin:, w_ex_indx]
     ts = np_m[burnin:, ts_indx]
     te = np_m[burnin:, te_indx]
+    num_it = ts.shape[0]
+    if 't_reg_lam' in m.columns:
+        reg_lam = m['t_reg_lam'].to_numpy()[burnin:].reshape((num_it, 1))
+        reg_mu = m['t_reg_mu'].to_numpy()[burnin:].reshape((num_it, 1))
+        denom_lam = m['reg_denom_lam'].to_numpy()[burnin:].reshape((num_it, 1))
+        denom_mu = m['reg_denom_mu'].to_numpy()[burnin:].reshape((num_it, 1))
+    else:
+        reg_lam = np.ones((num_it, 1))
+        reg_mu = np.ones((num_it, 1))
+        denom_lam = np.ones((num_it, 1))
+        denom_mu = np.ones((num_it, 1))
     if thin > 0:
         w_sp = apply_thin(w_sp, thin)
         w_ex = apply_thin(w_ex, thin)
         ts = apply_thin(ts, thin)
         te = apply_thin(te, thin)
-    return w_sp, w_ex, ts, te
+        reg_lam = apply_thin(reg_lam, thin).flatten()
+        reg_mu = apply_thin(reg_mu, thin).flatten()
+        denom_lam = apply_thin(denom_lam, thin).flatten()
+        denom_mu = apply_thin(denom_mu, thin).flatten()
+    return w_sp, w_ex, ts, te, reg_lam, reg_mu, denom_lam, denom_mu
 
 
 def bdnn_reshape_w(posterior_w, bdnn_obj):
@@ -287,11 +302,11 @@ def bdnn_reshape_w(posterior_w, bdnn_obj):
 
 def bdnn_parse_results(mcmc_file, pkl_file, burn = 0.1, thin = 0):
     ob = load_pkl(pkl_file)
-    w_sp, w_ex, post_ts, post_te = bdnn_read_mcmc_file(mcmc_file, burn, thin)
+    w_sp, w_ex, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, post_reg_denom_lam, post_reg_denom_mu = bdnn_read_mcmc_file(mcmc_file, burn, thin)
     post_w_sp = bdnn_reshape_w(w_sp, ob)
     post_w_ex = bdnn_reshape_w(w_ex, ob)
     sp_fad_lad = ob.sp_fad_lad
-    return ob, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te
+    return ob, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, post_reg_denom_lam, post_reg_denom_mu
 
 
 def bdnn_time_rescaler(x, bdnn_obj):
@@ -932,7 +947,7 @@ def build_conditional_trait_tbl(bdnn_obj,
     return cond_trait_tbl, names_features
 
 
-def get_conditional_rates(bdnn_obj, cond_trait_tbl, post_w):
+def get_conditional_rates(bdnn_obj, cond_trait_tbl, post_w, post_t_reg, post_denom):
     num_it = len(post_w)
     obs = cond_trait_tbl[:, -1] == 1
     rate_cond = np.zeros((np.sum(obs), num_it))
@@ -942,6 +957,7 @@ def get_conditional_rates(bdnn_obj, cond_trait_tbl, post_w):
                                         post_w[i], # list of arrays
                                         bdnn_obj.bdnn_settings['hidden_act_f'],
                                         bdnn_obj.bdnn_settings['out_act_f'])
+        rate_cond[:, i] = rate_cond[:, i] ** post_t_reg[i] / post_denom[i]
     rate_cond2 = np.zeros((len(cond_trait_tbl), num_it))
     rate_cond2[:] = np.nan
     rate_cond2[obs, :] = rate_cond
@@ -1367,7 +1383,7 @@ def get_mean_inferred_tste(post_ts, post_te):
 
 
 def get_effect_objects(mcmc_file, pkl_file, burnin, thin, combine_discr_features = "", file_transf_features = "", num_processes = 1, show_progressbar = False, do_inter_imp = True):
-    bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
+    bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, post_reg_denom_lam, post_reg_denom_mu = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
     mean_tste = get_mean_inferred_tste(post_ts, post_te)
     cond_trait_tbl_sp, names_features_sp = build_conditional_trait_tbl(bdnn_obj, mean_tste,
                                                                        post_ts, post_te,
@@ -1381,15 +1397,21 @@ def get_effect_objects(mcmc_file, pkl_file, burnin, thin, combine_discr_features
                                                                        rate_type = "extinction",
                                                                        combine_discr_features = combine_discr_features,
                                                                        do_inter_imp = do_inter_imp)
-    #sp_rate_cond = bdnn_lib.get_conditional_rates(bdnn_obj, cond_trait_tbl_sp, post_w_sp)
-    #ex_rate_cond = bdnn_lib.get_conditional_rates(bdnn_obj, cond_trait_tbl_ex, post_w_ex)
+    #sp_rate_cond = bdnn_lib.get_conditional_rates(bdnn_obj, cond_trait_tbl_sp, post_w_sp, post_t_reg_lam, post_reg_denom_lam)
+    #ex_rate_cond = bdnn_lib.get_conditional_rates(bdnn_obj, cond_trait_tbl_ex, post_w_ex, post_t_reg_mu, post_reg_denom_mu)
     bdnn_time = get_bdnn_time(bdnn_obj, mean_tste[:, 0])
     print("\nGetting partial dependence rates for speciation")
-    sp_rate_cond = get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl_sp, post_w_sp, post_ts, combine_discr_features = combine_discr_features,
-                                                rate_type = 'speciation', num_processes = num_processes, show_progressbar = show_progressbar)
+    sp_rate_cond = get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl_sp,
+                                                post_w_sp, post_t_reg_lam, post_reg_denom_lam,
+                                                post_ts, combine_discr_features = combine_discr_features,
+                                                rate_type = 'speciation',
+                                                num_processes = num_processes, show_progressbar = show_progressbar)
     print("Getting partial dependence rates for extinction")
-    ex_rate_cond = get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl_ex, post_w_ex, post_te, combine_discr_features = combine_discr_features,
-                                                rate_type = 'extinction', num_processes = num_processes, show_progressbar = show_progressbar)
+    ex_rate_cond = get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl_ex,
+                                                post_w_ex, post_t_reg_mu, post_reg_denom_mu,
+                                                post_te, combine_discr_features = combine_discr_features,
+                                                rate_type = 'extinction',
+                                                num_processes = num_processes, show_progressbar = show_progressbar)
     cond_trait_tbl_sp, cond_trait_tbl_ex, backscale_par = backscale_bdnn_features(file_transf_features,
                                                                                   bdnn_obj,
                                                                                   cond_trait_tbl_sp,
@@ -1867,7 +1889,7 @@ def take_traits_from_trt_tbl(trait_tbl, cond_trait_tbl, j, idx_comb_feat):
 
 
 def get_pdp_rate_it_i(arg):
-    [bdnn_obj, post_w_i, trait_tbl, cond_trait_tbl, idx_comb_feat] = arg
+    [bdnn_obj, post_w_i, post_t_reg_i, post_denom_i, trait_tbl, cond_trait_tbl, idx_comb_feat] = arg
     nrows_cond_trait_tbl = len(cond_trait_tbl)
     rate_it_i = np.zeros(nrows_cond_trait_tbl)
     rate_it_i[:] = np.nan
@@ -1880,11 +1902,12 @@ def get_pdp_rate_it_i(arg):
                                       post_w_i,  # list of arrays
                                       bdnn_obj.bdnn_settings['hidden_act_f'],
                                       bdnn_obj.bdnn_settings['out_act_f'])
+            rate_BDNN = rate_BDNN ** post_t_reg_i / post_denom_i
             rate_it_i[j] = 1.0 / np.mean(1.0 / rate_BDNN) #np.mean(rate_BDNN)
     return rate_it_i
 
 
-def get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl, post_w, post_tse, combine_discr_features = '',
+def get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl, post_w, post_t_reg, post_denom, post_tse, combine_discr_features = '',
                                  rate_type = 'speciation', num_processes = 1, show_progressbar = False):
     num_it = len(post_w)
     trait_tbl = get_trt_tbl(bdnn_obj, rate_type)
@@ -1894,7 +1917,7 @@ def get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl, post_w, po
     for i in range(num_it):
         trait_tbl_a = trait_tbl + 0.0
         trait_tbl_a = get_shap_trt_tbl(post_tse[i, :], bdnn_time, trait_tbl_a)
-        a = [bdnn_obj, post_w[i], trait_tbl_a, cond_trait_tbl, idx_comb_feat]
+        a = [bdnn_obj, post_w[i], post_t_reg[i], post_denom[i], trait_tbl_a, cond_trait_tbl, idx_comb_feat]
         args.append(a)
     unixos = is_unix()
     if unixos and num_processes > 1:
@@ -1950,7 +1973,7 @@ def build_all_combinations(list):
 
 
 def get_pdp_rate_it_i_free_combination(arg):
-    [bdnn_obj, post_w_i, trait_tbl, all_comb_tbl, names_comb_idx_conc] = arg
+    [bdnn_obj, post_w_i, t_reg_i, denom_reg_i, trait_tbl, all_comb_tbl, names_comb_idx_conc] = arg
     nrows_all_comb_tbl = len(all_comb_tbl)
     rate_it_i = np.zeros(nrows_all_comb_tbl)
     rate_it_i[:] = np.nan
@@ -1962,13 +1985,14 @@ def get_pdp_rate_it_i_free_combination(arg):
                                   post_w_i,  # list of arrays
                                   bdnn_obj.bdnn_settings['hidden_act_f'],
                                   bdnn_obj.bdnn_settings['out_act_f'])
+        rate_BDNN = rate_BDNN ** t_reg_i / denom_reg_i
         rate_it_i[j] = 1.0 / np.mean(1.0/rate_BDNN)
     return rate_it_i
 
 
 def get_pdp_rate_free_combination(bdnn_obj,
                                   sp_fad_lad,
-                                  ts_post, te_post, w_post,
+                                  ts_post, te_post, w_post, t_reg_post, denom_reg_post,
                                   names_comb,
                                   backscale_par,
                                   len_cont=100,
@@ -2045,7 +2069,7 @@ def get_pdp_rate_free_combination(bdnn_obj,
         else:
             trait_tbl_a = get_shap_trt_tbl(te_post[i, :], bdnn_time, trait_tbl_a)
         trait_tbl_for_mean[i, :, :] = trait_tbl_a[:, names_comb_idx_conc]
-        a = [bdnn_obj, w_post[i], trait_tbl_a, all_comb_tbl, names_comb_idx_conc]
+        a = [bdnn_obj, w_post[i], t_reg_post[i], denom_reg_post[i], trait_tbl_a, all_comb_tbl, names_comb_idx_conc]
         args.append(a)
     trait_tbl_mean = np.mean(trait_tbl_for_mean, axis = 0)
     b = binary_feature[names_comb_idx_conc]
@@ -2207,7 +2231,7 @@ def get_greenwells_interaction_importance(rates, feat):
 
 # trait_tbl_NN, hidden_act_f, out_act_f added
 def BDNN_partial_lik(arg):
-    [ts, te, up, lo, rate, par, nn_prm, indx, trait_tbl_NN, hidden_act_f, out_act_f] = arg
+    [ts, te, up, lo, rate, par, nn_prm, t_reg, denom_reg, indx, trait_tbl_NN, hidden_act_f, out_act_f] = arg
     if par == "l":
         i_events = np.intersect1d((ts <= up).nonzero()[0], (ts > lo).nonzero()[0])
     else:
@@ -2223,11 +2247,12 @@ def BDNN_partial_lik(arg):
             r = get_rate_BDNN(rate, trait_tbl_NN[0], nn_prm, hidden_act_f, out_act_f)
         else:
             r = get_rate_BDNN(rate, trait_tbl_NN[1], nn_prm, hidden_act_f, out_act_f)
+    r = r ** t_reg / denom_reg
     lik = np.sum(np.log(r[i_events])) + np.sum(-r[n_all_inframe] * n_S)
     return lik
 
 
-def get_bdnn_lik(bdnn_obj, bdnn_time, ts, te, w, trait_tbl_NN, rate_type):
+def get_bdnn_lik(bdnn_obj, bdnn_time, ts, te, w, t_reg, reg_denom, trait_tbl_NN, rate_type):
     time_var = trait_tbl_NN[0].ndim > 2
     hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
     out_act_f  = bdnn_obj.bdnn_settings['out_act_f']
@@ -2236,13 +2261,13 @@ def get_bdnn_lik(bdnn_obj, bdnn_time, ts, te, w, trait_tbl_NN, rate_type):
         for temp_l in range(len(bdnn_time) - 1):
             up, lo = bdnn_time[temp_l], bdnn_time[temp_l + 1]
             l = 1.0#L[temp_l]
-            args = [ts, te, up, lo, l, rate_type, w, temp_l, trait_tbl_NN, hidden_act_f, out_act_f]
+            args = [ts, te, up, lo, l, rate_type, w, t_reg, reg_denom, temp_l, trait_tbl_NN, hidden_act_f, out_act_f]
             likBDtemp[temp_l] = BDNN_partial_lik(args)
         bdnn_lik = np.sum(likBDtemp)
     else:
         up, lo = np.max(bdnn_time), np.zeros(1)
         l = 1.0
-        args = [ts, te, up, lo, l, rate_type, w, np.inf, trait_tbl_NN, hidden_act_f, out_act_f]
+        args = [ts, te, up, lo, l, rate_type, w, t_reg, reg_denom, np.inf, trait_tbl_NN, hidden_act_f, out_act_f]
         bdnn_lik = BDNN_partial_lik(args)
     return bdnn_lik
 
@@ -2351,7 +2376,7 @@ def permute_trt_tbl(trt_tbl, feat_idx, feature_is_time_variable, bdnn_obj, post_
 
 
 def perm_mcmc_sample_i(arg):
-    [bdnn_obj, post_ts_i, post_te_i, post_w_sp_i, post_w_ex_i, trt_tbls, n_perm, n_perm_traits, n_features, feature_is_time_variable, bdnn_dd, div_idx_trt_tbl, perm_feature_idx] = arg
+    [bdnn_obj, post_ts_i, post_te_i, post_w_sp_i, post_w_ex_i, t_reg_lam_i, t_reg_mu_i, reg_denom_lam_i, reg_denom_mu_i, trt_tbls, n_perm, n_perm_traits, n_features, feature_is_time_variable, bdnn_dd, div_idx_trt_tbl, perm_feature_idx] = arg
     bdnn_time = get_bdnn_time(bdnn_obj, post_ts_i)
     if bdnn_dd:
         n_taxa = trt_tbls[0].shape[1]
@@ -2363,9 +2388,11 @@ def perm_mcmc_sample_i(arg):
         trt_tbls[0][:, :, div_idx_trt_tbl] = bdnn_binned_div
         trt_tbls[1][:, :, div_idx_trt_tbl] = bdnn_binned_div
     # Original bd liks
-    orig_birth_lik = get_bdnn_lik(bdnn_obj, bdnn_time, post_ts_i, post_te_i, post_w_sp_i,
+    orig_birth_lik = get_bdnn_lik(bdnn_obj, bdnn_time, post_ts_i, post_te_i,
+                                  post_w_sp_i, t_reg_lam_i, reg_denom_lam_i,
                                   trt_tbls, rate_type='l')
-    orig_death_lik = get_bdnn_lik(bdnn_obj, bdnn_time, post_ts_i, post_te_i, post_w_ex_i,
+    orig_death_lik = get_bdnn_lik(bdnn_obj, bdnn_time, post_ts_i, post_te_i,
+                                  post_w_ex_i, t_reg_mu_i, reg_denom_mu_i,
                                   trt_tbls, rate_type='m')
     sp_lik_j = np.zeros((n_perm, n_perm_traits))
     ex_lik_j = np.zeros((n_perm, n_perm_traits))
@@ -2383,9 +2410,11 @@ def perm_mcmc_sample_i(arg):
                     if feat_idx.size > 1:
                         seed = seed[0]
                     trt_tbls_perm = permute_trt_tbl(trt_tbls_perm, feat_idx, feature_is_time_variable, bdnn_obj, post_ts_i, seed)
-            sp_lik_j[k, j] = get_bdnn_lik(bdnn_obj, bdnn_time, post_ts_i, post_te_i, post_w_sp_i,
+            sp_lik_j[k, j] = get_bdnn_lik(bdnn_obj, bdnn_time, post_ts_i, post_te_i,
+                                          post_w_sp_i, t_reg_lam_i, reg_denom_lam_i,
                                           trt_tbls_perm, rate_type='l')
-            ex_lik_j[k, j] = get_bdnn_lik(bdnn_obj, bdnn_time, post_ts_i, post_te_i, post_w_ex_i,
+            ex_lik_j[k, j] = get_bdnn_lik(bdnn_obj, bdnn_time, post_ts_i, post_te_i,
+                                          post_w_ex_i, t_reg_mu_i, reg_denom_mu_i,
                                           trt_tbls_perm, rate_type='m')
     species_sp_delta_lik = sp_lik_j - orig_birth_lik
     species_ex_delta_lik = ex_lik_j - orig_death_lik
@@ -2465,7 +2494,7 @@ def set_temporal_resolution(bdnn_obj, min_bs):
 
 
 def feature_permutation(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm = 10, num_processes = 1, combine_discr_features = "", show_progressbar = False, do_inter_imp = True):
-    bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
+    bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, post_reg_denom_lam, post_reg_denom_mu = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
     n_mcmc = post_ts.shape[0]
     fixed_times_of_shift = copy_lib.deepcopy(bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'])
     trt_tbls, bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'] = set_temporal_resolution(bdnn_obj, min_bs)
@@ -2488,7 +2517,9 @@ def feature_permutation(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm = 10, 
     n_perm_traits = len(perm_traits)
     args = []
     for i in range(n_mcmc):
-        a = [bdnn_obj, post_ts[i, :], post_te[i, :], post_w_sp[i], post_w_ex[i], trt_tbls,
+        a = [bdnn_obj, post_ts[i, :], post_te[i, :],
+             post_w_sp[i], post_w_ex[i], post_t_reg_lam[i], post_t_reg_mu[i], post_reg_denom_lam[i], post_reg_denom_mu[i],
+             trt_tbls,
              n_perm, n_perm_traits, n_features, feature_is_time_variable, bdnn_dd, div_idx_trt_tbl, perm_feature_idx]
         args.append(a)
     unixos = is_unix()
@@ -3336,7 +3367,7 @@ def shapley_kernel(M, s):
     return (M - 1) / (binom(M, s) * s * (M - s))
 
 
-def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, hidden_act_f, out_act_f, explain_matrix, XX_w):
+def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f, explain_matrix, XX_w):
     n_species, nAttr = trt_tbl.shape
     trt_tbl_aux2 = np.zeros(nEval * n_species * nAttr).reshape(nEval, n_species, nAttr)
     for ll in range(nEval):
@@ -3346,6 +3377,7 @@ def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, hidden_act_f, out_act_f, e
         trt_tbl_aux2[ll, :, :] = trt_tbl_aux
     trt_tbl_aux = trt_tbl_aux2.reshape(nEval * n_species, nAttr)
     rate_aux = get_rate_BDNN(1, trt_tbl_aux, cov_par, hidden_act_f, out_act_f)
+    rate_aux = rate_aux ** t_reg / reg_denom
     rate_aux = rate_aux.reshape(nEval, n_species)
     exp_payoffs_ci = 1.0 / np.mean(1.0 / rate_aux, axis = 1)
     exp_payoffs_shap = exp_payoffs_ci + 0.0
@@ -3365,7 +3397,7 @@ def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, hidden_act_f, out_act_f, e
     return shapley_val_ci_shap, indices
 
 
-def k_add_kernel_explainer(trt_tbl, cov_par, hidden_act_f, out_act_f):
+def k_add_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f):
     n_species, nAttr = trt_tbl.shape  # Number of instances and attributes
     k_add = 3
     k_add_not_ok = True
@@ -3389,7 +3421,7 @@ def k_add_kernel_explainer(trt_tbl, cov_par, hidden_act_f, out_act_f):
             explain_matrix = np.linalg.inv(m @ opt_data) @ m
             X_w = X.T @ np.diag(weights_shap)  # This can be pre-computed once for all species
             XX_w = np.linalg.inv(X_w @ X) @ X_w
-            _, _ = get_shap_species_i(0, nEval, trt_tbl, X, cov_par, hidden_act_f, out_act_f, explain_matrix, XX_w)
+            _, _ = get_shap_species_i(0, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f, explain_matrix, XX_w)
             k_add_not_ok = False
         except:
             k_add_not_ok = True
@@ -3400,15 +3432,15 @@ def k_add_kernel_explainer(trt_tbl, cov_par, hidden_act_f, out_act_f):
     shap_inter = np.zeros((n_species, nAttr, nAttr))
     for i in range(n_species):
         # For all samples
-        shapley_val_ci_shap, indices = get_shap_species_i(i, nEval, trt_tbl, X, cov_par, hidden_act_f, out_act_f, explain_matrix, XX_w)
+        shapley_val_ci_shap, indices = get_shap_species_i(i, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f, explain_matrix, XX_w)
         shap_main[i, :] = shapley_val_ci_shap
         shap_inter[i, :, :] = indices
     return shap_main, shap_inter
 
 
-def fastshap_kernel_explainer(trt_tbl, cov_par, hidden_act_f, out_act_f):
+def fastshap_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f):
     ke = KernelExplainer(
-        model = lambda X: get_rate_BDNN(1, X, cov_par, hidden_act_f, out_act_f),
+        model = lambda X: get_rate_BDNN(1, X, cov_par, hidden_act_f, out_act_f) ** t_reg / reg_denom,
         background_data = trt_tbl
     )
 #    shap_main = ke.calculate_shap_values(trt_tbl, verbose = False)
@@ -3497,7 +3529,7 @@ def combine_shap_featuregroup(shap_main_instances, shap_interaction_instances, i
 
 
 def k_add_kernel_shap_i(arg):
-    [bdnn_obj, post_ts_i, post_te_i, post_w_sp_i, post_w_ex_i, hidden_act_f, out_act_f, trt_tbls, bdnn_dd, div_idx_trt_tbl, idx_comb_feat_sp, idx_comb_feat_ex, do_inter_imp] = arg
+    [bdnn_obj, post_ts_i, post_te_i, post_w_sp_i, post_w_ex_i, t_reg_lam_i, t_reg_mu_i, reg_denom_lam_i, reg_denom_mu_i, hidden_act_f, out_act_f, trt_tbls, bdnn_dd, div_idx_trt_tbl, idx_comb_feat_sp, idx_comb_feat_ex, do_inter_imp] = arg
     bdnn_time = get_bdnn_time(bdnn_obj, post_ts_i)
     if bdnn_dd:
         n_taxa = trt_tbls[0].shape[1]
@@ -3511,11 +3543,11 @@ def k_add_kernel_shap_i(arg):
     shap_trt_tbl_sp = get_shap_trt_tbl(post_ts_i, bdnn_time, trt_tbls[0])
     shap_trt_tbl_ex = get_shap_trt_tbl(post_te_i, bdnn_time, trt_tbls[1])
     if do_inter_imp:
-        shap_main_sp, shap_interaction_sp = k_add_kernel_explainer(shap_trt_tbl_sp, post_w_sp_i, hidden_act_f, out_act_f)
-        shap_main_ex, shap_interaction_ex = k_add_kernel_explainer(shap_trt_tbl_ex, post_w_ex_i, hidden_act_f, out_act_f)
+        shap_main_sp, shap_interaction_sp = k_add_kernel_explainer(shap_trt_tbl_sp, post_w_sp_i, t_reg_lam_i, reg_denom_lam_i, hidden_act_f, out_act_f)
+        shap_main_ex, shap_interaction_ex = k_add_kernel_explainer(shap_trt_tbl_ex, post_w_ex_i, t_reg_mu_i, reg_denom_mu_i, hidden_act_f, out_act_f)
     else:
-        shap_main_sp = fastshap_kernel_explainer(shap_trt_tbl_sp, post_w_sp_i, hidden_act_f, out_act_f)
-        shap_main_ex = fastshap_kernel_explainer(shap_trt_tbl_ex, post_w_ex_i, hidden_act_f, out_act_f)
+        shap_main_sp = fastshap_kernel_explainer(shap_trt_tbl_sp, post_w_sp_i, t_reg_lam_i, reg_denom_lam_i, hidden_act_f, out_act_f)
+        shap_main_ex = fastshap_kernel_explainer(shap_trt_tbl_ex, post_w_ex_i, t_reg_mu_i, reg_denom_mu_i, hidden_act_f, out_act_f)
         shap_interaction_sp = np.array([])
         shap_interaction_ex = np.array([])
     lam_ke = combine_shap_featuregroup(shap_main_sp, shap_interaction_sp, idx_comb_feat_sp)
@@ -3581,7 +3613,7 @@ def make_shap_result_for_single_feature(names_features_sp, names_features_ex, co
 def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, combine_discr_features = {}, show_progressbar = False, do_inter_imp = True):
 #    if do_inter_imp == False:
 #        from fastshap import KernelExplainer
-    bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
+    bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, post_reg_denom_lam, post_reg_denom_mu = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
     mcmc_samples = post_ts.shape[0]
     trt_tbls = bdnn_obj.trait_tbls
     n_species = trt_tbls[0].shape[-2]
@@ -3619,7 +3651,8 @@ def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, comb
     n_effects_ex = n_main_eff_ex + n_inter_eff_ex + 1 + n_species * n_main_eff_ex
     args = []
     for i in range(mcmc_samples):
-        a = [bdnn_obj, post_ts[i, :], post_te[i, :], post_w_sp[i], post_w_ex[i],
+        a = [bdnn_obj, post_ts[i, :], post_te[i, :],
+             post_w_sp[i], post_w_ex[i], post_t_reg_lam[i], post_t_reg_mu[i], post_reg_denom_lam[i], post_reg_denom_mu[i],
              hidden_act_f, out_act_f, trt_tbls, bdnn_dd, div_idx_trt_tbl, idx_comb_feat_sp, idx_comb_feat_ex, do_inter_imp]
         args.append(a)
     unixos = is_unix()
@@ -4216,7 +4249,7 @@ def get_rscript_species_shap(r_script, species_names, taxa_shap, consrank, rate_
 
 
 def get_features_for_shap_plot(mcmc_file, pkl_file, burnin, thin, rate_type, combine_discr_features, file_transf_features):
-    bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, ts_post, te_post = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
+    bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, ts_post, te_post, post_t_reg_lam, post_t_reg_mu, post_reg_denom_lam, post_reg_denom_mu = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
     trait_tbl = get_trt_tbl(bdnn_obj, rate_type)
     names_features = get_names_features(bdnn_obj)
     names_features_orig = np.array(names_features)
