@@ -990,6 +990,12 @@ def comb_log_files_smart(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
         print("processing %s *_marginal_rates.log files" % (len(files_temp)))
         comb_mcmc_files(infile, files_temp,burnin,tag,resample,col_tag,file_type="marginal_rates")
 
+    # BDNN files
+    files_temp = [f for f in files if "_per_species_rates.log" in os.path.basename(f)]
+    if len(files_temp)>1:
+        print("processing %s *_per_species_rates.log files" % (len(files_temp)))
+        comb_mcmc_files(infile, files_temp,burnin,tag,resample,col_tag,file_type="per_species_rates")
+
 def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
     infile=path_to_files
     sys.path.append(infile)
@@ -5135,10 +5141,7 @@ if __name__ == '__main__':
         from pyrate_lib.bdnn_lib import combine_pkl
         tag = args.tag
         combine_pkl(args.combBDNN, tag)
-        tag_mcmc_log = tag + "*_mcmc"
-        comb_log_files(args.combBDNN, burnin, tag_mcmc_log, resample=args.resample, col_tag=args.col_tag)
-        tag_rates_log = tag + "*_per_species_rates"
-        comb_log_files(args.combBDNN, burnin, tag_rates_log, resample=args.resample)
+        comb_log_files_smart(args.combBDNN, burnin, tag, resample=args.resample, col_tag=args.col_tag)
         sys.exit("\n")
     elif len(args.input_data)==0 and args.d == "": sys.exit("\nInput file required. Use '-h' for command list.\n")
 

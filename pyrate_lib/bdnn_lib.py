@@ -97,7 +97,8 @@ def export_trait_tbl(trait_tbls, names_features, output_wd):
 def combine_pkl(path_to_files, tag):
     infile = path_to_files
     sys.path.append(infile)
-    direct_pkl = "%s/*%s.pkl" % (infile, tag)
+    direct_pkl = "%s/*%s*.pkl" % (infile, tag)
+    print('direct_pkl', direct_pkl)
     files_pkl = glob.glob(direct_pkl)
     files_pkl = np.sort(files_pkl)
     pkl_list = []
