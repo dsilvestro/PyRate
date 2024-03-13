@@ -1797,15 +1797,16 @@ def MatrixMultiplication3D(x1, x2):
         z1 += x2[:, 0].T
     return z1
 
-def get_rate_BDNN(rate, x, w, act_f, out_act_f): 
+def get_rate_BDNN(t_reg, x, w, act_f, out_act_f): 
     tmp = x+0
     for i in range(len(w)-1):
         tmp = act_f(MatrixMultiplication(tmp, w[i]))
     
     tmp = MatrixMultiplication(tmp, w[i+1])
     # output
-    rates = out_act_f(tmp).flatten() * rate + small_number #
-    return rates
+    rates = out_act_f(tmp).flatten() + small_number
+    reg_rates, denom = get_reg_rates(rates, t_reg)
+    return reg_rates, denom
 
 def get_reg_rates(rates, t_reg):
     r_tmp = rates ** t_reg
@@ -1828,8 +1829,8 @@ def BDNN_likelihood(arg):
     [ts,te,trait_tbl,rate_l,rate_m,cov_par] = arg
     nn_prm_lam, nn_prm_mu = cov_par[0], cov_par[1]
     s = ts - te
-    lam = get_rate_BDNN(rate_l, trait_tbl[0], nn_prm_lam, hidden_act_f, out_act_f)
-    mu = get_rate_BDNN(rate_m, trait_tbl[1], nn_prm_mu, hidden_act_f, out_act_f)
+    lam, _ = get_rate_BDNN(rate_l, trait_tbl[0], nn_prm_lam, hidden_act_f, out_act_f)
+    mu, _ = get_rate_BDNN(rate_m, trait_tbl[1], nn_prm_mu, hidden_act_f, out_act_f)
     likL = np.sum(np.log(lam) - lam*s)
     likM = np.sum(np.log(mu[te>0])) - np.sum(mu*s)
     return likL + likM
@@ -1853,14 +1854,14 @@ def BDNN_partial_lik(arg):
     
     if np.isfinite(indx):
         if par=="l":
-            r = get_rate_BDNN(rate, trait_tbl_NN[0][indx], nn_prm, hidden_act_f, out_act_f)
+            r, _ = get_rate_BDNN(rate, trait_tbl_NN[0][indx], nn_prm, hidden_act_f, out_act_f)
         else:
-            r = get_rate_BDNN(rate, trait_tbl_NN[1][indx], nn_prm, hidden_act_f, out_act_f)    
+            r, _ = get_rate_BDNN(rate, trait_tbl_NN[1][indx], nn_prm, hidden_act_f, out_act_f)
     else:
         if par=="l":
-            r = get_rate_BDNN(rate, trait_tbl_NN[0], nn_prm, hidden_act_f, out_act_f)
+            r, _ = get_rate_BDNN(rate, trait_tbl_NN[0], nn_prm, hidden_act_f, out_act_f)
         else:
-            r = get_rate_BDNN(rate, trait_tbl_NN[1], nn_prm, hidden_act_f, out_act_f)
+            r, _ = get_rate_BDNN(rate, trait_tbl_NN[1], nn_prm, hidden_act_f, out_act_f)
     
 #    print(par, r)
     lik= np.sum(log(r[i_events])) + np.sum(-r[n_all_inframe]*n_S) 
@@ -3328,10 +3329,10 @@ def MCMC(all_arg):
                 denom_mu = denom_muA + 0.0
                 i_events_spA, i_events_exA, n_all_inframeA, n_SA = get_events_inframe_ns_list(tsA, teA, timesLA)
             else:
-                bdnn_lam_ratesA = get_rate_BDNN(1, trait_tbl_NN[0], cov_parA[0], hidden_act_f, out_act_f)
-                bdnn_mu_ratesA = get_rate_BDNN(1, trait_tbl_NN[1], cov_parA[1], hidden_act_f, out_act_f)
-                denom_lamA = 1.0 # placeholder for not breaking bdnn_lib
-                denom_muA = 1.0
+                bdnn_lam_ratesA, denom_lamA = get_rate_BDNN(cov_parA[3], trait_tbl_NN[0], cov_parA[0], hidden_act_f, out_act_f)
+                bdnn_mu_ratesA, denom_muA = get_rate_BDNN(cov_parA[3], trait_tbl_NN[1], cov_parA[1], hidden_act_f, out_act_f)
+#                denom_lamA = 1.0 # placeholder for not breaking bdnn_lib
+#                denom_muA = 1.0
                 denom_lam = denom_lamA + 0.0
                 denom_mu = denom_muA + 0.0
             bdnn_prior_cov_parA = np.sum([np.sum(prior_normal(cov_parA[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_parA[0]))])
@@ -3574,8 +3575,8 @@ def MCMC(all_arg):
                     bdnn_lam_rates, denom_lam = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f)
                     bdnn_mu_rates, denom_mu = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f)
                 else:
-                    bdnn_lam_rates = get_rate_BDNN(1, trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f)
-                    bdnn_mu_rates = get_rate_BDNN(1, trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f)
+                    bdnn_lam_rates, denom_lam = get_rate_BDNN(cov_par[3], trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f)
+                    bdnn_mu_rates, denom_mu = get_rate_BDNN(cov_par[3], trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f)
                 bdnn_prior_cov_par = np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[0]))])
                 bdnn_prior_cov_par += np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[1]))])
                 if prior_lam_t_reg > 0:
@@ -4152,29 +4153,29 @@ def MCMC(all_arg):
                 if FBDrange:
                     res_FBD_A = res_FBD
                     FBD_temp_A = [times_fbd_temp, psi_fbd_temp, lam_fbd_temp, mu_fbd_temp]
-                if use_BDNNmodel: # and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar)
+                if use_BDNNmodel:
                     bdnn_lam_ratesA = bdnn_lam_rates
                     bdnn_mu_ratesA = bdnn_mu_rates
+                    denom_lamA = denom_lam
+                    denom_muA = denom_mu
                     if use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
                         bdnn_prior_cov_parA = bdnn_prior_cov_par
                         i_events_spA = i_events_sp
                         i_events_exA = i_events_ex
                         n_all_inframeA = n_all_inframe
                         n_SA = n_S
-                        denom_lamA = denom_lam
-                        denom_muA = denom_mu
-            elif use_BDNNmodel: # and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar)
+            elif use_BDNNmodel:
                 bdnn_lam_rates = bdnn_lam_ratesA
                 bdnn_mu_rates = bdnn_mu_ratesA
+                denom_lam = denom_lamA
+                denom_mu = denom_muA
+                cov_par = cov_parA
                 if use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
                     bdnn_prior_cov_parA = bdnn_prior_cov_par
                     i_events_sp = i_events_spA
                     i_events_ex = i_events_exA
                     n_all_inframe = n_all_inframeA
                     n_S = n_SA
-                    denom_lam = denom_lamA
-                    denom_mu = denom_muA
-                    cov_par = cov_parA
 
         if it % print_freq ==0 or it==burnin:
             try: l=[round(y, 2) for y in [PostA, likA, priorA, SA]]
@@ -5761,8 +5762,8 @@ if __name__ == '__main__':
 
         n_BDNN_nodes = args.BDNNnodes
         prior_lam_t_reg = args.BDNNreg
-        if args.BDNNtimetrait == 0.0 and any(not bdnn_timevar or not bdnn_dd or not bdnn_loaded_tbls_timevar):
-            prior_lam_t_reg = -1.0
+#        if args.BDNNtimetrait == 0.0 and any(not bdnn_timevar or not bdnn_dd or not bdnn_loaded_tbls_timevar):
+#            prior_lam_t_reg = -1.0
     
         # load trait data
         names_traits = []

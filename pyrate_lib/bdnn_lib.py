@@ -16,16 +16,18 @@ from scipy.spatial import ConvexHull
 from matplotlib.path import Path
 from math import comb
 from scipy import stats
+from collections.abc import Iterable
 
 import pyrate_lib.lib_utilities as util
 from PyRate import check_burnin
 from PyRate import load_pkl
 from PyRate import write_pkl
-from PyRate import get_rate_BDNN
+#from PyRate import get_rate_BDNN
 from PyRate import get_DT
 from PyRate import get_binned_div_traj
 from PyRate import get_sp_in_frame_br_length
 from PyRate import bdnn
+from PyRate import MatrixMultiplication
 
 from scipy.special import bernoulli, binom
 from itertools import chain, combinations, product
@@ -38,6 +40,8 @@ from pandas import DataFrame as pd_DataFrame
 from pandas import Series as pd_Series
 from pandas import concat
 from sklearn.linear_model import LinearRegression
+
+small_number= 1e-50
 
 
 def load_trait_tbl(path):
@@ -953,11 +957,10 @@ def get_conditional_rates(bdnn_obj, cond_trait_tbl, post_w, post_t_reg, post_den
     obs = cond_trait_tbl[:, -1] == 1
     rate_cond = np.zeros((np.sum(obs), num_it))
     for i in range(num_it):
-        rate_cond[:, i] = get_rate_BDNN(1, # constant baseline
-                                        cond_trait_tbl[obs, :-6],
-                                        post_w[i], # list of arrays
-                                        bdnn_obj.bdnn_settings['hidden_act_f'],
-                                        bdnn_obj.bdnn_settings['out_act_f'])
+        rate_cond[:, i] = get_rate_BDNN_noreg(cond_trait_tbl[obs, :-6],
+                                              post_w[i], # list of arrays
+                                              bdnn_obj.bdnn_settings['hidden_act_f'],
+                                              bdnn_obj.bdnn_settings['out_act_f'])
         rate_cond[:, i] = rate_cond[:, i] ** post_t_reg[i] / post_denom[i]
     rate_cond2 = np.zeros((len(cond_trait_tbl), num_it))
     rate_cond2[:] = np.nan
@@ -1898,11 +1901,10 @@ def get_pdp_rate_it_i(arg):
     for j in range(nrows_cond_trait_tbl):
         if obs[j]:
             trait_tbl_tmp = take_traits_from_trt_tbl(trait_tbl, cond_trait_tbl, j, idx_comb_feat)
-            rate_BDNN = get_rate_BDNN(1,  # constant baseline
-                                      trait_tbl_tmp,
-                                      post_w_i,  # list of arrays
-                                      bdnn_obj.bdnn_settings['hidden_act_f'],
-                                      bdnn_obj.bdnn_settings['out_act_f'])
+            rate_BDNN = get_rate_BDNN_noreg(trait_tbl_tmp,
+                                            post_w_i,  # list of arrays
+                                            bdnn_obj.bdnn_settings['hidden_act_f'],
+                                            bdnn_obj.bdnn_settings['out_act_f'])
             rate_BDNN = rate_BDNN ** post_t_reg_i / post_denom_i
             rate_it_i[j] = 1.0 / np.mean(1.0 / rate_BDNN) #np.mean(rate_BDNN)
     return rate_it_i
@@ -1981,11 +1983,10 @@ def get_pdp_rate_it_i_free_combination(arg):
     for j in range(nrows_all_comb_tbl):
         trait_tbl_tmp = trait_tbl + 0.0
         trait_tbl_tmp[:, names_comb_idx_conc] = all_comb_tbl[j, :]
-        rate_BDNN = get_rate_BDNN(1,  # constant baseline
-                                  trait_tbl_tmp,
-                                  post_w_i,  # list of arrays
-                                  bdnn_obj.bdnn_settings['hidden_act_f'],
-                                  bdnn_obj.bdnn_settings['out_act_f'])
+        rate_BDNN = get_rate_BDNN_noreg(trait_tbl_tmp,
+                                        post_w_i,  # list of arrays
+                                        bdnn_obj.bdnn_settings['hidden_act_f'],
+                                        bdnn_obj.bdnn_settings['out_act_f'])
         rate_BDNN = rate_BDNN ** t_reg_i / denom_reg_i
         rate_it_i[j] = 1.0 / np.mean(1.0/rate_BDNN)
     return rate_it_i
@@ -2229,10 +2230,19 @@ def get_greenwells_interaction_importance(rates, feat):
 
 # Feature permutation
 #####################
+# 
+def get_rate_BDNN_noreg(x, w, act_f, out_act_f):
+    tmp = x + 0
+    for i in range(len(w)-1):
+        tmp = act_f(MatrixMultiplication(tmp, w[i]))
+    tmp = MatrixMultiplication(tmp, w[i + 1])
+    rates = out_act_f(tmp).flatten() + small_number
+    return rates
 
-# trait_tbl_NN, hidden_act_f, out_act_f added
+
+# trait_tbl_NN, hidden_act_f, out_act_f added because they are not global as in PyRate.py
 def BDNN_partial_lik(arg):
-    [ts, te, up, lo, rate, par, nn_prm, t_reg, denom_reg, indx, trait_tbl_NN, hidden_act_f, out_act_f] = arg
+    [ts, te, up, lo, par, nn_prm, t_reg, denom_reg, indx, trait_tbl_NN, hidden_act_f, out_act_f] = arg
     if par == "l":
         i_events = np.intersect1d((ts <= up).nonzero()[0], (ts > lo).nonzero()[0])
     else:
@@ -2240,14 +2250,14 @@ def BDNN_partial_lik(arg):
     n_all_inframe, n_S = get_sp_in_frame_br_length(ts, te, up, lo)
     if np.isfinite(indx):
         if par == "l":
-            r = get_rate_BDNN(rate, trait_tbl_NN[0][indx], nn_prm, hidden_act_f, out_act_f)
+            r = get_rate_BDNN_noreg(trait_tbl_NN[0][indx], nn_prm, hidden_act_f, out_act_f)
         else:
-            r = get_rate_BDNN(rate, trait_tbl_NN[1][indx], nn_prm, hidden_act_f, out_act_f)
+            r = get_rate_BDNN_noreg(trait_tbl_NN[1][indx], nn_prm, hidden_act_f, out_act_f)
     else:
         if par == "l":
-            r = get_rate_BDNN(rate, trait_tbl_NN[0], nn_prm, hidden_act_f, out_act_f)
+            r = get_rate_BDNN_noreg(trait_tbl_NN[0], nn_prm, hidden_act_f, out_act_f)
         else:
-            r = get_rate_BDNN(rate, trait_tbl_NN[1], nn_prm, hidden_act_f, out_act_f)
+            r = get_rate_BDNN_noreg(trait_tbl_NN[1], nn_prm, hidden_act_f, out_act_f)
     r = r ** t_reg / denom_reg
     lik = np.sum(np.log(r[i_events])) + np.sum(-r[n_all_inframe] * n_S)
     return lik
@@ -2261,14 +2271,12 @@ def get_bdnn_lik(bdnn_obj, bdnn_time, ts, te, w, t_reg, reg_denom, trait_tbl_NN,
         likBDtemp = np.zeros(len(bdnn_time) - 1)
         for temp_l in range(len(bdnn_time) - 1):
             up, lo = bdnn_time[temp_l], bdnn_time[temp_l + 1]
-            l = 1.0#L[temp_l]
-            args = [ts, te, up, lo, l, rate_type, w, t_reg, reg_denom, temp_l, trait_tbl_NN, hidden_act_f, out_act_f]
+            args = [ts, te, up, lo, rate_type, w, t_reg, reg_denom, temp_l, trait_tbl_NN, hidden_act_f, out_act_f]
             likBDtemp[temp_l] = BDNN_partial_lik(args)
         bdnn_lik = np.sum(likBDtemp)
     else:
         up, lo = np.max(bdnn_time), np.zeros(1)
-        l = 1.0
-        args = [ts, te, up, lo, l, rate_type, w, t_reg, reg_denom, np.inf, trait_tbl_NN, hidden_act_f, out_act_f]
+        args = [ts, te, up, lo, rate_type, w, t_reg, reg_denom, np.inf, trait_tbl_NN, hidden_act_f, out_act_f]
         bdnn_lik = BDNN_partial_lik(args)
     return bdnn_lik
 
@@ -3377,7 +3385,7 @@ def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_a
         trt_tbl_aux[:, idx] = trt_tbl[i, idx]
         trt_tbl_aux2[ll, :, :] = trt_tbl_aux
     trt_tbl_aux = trt_tbl_aux2.reshape(nEval * n_species, nAttr)
-    rate_aux = get_rate_BDNN(1, trt_tbl_aux, cov_par, hidden_act_f, out_act_f)
+    rate_aux = get_rate_BDNN_noreg(trt_tbl_aux, cov_par, hidden_act_f, out_act_f)
     rate_aux = rate_aux ** t_reg / reg_denom
     rate_aux = rate_aux.reshape(nEval, n_species)
     exp_payoffs_ci = 1.0 / np.mean(1.0 / rate_aux, axis = 1)
@@ -3441,7 +3449,7 @@ def k_add_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out
 
 def fastshap_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f):
     ke = KernelExplainer(
-        model = lambda X: get_rate_BDNN(1, X, cov_par, hidden_act_f, out_act_f) ** t_reg / reg_denom,
+        model = lambda X: get_rate_BDNN_noreg(X, cov_par, hidden_act_f, out_act_f) ** t_reg / reg_denom,
         background_data = trt_tbl
     )
 #    shap_main = ke.calculate_shap_values(trt_tbl, verbose = False)
