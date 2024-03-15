@@ -4379,16 +4379,27 @@ def MCMC(all_arg):
                 w_marg_ex.writerow(list(MA) + list(timesMA[1:len(timesMA)-1]))
                 marginal_ex_rate_file.flush()
                 os.fsync(marginal_ex_rate_file)
-            elif use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar):
+            elif use_BDNNmodel:
                 # log harmonic mean of rates
-                sp_lam = np.zeros(len(timesLA) - 1)
-                sp_mu = np.zeros(len(timesLA) - 1)
-                for temp_l in range(len(timesLA)-1):
-                    sp_lam_tmp = bdnn_lam_ratesA[:, temp_l]
-                    sp_mu_tmp = bdnn_mu_ratesA[:, temp_l]
-                    indx = get_sp_indx_in_timeframe(tsA, teA, up = timesLA[temp_l], lo = timesLA[temp_l + 1])
-                    sp_lam[temp_l] = 1 / np.mean(1 / sp_lam_tmp[indx])
-                    sp_mu[temp_l] = 1 / np.mean(1 / sp_mu_tmp[indx])
+                if use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
+                    sp_lam = np.zeros(len(timesLA) - 1)
+                    sp_mu = np.zeros(len(timesLA) - 1)
+                    for temp_l in range(len(timesLA)-1):
+                        sp_lam_tmp = bdnn_lam_ratesA[:, temp_l]
+                        sp_mu_tmp = bdnn_mu_ratesA[:, temp_l]
+                        indx = get_sp_indx_in_timeframe(tsA, teA, up = timesLA[temp_l], lo = timesLA[temp_l + 1])
+                        sp_lam[temp_l] = 1 / np.mean(1 / sp_lam_tmp[indx])
+                        sp_mu[temp_l] = 1 / np.mean(1 / sp_mu_tmp[indx])
+                else:
+                    fixed_times_of_shift_bdnn = np.arange(1, 1000)[::-1]
+                    fixed_times_of_shift_bdnn = fixed_times_of_shift_bdnn[fixed_times_of_shift_bdnn < np.max(FA)]
+                    times_rtt = np.concatenate((timesLA[0], fixed_times_of_shift_bdnn, timesLA[1]), axis=None)
+                    sp_lam = np.zeros(len(times_rtt) - 1)
+                    sp_mu = np.zeros(len(times_rtt) - 1)
+                    for temp_l in range(len(times_rtt)-1):
+                        indx = get_sp_indx_in_timeframe(tsA, teA, up = times_rtt[temp_l], lo = times_rtt[temp_l + 1])
+                        sp_lam[temp_l] = 1 / np.mean(1 / bdnn_lam_ratesA[indx])
+                        sp_mu[temp_l] = 1 / np.mean(1 / bdnn_mu_ratesA[indx])
                 
                 # print(sp_lam)
                 # print(sp_mu)
@@ -4637,6 +4648,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNpklfile', type=str, help='Load BDNN pickle file', default="", metavar="")
     p.add_argument('-BDNN_pred_importance', metavar='<input file>', type = str, help = "Predictor importance in BDNN: provide path for 'mcmc.log' file (e.g. .../pyrate_mcmc_logs/example_BDS_BDNN_16_8Tc_mcmc.log)", default = "")
     p.add_argument('-BDNN_pred_importance_nperm', type=int, help='Number of permutation for BDNN predictor importance', default=100, metavar=100)
+    p.add_argument('-BDNN_nsim_expected_cv', type=int, help='Number of simulations to get expected coefficient of rate variation', default=100, metavar=100)
     p.add_argument('-BDNN_pred_importance_only_main', help='Obtain only importance of main effects and not of interactions', action='store_false', default=True)
     p.add_argument('-BDNN_pred_importance_window_size', type=float, help='Resample to time windows of a given size', default=-1.0, metavar=-1.0)
     
@@ -5035,12 +5047,17 @@ if __name__ == '__main__':
         quit()
     elif args.BDNN_pred_importance != "":
         import pyrate_lib.bdnn_lib as bdnn_lib
+        print("Getting expected coefficient of rate variation")
         path_dir_log_files = args.BDNN_pred_importance.replace("_mcmc.log", "")
-        bdnn_lib.get_coefficient_rate_variation(path_dir_log_files, burnin, thin = args.resample)
-        pkl_file = path_dir_log_files + ".pkl"
-        mcmc_file = path_dir_log_files + "_mcmc.log"
+        bdnn_lib.get_coefficient_rate_variation(path_dir_log_files, burnin,
+                                                combine_discr_features=args.BDNN_groups,
+                                                num_sim=args.BDNN_nsim_expected_cv,
+                                                num_processes=args.thread[0],
+                                                show_progressbar=True)
         do_inter_imp = args.BDNN_pred_importance_only_main
         print("Getting permutation importance")
+        pkl_file = path_dir_log_files + ".pkl"
+        mcmc_file = path_dir_log_files + "_mcmc.log"
         sp_featperm, ex_featperm = bdnn_lib.feature_permutation(mcmc_file, pkl_file,
                                                                 burnin,
                                                                 thin = args.resample,

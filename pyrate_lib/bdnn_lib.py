@@ -22,12 +22,16 @@ import pyrate_lib.lib_utilities as util
 from PyRate import check_burnin
 from PyRate import load_pkl
 from PyRate import write_pkl
-#from PyRate import get_rate_BDNN
+from PyRate import get_rate_BDNN
 from PyRate import get_DT
 from PyRate import get_binned_div_traj
 from PyRate import get_sp_in_frame_br_length
 from PyRate import bdnn
 from PyRate import MatrixMultiplication
+from PyRate import init_weight_prm
+from PyRate import update_parameter_normal_vec
+from PyRate import update_parameter
+from PyRate import get_events_inframe_ns_list
 
 from scipy.special import bernoulli, binom
 from itertools import chain, combinations, product
@@ -1471,36 +1475,444 @@ def plot_effects(f,
 # Coefficient of rate variation
 ###############################
 def get_cv(x):
-    x_mean = np.mean(x, axis = 0)
-    cv = np.zeros(3)
-    cv[0] = np.std(x_mean) / np.mean(x_mean)
+    x_mean = np.mean(x, axis=0)
+    cv = np.std(x_mean) / np.mean(x_mean)
     return cv
 
 
-def get_coefficient_rate_variation(path_dir_log_files, burn, thin):
+def get_weighted_harmonic_mean(x, w):
+    hmr = np.sum(w) / np.sum(w / x)
+    return hmr
+
+
+def get_mean_rate_through_time(rtt, root):
+    n_iter, s1 = rtt.shape
+    n_rates = int((s1 + 1) / 2)
+    bins = rtt[0, n_rates:].flatten()
+    bins = np.concatenate((np.array(root), bins, np.zeros(1)), axis=None)
+    duration_bins = np.abs(np.diff(bins))
+    rtt = rtt[:, :n_rates]
+    mean_rtt = np.zeros(n_iter)
+    for i in range(n_iter):
+        mean_rtt[i] = get_weighted_harmonic_mean(rtt[i, :], duration_bins)
+    summary_rtt = np.zeros(3)
+    summary_rtt[0] = np.mean(mean_rtt)
+    summary_rtt[1:] = util.calcHPD(mean_rtt, .95)
+    return summary_rtt
+
+
+def get_root_age(mcmc_file, burnin):
+    m = pd.read_csv(mcmc_file, delimiter = '\t')
+    root = m['root_age'].to_numpy()[burnin:]
+    root_CI = util.calcHPD(root, .95).tolist()
+    return np.mean(root), root_CI
+
+
+def get_CV_from_sim_bdnn(bdnn_obj, num_taxa, sp_rates, ex_rates, lam_tt, mu_tt, root_age, combine_discr_features="", num_sim=5, num_processes=1, show_progressbar=False):
+    cv_rates = np.zeros((2, 3))
+    cv_rates[0, 1] = get_cv(sp_rates)
+    cv_rates[1, 1] = get_cv(ex_rates)
+    rangeSP = [num_taxa * 0.7, num_taxa * 1.3]
+    rangeL = lam_tt[1:].tolist()
+    rangeM = mu_tt[1:].tolist()
+
+
+    # Number of continuous and categorical features
+    trait_tbl = get_trt_tbl(bdnn_obj, 'extinction')
+    names_features = get_names_features(bdnn_obj)
+    idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
+    conc_comb_feat = np.array([])
+    if idx_comb_feat:
+        conc_comb_feat = np.concatenate(idx_comb_feat)
+    binary_feature, most_frequent_state = is_binary_feature(trait_tbl)
+    minmaxmean_features = get_minmaxmean_features(trait_tbl,
+                                                  most_frequent_state,
+                                                  binary_feature,
+                                                  conc_comb_feat,
+                                                  100)
+    levels_cat_trait = minmaxmean_features[3, binary_feature].flatten()
+    num_traits = minmaxmean_features.shape[1]
+
+    # Network architecture and priors
+    layer_shapes = bdnn_obj.bdnn_settings['layers_shapes']
+    n_nodes = []
+    for i in range(len(layer_shapes) - 1):
+        n_nodes.append(layer_shapes[i][0])
+    bdnn_update_f = np.arange(1, len(layer_shapes) + 1)
+    bdnn_update_f = bdnn_update_f / (2.0 * np.max(bdnn_update_f))
+    act_f = bdnn_obj.bdnn_settings['hidden_act_f']
+    out_act_f = bdnn_obj.bdnn_settings['out_act_f']
+    prior_t_reg = -1.0
+    if 'prior_t_reg' in bdnn_obj.bdnn_settings:
+        prior_t_reg = bdnn_obj.bdnn_settings['prior_t_reg']
+    prior_cov = 1.0
+    if 'prior_cov' in bdnn_obj.bdnn_settings:
+        prior_cov = bdnn_obj.bdnn_settings['prior_cov']
+
+    args = []
+    for i in range(num_sim):
+        a = [i,
+             rangeSP, rangeL, rangeM, root_age,
+             num_traits, levels_cat_trait,
+             n_nodes, bdnn_update_f,
+              act_f, out_act_f,
+              prior_t_reg, prior_cov]
+        args.append(a)
+    unixos = is_unix()
+    if unixos and num_processes > 1:
+        pool_perm = multiprocessing.Pool(num_processes)
+        cv_sim = list(tqdm(pool_perm.imap_unordered(get_CV_from_sim_i, args),
+                           total = num_sim, disable = show_progressbar == False))
+        pool_perm.close()
+    else:
+        cv_sim = []
+        for i in tqdm(range(num_sim), disable = show_progressbar == False):
+            cv_sim.append(get_CV_from_sim_i(args[i]))
+    cv_rate = np.array(cv_sim)
+    cv_rates[:, 2] = np.quantile(cv_sim, q=0.95, axis=0)
+    return cv_rates
+
+
+def get_coefficient_rate_variation(path_dir_log_files, burn, combine_discr_features="", num_sim=1000, num_processes=1, show_progressbar=False):
+    pkl_file = path_dir_log_files + ".pkl"
+    mcmc_file = path_dir_log_files + "_mcmc.log"
+    lam_tt_file = path_dir_log_files + "_sp_rates.log"
+    mu_tt_file = path_dir_log_files + "_ex_rates.log"
     rates_mcmc_file = path_dir_log_files + "_per_species_rates.log"
-    rates = np.loadtxt(rates_mcmc_file, skiprows = 1)
-    s = rates.shape
+    
+    bdnn_obj = load_pkl(pkl_file)
+    species_rates = np.loadtxt(rates_mcmc_file, skiprows = 1)
+    lam_tt = np.loadtxt(lam_tt_file)
+    mu_tt = np.loadtxt(mu_tt_file)
+    s = species_rates.shape
     num_taxa = int((s[1] - 1) / 2)
     num_it = s[0]
     burnin = check_burnin(burn, num_it)
-    rates = rates[burnin:, :]
-    if thin > 0:
-        rates = apply_thin(rates, thin)
-    sp_rates = rates[:, 1:(num_taxa + 1)]
-    ex_rates = rates[:, (num_taxa + 1):]
-    cv_rates = np.zeros((2, 4))
-    cv_rates[0, 1:] = get_cv(sp_rates)
-    cv_rates[1, 1:] = get_cv(ex_rates)
+    species_rates = species_rates[burnin:, :]
+    sp_rates = species_rates[:, 1:(num_taxa + 1)]
+    ex_rates = species_rates[:, (num_taxa + 1):]
+    
+    root_age, root_age_CI = get_root_age(mcmc_file, burnin)
+    lam_tt = lam_tt[burnin:, :]
+    mu_tt = mu_tt[burnin:, :]
+    lam_tt_CI = get_mean_rate_through_time(lam_tt, root_age)
+    mu_tt_CI = get_mean_rate_through_time(mu_tt, root_age)
+
+    cv_rates = get_CV_from_sim_bdnn(bdnn_obj, num_taxa, sp_rates, ex_rates, lam_tt_CI, mu_tt_CI, root_age_CI,
+                                    combine_discr_features=combine_discr_features,
+                                    num_sim=num_sim,
+                                    num_processes=num_processes,
+                                    show_progressbar=show_progressbar)
+    
     print('Coefficient of rate variation')
-    print('    Speciation:', f'{float(cv_rates[0, 1]):.2f}', '(' + f'{float(cv_rates[0, 2]):.2f}' + '-' + f'{float(cv_rates[0, 3]):.2f}' + ')')
-    print('    Extinction:', f'{float(cv_rates[1, 1]):.2f}', '(' + f'{float(cv_rates[1, 2]):.2f}' + '-' + f'{float(cv_rates[1, 3]):.2f}' + ')')
-    cv_rates = pd.DataFrame(cv_rates, columns = ['rate', 'cv', 'cv_lwr', 'cv_upr'])
+    print('    Speciation:', f'{float(cv_rates[0, 1]):.2f}', 'Expected:' + f'{float(cv_rates[0, 2]):.2f}')
+    print('    Extinction:', f'{float(cv_rates[1, 1]):.2f}', 'Expected:' + f'{float(cv_rates[1, 2]):.2f}')
+    cv_rates = pd.DataFrame(cv_rates, columns = ['rate', 'cv_empirical', 'cv_expected'])
     cv_rates['rate'] = ['speciation', 'extinction']
     output_wd = os.path.dirname(path_dir_log_files)
     name_file = os.path.basename(path_dir_log_files)
     cv_rates_file = os.path.join(output_wd, name_file + '_coefficient_of_rate_variation.csv')
     cv_rates.to_csv(cv_rates_file, na_rep = 'NA', index = False)
+
+
+def get_rnd_gen(seed=None):
+    return np.random.default_rng(seed)
+
+
+class BdSimulator():
+    def __init__(self,
+                 s_species=1,  # number of starting species (can be a range)
+                 rangeSP=[100, 1000],  # min/max size data set
+                 minEX_SP=0,  # minimum number of extinct lineages allowed
+                 minEXTANT_SP=1,
+                 maxEXTANT_SP=np.inf,
+                 root_r=[30.0, 100.0],  # range root ages
+                 rangeL=[0.2, 0.5],
+                 rangeM=[0.2, 0.5],
+                 scale=100.0,
+                 seed=None):
+        self.s_species = s_species
+        self.rangeSP = rangeSP
+        self.minSP = np.min(rangeSP)
+        self.maxSP = np.max(rangeSP)
+        self.minEX_SP = minEX_SP
+        self.minEXTANT_SP = minEXTANT_SP
+        self.maxEXTANT_SP = maxEXTANT_SP
+        self.root_r = root_r
+        self.rangeL = rangeL
+        self.rangeM = rangeM
+        self.scale = scale
+        self._rs = get_rnd_gen(seed)
+
+    def reset_seed(self, seed):
+        self._rs = get_rnd_gen(seed)
+
+    def simulate(self, L, M, timesL, timesM, root, dd_model=False, verbose=False):
+        ts = list()
+        te = list()
+        L, M, root = L / self.scale, M / self.scale, int(root * self.scale)
+
+        if isinstance(self.s_species, Iterable):
+            s_species = self._rs.integers(self.s_species[0], self.s_species[1])
+            ts = list(np.zeros(s_species) + root)
+            te = list(np.zeros(s_species))
+        else:
+            for i in range(self.s_species):
+                ts.append(root)
+                te.append(0)
+
+        for t in range(root, 0):  # time
+            for j in range(len(timesL) - 1):
+                if -t / self.scale <= timesL[j] and -t / self.scale > timesL[j + 1]:
+                    l = L[j]
+            for j in range(len(timesM) - 1):
+                if -t / self.scale <= timesM[j] and -t / self.scale > timesM[j + 1]:
+                    m = M[j]
+
+            TE = len(te)
+            if TE > self.maxSP:
+                break
+            ran_vec = self._rs.random(TE)
+            te_extant = np.where(np.array(te) == 0)[0]
+
+            no = self._rs.random(2)  # draw a random number
+            no_extant_lineages = len(te_extant)  # the number of currently extant species
+
+            te = np.array(te)
+            ext_species = np.where((ran_vec > l) & (ran_vec < (l + m)) & (te == 0))[0]
+            te[ext_species] = t
+            rr = ran_vec[te_extant]
+            n_new_species = len(rr[rr < l])
+            te = list(te) + list(np.zeros(n_new_species))
+            ts = ts + list(np.zeros(n_new_species) + t)
+
+        return -np.array(ts) / self.scale, -np.array(te) / self.scale
+
+
+    def get_random_settings(self, root):
+        root = np.abs(root)
+        timesL = np.array([root, 0.])
+        timesM = np.array([root, 0.])
+        L = self._rs.uniform(np.min(self.rangeL), np.max(self.rangeL), 1)
+        M = self._rs.uniform(np.min(self.rangeM), np.max(self.rangeM), 1)
+        # Speciation should be higher than extinction
+#        LM = np.sort(np.array([L, M]))
+#        L = LM[0]
+#        M = LM[1]
+        return timesL, timesM, L, M
+
+
+    def run_simulation(self, print_res=False, return_bd_settings=False):
+        LOtrue = [0]
+        n_extinct = -0
+        n_extant = -0
+        min_extant = self.minEXTANT_SP
+        max_extant = self.maxEXTANT_SP
+
+        while len(LOtrue) < self.minSP or len(LOtrue) > self.maxSP or n_extinct < self.minEX_SP or n_extant < min_extant or n_extant > max_extant:
+            if isinstance(self.root_r, Iterable):
+                root = -self._rs.uniform(np.min(self.root_r), np.max(self.root_r))
+            else:
+                root = -self.root_r
+            timesL, timesM, L, M = self.get_random_settings(root)
+            FAtrue, LOtrue = self.simulate(L, M, timesL, timesM, root, verbose=print_res)
+            n_extinct = len(LOtrue[LOtrue > 0])
+            n_extant = len(LOtrue[LOtrue == 0])
+
+        ts_te = np.array([FAtrue, LOtrue])
+        if print_res:
+            print("L", L, "M", M, "tL", timesL, "tM", timesM)
+            print("N. species", len(LOtrue))
+            max_standin_div = np.max([len(FAtrue[FAtrue > i]) - len(LOtrue[LOtrue > i]) for i in range(int(max(FAtrue)))]) / 80
+            ltt = ""
+            for i in range(int(max(FAtrue))):
+                n = len(FAtrue[FAtrue > i]) - len(LOtrue[LOtrue > i])
+                ltt += "\n%s\t%s\t%s" % (i, n, "*" * int(n / max_standin_div))
+            print(ltt)
+
+        return ts_te.T
+
+    def reset_s_species(self, s):
+        self.s_species = s
+
+
+class BdnnTester():
+    def __init__(self,
+                 sp_longevities,
+                 extant_species,
+                 n_traits=10,
+                 levels_cat_trait=5,
+                 n_nodes=[16, 8],
+                 out_act_f=np.tanh,
+                 act_f=np.tanh,
+                 bdnn_update_f=[0.1, 0.2, 0.4],
+                 prior_t_reg=-1.0,
+                 prior_cov=1.0,
+                 mcmc_iterations=25000,
+                 burnin=5000,
+                 seed=None,
+                 verbose=True
+                 ):
+        # Random number generator
+        self.seed = seed
+        self._rng = np.random.default_rng(self.seed)
+        # model settings
+        self.n_nodes = n_nodes
+        self.out_act_f = out_act_f
+        self.act_f = act_f
+        # data settings
+        self.sp_longevities = sp_longevities
+        self.extant_species = extant_species
+        self.n_species = len(sp_longevities)
+        self.n_traits = n_traits
+        self.levels_cat_trait = levels_cat_trait + 1
+        simulate_traits = self.simulate_traits()
+        # mcmc settings
+        self.bdnn_update_f = bdnn_update_f
+        self.prior_t_reg = prior_t_reg
+        self.prior_cov = prior_cov
+        self.mcmc_iterations = mcmc_iterations
+        self.burnin = burnin
+        self.verbose = verbose
+        
+    
+    def reset_sp_longevities(self, sp_longevities, extant_species):
+        self.sp_longevities = sp_longevities
+        self.extant_species = extant_species
+        self.n_species = len(sp_longevities)
+        if self.traits.shape[0] != self.n_species:
+            self.simulate_traits()
+        
+        
+    def simulate_traits(self):
+        # make up traits
+        self.traits = self._rng.normal(0, 1, (self.n_species, self.n_traits))
+        num_cat_traits = len(self.levels_cat_trait)
+        if num_cat_traits > 0:
+            for i in range(num_cat_traits):
+                self.traits[:, i] = self._rng.choice(self.levels_cat_trait, size=self.n_species, replace=True)
+
+
+    def get_bd_lik(self, w_lam, w_mu, t_reg):
+        # Include regularization!
+        lam, _ = get_rate_BDNN(t_reg, self.traits, w_lam, act_f=self.act_f, out_act_f=self.out_act_f)
+        mu, _ = get_rate_BDNN(t_reg, self.traits, w_mu, act_f=self.act_f, out_act_f=self.out_act_f)
+        bd_lik = np.sum(np.log(lam)) + np.sum(self.extant_species * np.log(mu)) - np.sum((lam + mu) * self.sp_longevities)
+        return bd_lik
+
+
+    def get_prior(self, w_lam, w_mu, t_reg):
+        # Replace with the prior settings from the BDNN object!
+        prior = np.sum([np.sum(stats.norm.logpdf(i, loc=0, scale=self.prior_cov)) for i in w_lam])
+        prior += np.sum([np.sum(stats.norm.logpdf(i, loc=0, scale=self.prior_cov)) for i in w_mu])
+        if self.prior_t_reg > 0.0:
+            prior += np.log(self.prior_t_reg) - self.prior_t_reg * t_reg
+        return prior
+
+#    def get_prior(self, w_lam, w_mu):
+#        prior = np.sum([np.sum(-(i**2) / 2) for i in w_lam])
+#        prior += np.sum([np.sum(-(i**2) / 2)  for i in w_mu])
+#        return prior
+        
+    def print_update(self, s):
+        sys.stdout.write('\r')
+        sys.stdout.write(s)
+        sys.stdout.flush()
+
+    def get_cv(self):
+        # init model
+        w_lamA = init_weight_prm(self.n_nodes, self.n_traits, size_output=1, init_std=0.1, bias_node=1)
+        w_muA = init_weight_prm(self.n_nodes, self.n_traits, size_output=1, init_std=0.1, bias_node=1)
+        t_regA = 1.0
+        t_reg = 1.0
+        if self.prior_t_reg > 0.0:
+            t_regA = 0.5
+        postA = self.get_bd_lik(w_lamA, w_muA, t_regA) + self.get_prior(w_lamA, w_muA, t_regA)
+        
+        # run mcmc
+        lam_acc = []
+        mu_acc = []
+        for iteration in range(self.mcmc_iterations):
+            w_lam, w_mu = copy_lib.deepcopy(w_lamA), copy_lib.deepcopy(w_muA)
+            rnd_layer = self._rng.integers(0, len(w_lamA))
+            # update layers B rate
+            w_lam[rnd_layer] = update_parameter_normal_vec(w_lamA[rnd_layer],
+                                                            d=0.05,
+                                                            f=self.bdnn_update_f[rnd_layer] )
+            # update layers D rate
+            w_mu[rnd_layer] = update_parameter_normal_vec(w_muA[rnd_layer],
+                                                            d=0.05,
+                                                            f=self.bdnn_update_f[rnd_layer] )
+            # update temp regularization
+            if self.prior_t_reg > 0.0:
+                t_reg = update_parameter(t_regA, 0, 1, d=0.05, f=1)
+
+            post = self.get_bd_lik(w_lam, w_mu, t_reg) + self.get_prior(w_lam, w_mu, t_reg)
+
+            if iteration % 1000 == 0 and self.verbose:
+                self.print_update("%s %s %s" % (iteration, post, postA))
+
+            if (post - postA) > np.log(self._rng.random()):
+                postA = post
+                w_lamA, w_muA = copy_lib.deepcopy(w_lam), copy_lib.deepcopy(w_mu)
+                t_regA = t_reg
+    
+            if iteration % 100 == 0 and iteration > self.burnin:
+                lam, _ = get_rate_BDNN(t_reg, self.traits, w_lam, act_f=self.act_f, out_act_f=self.out_act_f)
+                mu, _ = get_rate_BDNN(t_reg, self.traits, w_mu, act_f=self.act_f, out_act_f=self.out_act_f)
+                lam_acc.append(lam)
+                mu_acc.append(mu)
+
+        # summarize results
+        lam_acc = np.array(lam_acc)
+        mu_acc = np.array(mu_acc)
+        post_lam = np.mean(lam_acc, 0)
+        post_mu = np.mean(mu_acc, 0)
+        
+        cv = np.zeros(2)
+        cv[0] = np.std(post_lam) / np.mean(post_lam)
+        cv[1] = np.std(post_mu) / np.mean(post_mu)
+        if self.verbose:
+            print('\nlambda', post_lam, "\n")
+            print('\nmu', post_mu, "\n")
+            print("\n\nCV lambda:", cv[0])
+            print("CV mu:", cv[1], "\n")
+
+        return cv
+
+
+def get_CV_from_sim_i(arg):
+    [rep, rangeSP, rangeL, rangeM, root_age, num_traits, levels_cat_trait, n_nodes, bdnn_update_f, act_f, out_act_f, prior_t_reg, prior_cov] = arg
+
+#    # Random seed
+#    rs = np.random.default_rng(None)
+    
+    # This does not work with multithreading because all simulations are the same. Thank you GIL!
+    sim_bd = BdSimulator(s_species=1,
+                         rangeSP=rangeSP,
+                         rangeL=rangeL,
+                         rangeM=rangeM,
+                         root_r=root_age,
+                         seed=rep)
+    sp_x = sim_bd.run_simulation(print_res=False)
+    sp_longevities = sp_x[:,0] - sp_x[:,1]
+    extant_species = (sp_x[:,1] == 0).astype(int)
+    n_species = len(sp_longevities)
+
+    bdnn_sim = BdnnTester(sp_longevities=sp_longevities,
+                          extant_species=extant_species,
+                          n_traits=num_traits,
+                          levels_cat_trait=levels_cat_trait,
+                          out_act_f=out_act_f,
+                          act_f=act_f,
+                          n_nodes=n_nodes,
+                          bdnn_update_f=bdnn_update_f,
+                          prior_t_reg=prior_t_reg,
+                          prior_cov=prior_cov,
+                          verbose=False)
+    cv = bdnn_sim.get_cv()
+    
+    return cv
 
 
 # Credible differences
