@@ -1516,7 +1516,6 @@ def get_CV_from_sim_bdnn(bdnn_obj, num_taxa, sp_rates, ex_rates, lam_tt, mu_tt, 
     rangeL = lam_tt[1:].tolist()
     rangeM = mu_tt[1:].tolist()
 
-
     # Number of continuous and categorical features
     trait_tbl = get_trt_tbl(bdnn_obj, 'extinction')
     names_features = get_names_features(bdnn_obj)
