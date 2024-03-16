@@ -3502,9 +3502,9 @@ def MCMC(all_arg):
                 trait_tbl_NN[0][ :, :, div_idx_trt_tbl] = bdnn_binned_div
                 trait_tbl_NN[1][ :, :, div_idx_trt_tbl] = bdnn_binned_div
                 #            # This causes root age to ever increase when mG and shifts in sampling over time
-                #            # But not when doing this in line 3779. Fix this later because it makes BDNN ca. 20% faster
-                #            if use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar):
-                #                i_events_sp, i_events_ex, n_all_inframe, n_S = get_events_inframe_ns_list(ts, te, timesL)
+                #            # But not when doing this in line 3824. Fix this later because it makes BDNN ca. 20% faster
+#            if use_BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar):
+#                i_events_sp, i_events_ex, n_all_inframe, n_S = get_events_inframe_ns_list(ts, te, timesL)
 
             tot_L=np.sum(ts-te)
         
@@ -3814,7 +3814,7 @@ def MCMC(all_arg):
 
                 elif use_ADE_model >= 1 and TPP_model == 1:
                     likBDtemp = BD_age_lik_vec_times([ts,te,timesL,W_shape,M,q_rates,q_time_frames])
-                elif fix_Shift == 1 and use_BDNNmodel == 0:
+                elif fix_Shift == 1 and not use_BDNNmodel:
                     if use_ADE_model == 0: 
                         likBDtemp = BPD_lik_vec_times([ts,te,timesL,L,M])
                     else: 
@@ -3847,7 +3847,7 @@ def MCMC(all_arg):
                         elif use_ADE_model >= 1:
                             args.append([ts, te, up, lo, m, 'm', cov_par[1],W_shape,q_rates[1]])
                     
-                    if hasFoundPyRateC and model_cov==0 and use_ADE_model == 0 and use_BDNNmodel == 0:
+                    if hasFoundPyRateC and model_cov==0 and use_ADE_model == 0 and not use_BDNNmodel:
                         likBDtemp = PyRateC_BD_partial_lik(ts, te, timesL, timesM, L, M)
 
                         # Check correctness of results by comparing with python version
@@ -3907,7 +3907,7 @@ def MCMC(all_arg):
                     likBDtemp, L,M, timesL, timesM, cov_par = Alg_3_1(args)
                     sys.stderr = original_stderr
 
-                elif TDI==4 and FBDrange==0 and use_BDNNmodel == 0: # run RJMCMC
+                elif TDI==4 and FBDrange==0 and not use_BDNNmodel: # run RJMCMC
                     stop_update = 0
                     L,timesL,M,timesM,hasting = RJMCMC([LA,MA, timesLA, timesMA,maxFA,minLA])
                     #print  L,timesL,M,timesM #,hasting
@@ -4372,7 +4372,7 @@ def MCMC(all_arg):
                         margL[j]=LA[indDPP_L[i]]
                         margM[j]=MA[indDPP_M[i]]
                     marginal_rates(it, margL, margM, marginal_file, n_proc)
-            elif TDI in [0,2,4] and log_marginal_rates_to_file==0 and use_BDNNmodel == 0:
+            elif TDI in [0,2,4] and log_marginal_rates_to_file==0 and not use_BDNNmodel:
                 w_marg_sp.writerow(list(LA) + list(timesLA[1:len(timesLA)-1]))
                 marginal_sp_rate_file.flush()
                 os.fsync(marginal_sp_rate_file)
@@ -4391,9 +4391,6 @@ def MCMC(all_arg):
                         sp_lam[temp_l] = 1 / np.mean(1 / sp_lam_tmp[indx])
                         sp_mu[temp_l] = 1 / np.mean(1 / sp_mu_tmp[indx])
                 else:
-                    fixed_times_of_shift_bdnn = np.arange(1, 1000)[::-1]
-                    fixed_times_of_shift_bdnn = fixed_times_of_shift_bdnn[fixed_times_of_shift_bdnn < np.max(FA)]
-                    times_rtt = np.concatenate((timesLA[0], fixed_times_of_shift_bdnn, timesLA[1]), axis=None)
                     sp_lam = np.zeros(len(times_rtt) - 1)
                     sp_mu = np.zeros(len(times_rtt) - 1)
                     for temp_l in range(len(times_rtt)-1):
@@ -4404,10 +4401,10 @@ def MCMC(all_arg):
                 # print(sp_lam)
                 # print(sp_mu)
                 # print(timesMA, MA)
-                w_marg_sp.writerow(list(sp_lam) + list(fixed_times_of_shift_bdnn))#[1:len(fixed_times_of_shift_bdnn)-1]))
+                w_marg_sp.writerow(list(sp_lam) + list(fixed_times_of_shift_bdnn_logger))
                 marginal_sp_rate_file.flush()
                 os.fsync(marginal_sp_rate_file)
-                w_marg_ex.writerow(list(sp_mu) + list(fixed_times_of_shift_bdnn))#[1:len(fixed_times_of_shift_bdnn)-1]))
+                w_marg_ex.writerow(list(sp_mu) + list(fixed_times_of_shift_bdnn_logger))
                 marginal_ex_rate_file.flush()
                 os.fsync(marginal_ex_rate_file)
                 
@@ -5387,7 +5384,7 @@ if __name__ == '__main__':
     if argsG == 1: out_name += "_G"
     if args.se_gibbs: out_name += "_seGibbs"
     
-    use_time_as_trait = args.BDNNtimetrait
+    use_time_as_trait = args.BDNNtimetrait != 0
     add_to_bdnnblock_mask = 1
     bdnn_const_baseline = args.BDNNconstbaseline
     out_act_f = get_act_f(args.BDNNoutputfun)
@@ -6149,7 +6146,7 @@ if __name__ == '__main__':
         names_features += names_time_var
         if bdnn_dd:
             names_features += ['diversity']
-        if bdnn_timevar or use_time_as_trait:
+        if use_time_as_trait:
             names_features += ['time']
         
         if args.BDNNexport_taxon_time_tables:
@@ -6337,7 +6334,7 @@ if __name__ == '__main__':
 
         # OUTPUT 2 MARGINAL RATES
         if args.log_marginal_rates == -1: # default values
-            if TDI==4 or use_ADE_model != 0 or use_BDNNmodel==1: log_marginal_rates_to_file = 0
+            if TDI==4 or use_ADE_model != 0 or use_BDNNmodel: log_marginal_rates_to_file = 0
             else: log_marginal_rates_to_file = 1
         else:
             log_marginal_rates_to_file = args.log_marginal_rates
@@ -6361,7 +6358,7 @@ if __name__ == '__main__':
                 os.fsync(marginal_file)
 
         # save files with sp/ex rates and times of shift
-        elif log_marginal_rates_to_file == 0 or use_BDNNmodel == 1 and use_time_as_trait:
+        elif log_marginal_rates_to_file == 0 or use_BDNNmodel:
             marginal_sp_rate_file_name = "%s/%s_sp_rates.log" % (path_dir, suff_out)
             marginal_sp_rate_file = open(marginal_sp_rate_file_name , "w")
             w_marg_sp=csv.writer(marginal_sp_rate_file, delimiter='\t')
@@ -6373,6 +6370,12 @@ if __name__ == '__main__':
             marginal_ex_rate_file.flush()
             os.fsync(marginal_ex_rate_file)
             marginal_frames=0
+            if use_BDNNmodel:
+                fixed_times_of_shift_bdnn_logger = fixed_times_of_shift_bdnn
+                if not (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar):
+                    fixed_times_of_shift_bdnn_logger = np.arange(1, 1000)[::-1]
+                    fixed_times_of_shift_bdnn_logger = fixed_times_of_shift_bdnn_logger[fixed_times_of_shift_bdnn_logger < np.max(FA)]
+                    times_rtt = np.concatenate((np.max(FA), fixed_times_of_shift_bdnn_logger, np.zeros(1)), axis=None)
 
         # OUTPUT 3 MARGINAL LIKELIHOOD
         elif TDI==1:
