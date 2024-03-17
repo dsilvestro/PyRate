@@ -28,10 +28,12 @@ from PyRate import get_binned_div_traj
 from PyRate import get_sp_in_frame_br_length
 from PyRate import bdnn
 from PyRate import MatrixMultiplication
+from PyRate import MatrixMultiplication3D
 from PyRate import init_weight_prm
 from PyRate import update_parameter_normal_vec
 from PyRate import update_parameter
 from PyRate import get_events_inframe_ns_list
+from PyRate import BDNN_fast_partial_lik
 
 from scipy.special import bernoulli, binom
 from itertools import chain, combinations, product
@@ -2651,44 +2653,44 @@ def get_rate_BDNN_noreg(x, w, act_f, out_act_f):
     return rates
 
 
-# trait_tbl_NN, hidden_act_f, out_act_f added because they are not global as in PyRate.py
-def BDNN_partial_lik(arg):
-    [ts, te, up, lo, par, nn_prm, t_reg, denom_reg, indx, trait_tbl_NN, hidden_act_f, out_act_f] = arg
-    if par == "l":
-        i_events = np.intersect1d((ts <= up).nonzero()[0], (ts > lo).nonzero()[0])
-    else:
-        i_events = np.intersect1d((te <= up).nonzero()[0], (te > lo).nonzero()[0])
-    n_all_inframe, n_S = get_sp_in_frame_br_length(ts, te, up, lo)
-    if np.isfinite(indx):
-        if par == "l":
-            r = get_rate_BDNN_noreg(trait_tbl_NN[0][indx], nn_prm, hidden_act_f, out_act_f)
-        else:
-            r = get_rate_BDNN_noreg(trait_tbl_NN[1][indx], nn_prm, hidden_act_f, out_act_f)
-    else:
-        if par == "l":
-            r = get_rate_BDNN_noreg(trait_tbl_NN[0], nn_prm, hidden_act_f, out_act_f)
-        else:
-            r = get_rate_BDNN_noreg(trait_tbl_NN[1], nn_prm, hidden_act_f, out_act_f)
-    r = r ** t_reg / denom_reg
-    lik = np.sum(np.log(r[i_events])) + np.sum(-r[n_all_inframe] * n_S)
-    return lik
+def get_rate_BDNN_3D_noreg(x, w, act_f, out_act_f):
+    tmp = x+0
+    for i in range(len(w)-1):
+        tmp = act_f(MatrixMultiplication3D(tmp, w[i]))
+    
+    tmp = MatrixMultiplication3D(tmp, w[i+1])
+    tmp = np.squeeze(tmp).T
+    # output
+    rates = out_act_f(tmp) + small_number
+    return rates
 
 
-def get_bdnn_lik(bdnn_obj, bdnn_time, ts, te, w, t_reg, reg_denom, trait_tbl_NN, rate_type):
+def get_bdnn_lik(bdnn_obj, bdnn_time, i_events_sp, i_events_ex, n_all_inframe, n_S, w, t_reg, reg_denom, trait_tbl_NN, rate_type):
     time_var = trait_tbl_NN[0].ndim > 2
     hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
     out_act_f  = bdnn_obj.bdnn_settings['out_act_f']
+    trait_tbl_idx = 0
+    if rate_type == 'm':
+        trait_tbl_idx = 1
     if time_var:
         likBDtemp = np.zeros(len(bdnn_time) - 1)
+        r = get_rate_BDNN_3D_noreg(trait_tbl_NN[trait_tbl_idx], w, hidden_act_f, out_act_f)
+        r = r ** t_reg / reg_denom
         for temp_l in range(len(bdnn_time) - 1):
-            up, lo = bdnn_time[temp_l], bdnn_time[temp_l + 1]
-            args = [ts, te, up, lo, rate_type, w, t_reg, reg_denom, temp_l, trait_tbl_NN, hidden_act_f, out_act_f]
-            likBDtemp[temp_l] = BDNN_partial_lik(args)
+            if rate_type == 'l':
+                args = [ i_events_sp[temp_l], n_all_inframe[temp_l], n_S[temp_l], r[:, temp_l] ]
+            else:
+                args = [ i_events_ex[temp_l], n_all_inframe[temp_l], n_S[temp_l], r[:, temp_l] ]
+            likBDtemp[temp_l] = BDNN_fast_partial_lik(args)
         bdnn_lik = np.sum(likBDtemp)
     else:
-        up, lo = np.max(bdnn_time), np.zeros(1)
-        args = [ts, te, up, lo, rate_type, w, t_reg, reg_denom, np.inf, trait_tbl_NN, hidden_act_f, out_act_f]
-        bdnn_lik = BDNN_partial_lik(args)
+        r = get_rate_BDNN_noreg(trait_tbl_NN[trait_tbl_idx], w, hidden_act_f, out_act_f)
+        r = r ** t_reg / reg_denom
+        if rate_type == 'l':
+            args = [ i_events_sp, n_all_inframe, n_S, r ]
+        else:
+            args = [ i_events_ex, n_all_inframe, n_S, r ]
+        bdnn_lik = BDNN_fast_partial_lik(args)
     return bdnn_lik
 
 
@@ -2796,7 +2798,7 @@ def permute_trt_tbl(trt_tbl, feat_idx, feature_is_time_variable, bdnn_obj, post_
 
 
 def perm_mcmc_sample_i(arg):
-    [bdnn_obj, post_ts_i, post_te_i, post_w_sp_i, post_w_ex_i, t_reg_lam_i, t_reg_mu_i, reg_denom_lam_i, reg_denom_mu_i, trt_tbls, n_perm, n_perm_traits, n_features, feature_is_time_variable, bdnn_dd, div_idx_trt_tbl, perm_feature_idx] = arg
+    [bdnn_obj, post_ts_i, post_te_i, i_events_sp, i_events_ex, n_all_inframe, n_S, post_w_sp_i, post_w_ex_i, t_reg_lam_i, t_reg_mu_i, reg_denom_lam_i, reg_denom_mu_i, trt_tbls, n_perm, n_perm_traits, n_features, feature_is_time_variable, bdnn_dd, div_idx_trt_tbl, perm_feature_idx] = arg
     bdnn_time = get_bdnn_time(bdnn_obj, post_ts_i)
     if bdnn_dd:
         n_taxa = trt_tbls[0].shape[1]
@@ -2808,10 +2810,12 @@ def perm_mcmc_sample_i(arg):
         trt_tbls[0][:, :, div_idx_trt_tbl] = bdnn_binned_div
         trt_tbls[1][:, :, div_idx_trt_tbl] = bdnn_binned_div
     # Original bd liks
-    orig_birth_lik = get_bdnn_lik(bdnn_obj, bdnn_time, post_ts_i, post_te_i,
+    orig_birth_lik = get_bdnn_lik(bdnn_obj, bdnn_time,
+                                  i_events_sp, i_events_ex, n_all_inframe, n_S,
                                   post_w_sp_i, t_reg_lam_i, reg_denom_lam_i,
                                   trt_tbls, rate_type='l')
-    orig_death_lik = get_bdnn_lik(bdnn_obj, bdnn_time, post_ts_i, post_te_i,
+    orig_death_lik = get_bdnn_lik(bdnn_obj, bdnn_time,
+                                  i_events_sp, i_events_ex, n_all_inframe, n_S,
                                   post_w_ex_i, t_reg_mu_i, reg_denom_mu_i,
                                   trt_tbls, rate_type='m')
     sp_lik_j = np.zeros((n_perm, n_perm_traits))
@@ -2830,10 +2834,12 @@ def perm_mcmc_sample_i(arg):
                     if feat_idx.size > 1:
                         seed = seed[0]
                     trt_tbls_perm = permute_trt_tbl(trt_tbls_perm, feat_idx, feature_is_time_variable, bdnn_obj, post_ts_i, seed)
-            sp_lik_j[k, j] = get_bdnn_lik(bdnn_obj, bdnn_time, post_ts_i, post_te_i,
+            sp_lik_j[k, j] = get_bdnn_lik(bdnn_obj, bdnn_time,
+                                          i_events_sp, i_events_ex, n_all_inframe, n_S,
                                           post_w_sp_i, t_reg_lam_i, reg_denom_lam_i,
                                           trt_tbls_perm, rate_type='l')
-            ex_lik_j[k, j] = get_bdnn_lik(bdnn_obj, bdnn_time, post_ts_i, post_te_i,
+            ex_lik_j[k, j] = get_bdnn_lik(bdnn_obj, bdnn_time,
+                                          i_events_sp, i_events_ex, n_all_inframe, n_S,
                                           post_w_ex_i, t_reg_mu_i, reg_denom_mu_i,
                                           trt_tbls_perm, rate_type='m')
     species_sp_delta_lik = sp_lik_j - orig_birth_lik
@@ -2937,7 +2943,10 @@ def feature_permutation(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm = 10, 
     n_perm_traits = len(perm_traits)
     args = []
     for i in range(n_mcmc):
+        bdnn_time = get_bdnn_time(bdnn_obj, post_ts[i, :])
+        i_events_sp, i_events_ex, n_all_inframe, n_S = get_events_inframe_ns_list(post_ts[i, :], post_te[i, :], bdnn_time)
         a = [bdnn_obj, post_ts[i, :], post_te[i, :],
+             i_events_sp, i_events_ex, n_all_inframe, n_S,
              post_w_sp[i], post_w_ex[i], post_t_reg_lam[i], post_t_reg_mu[i], post_reg_denom_lam[i], post_reg_denom_mu[i],
              trt_tbls,
              n_perm, n_perm_traits, n_features, feature_is_time_variable, bdnn_dd, div_idx_trt_tbl, perm_feature_idx]
