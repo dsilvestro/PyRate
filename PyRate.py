@@ -1972,8 +1972,8 @@ def init_trait_and_weights(trait_tbl,time_var_tbl,nodes,bias_node=False,fadlad=0
             print(i.shape)
         print(trait_tbl_lam.shape)
     elif isinstance(loaded_tbls[0], np.ndarray):
-        if use_time_as_trait and num_fixed_times_of_shift - 1 > loaded_tbls[0].shape[0]:
-            sys.exit("Number of taxon-time specific tables must be the same than age of the oldest fossil + 1 or -fixShifts ")
+#        if use_time_as_trait and num_fixed_times_of_shift - 1 > loaded_tbls[0].shape[0]:
+#            sys.exit("Error: Number of taxon-time specific tables must be the same than age of the oldest fossil + 1 or -fixShifts ")
         if loaded_tbls[0].ndim == 3:
             trait_tbl_lam = loaded_tbls[0][::-1,:,:]
             trait_tbl_mu = loaded_tbls[1][::-1,:,:]
@@ -1994,7 +1994,18 @@ def init_trait_and_weights(trait_tbl,time_var_tbl,nodes,bias_node=False,fadlad=0
             n_features_ex += 1
         if use_time_as_trait:
             rescaled_time = (fixed_times_of_shift[:-1] + fixed_times_of_shift[1:]) / 2
-            rescaled_time = rescaled_time[:loaded_tbls[0].shape[0]]
+            # Append oldest trait table in case the earliest fossils exceeds the loaded trait tables
+            if num_fixed_times_of_shift - 1 > trait_tbl_lam.shape[0]:
+                n_repeats = num_fixed_times_of_shift - 1 - trait_tbl_lam.shape[0]
+                missing_trt_tbls = np.tile(trait_tbl_lam[-1, :], (n_repeats, 1, 1))
+                trait_tbl_lam = np.concatenate((trait_tbl_lam, missing_trt_tbls), axis=0)
+            if num_fixed_times_of_shift - 1 > trait_tbl_mu.shape[0]:
+                n_repeats = num_fixed_times_of_shift - 1 - trait_tbl_mu.shape[0]
+                missing_trt_tbls = np.tile(trait_tbl_mu[-1, :], (n_repeats, 1, 1))
+                trait_tbl_mu = np.concatenate((trait_tbl_mu, missing_trt_tbls), axis=0)
+            # Clip trait tables when they exceed the oldest fossil
+            trait_tbl_lam = trait_tbl_lam[:(num_fixed_times_of_shift - 1), :]
+            trait_tbl_mu = trait_tbl_mu[:(num_fixed_times_of_shift - 1), :]
             n_taxa = trait_tbl_lam.shape[1]
             rescaled_time = np.repeat(rescaled_time, n_taxa)
             rescaled_time = rescaled_time.reshape((num_fixed_times_of_shift - 1, n_taxa, 1))
