@@ -2027,6 +2027,8 @@ def get_prob_inter_discr_discr(cond_rates_eff, tr, feat_idx_1, feat_idx_2,
     comb_states_feat_2 = np.array(list(combinations(states_feat_2, 2))).astype(int)
     num_comb_feat_1 = len(comb_states_feat_1)
     num_comb_feat_2 = len(comb_states_feat_2)
+    min_states_feat_1 = np.min(comb_states_feat_1)
+    min_states_feat_2 = np.min(comb_states_feat_2)
     for j in range(num_comb_feat_1):
         for k in range(num_comb_feat_2):
             if len_feat_idx_1 == 1:
@@ -2051,8 +2053,8 @@ def get_prob_inter_discr_discr(cond_rates_eff, tr, feat_idx_1, feat_idx_2,
             prob = get_prob_1_bin_trait(np.vstack([rate_diff_1, rate_diff_2]))
             pjk = pd.DataFrame({'0': names[0],
                                 '1': names[1],
-                                '2': str(names_states_feat_1[comb_states_feat_1[j, 0]]) + '_' + str(names_states_feat_1[comb_states_feat_1[j, 1]]),
-                                '3': str(names_states_feat_2[comb_states_feat_2[k, 0]]) + '_' + str(names_states_feat_2[comb_states_feat_2[k, 1]]),
+                                '2': str(names_states_feat_1[comb_states_feat_1[j, 0] - min_states_feat_1]) + '_' + str(names_states_feat_1[comb_states_feat_1[j, 1] - min_states_feat_1]),
+                                '3': str(names_states_feat_2[comb_states_feat_2[k, 0] - min_states_feat_2]) + '_' + str(names_states_feat_2[comb_states_feat_2[k, 1] - min_states_feat_2]),
                                 '4': prob[0], '5': prob[1], '6': prob[2], '7': prob[3]},
                                 index = [0])
             p_df = pd.concat([p_df, pjk], ignore_index = True)
@@ -2080,15 +2082,23 @@ def get_prob_inter_cont_discr_ord(cond_rates_eff, trait_tbl_eff, names_cont, nam
             state1 = trait_tbl_eff[:, l[1] + 1] == 1
         else:
             # ordinal
-            state0 = trait_tbl_eff[:, 1] == l[0]
-            state1 = trait_tbl_eff[:, 1] == l[1]
+            try:
+                min_state = int(names_states[0])
+                if min_state > np.min(trait_tbl_eff[:, 1]):
+                    min_state = 0.0
+            except:
+                min_state = 0.0
+            state0 = trait_tbl_eff[:, 1] == l[0] + min_state
+            state1 = trait_tbl_eff[:, 1] == l[1] + min_state
         focal_states = np.logical_or(state0, state1)
         cond_rates_eff_j = cond_rates_eff[focal_states,:]
         trait_tbl_j = trait_tbl_eff[focal_states,:]
         if trait_tbl_eff.shape[1] > 2:
+            # one-hot encoding
             state0 = trait_tbl_j[:, l[0] + 1] == 1
         else:
-            state0 = trait_tbl_j[:, 1] == l[0]
+            # ordinal
+            state0 = trait_tbl_j[:, 1] == l[0] + min_state
         col0.append(names_cont)
         col1.append(names_discr_ord)
         col2.append('none')
@@ -2502,7 +2512,8 @@ def get_pdp_rate_free_combination(bdnn_obj,
         for i in tqdm(range(num_it), disable = show_progressbar == False):
             rate_pdp.append(get_pdp_rate_it_i_free_combination(args[i]))
     rate_pdp = np.stack(rate_pdp, axis = 1)
-    #np.savetxt("/home/torsten/Work/BDNN/Proboscideans/PyRateAnalyses40Ma/Humans_Island_SpTemp_Grass/NMDS2_Humans/NMDS2_Humans_" + rate_type + ".txt", rate_pdp, delimiter="\t")
+#    np.savetxt("/home/torsten/Work/BDNN/Proboscideans/PyRateAnalyses40Ma/Humans_Island_SpTemp_Grass_Feb_2024/NMDS2_Humans/NMDS2_Humans_" + rate_type + "_full.txt", rate_pdp, delimiter="\t")
+#    np.savetxt("/home/torsten/Work/BDNN/Proboscideans/PyRateAnalyses40Ma/Humans_Island_SpTemp_Grass_Feb_2024/Geography/Geography_" + rate_type + "_pdp.txt", rate_pdp, delimiter="\t")
     rate_pdp_sum = get_rates_summary(rate_pdp)
     rate_pdp_sum_df = pd.DataFrame(rate_pdp_sum, columns = ['mean', 'lwr', 'upr'])
     names_features = names_features[names_comb_idx_conc]
