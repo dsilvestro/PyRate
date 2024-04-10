@@ -150,6 +150,13 @@ def combine_pkl(path_to_files, tag):
         write_pkl(obj, combined_pkl_file)
 
 
+def read_rtt(rtt_file, burnin=0):
+    with open(rtt_file, "r") as f:
+        rtt = [np.array(x.strip().split(), dtype=float) for x in f.readlines()]
+    del rtt[:burnin]
+    return rtt
+
+
 def summarize_rate(r, n_rates):
     r_sum = np.zeros((n_rates, 3))
     r_sum[:, 0] = np.nanmean(r, axis = 0)
@@ -162,6 +169,8 @@ def summarize_rate(r, n_rates):
             r_sum[i, 1:] = util.calcHPD(r_i, 0.95)
         else:
             r_sum[i, 1:] = np.nan
+    use_mean = np.isnan(r_sum[:, 1]) & ~np.isnan(r_sum[:, 0])
+    r_sum[use_mean, 1:] = r_sum[use_mean, 0]
     r_sum = np.repeat(r_sum, repeats = 2, axis = 0)
     return r_sum
 
@@ -169,21 +178,45 @@ def summarize_rate(r, n_rates):
 def get_bdnn_rtt(f, burn):
     f_sp = f + "_sp_rates.log"
     f_ex = f + "_ex_rates.log"
-    r = np.loadtxt(f_sp)
-    num_it = r.shape[0]
-    n_rates = int((r.shape[1] - 1) / 2 + 1)
-    time_vec = r[0, n_rates:]
+    r = read_rtt(f_sp)
+    num_it = len(r)
+    burnin = check_burnin(burn, num_it)
+    r_sp_list = read_rtt(f_sp, burnin)
+    r_ex_list = read_rtt(f_ex, burnin)
+
+    # Get time of rate shifts. Take it from the iteration with most shifts
+    time_vec = []
+    num_it = len(r_sp_list)
+    for i in range(num_it):
+        r_sp_i = r_sp_list[i]
+        s1 = len(r_sp_i)
+        n_rates = int((s1 + 1) / 2)
+        if (n_rates - 1) > len(time_vec):
+            time_vec = r_sp_i[n_rates:]
+
+    # Construct from list of rates a 2D array. Time bins earlier than the oldest fossil will contain nan
+    r_sp = np.zeros((num_it, len(time_vec) + 1))
+    r_sp[:] = np.nan
+    r_ex = np.zeros((num_it, len(time_vec) + 1))
+    r_ex[:] = np.nan
+    for i in range(num_it):
+        r_sp_i = r_sp_list[i]
+        r_ex_i = r_ex_list[i]
+        s1 = len(r_sp_i)
+        n_rates = int((s1 + 1) / 2)
+        r_sp[i, :n_rates] = r_sp_i[:n_rates][::-1]
+        r_ex[i, :n_rates] = r_ex_i[:n_rates][::-1]
+    r_sp = r_sp[:, ::-1]
+    r_ex = r_ex[:, ::-1]
+    n_rates = r_sp.shape[1]
+
     a = np.abs(np.mean(np.diff(time_vec)))
     time_vec = np.concatenate((np.array([time_vec[0] + a]), time_vec, np.zeros(1)))
     time_vec = np.repeat(time_vec, repeats = 2)
     time_vec = time_vec + np.tile(np.array([0.00001, 0.0]), int(len(time_vec)/2))
     time_vec = time_vec[1:]
     time_vec = np.delete(time_vec, -2)
-    burnin = check_burnin(burn, num_it)
-    r_sp = np.loadtxt(f_sp, skiprows = max(0, int(burnin)))
-    r_ex = np.loadtxt(f_ex, skiprows = max(0, int(burnin)))
-    r_sp = r_sp[:, :n_rates]
-    r_ex = r_ex[:, :n_rates]
+    
     r_div = r_sp - r_ex
     longevity = 1. / r_ex
     r_sp_sum = summarize_rate(r_sp, n_rates)
@@ -1483,20 +1516,26 @@ def get_cv(x):
 
 
 def get_weighted_harmonic_mean(x, w):
+    x_nan = np.isnan(x)
+    w_no_nan = w[~x_nan]
+    x_no_nan = x[~x_nan]
+    x[x_nan] = np.sum(w_no_nan) / np.sum(w_no_nan / x_no_nan)
     hmr = np.sum(w) / np.sum(w / x)
     return hmr
 
 
 def get_mean_rate_through_time(rtt, root):
-    n_iter, s1 = rtt.shape
-    n_rates = int((s1 + 1) / 2)
-    bins = rtt[0, n_rates:].flatten()
-    bins = np.concatenate((np.array(root), bins, np.zeros(1)), axis=None)
-    duration_bins = np.abs(np.diff(bins))
-    rtt = rtt[:, :n_rates]
+    n_iter = len(rtt)
     mean_rtt = np.zeros(n_iter)
     for i in range(n_iter):
-        mean_rtt[i] = get_weighted_harmonic_mean(rtt[i, :], duration_bins)
+        rtt_i = rtt[i]
+        s1 = len(rtt_i)
+        n_rates = int((s1 + 1) / 2)
+        bins = rtt_i[n_rates:]
+        bins = np.concatenate((np.array(root), bins, np.zeros(1)), axis=None)
+        duration_bins = np.abs(np.diff(bins))
+        rtt_i = rtt_i[:n_rates]
+        mean_rtt[i] = get_weighted_harmonic_mean(rtt_i, duration_bins)
     summary_rtt = np.zeros(3)
     summary_rtt[0] = np.mean(mean_rtt)
     summary_rtt[1:] = util.calcHPD(mean_rtt, .95)
@@ -1583,8 +1622,6 @@ def get_coefficient_rate_variation(path_dir_log_files, burn, combine_discr_featu
     
     bdnn_obj = load_pkl(pkl_file)
     species_rates = np.loadtxt(rates_mcmc_file, skiprows = 1)
-    lam_tt = np.loadtxt(lam_tt_file)
-    mu_tt = np.loadtxt(mu_tt_file)
     s = species_rates.shape
     num_taxa = int((s[1] - 1) / 2)
     num_it = s[0]
@@ -1594,8 +1631,8 @@ def get_coefficient_rate_variation(path_dir_log_files, burn, combine_discr_featu
     ex_rates = species_rates[:, (num_taxa + 1):]
     
     root_age, root_age_CI = get_root_age(mcmc_file, burnin)
-    lam_tt = lam_tt[burnin:, :]
-    mu_tt = mu_tt[burnin:, :]
+    lam_tt = read_rtt(lam_tt_file, burnin)
+    mu_tt = read_rtt(mu_tt_file, burnin)
     lam_tt_CI = get_mean_rate_through_time(lam_tt, root_age)
     mu_tt_CI = get_mean_rate_through_time(mu_tt, root_age)
 
