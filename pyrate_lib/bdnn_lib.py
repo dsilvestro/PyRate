@@ -159,7 +159,9 @@ def read_rtt(rtt_file, burnin=0):
 
 def summarize_rate(r, n_rates):
     r_sum = np.zeros((n_rates, 3))
-    r_sum[:, 0] = np.nanmean(r, axis = 0)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', category = RuntimeWarning)
+        r_sum[:, 0] = np.nanmean(r, axis = 0)
     for i in range(n_rates):
         r_i = r[:, i]
         r_i = r_i[~np.isnan(r_i)]
@@ -170,7 +172,8 @@ def summarize_rate(r, n_rates):
         else:
             r_sum[i, 1:] = np.nan
     use_mean = np.isnan(r_sum[:, 1]) & ~np.isnan(r_sum[:, 0])
-    r_sum[use_mean, 1:] = r_sum[use_mean, 0]
+    if np.any(use_mean):
+        r_sum[use_mean, 1:] = r_sum[use_mean, 0]
     r_sum = np.repeat(r_sum, repeats = 2, axis = 0)
     return r_sum
 
@@ -1519,8 +1522,8 @@ def get_weighted_harmonic_mean(x, w):
     x_nan = np.isnan(x)
     w_no_nan = w[~x_nan]
     x_no_nan = x[~x_nan]
-    x[x_nan] = np.sum(w_no_nan) / np.sum(w_no_nan / x_no_nan)
-    hmr = np.sum(w) / np.sum(w / x)
+    hmr = np.sum(w_no_nan) / np.sum(w_no_nan / x_no_nan)
+    hmr *= (np.sum(w_no_nan) / np.sum(w))
     return hmr
 
 
@@ -1925,7 +1928,6 @@ def get_CV_from_sim_i(arg):
 #    # Random seed
 #    rs = np.random.default_rng(None)
     
-    # This does not work with multithreading because all simulations are the same. Thank you GIL!
     sim_bd = BdSimulator(s_species=1,
                          rangeSP=rangeSP,
                          rangeL=rangeL,
