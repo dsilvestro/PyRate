@@ -32,8 +32,18 @@ from PyRate import MatrixMultiplication3D
 from PyRate import init_weight_prm
 from PyRate import update_parameter_normal_vec
 from PyRate import update_parameter
+from PyRate import update_multiplier_proposal
+from PyRate import update_q_multiplier
 from PyRate import get_events_inframe_ns_list
 from PyRate import BDNN_fast_partial_lik
+from PyRate import HPP_NN_lik
+from PyRate import HOMPP_NN_lik
+from PyRate import get_time_in_q_bins
+from PyRate import get_occs_sp
+from PyRate import get_fossil_features_q_shifts
+from PyRate import get_q_rate_BDNN
+from PyRate import harmonic_mean_q_per_sp
+from PyRate import prior_gamma
 
 from scipy.special import bernoulli, binom
 from itertools import chain, combinations, product
@@ -150,6 +160,19 @@ def combine_pkl(path_to_files, tag):
         write_pkl(obj, combined_pkl_file)
 
 
+def get_bdnn_model(pkl_file):
+    ob = load_pkl(pkl_file)
+    bdnn = 'layers_shapes' in ob.bdnn_settings.keys()
+    qnn = 'layers_shapes_q' in ob.bdnn_settings.keys()
+    if bdnn and not qnn:
+        bdnn_model = 1
+    if not bdnn and qnn:
+        bdnn_model = 2
+    if bdnn and qnn:
+        bdnn_model = 3
+    return bdnn_model
+
+
 def read_rtt(rtt_file, burnin=0):
     with open(rtt_file, "r") as f:
         rtt = [np.array(x.strip().split(), dtype=float) for x in f.readlines()]
@@ -178,104 +201,169 @@ def summarize_rate(r, n_rates):
     return r_sum
 
 
+def make_t_vec(r_list):
+    """Create time vector for rates through time plot"""
+    # Get time of rate shifts. Take it from the iteration with most shifts
+    time_vec = []
+    num_it = len(r_list)
+    for i in range(num_it):
+        r_i = r_list[i]
+        s1 = len(r_i)
+        n_rates = int((s1 + 1) / 2)
+        if (n_rates - 1) > len(time_vec):
+            time_vec = r_i[n_rates:]
+    return time_vec
+    
+
+def format_t_vec(t_vec):
+    """Format time vector for rates through time plot"""
+    a = np.abs(np.mean(np.diff(t_vec)))
+    t_vec = np.concatenate((np.array([t_vec[0] + a]), t_vec, np.zeros(1)))
+    t_vec = np.repeat(t_vec, repeats = 2)
+    t_vec = t_vec + np.tile(np.array([0.00001, 0.0]), int(len(t_vec)/2))
+    t_vec = t_vec[1:]
+    t_vec = np.delete(t_vec, -2)
+    return t_vec
+
+
+def get_qtt(f_q, burn):
+    r = read_rtt(f_q)
+    num_it = len(r)
+    burnin = check_burnin(burn, num_it)
+    r_q_list = read_rtt(f_q, burnin)
+    time_vec_q = make_t_vec(r_q_list)
+    num_it = len(r_q_list)
+    r_q = np.zeros((num_it, len(time_vec_q) + 1))
+    r_q[:] = np.nan
+    for i in range(num_it):
+        r_q_i = r_q_list[i]
+        s1 = len(r_q_i)
+        n_rates = int((s1 + 1) / 2)
+        r_q[i, :n_rates] = r_q_i[:n_rates][::-1]
+    r_q = r_q[:, ::-1]
+    return r_q, time_vec_q
+
+
 def get_bdnn_rtt(f, burn):
     f_sp = f + "_sp_rates.log"
     f_ex = f + "_ex_rates.log"
-    r = read_rtt(f_sp)
-    num_it = len(r)
-    burnin = check_burnin(burn, num_it)
-    r_sp_list = read_rtt(f_sp, burnin)
-    r_ex_list = read_rtt(f_ex, burnin)
-
-    # Get time of rate shifts. Take it from the iteration with most shifts
-    time_vec = []
-    num_it = len(r_sp_list)
-    for i in range(num_it):
-        r_sp_i = r_sp_list[i]
-        s1 = len(r_sp_i)
-        n_rates = int((s1 + 1) / 2)
-        if (n_rates - 1) > len(time_vec):
-            time_vec = r_sp_i[n_rates:]
-
-    # Construct from list of rates a 2D array. Time bins earlier than the oldest fossil will contain nan
-    r_sp = np.zeros((num_it, len(time_vec) + 1))
-    r_sp[:] = np.nan
-    r_ex = np.zeros((num_it, len(time_vec) + 1))
-    r_ex[:] = np.nan
-    for i in range(num_it):
-        r_sp_i = r_sp_list[i]
-        r_ex_i = r_ex_list[i]
-        s1 = len(r_sp_i)
-        n_rates = int((s1 + 1) / 2)
-        r_sp[i, :n_rates] = r_sp_i[:n_rates][::-1]
-        r_ex[i, :n_rates] = r_ex_i[:n_rates][::-1]
-    r_sp = r_sp[:, ::-1]
-    r_ex = r_ex[:, ::-1]
-    n_rates = r_sp.shape[1]
-
-    a = np.abs(np.mean(np.diff(time_vec)))
-    time_vec = np.concatenate((np.array([time_vec[0] + a]), time_vec, np.zeros(1)))
-    time_vec = np.repeat(time_vec, repeats = 2)
-    time_vec = time_vec + np.tile(np.array([0.00001, 0.0]), int(len(time_vec)/2))
-    time_vec = time_vec[1:]
-    time_vec = np.delete(time_vec, -2)
+    f_q = f + "_q_rates.log"
     
-    r_div = r_sp - r_ex
-    longevity = 1. / r_ex
-    r_sp_sum = summarize_rate(r_sp, n_rates)
-    r_ex_sum = summarize_rate(r_ex, n_rates)
-    r_div_sum = summarize_rate(r_div, n_rates)
-    long_sum = summarize_rate(longevity, n_rates)
-    return r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec
+    try:
+        r = read_rtt(f_sp)
+        num_it = len(r)
+        burnin = check_burnin(burn, num_it)
+        r_sp_list = read_rtt(f_sp, burnin)
+        r_ex_list = read_rtt(f_ex, burnin)
+        time_vec = make_t_vec(r_sp_list)
+        # Construct from list of rates a 2D array. Time bins earlier than the oldest fossil will contain nan
+        num_it = len(r_sp_list)
+        r_sp = np.zeros((num_it, len(time_vec) + 1))
+        r_sp[:] = np.nan
+        r_ex = np.zeros((num_it, len(time_vec) + 1))
+        r_ex[:] = np.nan
+        for i in range(num_it):
+            r_sp_i = r_sp_list[i]
+            r_ex_i = r_ex_list[i]
+            s1 = len(r_sp_i)
+            n_rates = int((s1 + 1) / 2)
+            r_sp[i, :n_rates] = r_sp_i[:n_rates][::-1]
+            r_ex[i, :n_rates] = r_ex_i[:n_rates][::-1]
+        r_sp = r_sp[:, ::-1]
+        r_ex = r_ex[:, ::-1]
+        n_rates = r_sp.shape[1]
+
+        time_vec = format_t_vec(time_vec)
+        r_div = r_sp - r_ex
+        longevity = 1. / r_ex
+        r_sp_sum = summarize_rate(r_sp, n_rates)
+        r_ex_sum = summarize_rate(r_ex, n_rates)
+        r_div_sum = summarize_rate(r_div, n_rates)
+        long_sum = summarize_rate(longevity, n_rates)
+    except:
+        r_sp_sum = None
+        r_ex_sum = None
+        r_div_sum = None
+        long_sum = None
+        time_vec = None
+    
+    try:
+        r_q, time_vec_q = get_qtt(f_q, burn)
+        n_rates = r_q.shape[1]
+        time_vec_q = format_t_vec(time_vec_q)
+        r_q_sum = summarize_rate(r_q, n_rates)
+    except:
+        r_q_sum = None
+        time_vec_q = None
+
+    return r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum, time_vec_q
 
 
-def plot_bdnn_rtt(f, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec):
+
+def plot_bdnn_rtt(f, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum, time_vec_q):
     output_wd = os.path.dirname(f)
     name_file = os.path.basename(f)
     out = "%s/%s_RTT.r" % (output_wd, name_file)
     newfile = open(out, "w")
+    n_rows = 0
+    if not r_sp_sum is None:
+        n_rows += 2
+    if not r_q_sum is None:
+        n_rows += 1
     if platform.system() == "Windows" or platform.system() == "Microsoft":
         wd_forward = os.path.abspath(output_wd).replace('\\', '/')
-        r_script = "pdf(file='%s/%s_RTT.pdf', width = 9, height = 7, useDingbats = FALSE)\n" % (wd_forward, name_file)
+        r_script = "pdf(file='%s/%s_RTT.pdf', width = 9, height = %s, useDingbats = FALSE)\n" % (wd_forward, name_file, 3 * n_rows)
     else:
-        r_script = "pdf(file='%s/%s_RTT.pdf', width = 9, height = 7, useDingbats = FALSE)\n" % (output_wd, name_file)
-    r_script += util.print_R_vec('\ntime_vec', time_vec)
-    r_script += util.print_R_vec('\nsp_mean', r_sp_sum[:, 0])
-    r_script += util.print_R_vec('\nsp_lwr', r_sp_sum[:, 1])
-    r_script += util.print_R_vec('\nsp_upr', r_sp_sum[:, 2])
-    r_script += util.print_R_vec('\nex_mean', r_ex_sum[:, 0])
-    r_script += util.print_R_vec('\nex_lwr', r_ex_sum[:, 1])
-    r_script += util.print_R_vec('\nex_upr', r_ex_sum[:, 2])
-    r_script += util.print_R_vec('\ndiv_mean', r_div_sum[:, 0])
-    r_script += util.print_R_vec('\ndiv_lwr', r_div_sum[:, 1])
-    r_script += util.print_R_vec('\ndiv_upr', r_div_sum[:, 2])
-    r_script += util.print_R_vec('\nlong_mean', long_sum[:, 0])
-    r_script += util.print_R_vec('\nlong_lwr', long_sum[:, 1])
-    r_script += util.print_R_vec('\nlong_upr', long_sum[:, 2])
-    r_script += "\nlayout(matrix(1:4, ncol = 2, nrow = 2, byrow = TRUE))"
+        r_script = "pdf(file='%s/%s_RTT.pdf', width = 9, height = %s, useDingbats = FALSE)\n" % (output_wd, name_file, 3 * n_rows)
+    r_script += "\nlayout(matrix(1:%s, ncol = 2, nrow = %s, byrow = TRUE))" % (2 * n_rows, n_rows)
     r_script += "\npar(las = 1, mar = c(4.5, 4.5, 0.5, 0.5))"
-    r_script += "\nxlim = c(%s, %s)" % (np.max(time_vec), np.min(time_vec))
-    r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_sp_sum), np.nanmax(r_sp_sum))
-    r_script += "\nnot_NA = !is.na(sp_mean)"
-    r_script += "\nplot(time_vec[not_NA], sp_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Speciation rate')"
-    r_script += "\npolygon(c(time_vec[not_NA], rev(time_vec[not_NA])), c(sp_lwr[not_NA], rev(sp_upr[not_NA])), col = adjustcolor('#4c4cec', alpha = 0.5), border = NA)"
-    r_script += "\nlines(time_vec[not_NA], sp_mean[not_NA], col = '#4c4cec', lwd = 2)"
-    r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_ex_sum), np.nanmax(r_ex_sum))
-    r_script += "\nnot_NA = !is.na(ex_mean)"
-    r_script += "\nplot(time_vec[not_NA], ex_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Extinction rate')"
-    r_script += "\npolygon(c(time_vec[not_NA], rev(time_vec[not_NA])), c(ex_lwr[not_NA], rev(ex_upr[not_NA])), col = adjustcolor('#e34a33', alpha = 0.5), border = NA)"
-    r_script += "\nlines(time_vec[not_NA], ex_mean[not_NA], col = '#e34a33', lwd = 2)"
-    r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_div_sum), np.nanmax(r_div_sum))
-    r_script += "\nnot_NA = !is.na(div_mean)"
-    r_script += "\nplot(time_vec[not_NA], div_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Net diversification rate')"
-    r_script += "\npolygon(c(time_vec[not_NA], rev(time_vec[not_NA])), c(div_lwr[not_NA], rev(div_upr[not_NA])), col = adjustcolor('black', alpha = 0.3), border = NA)"
-    r_script += "\nlines(time_vec[not_NA], div_mean[not_NA], col = 'black', lwd = 2)"
-    r_script += "\nabline(h = 0, col = 'red', lty = 2)"
-    r_script += "\nylim = c(%s, %s)" % (np.nanmin(long_sum), np.nanmax(long_sum))
-    r_script += "\nnot_NA = !is.na(long_mean)"
-    r_script += "\nplot(time_vec[not_NA], long_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Longevity (Myr)')"
-    r_script += "\npolygon(c(time_vec[not_NA], rev(time_vec[not_NA])), c(long_lwr[not_NA], rev(long_upr[not_NA])), col = adjustcolor('black', alpha = 0.3), border = NA)"
-    r_script += "\nlines(time_vec[not_NA], long_mean[not_NA], col = 'black', lwd = 2)"
+    if not r_sp_sum is None:
+        r_script += util.print_R_vec('\ntime_vec', time_vec)
+        r_script += util.print_R_vec('\nsp_mean', r_sp_sum[:, 0])
+        r_script += util.print_R_vec('\nsp_lwr', r_sp_sum[:, 1])
+        r_script += util.print_R_vec('\nsp_upr', r_sp_sum[:, 2])
+        r_script += util.print_R_vec('\nex_mean', r_ex_sum[:, 0])
+        r_script += util.print_R_vec('\nex_lwr', r_ex_sum[:, 1])
+        r_script += util.print_R_vec('\nex_upr', r_ex_sum[:, 2])
+        r_script += util.print_R_vec('\ndiv_mean', r_div_sum[:, 0])
+        r_script += util.print_R_vec('\ndiv_lwr', r_div_sum[:, 1])
+        r_script += util.print_R_vec('\ndiv_upr', r_div_sum[:, 2])
+        r_script += util.print_R_vec('\nlong_mean', long_sum[:, 0])
+        r_script += util.print_R_vec('\nlong_lwr', long_sum[:, 1])
+        r_script += util.print_R_vec('\nlong_upr', long_sum[:, 2])
+        r_script += "\nxlim = c(%s, %s)" % (np.max(time_vec), np.min(time_vec))
+        r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_sp_sum), np.nanmax(r_sp_sum))
+        r_script += "\nnot_NA = !is.na(sp_mean)"
+        r_script += "\nplot(time_vec[not_NA], sp_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Speciation rate')"
+        r_script += "\npolygon(c(time_vec[not_NA], rev(time_vec[not_NA])), c(sp_lwr[not_NA], rev(sp_upr[not_NA])), col = adjustcolor('#4c4cec', alpha = 0.5), border = NA)"
+        r_script += "\nlines(time_vec[not_NA], sp_mean[not_NA], col = '#4c4cec', lwd = 2)"
+        r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_ex_sum), np.nanmax(r_ex_sum))
+        r_script += "\nnot_NA = !is.na(ex_mean)"
+        r_script += "\nplot(time_vec[not_NA], ex_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Extinction rate')"
+        r_script += "\npolygon(c(time_vec[not_NA], rev(time_vec[not_NA])), c(ex_lwr[not_NA], rev(ex_upr[not_NA])), col = adjustcolor('#e34a33', alpha = 0.5), border = NA)"
+        r_script += "\nlines(time_vec[not_NA], ex_mean[not_NA], col = '#e34a33', lwd = 2)"
+        r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_div_sum), np.nanmax(r_div_sum))
+        r_script += "\nnot_NA = !is.na(div_mean)"
+        r_script += "\nplot(time_vec[not_NA], div_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Net diversification rate')"
+        r_script += "\npolygon(c(time_vec[not_NA], rev(time_vec[not_NA])), c(div_lwr[not_NA], rev(div_upr[not_NA])), col = adjustcolor('black', alpha = 0.3), border = NA)"
+        r_script += "\nlines(time_vec[not_NA], div_mean[not_NA], col = 'black', lwd = 2)"
+        r_script += "\nabline(h = 0, col = 'red', lty = 2)"
+        r_script += "\nylim = c(%s, %s)" % (np.nanmin(long_sum), np.nanmax(long_sum))
+        r_script += "\nnot_NA = !is.na(long_mean)"
+        r_script += "\nplot(time_vec[not_NA], long_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Longevity (Myr)')"
+        r_script += "\npolygon(c(time_vec[not_NA], rev(time_vec[not_NA])), c(long_lwr[not_NA], rev(long_upr[not_NA])), col = adjustcolor('black', alpha = 0.3), border = NA)"
+        r_script += "\nlines(time_vec[not_NA], long_mean[not_NA], col = 'black', lwd = 2)"
+    if not r_q_sum is None:
+        r_script += util.print_R_vec('\ntime_vec_q', time_vec_q)
+        r_script += util.print_R_vec('\nq_mean', r_q_sum[:, 0])
+        r_script += util.print_R_vec('\nq_lwr', r_q_sum[:, 1])
+        r_script += util.print_R_vec('\nq_upr', r_q_sum[:, 2])
+        r_script += "\nxlim = c(%s, %s)" % (np.max(time_vec_q), np.min(time_vec_q))
+        r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_q_sum), np.nanmax(r_q_sum))
+        r_script += "\nnot_NA = !is.na(q_mean)"
+        r_script += "\nplot(time_vec_q[not_NA], q_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Sampling rate')"
+        r_script += "\npolygon(c(time_vec_q[not_NA], rev(time_vec_q[not_NA])), c(q_lwr[not_NA], rev(q_upr[not_NA])), col = adjustcolor('#EEC591', alpha = 0.5), border = NA)"
+        r_script += "\nlines(time_vec_q[not_NA], q_mean[not_NA], col = '#EEC591', lwd = 2)"
     r_script += "\ndev.off()"
     newfile.writelines(r_script)
     newfile.close()
@@ -290,7 +378,7 @@ def plot_bdnn_rtt(f, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec):
 
 def apply_thin(w, thin):
     n_samples = w.shape[0]
-    if thin > n_samples:
+    if thin > n_samples or thin == 0:
         thin = n_samples
         print("resample set to the number of mcmc samples:", n_samples)
     thin_idx = np.linspace(1, n_samples, num = int(thin), dtype = int) - 1
@@ -299,15 +387,17 @@ def apply_thin(w, thin):
 
 def bdnn_read_mcmc_file(mcmc_file, burn, thin):
     m = pd.read_csv(mcmc_file, delimiter = '\t')
-    w_sp_indx = np.array([i for i in range(len(m.columns)) if 'w_lam_' in m.columns[i]])
-    w_ex_indx = np.array([i for i in range(len(m.columns)) if 'w_mu_' in m.columns[i]])
-    ts_indx = np.array([i for i in range(len(m.columns)) if '_TS' in m.columns[i]])
-    te_indx = np.array([i for i in range(len(m.columns)) if '_TE' in m.columns[i]])
+    w_sp_indx = [i for i in range(len(m.columns)) if 'w_lam_' in m.columns[i]]
+    w_ex_indx = [i for i in range(len(m.columns)) if 'w_mu_' in m.columns[i]]
+    w_q_indx = [i for i in range(len(m.columns)) if 'w_q_' in m.columns[i]]
+    ts_indx = [i for i in range(len(m.columns)) if '_TS' in m.columns[i]]
+    te_indx = [i for i in range(len(m.columns)) if '_TE' in m.columns[i]]
     np_m = m.to_numpy()
     num_it = np_m.shape[0]
     burnin = check_burnin(burn, num_it)
     w_sp = np_m[burnin:, w_sp_indx]
     w_ex = np_m[burnin:, w_ex_indx]
+    w_q = np_m[burnin:, w_q_indx]
     ts = np_m[burnin:, ts_indx]
     te = np_m[burnin:, te_indx]
     num_it = ts.shape[0]
@@ -321,52 +411,85 @@ def bdnn_read_mcmc_file(mcmc_file, burn, thin):
         reg_mu = np.ones((num_it, 1))
         denom_lam = np.ones((num_it, 1))
         denom_mu = np.ones((num_it, 1))
+    if 't_reg_q' in m.columns:
+        reg_q = m['t_reg_q'].to_numpy()[burnin:].reshape((num_it, 1))
+        denom_q = m['reg_denom_q'].to_numpy()[burnin:].reshape((num_it, 1))
+        norm_fac_q = m['normalize_q'].to_numpy()[burnin:].reshape((num_it, 1))
+    else:
+        reg_q = np.ones((num_it, 1))
+        denom_q = np.ones((num_it, 1))
+        norm_fac_q = np.ones((num_it, 1))
     if thin > 0:
-        w_sp = apply_thin(w_sp, thin)
-        w_ex = apply_thin(w_ex, thin)
         ts = apply_thin(ts, thin)
         te = apply_thin(te, thin)
-        reg_lam = apply_thin(reg_lam, thin).flatten()
-        reg_mu = apply_thin(reg_mu, thin).flatten()
-        denom_lam = apply_thin(denom_lam, thin).flatten()
-        denom_mu = apply_thin(denom_mu, thin).flatten()
-    return w_sp, w_ex, ts, te, reg_lam, reg_mu, denom_lam, denom_mu
+        if w_sp.shape[1] > 0:
+            w_sp = apply_thin(w_sp, thin)
+            w_ex = apply_thin(w_ex, thin)
+            reg_lam = apply_thin(reg_lam, thin).flatten()
+            reg_mu = apply_thin(reg_mu, thin).flatten()
+            denom_lam = apply_thin(denom_lam, thin).flatten()
+            denom_mu = apply_thin(denom_mu, thin).flatten()
+        if w_q.shape[1] > 0:
+            w_q = apply_thin(w_q, thin)
+            reg_q = apply_thin(reg_q, thin).flatten()
+            denom_q = apply_thin(denom_q, thin).flatten()
+            norm_fac_q = apply_thin(norm_fac_q, thin).flatten()
+    return w_sp, w_ex, w_q, ts, te, reg_lam, reg_mu, reg_q, denom_lam, denom_mu, denom_q, norm_fac_q
 
 
-def bdnn_reshape_w(posterior_w, bdnn_obj):
+def bdnn_reshape_w(posterior_w, bdnn_obj, rate_type):
     w_list = []
+    if rate_type == 'diversification':
+        layer_sizes = bdnn_obj.bdnn_settings['layers_sizes']
+        layer_shapes = bdnn_obj.bdnn_settings['layers_shapes']
+    else:
+        layer_sizes = bdnn_obj.bdnn_settings['layers_sizes_q']
+        layer_shapes = bdnn_obj.bdnn_settings['layers_shapes_q']
     for w in posterior_w:
         c = 0
         w_sample = []
-        for i in range(len(bdnn_obj.bdnn_settings['layers_sizes'])):
-            w_layer = w[c:c+bdnn_obj.bdnn_settings['layers_sizes'][i]].reshape(bdnn_obj.bdnn_settings['layers_shapes'][i])
-            c += bdnn_obj.bdnn_settings['layers_sizes'][i]
+        for i in range(len(layer_sizes)):
+            w_layer = w[c:c+layer_sizes[i]].reshape(layer_shapes[i])
+            c += layer_sizes[i]
             w_sample.append(w_layer)
-            # print(w_layer.shape)        
         w_list.append(w_sample)
     return w_list
 
 
 def bdnn_parse_results(mcmc_file, pkl_file, burn = 0.1, thin = 0):
     ob = load_pkl(pkl_file)
-    w_sp, w_ex, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, post_reg_denom_lam, post_reg_denom_mu = bdnn_read_mcmc_file(mcmc_file, burn, thin)
-    post_w_sp = bdnn_reshape_w(w_sp, ob)
-    post_w_ex = bdnn_reshape_w(w_ex, ob)
+    w_sp, w_ex, w_q, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, post_t_reg_q, post_reg_denom_lam, post_reg_denom_mu, post_reg_denom_q, post_norm_q = bdnn_read_mcmc_file(mcmc_file, burn, thin)
+    post_w_sp = None
+    post_w_ex = None
+    post_w_q = None
+    if w_sp.shape[1] > 0:
+        post_w_sp = bdnn_reshape_w(w_sp, ob, rate_type = 'diversification')
+        post_w_ex = bdnn_reshape_w(w_ex, ob, rate_type = 'diversification')
+    if w_q.shape[1] > 0:
+        post_w_q = bdnn_reshape_w(w_q, ob, rate_type = 'sampling')
     sp_fad_lad = ob.sp_fad_lad
-    return ob, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, post_reg_denom_lam, post_reg_denom_mu
+    return ob, post_w_sp, post_w_ex, post_w_q, sp_fad_lad, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, post_t_reg_q, post_reg_denom_lam, post_reg_denom_mu, post_reg_denom_q, post_norm_q
 
 
 def bdnn_time_rescaler(x, bdnn_obj):
-    return x * bdnn_obj.bdnn_settings['time_rescaler']
+    if 'use_time_as_trait' in bdnn_obj.bdnn_settings.keys():
+        x = x * bdnn_obj.bdnn_settings['time_rescaler']
+    return x
 
 
-def get_names_features(bdnn_obj):
-    na = copy_lib.deepcopy(bdnn_obj.bdnn_settings['names_features'])
+def get_names_features(bdnn_obj, rate_type):
+    if rate_type == "sampling":
+        na = copy_lib.deepcopy(bdnn_obj.bdnn_settings['names_features_q'])
+    else:
+        na = copy_lib.deepcopy(bdnn_obj.bdnn_settings['names_features'])
     return na
 
 
 def is_time_trait(bdnn_obj):
-    return bdnn_obj.bdnn_settings['use_time_as_trait'] != 0.0
+    t = False
+    if 'use_time_as_trait' in bdnn_obj.bdnn_settings.keys():
+        t = bdnn_obj.bdnn_settings['use_time_as_trait'] != 0.0
+    return t
 
 
 def backscale_bdnn_diversity(tbl, bdnn_obj, names_feat):
@@ -413,24 +536,34 @@ def backscale_tbl(bdnn_obj, backscale_par, names_feat, tbl):
     return tbl
 
 
-def backscale_bdnn_features(file_transf_features, bdnn_obj, cond_trait_tbl_sp, cond_trait_tbl_ex):
-    cond_trait_tbl_sp = backscale_time_cond_trait_tbl(cond_trait_tbl_sp, bdnn_obj)
-    cond_trait_tbl_ex = backscale_time_cond_trait_tbl(cond_trait_tbl_ex, bdnn_obj)
-    names_feat = get_names_features(bdnn_obj)
-    cond_trait_tbl_sp = backscale_bdnn_diversity(cond_trait_tbl_sp, bdnn_obj, names_feat)
-    cond_trait_tbl_ex = backscale_bdnn_diversity(cond_trait_tbl_ex, bdnn_obj, names_feat)
+def backscale_bdnn_features(file_transf_features, bdnn_obj, cond_trait_tbl_sp, cond_trait_tbl_ex, cond_trait_tbl_q):
     backscale_par = None
-    if file_transf_features != "":
-        backscale_par = read_backscale_file(file_transf_features)
-        cond_trait_tbl_sp = backscale_tbl(bdnn_obj, backscale_par, names_feat, cond_trait_tbl_sp)
-        cond_trait_tbl_ex = backscale_tbl(bdnn_obj, backscale_par, names_feat, cond_trait_tbl_ex)
-    return cond_trait_tbl_sp, cond_trait_tbl_ex, backscale_par
+    if not cond_trait_tbl_sp is None:
+        cond_trait_tbl_sp = backscale_time_cond_trait_tbl(cond_trait_tbl_sp, bdnn_obj)
+        cond_trait_tbl_ex = backscale_time_cond_trait_tbl(cond_trait_tbl_ex, bdnn_obj)
+        names_feat = get_names_features(bdnn_obj, rate_type="speciation")
+        cond_trait_tbl_sp = backscale_bdnn_diversity(cond_trait_tbl_sp, bdnn_obj, names_feat)
+        cond_trait_tbl_ex = backscale_bdnn_diversity(cond_trait_tbl_ex, bdnn_obj, names_feat)
+        if file_transf_features != "":
+            backscale_par = read_backscale_file(file_transf_features)
+            cond_trait_tbl_sp = backscale_tbl(bdnn_obj, backscale_par, names_feat, cond_trait_tbl_sp)
+            cond_trait_tbl_ex = backscale_tbl(bdnn_obj, backscale_par, names_feat, cond_trait_tbl_ex)
+    if not cond_trait_tbl_q is None:
+        names_feat = get_names_features(bdnn_obj, rate_type="sampling")
+        if file_transf_features != "":
+            backscale_par = read_backscale_file(file_transf_features)
+            cond_trait_tbl_q = backscale_tbl(bdnn_obj, backscale_par, names_feat, cond_trait_tbl_q)
+    return cond_trait_tbl_sp, cond_trait_tbl_ex, cond_trait_tbl_q, backscale_par
 
 
 def get_trt_tbl(bdnn_obj, rate_type):
-    trait_tbl = bdnn_obj.trait_tbls[0]
-    if rate_type == 'extinction':
-        trait_tbl = bdnn_obj.trait_tbls[1]
+    match rate_type:
+        case "speciation":
+            trait_tbl = bdnn_obj.trait_tbls[0]
+        case 'extinction':
+            trait_tbl = bdnn_obj.trait_tbls[1]
+        case 'sampling':
+            trait_tbl = bdnn_obj.trait_tbls[2]
     return trait_tbl
 
 
@@ -513,19 +646,15 @@ def get_fossil_age(bdnn_obj, fad_lad, rate_type):
 
 
 def get_bin_from_fossil_age(bdnn_obj, fad_lad, rate_type):
-    bdnn_time = bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn']
-    bins = np.concatenate((bdnn_time, np.zeros(1)))
-    # time_trait_tbl = backscale_bdnn_time(trait_tbl[:, 0, -1], bdnn_obj)
-    # time_trait_tbl = time_trait_tbl[::-1]
-    # bins = np.zeros(len(time_trait_tbl))
-    # for i in range(1, len(time_trait_tbl)):
-    #     bins[i] = 2 * time_trait_tbl[i - 1] - bins[i - 1]
-    # bins = bins[::-1]
+    bin_of_species = np.zeros(fad_lad.shape[0])
     z = 0
     # Also extinction should be from first occurrence on b/c from there on a species can go extinct
     if rate_type == 'extinction':
         z = 1
-    bin_of_species = np.digitize(fad_lad[:,z], bins)
+    if 'fixed_times_of_shift_bdnn' in bdnn_obj.bdnn_settings.keys(): 
+        bdnn_time = bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn']
+        bins = np.concatenate((bdnn_time, np.zeros(1)))
+        bin_of_species = np.digitize(fad_lad[:,z], bins)
     return bin_of_species
 
 
@@ -770,23 +899,31 @@ def get_plot_idx_freq(x):
 def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_obj, tste, rate_type, pt):
     lw = len(w)
     comb_exists = np.zeros(lw)
-    use_time_as_trait = is_time_trait(bdnn_obj)
+    use_time_as_trait = False
+    if rate_type != 'sampling':
+        use_time_as_trait = is_time_trait(bdnn_obj) # , rate_type
     time_dd_temp = False # No time as trait, diversity-dependence, or time-variable environment
-    if len(trait_tbl.shape) == 3:
+    if trait_tbl.ndim == 3:
         time_dd_temp = True
     if np.isin(pt, np.array([1., 2., 3., 4.])):
         # Main effects
         comb_exists = np.ones(lw)
         if feature_is_time_variable[i]:
             fa = get_fossil_age(bdnn_obj, tste, rate_type)
-            if use_time_as_trait and i == (trait_tbl.shape[2] - 1):
+            if use_time_as_trait and i == (trait_tbl.shape[2] - 1) and rate_type != 'sampling':
                 t = fa
-            else:
+            elif rate_type != 'sampling':
                 bin_species = get_bin_from_fossil_age(bdnn_obj, tste, rate_type)
                 trait_at_ts_or_te = np.zeros((len(bin_species), trait_tbl.shape[2]))
                 for k in range(len(bin_species)):
                     trait_at_ts_or_te[k, :] = trait_tbl[bin_species[k], k, :]
                 t = trait_at_ts_or_te[:, i]
+            else:
+                bin_species = bdnn_obj.bdnn_settings['occs_sp']
+                trait_at_occurrence = np.zeros((len(bin_species), trait_tbl.shape[2]))
+                for k in range(len(bin_species)):
+                    trait_at_occurrence[k, :] = np.mean(trait_tbl[bin_species[k, :] > 0, k, :], axis=0)
+                t = trait_at_occurrence[:, i]
             w = w.flatten()
             delta_w = np.abs(np.diff(w[:2]))
             max_t = np.max(t) + delta_w
@@ -799,11 +936,17 @@ def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_
         i_time_var = feature_is_time_variable[i]
         j_time_var = feature_is_time_variable[j]
         if i_time_var or j_time_var:
-            fa = get_fossil_age(bdnn_obj, tste, rate_type)
-            bin_species = get_bin_from_fossil_age(bdnn_obj, tste, rate_type)
-            trait_at_ts_or_te = np.zeros((len(bin_species), trait_tbl.shape[2]))
-            for k in range(len(bin_species)):
-                trait_at_ts_or_te[k, :] = trait_tbl[bin_species[k], k, :]
+            if rate_type != 'sampling':
+                fa = get_fossil_age(bdnn_obj, tste, rate_type)
+                bin_species = get_bin_from_fossil_age(bdnn_obj, tste, rate_type)
+                trait_at_ts_or_te = np.zeros((len(bin_species), trait_tbl.shape[2]))
+                for k in range(len(bin_species)):
+                    trait_at_ts_or_te[k, :] = trait_tbl[bin_species[k], k, :]
+            else:
+                bin_species = bdnn_obj.bdnn_settings['occs_sp']
+                trait_at_ts_or_te = np.zeros((len(bin_species), trait_tbl.shape[2]))
+                for k in range(len(bin_species)):
+                    trait_at_ts_or_te[k, :] = np.mean(trait_tbl[bin_species[k, :] > 0, k, :], axis=0)
         if np.isin(pt, np.array([5., 8., 9., 10., 11., 12.])):
             # 5:  binary x binary
             # 8:  one-hot-encoded discrete x binary
@@ -865,8 +1008,9 @@ def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_
                 t = trait_tbl + 0.0
             if i_time_var or j_time_var:
                 t = trait_at_ts_or_te + 0.0
-                if ((j == (t.shape[1] - 1)) and use_time_as_trait):# and ((int(i_time_var) + int(j_time_var)) == 1):
+                if ((j == (t.shape[1] - 1)) and use_time_as_trait):
                     # Time as trait but no other time variable feature
+                    # Are we ever here with sampling?
                     t[:, j] = fa + 0.0
             try:
                 hull = ConvexHull(t[:, [i, j]])
@@ -891,7 +1035,7 @@ def build_conditional_trait_tbl(bdnn_obj,
                                 combine_discr_features = "",
                                 do_inter_imp = True):
     trait_tbl = get_trt_tbl(bdnn_obj, rate_type)
-    names_features = get_names_features(bdnn_obj)
+    names_features = get_names_features(bdnn_obj, rate_type=rate_type)
     # diversity-dependence
     if "diversity" in names_features:
         div_time, div_traj = get_mean_div_traj(ts_post, te_post)
@@ -918,7 +1062,7 @@ def build_conditional_trait_tbl(bdnn_obj,
                                                   len_cont)
     feature_variation = is_time_variable_feature(trait_tbl)
     feature_is_time_variable = feature_variation[0,:]
-    if np.any(feature_is_time_variable):
+    if np.any(feature_is_time_variable) and rate_type != 'sampling':
         fossil_age = get_fossil_age(bdnn_obj, tste, 'speciation')
         fossil_age = backscale_bdnn_time(fossil_age, bdnn_obj)
         fossil_bin_ts = get_bin_from_fossil_age(bdnn_obj, tste, 'speciation')
@@ -1042,11 +1186,16 @@ def get_observed(bdnn_obj, feature_idx, feature_is_time_variable, fossil_age, fo
         obs_cont = obs_cont.transpose()
     else:
         obs_cont = trait_tbl[:, feature_idx]
-    if np.any(feature_is_time_variable[feature_idx]):
+    if np.any(feature_is_time_variable[feature_idx]) and rate_type != 'sampling':
         for z in range(len(fossil_bin)):
             obs_cont[z, :] = trait_tbl[fossil_bin[z], z, feature_idx]
-    if np.any(feature_idx + 1 == trait_tbl.shape[-1]) and is_time_trait(bdnn_obj):
+    if np.any(feature_idx + 1 == trait_tbl.shape[-1]) and is_time_trait(bdnn_obj) and rate_type != 'sampling':
         obs_cont[:, obs_cont.shape[1] - 1] = fossil_age # Time is always the last
+    if np.any(feature_is_time_variable[feature_idx]) and rate_type == 'sampling':
+        bin_species = bdnn_obj.bdnn_settings['occs_sp']
+        obs_cont = np.zeros((len(bin_species), len(feature_idx)))
+        for k in range(len(bin_species)):
+            obs_cont[k, :] = np.mean(trait_tbl[bin_species[k, :] > 0, k, :][:, feature_idx], axis=0)
     return obs_cont
 
 
@@ -1060,16 +1209,17 @@ def plot_bdnn_discr(rs, r, tr, r_script, names, names_states, rate_type):
     r_script += "\nylim = c(%s, %s)" % (rate_min, rate_max)
     r_script += "\nxlim = c(-0.5, %s + 0.5)" % (n_states - 1)
     r_script += "\nplot(1, 0, type = 'n', xlim = xlim, ylim = ylim, xlab = '', ylab = '%s', xaxt = 'n')" % rate_type
-    if rate_type == 'speciation':
-        r_script += "\ncol = colorRampPalette(c('lightblue1', rgb(0, 52, 94, maxColorValue = 255)))(%s)" % n_states
-    elif rate_type == 'extinction':
-        r_script += "\ncol = colorRampPalette(c(rgb(255, 143, 118, maxColorValue = 255), 'darkred'))(%s)" % n_states
-    else:
-        r_script += "\ncol = colorRampPalette(c('grey75', 'grey40'))(%s)" % n_states
+    match rate_type:
+        case "speciation":
+            r_script += "\ncol = colorRampPalette(c('lightblue1', rgb(0, 52, 94, maxColorValue = 255)))(%s)" % n_states
+        case 'extinction':
+            r_script += "\ncol = colorRampPalette(c(rgb(255, 143, 118, maxColorValue = 255), 'darkred'))(%s)" % n_states
+        case 'net diversification':
+            r_script += "\ncol = colorRampPalette(c('grey75', 'grey40'))(%s)" % n_states
+        case 'sampling':
+            r_script += "\ncol = colorRampPalette(c('burlywood1', 'burlywood4'))(%s)" % n_states
     for i in range(n_states):
         r_script += "\naxis(side = 1, at = %s, labels = '%s')" % (i, str(names_states[i]))
-        # r_script += "\nlines(rep(%s, 2), c(%s, %s), col = col[%s])" % (i, rs[i, 1], rs[i, 2], i + 1)
-        # r_script += "\npoints(%s, %s, pch = 19, col = col[%s])" % (i, rs[i, 0], i + 1)
         r_tmp = r[i,:]
         r_tmp =  r_tmp[r_tmp < rate_max]
         r_tmp = r_tmp[r_tmp > rate_min]
@@ -1087,12 +1237,15 @@ def plot_bdnn_cont(rs, tr, r_script, names, plot_time, obs, rate_type):
     r_script += util.print_R_vec("\nxlim", np.array([np.nanmin(tr[:, 0]), np.nanmax(tr[:, 0])]))
     if plot_time:
         r_script += "\nxlim = xlim[2:1]"
-    if rate_type == 'speciation':
-        col = '#6092AF'
-    elif rate_type == 'extinction':
-        col = '#C5483B'
-    else:
-        col = 'grey50'
+    match rate_type:
+        case "speciation":
+            col = '#6092AF'
+        case 'extinction':
+            col = '#C5483B'
+        case 'net diversification':
+            col = 'grey50'
+        case 'sampling':
+            col = 'burlywood2'
     not_na = np.isnan(rs[:, 0]) == False
     r_script += util.print_R_vec("\ntr", tr[not_na, 0])
     r_script += util.print_R_vec("\nr", rs[not_na, 0])
@@ -1143,12 +1296,15 @@ def plot_bdnn_inter_discr_cont(rs, tr, r_script, names, names_states, plot_time,
             if w.size > 0:
                 obs_states[i] = w[0]
     n_states = len(states)
-    if rate_type == 'speciation':
-        r_script += "\ncol = colorRampPalette(c('lightblue1', rgb(0, 52, 94, maxColorValue = 255)))(%s)" % n_states
-    elif rate_type == 'extinction':
-        r_script += "\ncol = colorRampPalette(c(rgb(255, 143, 118, maxColorValue = 255), 'darkred'))(%s)" % n_states
-    else:
-        r_script += "\ncol = colorRampPalette(c('grey75', 'grey40'))(%s)" % n_states
+    match rate_type:
+        case "speciation":
+            r_script += "\ncol = colorRampPalette(c('lightblue1', rgb(0, 52, 94, maxColorValue = 255)))(%s)" % n_states
+        case 'extinction':
+            r_script += "\ncol = colorRampPalette(c(rgb(255, 143, 118, maxColorValue = 255), 'darkred'))(%s)" % n_states
+        case 'net diversification':
+            r_script += "\ncol = colorRampPalette(c('grey75', 'grey40'))(%s)" % n_states
+        case 'sampling':
+            r_script += "\ncol = colorRampPalette(c('burlywood1', 'burlywood4'))(%s)" % n_states
     for i in range(n_states):
         idx = obs_states == states[i]
         r_script += util.print_R_vec("\nobs_x", obs[idx, 0])
@@ -1188,12 +1344,15 @@ def plot_bdnn_inter_cont_cont(rs, tr, r_script, names, plot_time, obs, rate_type
         tr = tr[:, [1, 0]]
         tr[:, 0] = -1 * tr[:, 0]
         r_script += "\nzreord <- rev(zreord)"
-    if rate_type == 'speciation':
-        r_script += "\ncol = colorRampPalette(c('lightblue1', rgb(0, 52, 94, maxColorValue = 255)))(%s)" % nr
-    elif rate_type == 'extinction':
-        r_script += "\ncol = colorRampPalette(c(rgb(255, 143, 118, maxColorValue = 255), 'darkred'))(%s)" % nr
-    else:
-        r_script += "\ncol = colorRampPalette(c('grey85', 'grey15'))(%s)" % nr
+    match rate_type:
+        case "speciation":
+            r_script += "\ncol = colorRampPalette(c('lightblue1', rgb(0, 52, 94, maxColorValue = 255)))(%s)" % nr
+        case 'extinction':
+            r_script += "\ncol = colorRampPalette(c(rgb(255, 143, 118, maxColorValue = 255), 'darkred'))(%s)" % nr
+        case 'net diversification':
+            r_script += "\ncol = colorRampPalette(c('grey75', 'grey40'))(%s)" % nr
+        case 'sampling':
+            r_script += "\ncol = colorRampPalette(c('burlywood1', 'burlywood4'))(%s)" % nr
     r_script += util.print_R_vec("\nx", tr[:, 0])
     r_script += util.print_R_vec("\ny", tr[:, 1])
     r_script += util.print_R_vec("\nr", rs[:, 0])
@@ -1245,12 +1404,15 @@ def plot_bdnn_inter_discr_discr(rs, r, tr, r_script, feat_idx_1, feat_idx_2, nam
     r_script += "\nylim = c(%s, %s)" % (rate_min, rate_max)
     r_script += "\nxlim = c(-0.5, %s + 0.5)" % (n_states_feat_1 * n_states_feat_2 - 1)
     r_script += "\nplot(0, 0, type = 'n', xlim = xlim, ylim = ylim, xlab = '', ylab = '%s', xaxt = 'n')" % (rate_type)
-    if rate_type == 'speciation':
-        r_script += "\ncol = colorRampPalette(c('lightblue1', rgb(0, 52, 94, maxColorValue = 255)))(%s)" % n_states_feat_2
-    elif rate_type == 'extinction':
-        r_script += "\ncol = colorRampPalette(c(rgb(255, 143, 118, maxColorValue = 255), 'darkred'))(%s)" % n_states_feat_2
-    else:
-        r_script += "\ncol = colorRampPalette(c('grey75', 'grey25'))(%s)" % n_states_feat_2
+    match rate_type:
+        case "speciation":
+            r_script += "\ncol = colorRampPalette(c('lightblue1', rgb(0, 52, 94, maxColorValue = 255)))(%s)" % n_states_feat_2
+        case 'extinction':
+            r_script += "\ncol = colorRampPalette(c(rgb(255, 143, 118, maxColorValue = 255), 'darkred'))(%s)" % n_states_feat_2
+        case 'net diversification':
+            r_script += "\ncol = colorRampPalette(c('grey75', 'grey40'))(%s)" % n_states_feat_2
+        case 'sampling':
+            r_script += "\ncol = colorRampPalette(c('burlywood1', 'burlywood4'))(%s)" % n_states_feat_2
     cex_labels = 1.8 / expand_grid(unique_states_feat_1, unique_states_feat_2).shape[0]**(1.0/2.5)
     counter = 0
     for i in range(n_states_feat_1):
@@ -1264,9 +1426,6 @@ def plot_bdnn_inter_discr_discr(rs, r, tr, r_script, feat_idx_1, feat_idx_2, nam
                 r_script += "\nvioplot(vio_data, at = %s, add = TRUE, wex = 0.5, rectCol = NA, lineCol = NA, colMed = NA, col = col[%s])" % (counter, j + 1)
                 r_script += "\nlines(rep(%s, 2), c(%s, %s), lwd = 1.5)" % (counter, float(rs[idx, 1]), float(rs[idx, 2]))
                 r_script += "\npoints(%s, %s, pch = 19)" % (counter, float(rs[idx, 0]))
-                # r_script += "\nlines(rep(%s, 2), c(%s, %s), col = col[%s])" % (counter, float(rs[idx, 1]), float(rs[idx, 2]), j + 1)
-                # r_script += "\npoints(%s, %s, pch = 19, col = col[%s])" % (counter, float(rs[idx, 0]), j + 1)
-                # , padj = 0.5
             r_script += "\naxis(side = 1, at = %s, labels = paste0('%s', ': ', '%s', '\n', '%s', ': ', '%s'), cex.axis = %s)" % (counter, names[0], names_states_feat_1[i], names[1], names_states_feat_2[j], cex_labels)
             counter += 1
     r_script += "\ntitle(main = paste0('%s', ' x ', '%s'))" % (names[0], names[1])
@@ -1312,7 +1471,7 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, tste, r_script,
     fossil_age = get_fossil_age(bdnn_obj, tste, rate_type2)
     fossil_age = backscale_bdnn_time(fossil_age, bdnn_obj)
     fossil_bin = get_bin_from_fossil_age(bdnn_obj, tste, rate_type2)
-    names_features_original = np.array(get_names_features(bdnn_obj))
+    names_features_original = np.array(get_names_features(bdnn_obj, rate_type=rate_type))
     binary_feature = is_binary_feature(trait_tbl)[0]
     for i in range(n_plots):
         idx = cond_trait_tbl[:, -3] == plot_idx[i]
@@ -1428,53 +1587,121 @@ def get_mean_inferred_tste(post_ts, post_te):
     return mean_tste
 
 
+
+
+def get_baseline_q2(mcmc_file, burn, thin, mean_across_shifts=True):
+    m = pd.read_csv(mcmc_file, delimiter = '\t')
+    num_it = m.shape[0]
+    burn_idx = check_burnin(burn, num_it)
+    root_age, _ = get_root_age(mcmc_file, burn_idx)
+    f = mcmc_file.replace("_mcmc.log", "")
+    f_q = f + "_q_rates.log"
+    qtt_list = read_rtt(f_q, burn_idx)
+    time_vec = make_t_vec(qtt_list)
+    # harmonic mean through time
+    q = get_mean_rates(qtt_list, root_age)
+    q = q.reshape((len(q), 1))
+    q = apply_thin(q, thin)
+    return q
+
+
+def get_baseline_q(mcmc_file, burn, thin, mean_across_shifts=True):
+    m = pd.read_csv(mcmc_file, delimiter = '\t')
+    q_indx = np.array([i for i in range(len(m.columns)) if m.columns[i].startswith('q_')])
+    np_m = m.to_numpy()
+    num_it = np_m.shape[0]
+    burnin = check_burnin(burn, num_it)
+    q = np_m[burnin:, q_indx]
+    if q.shape[1] == 1:
+        q = q.reshape((len(q), 1))
+    # This will fail for combined log files when there are different number of q-shifts across replicates !because than the combined mcmc contains just a single q
+    if q.shape[1] > 1 and mean_across_shifts:
+        pkl_file = mcmc_file.replace("_mcmc.log", "") + ".pkl"
+        bdnn_obj = load_pkl(pkl_file)
+        weights = np.ones(q.shape[1]) / q.shape[1]
+        if 'q_time_frames' in bdnn_obj.bdnn_settings.keys():
+            q_time_frames = bdnn_obj.bdnn_settings['q_time_frames']
+            weights = np.diff(q_time_frames)
+            weights = weights / np.sum(weights)
+        q = np.average(q, weights=weights, axis=1, keepdims=True)
+    q = apply_thin(q, thin)
+    return q
+
 def get_effect_objects(mcmc_file, pkl_file, burnin, thin, combine_discr_features = "", file_transf_features = "", num_processes = 1, show_progressbar = False, do_inter_imp = True):
-    bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, post_reg_denom_lam, post_reg_denom_mu = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
+    bdnn_obj, post_w_sp, post_w_ex, post_w_q, sp_fad_lad, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, post_t_reg_q, post_reg_denom_lam, post_reg_denom_mu, post_reg_denom_q, post_norm_q = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
     mean_tste = get_mean_inferred_tste(post_ts, post_te)
-    cond_trait_tbl_sp, names_features_sp = build_conditional_trait_tbl(bdnn_obj, mean_tste,
-                                                                       post_ts, post_te,
-                                                                       len_cont = 100,
-                                                                       rate_type = "speciation",
-                                                                       combine_discr_features = combine_discr_features,
-                                                                       do_inter_imp = do_inter_imp)
-    cond_trait_tbl_ex, names_features_ex = build_conditional_trait_tbl(bdnn_obj, mean_tste,
-                                                                       post_ts, post_te,
-                                                                       len_cont = 100,
-                                                                       rate_type = "extinction",
-                                                                       combine_discr_features = combine_discr_features,
-                                                                       do_inter_imp = do_inter_imp)
-    #sp_rate_cond = bdnn_lib.get_conditional_rates(bdnn_obj, cond_trait_tbl_sp, post_w_sp, post_t_reg_lam, post_reg_denom_lam)
-    #ex_rate_cond = bdnn_lib.get_conditional_rates(bdnn_obj, cond_trait_tbl_ex, post_w_ex, post_t_reg_mu, post_reg_denom_mu)
-    bdnn_time = get_bdnn_time(bdnn_obj, mean_tste[:, 0])
-    print("\nGetting partial dependence rates for speciation")
-    sp_rate_cond = get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl_sp,
-                                                post_w_sp, post_t_reg_lam, post_reg_denom_lam,
-                                                post_ts, combine_discr_features = combine_discr_features,
-                                                rate_type = 'speciation',
-                                                num_processes = num_processes, show_progressbar = show_progressbar)
-    print("Getting partial dependence rates for extinction")
-    ex_rate_cond = get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl_ex,
-                                                post_w_ex, post_t_reg_mu, post_reg_denom_mu,
-                                                post_te, combine_discr_features = combine_discr_features,
-                                                rate_type = 'extinction',
-                                                num_processes = num_processes, show_progressbar = show_progressbar)
-    cond_trait_tbl_sp, cond_trait_tbl_ex, backscale_par = backscale_bdnn_features(file_transf_features,
-                                                                                  bdnn_obj,
-                                                                                  cond_trait_tbl_sp,
-                                                                                  cond_trait_tbl_ex)
-    return bdnn_obj, cond_trait_tbl_sp, cond_trait_tbl_ex, names_features_sp, names_features_ex, sp_rate_cond, ex_rate_cond, mean_tste, backscale_par
+    cond_trait_tbl_sp = None
+    names_features_sp = None
+    sp_rate_cond = None
+    cond_trait_tbl_ex = None
+    names_features_ex = None
+    ex_rate_cond = None
+    cond_trait_tbl_q = None
+    names_features_q = None
+    q_rate_cond = None
+    if not post_w_sp is None:
+        cond_trait_tbl_sp, names_features_sp = build_conditional_trait_tbl(bdnn_obj, mean_tste,
+                                                                           post_ts, post_te,
+                                                                           len_cont = 100,
+                                                                           rate_type = "speciation",
+                                                                           combine_discr_features = combine_discr_features,
+                                                                           do_inter_imp = do_inter_imp)
+        cond_trait_tbl_ex, names_features_ex = build_conditional_trait_tbl(bdnn_obj, mean_tste,
+                                                                           post_ts, post_te,
+                                                                           len_cont = 100,
+                                                                           rate_type = "extinction",
+                                                                           combine_discr_features = combine_discr_features,
+                                                                           do_inter_imp = do_inter_imp)
+        bdnn_time = get_bdnn_time(bdnn_obj, mean_tste[:, 0])
+        print("\nGetting partial dependence rates for speciation")
+        sp_rate_cond = get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl_sp,
+                                                    post_w_sp, post_t_reg_lam, post_reg_denom_lam,
+                                                    post_ts, combine_discr_features = combine_discr_features,
+                                                    rate_type = 'speciation',
+                                                    num_processes = num_processes, show_progressbar = show_progressbar)
+        print("Getting partial dependence rates for extinction")
+        ex_rate_cond = get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl_ex,
+                                                    post_w_ex, post_t_reg_mu, post_reg_denom_mu,
+                                                    post_te, combine_discr_features = combine_discr_features,
+                                                    rate_type = 'extinction',
+                                                    num_processes = num_processes, show_progressbar = show_progressbar)
+    if not post_w_q is None:
+        cond_trait_tbl_q, names_features_q = build_conditional_trait_tbl(bdnn_obj, mean_tste,
+                                                                         post_ts, post_te,
+                                                                         len_cont = 100,
+                                                                         rate_type = "sampling",
+                                                                         combine_discr_features = combine_discr_features,
+                                                                         do_inter_imp = do_inter_imp)
+        baseline_q = get_baseline_q(mcmc_file, burnin, thin)
+        print("Getting partial dependence rates for sampling")
+        bdnn_time = np.zeros(1) # needs to be changed when sampling includes time-dependent variables (i.e. 3D cond_trait_tbl_q)
+        q_rate_cond = get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl_q,
+                                                   post_w_q, post_t_reg_q, post_reg_denom_q,
+                                                   post_te, combine_discr_features = combine_discr_features,
+                                                   rate_type = 'sampling',
+                                                   num_processes=num_processes, show_progressbar=show_progressbar,
+                                                   baseline=baseline_q, norm=post_norm_q)
+    cond_trait_tbl_sp, cond_trait_tbl_ex, cond_trait_tbl_q, backscale_par = backscale_bdnn_features(file_transf_features,
+                                                                                                    bdnn_obj,
+                                                                                                    cond_trait_tbl_sp,
+                                                                                                    cond_trait_tbl_ex,
+                                                                                                    cond_trait_tbl_q)
+    return bdnn_obj, cond_trait_tbl_sp, cond_trait_tbl_ex, cond_trait_tbl_q, names_features_sp, names_features_ex, names_features_q, sp_rate_cond, ex_rate_cond, q_rate_cond, mean_tste, backscale_par
 
 
 def plot_effects(f,
                  cond_trait_tbl_sp,
                  cond_trait_tbl_ex,
+                 cond_trait_tbl_q,
                  sp_rate_cond,
                  ex_rate_cond,
+                 q_rate_cond,
                  bdnn_obj,
                  tste,
                  backscale_par,
                  names_features_sp,
                  names_features_ex,
+                 names_features_q,
                  suffix_pdf = "effects"):
     # Plot feature-rate relationship
     output_wd = os.path.dirname(f)
@@ -1486,18 +1713,22 @@ def plot_effects(f,
         r_script = "pdf(file='%s/%s_%s.pdf', width = 7, height = 6, useDingbats = FALSE)\n" % (wd_forward, name_file, suffix_pdf)
     else:
         r_script = "pdf(file='%s/%s_%s.pdf', width = 7, height = 6, useDingbats = FALSE)\n" % (output_wd, name_file, suffix_pdf)
-    r_script = create_R_files_effects(cond_trait_tbl_sp, sp_rate_cond + 0.0, bdnn_obj, tste, r_script, names_features_sp,
-                                      backscale_par, rate_type = 'speciation')
-    r_script = create_R_files_effects(cond_trait_tbl_ex, ex_rate_cond + 0.0, bdnn_obj, tste, r_script, names_features_ex,
-                                      backscale_par, rate_type = 'extinction')
-    feat_to_keep = get_feat_to_keep_for_netdiv(cond_trait_tbl_sp, cond_trait_tbl_ex)
-    netdiv_rate_cond, cond_trait_tbl_netdiv = get_rates_cond_trait_tbl_for_netdiv(feat_to_keep,
-                                                                                  sp_rate_cond,
-                                                                                  ex_rate_cond,
-                                                                                  cond_trait_tbl_ex,
-                                                                                  cond_trait_tbl_sp)
-    r_script = create_R_files_effects(cond_trait_tbl_netdiv, netdiv_rate_cond, bdnn_obj, tste, r_script, names_features_ex,
-                                      backscale_par, rate_type = 'net diversification')
+    if not cond_trait_tbl_sp is None:
+        r_script = create_R_files_effects(cond_trait_tbl_sp, sp_rate_cond + 0.0, bdnn_obj, tste, r_script, names_features_sp,
+                                          backscale_par, rate_type = 'speciation')
+        r_script = create_R_files_effects(cond_trait_tbl_ex, ex_rate_cond + 0.0, bdnn_obj, tste, r_script, names_features_ex,
+                                          backscale_par, rate_type = 'extinction')
+        feat_to_keep = get_feat_to_keep_for_netdiv(cond_trait_tbl_sp, cond_trait_tbl_ex)
+        netdiv_rate_cond, cond_trait_tbl_netdiv = get_rates_cond_trait_tbl_for_netdiv(feat_to_keep,
+                                                                                      sp_rate_cond,
+                                                                                      ex_rate_cond,
+                                                                                      cond_trait_tbl_ex,
+                                                                                      cond_trait_tbl_sp)
+        r_script = create_R_files_effects(cond_trait_tbl_netdiv, netdiv_rate_cond, bdnn_obj, tste, r_script, names_features_ex,
+                                          backscale_par, rate_type = 'net diversification')
+    if not cond_trait_tbl_q is None:
+        r_script = create_R_files_effects(cond_trait_tbl_q, q_rate_cond + 0.0, bdnn_obj, tste, r_script, names_features_q,
+                                          backscale_par, rate_type = 'sampling')
     r_script += "\nn <- dev.off()"
     newfile.writelines(r_script)
     newfile.close()
@@ -1527,7 +1758,7 @@ def get_weighted_harmonic_mean(x, w):
     return hmr
 
 
-def get_mean_rate_through_time(rtt, root):
+def get_mean_rates(rtt, root):
     n_iter = len(rtt)
     mean_rtt = np.zeros(n_iter)
     for i in range(n_iter):
@@ -1539,6 +1770,11 @@ def get_mean_rate_through_time(rtt, root):
         duration_bins = np.abs(np.diff(bins))
         rtt_i = rtt_i[:n_rates]
         mean_rtt[i] = get_weighted_harmonic_mean(rtt_i, duration_bins)
+    return mean_rtt
+
+
+def get_mean_rate_through_time(rtt, root):
+    mean_rtt = get_mean_rates(rtt, root)
     summary_rtt = np.zeros(3)
     summary_rtt[0] = np.mean(mean_rtt)
     summary_rtt[1:] = util.calcHPD(mean_rtt, .95)
@@ -1552,17 +1788,10 @@ def get_root_age(mcmc_file, burnin):
     return np.mean(root), root_CI
 
 
-def get_CV_from_sim_bdnn(bdnn_obj, num_taxa, sp_rates, ex_rates, lam_tt, mu_tt, root_age, combine_discr_features="", num_sim=5, num_processes=1, show_progressbar=False):
-    cv_rates = np.zeros((2, 3))
-    cv_rates[0, 1] = get_cv(sp_rates)
-    cv_rates[1, 1] = get_cv(ex_rates)
-    rangeSP = [num_taxa * 0.7, num_taxa * 1.3]
-    rangeL = lam_tt[1:].tolist()
-    rangeM = mu_tt[1:].tolist()
-
+def get_num_traits_and_cat_levels(bdnn_obj, rate_type, combine_discr_features=""):
     # Number of continuous and categorical features
-    trait_tbl = get_trt_tbl(bdnn_obj, 'extinction')
-    names_features = get_names_features(bdnn_obj)
+    trait_tbl = get_trt_tbl(bdnn_obj, rate_type)
+    names_features = get_names_features(bdnn_obj, rate_type)
     idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
     conc_comb_feat = np.array([])
     if idx_comb_feat:
@@ -1575,6 +1804,20 @@ def get_CV_from_sim_bdnn(bdnn_obj, num_taxa, sp_rates, ex_rates, lam_tt, mu_tt, 
                                                   100)
     levels_cat_trait = minmaxmean_features[3, binary_feature].flatten()
     num_traits = minmaxmean_features.shape[1]
+    return num_traits, levels_cat_trait
+
+
+def get_CV_from_sim_bdnn(bdnn_obj, num_taxa, sp_rates, ex_rates, lam_tt, mu_tt, root_age, combine_discr_features="", num_sim=5, num_processes=1, show_progressbar=False):
+    cv_rates = np.zeros((2, 3))
+    cv_rates[0, 1] = get_cv(sp_rates)
+    cv_rates[1, 1] = get_cv(ex_rates)
+    rangeSP = [num_taxa * 0.7, num_taxa * 1.3]
+    rangeL = lam_tt[1:].tolist()
+    rangeM = mu_tt[1:].tolist()
+
+    # Number of continuous and categorical features
+    num_traits, levels_cat_trait = get_num_traits_and_cat_levels(bdnn_obj, 'extinction',
+                                                                 combine_discr_features=combine_discr_features)
 
     # Network architecture and priors
     layer_shapes = bdnn_obj.bdnn_settings['layers_shapes']
@@ -1598,8 +1841,8 @@ def get_CV_from_sim_bdnn(bdnn_obj, num_taxa, sp_rates, ex_rates, lam_tt, mu_tt, 
              rangeSP, rangeL, rangeM, root_age,
              num_traits, levels_cat_trait,
              n_nodes, bdnn_update_f,
-              act_f, out_act_f,
-              prior_t_reg, prior_cov]
+             act_f, out_act_f,
+             prior_t_reg, prior_cov]
         args.append(a)
     unixos = is_unix()
     if unixos and num_processes > 1:
@@ -1835,7 +2078,6 @@ class BdnnTester():
 
 
     def get_bd_lik(self, w_lam, w_mu, t_reg):
-        # Include regularization!
         lam, _ = get_rate_BDNN(t_reg, self.traits, w_lam, act_f=self.act_f, out_act_f=self.out_act_f)
         mu, _ = get_rate_BDNN(t_reg, self.traits, w_mu, act_f=self.act_f, out_act_f=self.out_act_f)
         bd_lik = np.sum(np.log(lam)) + np.sum(self.extant_species * np.log(mu)) - np.sum((lam + mu) * self.sp_longevities)
@@ -1843,7 +2085,6 @@ class BdnnTester():
 
 
     def get_prior(self, w_lam, w_mu, t_reg):
-        # Replace with the prior settings from the BDNN object!
         prior = np.sum([np.sum(stats.norm.logpdf(i, loc=0, scale=self.prior_cov)) for i in w_lam])
         prior += np.sum([np.sum(stats.norm.logpdf(i, loc=0, scale=self.prior_cov)) for i in w_mu])
         if self.prior_t_reg > 0.0:
@@ -1922,6 +2163,176 @@ class BdnnTester():
         return cv
 
 
+class BdnnTesterSampling():
+    def __init__(self,
+                 ts,
+                 te,
+                 occs_sp,
+                 log_factorial_occs,
+                 duration_q_bins=None,
+                 occs_single_bin=None,
+                 time_frames=None,
+                 use_HPP_NN_lik=False,
+                 TPP_model = 0,
+                 n_traits=10,
+                 levels_cat_trait=5,
+                 n_nodes=[16, 8],
+                 out_act_f=np.tanh,
+                 act_f=np.tanh,
+                 bdnn_update_f=[0.1, 0.2, 0.4],
+                 prior_t_reg=-1.0,
+                 prior_cov=1.0,
+                 pert_prior=[1.5, 1.1],
+                 mcmc_iterations=25000,
+                 burnin=5000,
+                 seed=None,
+                 verbose=True
+                 ):
+        # Random number generator
+        self.seed = seed
+        self._rng = np.random.default_rng(self.seed)
+        # model settings
+        self.use_HPP_NN_lik = use_HPP_NN_lik
+        self.TPP_model = TPP_model
+        self.n_nodes = n_nodes
+        self.out_act_f = out_act_f
+        self.act_f = act_f
+        # data settings
+        self.ts = ts
+        self.te = te
+        self.occs_sp = occs_sp
+        self.log_factorial_occs = log_factorial_occs
+        self.duration_q_bins = duration_q_bins
+        self.occs_single_bin = occs_single_bin
+        self.time_frames = time_frames
+        self.n_species = len(log_factorial_occs)
+        self.n_traits = n_traits
+        self.levels_cat_trait = levels_cat_trait + 1
+        simulate_traits = self.simulate_traits()
+        # mcmc settings
+        self.bdnn_update_f = bdnn_update_f
+        self.prior_t_reg = prior_t_reg
+        self.prior_cov = prior_cov
+        self.mcmc_iterations = mcmc_iterations
+        self.burnin = burnin
+        self.d2 = [1.2, 1.2]
+        self.fQ = 0.5
+        self.pert_prior = pert_prior
+        self.verbose = verbose
+        if self.use_HPP_NN_lik:
+            self.time_in_q_bins = get_time_in_q_bins(self.ts, self.te, self.time_frames, self.duration_q_bins, self.occs_single_bin)
+
+
+    def simulate_traits(self):
+        # make up traits
+        self.traits = self._rng.normal(0, 1, (self.n_species, self.n_traits))
+        num_cat_traits = len(self.levels_cat_trait)
+        if num_cat_traits > 0:
+            for i in range(num_cat_traits):
+                self.traits[:, i] = self._rng.choice(self.levels_cat_trait, size=self.n_species, replace=True)
+
+
+    def get_fossil_lik(self, bdnn_q_rates):
+        if self.use_HPP_NN_lik:
+            # Could be even faster because this term does not change: get_time_in_q_bins(ts, te, time_frames, duration_q_bins, single_bin)
+            fossil_lik = HPP_NN_lik([self.ts, self.te, bdnn_q_rates,
+                                     self.occs_sp, self.log_factorial_occs,
+                                     self.time_frames, self.duration_q_bins, self.occs_single_bin])
+        else:
+            fossil_lik = HOMPP_NN_lik([self.ts, self.te, bdnn_q_rates, self.occs_sp, self.log_factorial_occs])
+        fossil_lik = np.sum(fossil_lik)
+        return fossil_lik
+
+
+    def get_prior(self, q_rates, w_q, t_reg):
+        prior = np.sum([np.sum(stats.norm.logpdf(i, loc=0, scale=self.prior_cov)) for i in w_q])
+        if self.prior_t_reg > 0.0:
+            prior += np.log(self.prior_t_reg) - self.prior_t_reg * t_reg
+        if self.TPP_model:
+            if self.pert_prior[1] > 0.0:
+                prior += np.sum(prior_gamma(q_rates, self.pert_prior[0], self.pert_prior[1]))
+            else:
+                hpGammaQ_shape = 1.01 # hyperprior is essentially flat
+                hpGammaQ_rate = 0.1
+                post_rate_prm_Gq = np.random.gamma(shape=hpGammaQ_shape + self.pert_prior[0] * len(q_rates), scale=1. / (hpGammaQ_rate + np.sum(q_rates)))
+                prior += np.sum(prior_gamma(q_rates, self.pert_prior[0], post_rate_prm_Gq))
+        else:
+            prior += prior_gamma(q_rates[1], self.pert_prior[0], self.pert_prior[1])
+        return prior
+
+
+    def print_update(self, s):
+        sys.stdout.write('\r')
+        sys.stdout.write(s)
+        sys.stdout.flush()
+
+    def get_cv(self):
+        # init model
+        q_ratesA = np.array([np.random.uniform(.5, 1), np.random.uniform(0.25, 1)])
+        if self.TPP_model == 1:
+            q_ratesA = np.zeros(len(self.time_frames) - 1) + q_ratesA[1]
+
+        w_qA = init_weight_prm(self.n_nodes, self.n_traits, size_output=1, init_std=0.1, bias_node=1)
+        t_regA = 1.0
+        t_reg = 1.0
+        if self.prior_t_reg > 0.0:
+            t_regA = 0.5
+        bdnn_q_ratesA, _, _ = get_q_rate_BDNN(q_ratesA, t_regA, self.traits, w_qA, self.act_f, self.out_act_f)
+        postA = self.get_fossil_lik(bdnn_q_ratesA) + self.get_prior(q_ratesA, w_qA, t_regA)
+        
+        # run mcmc
+        q_acc = []
+        for iteration in range(self.mcmc_iterations):
+            # update q_rates
+            q_rates = np.zeros(len(q_ratesA)) + q_ratesA
+            if self.TPP_model == 1:
+                q_rates, hasting = update_q_multiplier(q_ratesA, d=self.d2[1], f=self.fQ)
+            else:
+                q_rates[1], hasting = update_multiplier_proposal(q_ratesA[1], self.d2[1])
+            w_q = copy_lib.deepcopy(w_qA)
+            rnd_layer = self._rng.integers(0, len(w_qA))
+            # update layers sampling rate
+            w_q[rnd_layer] = update_parameter_normal_vec(w_qA[rnd_layer],
+                                                         d=0.05,
+                                                         f=self.bdnn_update_f[rnd_layer])
+
+            # update temp regularization
+            if self.prior_t_reg > 0.0:
+                t_reg = update_parameter(t_regA, 0, 1, d=0.05, f=1)
+
+            bdnn_q_rates, _, _ = get_q_rate_BDNN(q_rates, t_reg, self.traits, w_q, self.act_f, self.out_act_f)
+            post = self.get_fossil_lik(bdnn_q_rates) + self.get_prior(q_rates, w_q, t_reg)
+
+            if iteration % 1000 == 0 and self.verbose:
+                self.print_update("%s %s %s" % (iteration, post, postA))
+
+            if (post - postA + hasting) > np.log(self._rng.random()):
+                q_ratesA = q_rates
+                bdnn_q_ratesA = bdnn_q_rates
+                postA = post
+                w_qA = copy_lib.deepcopy(w_q)
+                t_regA = t_reg
+    
+            if iteration % 100 == 0 and iteration > self.burnin:
+                if self.use_HPP_NN_lik:
+                    q_per_sp = harmonic_mean_q_per_sp(bdnn_q_ratesA, self.time_in_q_bins)
+                else:
+                    q_per_sp = bdnn_q_ratesA.reshape(-1)
+                q_acc.append(q_per_sp)
+
+
+        # summarize results
+        q_acc = np.array(q_acc)
+        post_q = np.mean(q_acc, axis=0)
+        
+        cv = np.std(post_q) / np.mean(post_q)
+        if self.verbose:
+            print('\nsampling', post_q, "\n")
+            print("\n\nCV sampling:", cv)
+
+        return cv
+
+
 def get_CV_from_sim_i(arg):
     [rep, rangeSP, rangeL, rangeM, root_age, num_traits, levels_cat_trait, n_nodes, bdnn_update_f, act_f, out_act_f, prior_t_reg, prior_cov] = arg
 
@@ -1953,6 +2364,189 @@ def get_CV_from_sim_i(arg):
     cv = bdnn_sim.get_cv()
     
     return cv
+
+
+def get_coefficient_sampling_variation(path_dir_log_files, burn, combine_discr_features="", num_sim=1000, num_processes=1, show_progressbar=False):
+    pkl_file = path_dir_log_files + ".pkl"
+    mcmc_file = path_dir_log_files + "_mcmc.log"
+    q_tt_file = path_dir_log_files + "_q_rates.log"
+    rates_mcmc_file = path_dir_log_files + "_species_q_rates.log"
+    
+    bdnn_obj = load_pkl(pkl_file)
+    species_rates = np.loadtxt(rates_mcmc_file, skiprows = 1)
+    s = species_rates.shape
+    num_taxa = s[1] - 1
+    num_it = s[0]
+    burnin = check_burnin(burn, num_it)
+    species_rates = species_rates[burnin:, 1:]
+    
+    ts_mean, te_mean = get_ts_te(mcmc_file, burnin)
+    shift_time_q = np.array([0.0, np.max(ts_mean)])
+    axis_q_mean = None
+    use_HPP_NN_lik = False
+    TPP_model = 0
+    if 'q_time_frames' in bdnn_obj.bdnn_settings.keys():
+        shift_time_q = np.copy(bdnn_obj.bdnn_settings['q_time_frames'])
+        max_ts = np.max(ts_mean)
+        if shift_time_q[0] < max_ts:
+            # Sometime earliest speciation is prior to the lower boundary of the q-shifts
+            shift_time_q[0] = max_ts
+        axis_q_mean = 0
+        use_HPP_NN_lik = True
+        TPP_model = 1
+    qtt, time_vec_q = get_qtt(q_tt_file, burn)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', category = RuntimeWarning)
+        qtt_mean = np.nanmean(qtt, axis = axis_q_mean)
+    if isinstance(qtt_mean, np.floating):
+        # np.mean is not returning an array for the overall mean (i.e. when there are no shifts through time)
+        qtt_mean = np.array([qtt_mean])
+
+    cv_rates = np.zeros((1, 3))
+    cv_rates[0, 1] = get_cv(species_rates)
+
+    num_traits, levels_cat_trait = get_num_traits_and_cat_levels(bdnn_obj, 'sampling',
+                                                                 combine_discr_features=combine_discr_features)
+
+    # Network architecture and priors
+    layer_shapes = bdnn_obj.bdnn_settings['layers_shapes_q']
+    n_nodes = []
+    for i in range(len(layer_shapes) - 1):
+        n_nodes.append(layer_shapes[i][0])
+    bdnn_update_f = np.arange(1, len(layer_shapes) + 1)
+    bdnn_update_f = bdnn_update_f / (2.0 * np.max(bdnn_update_f))
+    act_f = bdnn_obj.bdnn_settings['hidden_act_f']
+    out_act_f = bdnn_obj.bdnn_settings['out_act_f_q']
+    prior_t_reg = -1.0
+    if 'prior_t_reg' in bdnn_obj.bdnn_settings:
+        prior_t_reg = bdnn_obj.bdnn_settings['prior_t_reg']
+    prior_cov = 1.0
+    if 'prior_cov' in bdnn_obj.bdnn_settings:
+        prior_cov = bdnn_obj.bdnn_settings['prior_cov']
+
+    args = []
+    for i in range(num_sim):
+        a = [i,
+             ts_mean, te_mean, qtt_mean, shift_time_q,
+             num_traits, levels_cat_trait,
+             n_nodes, bdnn_update_f,
+             act_f, out_act_f,
+             prior_t_reg, prior_cov, bdnn_obj.bdnn_settings['pert_prior'],
+             TPP_model, use_HPP_NN_lik]
+        args.append(a)
+    unixos = is_unix()
+    if unixos and num_processes > 1:
+        pool_perm = multiprocessing.Pool(num_processes)
+        cv_sim = list(tqdm(pool_perm.imap_unordered(get_sampling_CV_from_sim_i, args),
+                           total = num_sim, disable = show_progressbar == False))
+        pool_perm.close()
+    else:
+        cv_sim = []
+        for i in tqdm(range(num_sim), disable = show_progressbar == False):
+            cv_sim.append(get_sampling_CV_from_sim_i(args[i]))
+
+    cv_rates[0, 2] = np.quantile(np.array(cv_sim).reshape(-1), q=0.95)
+    print('Coefficient of rate variation')
+    print('    Sampling:', f'{float(cv_rates[0, 1]):.2f}', 'Expected:' + f'{float(cv_rates[0, 2]):.2f}')
+    cv_rates = pd.DataFrame(cv_rates, columns = ['rate', 'cv_empirical', 'cv_expected'])
+    cv_rates['rate'] = ['sampling']
+    output_wd = os.path.dirname(path_dir_log_files)
+    name_file = os.path.basename(path_dir_log_files)
+    cv_rates_file = os.path.join(output_wd, name_file + '_coefficient_of_q_rate_variation.csv')
+    cv_rates.to_csv(cv_rates_file, na_rep = 'NA', index = False)
+
+
+def get_sampling_CV_from_sim_i(arg):
+    [rep, ts, te, qtt_mean, shift_time_q, num_traits, levels_cat_trait, n_nodes, bdnn_update_f, act_f, out_act_f, prior_t_reg, prior_cov, pert_prior, TPP_model, use_HPP_NN_lik] = arg
+    
+    # Get fossils and their features for fast lik calculation
+    fossils = sim_fossil_occurrences(np.column_stack((ts, te)), qtt_mean, shift_time_q)
+    n_taxa = len(fossils)
+    log_factorial_occs = None
+    duration_q_bins = None
+    occs_single_bin = None
+    occs_sp = np.zeros(n_taxa)
+    log_factorial_occs = np.zeros(n_taxa)
+    for i in range(n_taxa):
+        occs_sp[i] = np.count_nonzero(fossils[i])
+        log_factorial_occs[i] = np.sum(np.log(np.arange(1, occs_sp[i] + 1)))
+    if use_HPP_NN_lik:
+        occs_sp = get_occs_sp(fossils, shift_time_q)
+        log_factorial_occs, duration_q_bins, occs_single_bin = get_fossil_features_q_shifts(fossils, shift_time_q[::-1], occs_sp, te)
+    
+    bdnn_sim = BdnnTesterSampling(ts=ts,
+                                  te=te,
+                                  occs_sp=occs_sp,
+                                  log_factorial_occs=log_factorial_occs,
+                                  duration_q_bins=duration_q_bins,
+                                  occs_single_bin=occs_single_bin,
+                                  time_frames=shift_time_q,
+                                  use_HPP_NN_lik=use_HPP_NN_lik,
+                                  TPP_model = TPP_model,
+                                  n_traits=num_traits,
+                                  levels_cat_trait=levels_cat_trait,
+                                  n_nodes=n_nodes,
+                                  out_act_f=out_act_f,
+                                  act_f=act_f,
+                                  bdnn_update_f=bdnn_update_f,
+                                  prior_t_reg=prior_t_reg,
+                                  prior_cov=prior_cov,
+                                  pert_prior=pert_prior,
+                                  mcmc_iterations=25000,
+                                  burnin=5000,
+                                  seed=rep,
+                                  verbose=False)
+    cv = bdnn_sim.get_cv()
+    return cv
+
+
+
+def get_ts_te(mcmc_file, burnin):
+    m = pd.read_csv(mcmc_file, delimiter = '\t')
+    ts_indx = [i for i in range(len(m.columns)) if '_TS' in m.columns[i]]
+    te_indx = [i for i in range(len(m.columns)) if '_TE' in m.columns[i]]
+    np_m = m.to_numpy()
+    ts = np_m[burnin:, ts_indx]
+    te = np_m[burnin:, te_indx]
+    ts = np.mean(ts, axis=0)
+    te = np.mean(te, axis=0)
+    return ts, te
+
+
+def get_duration(sp_x, upper, lower):
+    ts = np.copy(sp_x[:,0])
+    te = np.copy(sp_x[:, 1])
+    ts[ts > upper] = upper
+    te[te < lower] = lower
+    d = ts - te
+    d[d < 0.0] = 0.0
+    return d, ts, te
+
+
+def sim_fossil_occurrences(sp_x, q, shift_time_q):
+#    print('shift_time_q', shift_time_q)
+    is_alive = sp_x[:, 1] == 0.0
+    n_taxa = len(sp_x)
+    occ = [np.array([])] * n_taxa
+    len_q = len(q)
+    for i in range(len_q):
+        dur, ts, te = get_duration(sp_x, shift_time_q[i], shift_time_q[i + 1])
+        dur = dur.reshape(-1)
+        poi_rate_occ = q[i] * dur
+        exp_occ = np.round(np.random.poisson(poi_rate_occ))
+        for y in range(n_taxa):
+            occ_y = np.random.uniform(ts[y], te[y], exp_occ[y])
+            present = np.array([])
+            if is_alive[y] and i == (len_q - 1): # Alive and most recent sampling strata
+                present = np.zeros(1, dtype='float')
+            occ[y] = np.sort(np.concatenate((occ[y], occ_y, present)))[::-1]
+    for i in range(n_taxa):
+        O = occ[i]
+        O = O[O != 0.0] # Do not count single occurrence at the present
+        if len(O) == 0:
+            add_singleton = np.random.uniform(sp_x[i, 1], sp_x[i, 0], size=1)
+            occ[i] = np.concatenate((add_singleton, occ[i]), axis=None)
+    return occ
 
 
 # Credible differences
@@ -2210,7 +2804,7 @@ def get_prob_inter_2_con_trait(cond_rates_eff, trait_tbl_eff, incl_features, con
 
 
 def get_prob_effects(cond_trait_tbl, cond_rates, bdnn_obj, names_features, rate_type = 'speciation', ):
-    names_features_original = np.array(get_names_features(bdnn_obj))
+    names_features_original = np.array(get_names_features(bdnn_obj, rate_type=rate_type))
     not_obs = cond_trait_tbl[:, -1] == 0
     cond_rates[not_obs, :] = np.nan
     prob_effects = pd.DataFrame()
@@ -2328,6 +2922,19 @@ def get_shap_trt_tbl(tse, times, trt_tbl):
     return shap_trt_tbl
 
 
+def get_shap_trt_tbl_sampling(bin_species, trt_tbl):
+    if trt_tbl.ndim == 2:
+        shap_trt_tbl = trt_tbl + 0.0
+    else:
+        s = trt_tbl.shape
+        n_species = s[1]
+        n_features = s[2]
+        shap_trt_tbl = np.zeros((n_species, n_features))
+        for i in range(n_species):
+            shap_trt_tbl[i,:] = np.mean(trt_tbl[bin_species[i, :] > 0, i, :], axis=0)
+    return shap_trt_tbl
+
+
 def insert_onehot(trait_tbl_tmp, idx_comb_feat, idx_feat):
     len_comb = len(idx_comb_feat)
     if len_comb > 0:
@@ -2355,7 +2962,7 @@ def take_traits_from_trt_tbl(trait_tbl, cond_trait_tbl, j, idx_comb_feat):
 
 
 def get_pdp_rate_it_i(arg):
-    [bdnn_obj, post_w_i, post_t_reg_i, post_denom_i, trait_tbl, cond_trait_tbl, idx_comb_feat] = arg
+    [bdnn_obj, post_w_i, post_t_reg_i, post_denom_i, baseline, norm, trait_tbl, cond_trait_tbl, idx_comb_feat, out_act_f] = arg
     nrows_cond_trait_tbl = len(cond_trait_tbl)
     rate_it_i = np.zeros(nrows_cond_trait_tbl)
     rate_it_i[:] = np.nan
@@ -2366,23 +2973,36 @@ def get_pdp_rate_it_i(arg):
             rate_BDNN = get_rate_BDNN_noreg(trait_tbl_tmp,
                                             post_w_i,  # list of arrays
                                             bdnn_obj.bdnn_settings['hidden_act_f'],
-                                            bdnn_obj.bdnn_settings['out_act_f'])
-            rate_BDNN = rate_BDNN ** post_t_reg_i / post_denom_i
+                                            out_act_f)
+            rate_BDNN = (rate_BDNN * norm) ** post_t_reg_i / post_denom_i
+            rate_BDNN = baseline * rate_BDNN
             rate_it_i[j] = 1.0 / np.mean(1.0 / rate_BDNN) #np.mean(rate_BDNN)
     return rate_it_i
 
 
 def get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl, post_w, post_t_reg, post_denom, post_tse, combine_discr_features = '',
-                                 rate_type = 'speciation', num_processes = 1, show_progressbar = False):
+                                 rate_type = 'speciation', num_processes = 1, show_progressbar = False, baseline=np.ones(1), norm=np.ones(1)):
     num_it = len(post_w)
     trait_tbl = get_trt_tbl(bdnn_obj, rate_type)
-    names_features = get_names_features(bdnn_obj)
+    names_features = get_names_features(bdnn_obj, rate_type=rate_type)
     idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
     args = []
+    if rate_type == 'sampling':
+        out_act_f = bdnn_obj.bdnn_settings['out_act_f_q']
+    else:
+        out_act_f = bdnn_obj.bdnn_settings['out_act_f']
     for i in range(num_it):
         trait_tbl_a = trait_tbl + 0.0
-        trait_tbl_a = get_shap_trt_tbl(post_tse[i, :], bdnn_time, trait_tbl_a)
-        a = [bdnn_obj, post_w[i], post_t_reg[i], post_denom[i], trait_tbl_a, cond_trait_tbl, idx_comb_feat]
+        if rate_type == 'sampling':
+            trait_tbl_a = get_shap_trt_tbl_sampling(bdnn_obj.bdnn_settings['occs_sp'], trait_tbl_a)
+        else:
+            trait_tbl_a = get_shap_trt_tbl(post_tse[i, :], bdnn_time, trait_tbl_a)
+        b=baseline
+        n=norm
+        if len(baseline) > 1:
+            b = baseline[i, :]
+            n = norm[i]
+        a = [bdnn_obj, post_w[i], post_t_reg[i], post_denom[i], b, n, trait_tbl_a, cond_trait_tbl, idx_comb_feat, out_act_f]
         args.append(a)
     unixos = is_unix()
     if unixos and num_processes > 1:
@@ -2438,7 +3058,7 @@ def build_all_combinations(list):
 
 
 def get_pdp_rate_it_i_free_combination(arg):
-    [bdnn_obj, post_w_i, t_reg_i, denom_reg_i, trait_tbl, all_comb_tbl, names_comb_idx_conc] = arg
+    [bdnn_obj, post_w_i, t_reg_i, denom_reg_i, trait_tbl, all_comb_tbl, names_comb_idx_conc, out_act_f] = arg
     nrows_all_comb_tbl = len(all_comb_tbl)
     rate_it_i = np.zeros(nrows_all_comb_tbl)
     rate_it_i[:] = np.nan
@@ -2448,7 +3068,7 @@ def get_pdp_rate_it_i_free_combination(arg):
         rate_BDNN = get_rate_BDNN_noreg(trait_tbl_tmp,
                                         post_w_i,  # list of arrays
                                         bdnn_obj.bdnn_settings['hidden_act_f'],
-                                        bdnn_obj.bdnn_settings['out_act_f'])
+                                        out_act_f)
         rate_BDNN = rate_BDNN ** t_reg_i / denom_reg_i
         rate_it_i[j] = 1.0 / np.mean(1.0/rate_BDNN)
     return rate_it_i
@@ -2465,7 +3085,7 @@ def get_pdp_rate_free_combination(bdnn_obj,
                                   num_processes=1,
                                   show_progressbar=False):
     trait_tbl = get_trt_tbl(bdnn_obj, rate_type)
-    names_features = get_names_features(bdnn_obj)
+    names_features = get_names_features(bdnn_obj, rate_type=rate_type)
     # diversity-dependence
     if "diversity" in names_features:
         div_time, div_traj = get_mean_div_traj(ts_post, te_post)
@@ -2523,6 +3143,10 @@ def get_pdp_rate_free_combination(bdnn_obj,
             all_comb_tbl[:, feature_is_time_variable] = trait_at_te[:, feature_is_time_variable]
         all_comb_tbl = all_comb_tbl[:, names_comb_idx_conc]
     bdnn_time = get_bdnn_time(bdnn_obj, tste[:, int(rate_type == "extinction")])
+    if rate_type == 'sampling':
+        out_act_f = bdnn_obj.bdnn_settings['out_act_f_q']
+    else:
+        out_act_f = bdnn_obj.bdnn_settings['out_act_f']
     num_it = len(w_post)
     trait_tbl_for_mean = np.zeros((num_it, trait_tbl.shape[-2], len(names_comb_idx_conc)))
     args = []
@@ -2533,7 +3157,7 @@ def get_pdp_rate_free_combination(bdnn_obj,
         else:
             trait_tbl_a = get_shap_trt_tbl(te_post[i, :], bdnn_time, trait_tbl_a)
         trait_tbl_for_mean[i, :, :] = trait_tbl_a[:, names_comb_idx_conc]
-        a = [bdnn_obj, w_post[i], t_reg_post[i], denom_reg_post[i], trait_tbl_a, all_comb_tbl, names_comb_idx_conc]
+        a = [bdnn_obj, w_post[i], t_reg_post[i], denom_reg_post[i], trait_tbl_a, all_comb_tbl, names_comb_idx_conc, out_act_f]
         args.append(a)
     trait_tbl_mean = np.mean(trait_tbl_for_mean, axis = 0)
     b = binary_feature[names_comb_idx_conc]
@@ -2571,7 +3195,7 @@ def get_pdp_rate_free_combination(bdnn_obj,
 
 
 def get_greenwells_feature_importance(cond_trait_tbl, pdp_rates, bdnn_obj, names_features, rate_type = 'speciation'):
-    names_features_original = np.array(get_names_features(bdnn_obj))
+    names_features_original = np.array(get_names_features(bdnn_obj, rate_type=rate_type))
     not_obs = cond_trait_tbl[:, -1] == 0
     pdp_rates[not_obs, :] = np.nan
     green_imp = pd.DataFrame()
@@ -2693,7 +3317,7 @@ def get_greenwells_interaction_importance(rates, feat):
 
 # Feature permutation
 #####################
-# 
+
 def get_rate_BDNN_noreg(x, w, act_f, out_act_f):
     tmp = x + 0
     for i in range(len(w)-1):
@@ -2718,7 +3342,10 @@ def get_rate_BDNN_3D_noreg(x, w, act_f, out_act_f):
 def get_bdnn_lik(bdnn_obj, bdnn_time, i_events_sp, i_events_ex, n_all_inframe, n_S, w, t_reg, reg_denom, trait_tbl_NN, rate_type):
     time_var = trait_tbl_NN[0].ndim > 2
     hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
-    out_act_f  = bdnn_obj.bdnn_settings['out_act_f']
+    if rate_type == 'sampling':
+        out_act_f = bdnn_obj.bdnn_settings['out_act_f_q']
+    else:
+        out_act_f = bdnn_obj.bdnn_settings['out_act_f']
     trait_tbl_idx = 0
     if rate_type == 'm':
         trait_tbl_idx = 1
@@ -2744,8 +3371,8 @@ def get_bdnn_lik(bdnn_obj, bdnn_time, i_events_sp, i_events_ex, n_all_inframe, n
     return bdnn_lik
 
 
-def create_perm_comb(bdnn_obj, do_inter_imp = True, combine_discr_features = None):
-    names_features = get_names_features(bdnn_obj)
+def create_perm_comb(bdnn_obj, do_inter_imp = True, combine_discr_features = None, rate_type='speciation'):
+    names_features = get_names_features(bdnn_obj, rate_type)
     idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
     n_feature_groups = len(idx_comb_feat)
     idx_not_comb_feat = np.arange(len(names_features))
@@ -2792,7 +3419,7 @@ def create_perm_comb(bdnn_obj, do_inter_imp = True, combine_discr_features = Non
     return perm_names, perm_feat_idx
 
 
-def permute_trt_tbl(trt_tbl, feat_idx, feature_is_time_variable, bdnn_obj, post_ts_i, seed = None):
+def permute_trt_tbl(trt_tbl, feat_idx, feature_is_time_variable, post_ts_i, seed = None):
     # # 4 bins, 5 species, 3 trait
     # a = np.arange(60).reshape((4, 5, 3))
     # print(a)
@@ -2883,7 +3510,7 @@ def perm_mcmc_sample_i(arg):
                     seed = seeds[feat_idx] + k
                     if feat_idx.size > 1:
                         seed = seed[0]
-                    trt_tbls_perm = permute_trt_tbl(trt_tbls_perm, feat_idx, feature_is_time_variable, bdnn_obj, post_ts_i, seed)
+                    trt_tbls_perm = permute_trt_tbl(trt_tbls_perm, feat_idx, feature_is_time_variable, post_ts_i, seed)
             sp_lik_j[k, j] = get_bdnn_lik(bdnn_obj, bdnn_time,
                                           i_events_sp, i_events_ex, n_all_inframe, n_S,
                                           post_w_sp_i, t_reg_lam_i, reg_denom_lam_i,
@@ -2912,9 +3539,9 @@ def get_idx_maineffect(m, p, k, old_idx):
     return out
 
 
-def remove_invariant_feature_from_featperm_results(bdnn_obj, res, trt_tbl, combine_discr_features = ""):
+def remove_invariant_feature_from_featperm_results(bdnn_obj, res, trt_tbl, combine_discr_features = "", rate_type='speciation'):
     features_without_variance = get_idx_feature_without_variance(trt_tbl)
-    names_features = get_names_features(bdnn_obj)
+    names_features = get_names_features(bdnn_obj, rate_type=rate_type)
     idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
     if idx_comb_feat:
         names_features = replace_names_by_feature_group(names_features, idx_comb_feat, combine_discr_features)
@@ -2924,59 +3551,102 @@ def remove_invariant_feature_from_featperm_results(bdnn_obj, res, trt_tbl, combi
     return res
 
 
-def set_temporal_resolution(bdnn_obj, min_bs):
-    fixed_shifts = copy_lib.deepcopy(bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'])
-    fixed_shifts2 = np.concatenate((np.zeros(1), fixed_shifts[::-1]), axis = None)
+def set_temporal_resolution(bdnn_obj, min_bs, rate_type='speciation'):
     trt_tbls = copy_lib.deepcopy(bdnn_obj.trait_tbls)
-    if trt_tbls[0].ndim == 3:
-        bin_size = np.diff(fixed_shifts2)
-        if ~np.all(bin_size == np.mean(bin_size)) and min_bs < 0.0:
-            new_bs = np.min(bin_size)
-            print(("\nDifferent bin sizes detected due to using -fixShift.\nTime windows resampled to a resolution of %s." ) % new_bs)
-            print("Window size can be set with -BDNN_pred_importance_window_size")
-        else:
-            new_bs = min_bs
-        if new_bs > 0.0:
-            bin_size = np.concatenate((bin_size, bin_size[-1]), axis = None)
-            n_bins_lowres = trt_tbls[0].shape[0]
-            trt_tbl_lam = trt_tbls[0][::-1]
-            trt_tbl_mu = trt_tbls[1][::-1]
-            n_bins_highres = np.floor(bin_size / new_bs).astype(int)
-            if np.all(n_bins_highres == 0):
-                sys.exit("\nError: Decreasing temporal resolution instead of increasing\n")
-            n_bins_highres[n_bins_highres == 0] = 1
-            bin_idx_lowres = np.repeat(np.arange(n_bins_lowres), repeats = n_bins_highres)
-            trt_tbl_lam_highres = trt_tbl_lam[bin_idx_lowres, :, :]
-            trt_tbl_mu_highres = trt_tbl_mu[bin_idx_lowres, :, :]
-            trt_tbls[0] = trt_tbl_lam_highres[::-1]
-            trt_tbls[1] = trt_tbl_mu_highres[::-1]
-            fixed_shifts = np.zeros(trt_tbls[0].shape[0] - 1)
-            for i in range(len(bin_size)):
-                if n_bins_highres[i] == 1:
-                     if i < len(bin_size):
-                         add_shifts = fixed_shifts2[i + 1]
-                     else:
-                         add_shifts = fixed_shifts2[i]
-                     fixed_shifts[np.sum(n_bins_highres[:i])] = add_shifts
-                else:
-                     add_shifts = (fixed_shifts2[i] + new_bs) + np.linspace(0.0, bin_size[i] - new_bs, n_bins_highres[i])
-                     idx = np.arange(np.sum(n_bins_highres[:i]), np.sum(n_bins_highres[:(i + 1)]), 1, dtype = int)
-                     if i == (len(bin_size) - 1):
-                         idx = idx[:-1]
-                         add_shifts = add_shifts[:-1]
-                     fixed_shifts[idx] = add_shifts
-            fixed_shifts = fixed_shifts[::-1]
-    return trt_tbls, fixed_shifts
+    fixed_shifts = None
+    n_bins_highres = 1.0
+    if rate_type != 'sampling':
+        if trt_tbls[0].ndim == 3:
+            fixed_shifts = copy_lib.deepcopy(bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'])
+            fixed_shifts2 = np.concatenate((np.zeros(1), fixed_shifts[::-1]), axis = None)
+            bin_size = np.diff(fixed_shifts2)
+            if ~np.all(bin_size == np.mean(bin_size)) and min_bs < 0.0:
+                new_bs = np.min(bin_size)
+                print(("\nDifferent bin sizes detected due to using -fixShift.\nTime windows resampled to a resolution of %s." ) % new_bs)
+                print("Window size can be set with -BDNN_pred_importance_window_size")
+            else:
+                new_bs = min_bs
+            if new_bs > 0.0:
+                bin_size = np.concatenate((bin_size, bin_size[-1]), axis = None)
+                n_bins_lowres = trt_tbls[0].shape[0]
+                trt_tbl_lam = trt_tbls[0][::-1]
+                trt_tbl_mu = trt_tbls[1][::-1]
+                n_bins_highres = np.floor(bin_size / new_bs).astype(int)
+                if np.all(n_bins_highres == 0):
+                    sys.exit("\nError: Decreasing temporal resolution instead of increasing\n")
+                n_bins_highres[n_bins_highres == 0] = 1
+                bin_idx_lowres = np.repeat(np.arange(n_bins_lowres), repeats = n_bins_highres)
+                trt_tbl_lam_highres = trt_tbl_lam[bin_idx_lowres, :, :]
+                trt_tbl_mu_highres = trt_tbl_mu[bin_idx_lowres, :, :]
+                trt_tbls[0] = trt_tbl_lam_highres[::-1]
+                trt_tbls[1] = trt_tbl_mu_highres[::-1]
+                fixed_shifts = np.zeros(trt_tbls[0].shape[0] - 1)
+                for i in range(len(bin_size)):
+                    if n_bins_highres[i] == 1:
+                         if i < len(bin_size):
+                             add_shifts = fixed_shifts2[i + 1]
+                         else:
+                             add_shifts = fixed_shifts2[i]
+                         fixed_shifts[np.sum(n_bins_highres[:i])] = add_shifts
+                    else:
+                         add_shifts = (fixed_shifts2[i] + new_bs) + np.linspace(0.0, bin_size[i] - new_bs, n_bins_highres[i])
+                         idx = np.arange(np.sum(n_bins_highres[:i]), np.sum(n_bins_highres[:(i + 1)]), 1, dtype = int)
+                         if i == (len(bin_size) - 1):
+                             idx = idx[:-1]
+                             add_shifts = add_shifts[:-1]
+                         fixed_shifts[idx] = add_shifts
+                fixed_shifts = fixed_shifts[::-1]
+    else:
+        if trt_tbls[2].ndim == 3:
+            fixed_shifts2 = copy_lib.deepcopy(bdnn_obj.bdnn_settings['q_time_frames'])[::-1]
+            bin_size = np.diff(fixed_shifts2)
+            if ~np.all(bin_size == np.mean(bin_size)) and min_bs < 0.0:
+                new_bs = np.min(bin_size)
+                print(("\nDifferent bin sizes detected due to using -qShift.\nTime windows resampled to a resolution of %s." ) % new_bs)
+                print("Window size can be set with -BDNN_pred_importance_window_size")
+            else:
+                new_bs = min_bs
+            if new_bs > 0.0:
+                n_bins_lowres = trt_tbls[2].shape[0]
+                trt_tbl_q = trt_tbls[2][::-1]
+#                print('trt_tbl_q original\n', trt_tbls[2])
+                n_bins_highres = np.floor(bin_size / new_bs).astype(int)
+                if np.all(n_bins_highres == 0):
+                    sys.exit("\nError: Decreasing temporal resolution instead of increasing\n")
+                n_bins_highres[n_bins_highres == 0] = 1
+                bin_idx_lowres = np.repeat(np.arange(n_bins_lowres), repeats = n_bins_highres)
+                trt_tbl_q_highres = trt_tbl_q[bin_idx_lowres, :, :]
+                trt_tbls[2] = trt_tbl_q_highres[::-1] # Why is reordering not needed for sampling????
+#                print('trt_tbl_q resampled\n', trt_tbls[2])
+                fixed_shifts = np.zeros(trt_tbls[2].shape[0] - 1)
+                for i in range(len(bin_size)):
+                    if n_bins_highres[i] == 1:
+                         if i < len(bin_size):
+                             add_shifts = fixed_shifts2[i + 1]
+                         else:
+                             add_shifts = fixed_shifts2[i]
+                         fixed_shifts[np.sum(n_bins_highres[:i])] = add_shifts
+                    else:
+                         add_shifts = (fixed_shifts2[i] + new_bs) + np.linspace(0.0, bin_size[i] - new_bs, n_bins_highres[i])
+                         idx = np.arange(np.sum(n_bins_highres[:i]), np.sum(n_bins_highres[:(i + 1)]), 1, dtype = int)
+                         if i == (len(bin_size) - 1):
+                             idx = idx[:-1]
+                             add_shifts = add_shifts[:-1]
+                         fixed_shifts[idx] = add_shifts
+                fixed_shifts = np.concatenate((np.max(fixed_shifts2), fixed_shifts[::-1], np.zeros(1)), axis=None)
+                n_bins_highres = n_bins_highres[::-1]
+                fixed_shifts = fixed_shifts[::-1]
+    return trt_tbls, fixed_shifts, n_bins_highres
 
 
 def feature_permutation(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm = 10, num_processes = 1, combine_discr_features = "", show_progressbar = False, do_inter_imp = True):
-    bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, post_reg_denom_lam, post_reg_denom_mu = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
+    bdnn_obj, post_w_sp, post_w_ex, _, sp_fad_lad, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, post_t_reg_q, post_reg_denom_lam, post_reg_denom_mu, _, _ = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
     n_mcmc = post_ts.shape[0]
     fixed_times_of_shift = copy_lib.deepcopy(bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'])
-    trt_tbls, bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'] = set_temporal_resolution(bdnn_obj, min_bs)
+    trt_tbls, bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'], _ = set_temporal_resolution(bdnn_obj, min_bs)
     #trt_tbls = bdnn_obj.trait_tbls
     n_features = trt_tbls[0].shape[-1]
-    names_features_sp = get_names_features(bdnn_obj)
+    names_features_sp = get_names_features(bdnn_obj, rate_type='speciation')
     names_features_ex = copy_lib.deepcopy(names_features_sp)
     bdnn_dd = 'diversity' in names_features_sp
     div_idx_trt_tbl = -1
@@ -3041,6 +3711,133 @@ def feature_permutation(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm = 10, 
                                                                      combine_discr_features)
     bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'] = fixed_times_of_shift
     return sp_delta_lik_df, ex_delta_lik_df
+
+
+def get_q_rate_BDNN_noreg(x, w, hidden_act_f, out_act_f, t_reg, reg_denom, q, n):
+    r = get_rate_BDNN_3D_noreg(x, w, hidden_act_f, out_act_f)
+    r = (r * n) ** t_reg / reg_denom
+    if len(q) > 1:
+        # Several q rates
+        if r.ndim == 1:
+            # No time-varying trait table
+            r = r[:, np.newaxis] * q
+        else:
+            # Time-varingy trait table
+            r = r * q[np.newaxis, :]
+    else:
+        r = r * q
+    return r
+
+
+def perm_mcmc_sample_q_i(arg):
+    if len(arg) == 20:
+        use_HPP_NN_lik = True
+        [q, n, w_q_i, t_reg_q_i, reg_denom_q_i, trt_tbl, hidden_act_f, out_act_f, n_perm, n_perm_traits, n_features, feature_is_time_variable, perm_feature_idx, ts_i, te_i, occs_sp, log_factorial_occs, q_time_frames, duration_q_bins, occs_single_bin] = arg
+    else:
+        use_HPP_NN_lik = False
+        [q, n, w_q_i, t_reg_q_i, reg_denom_q_i, trt_tbl, hidden_act_f, out_act_f, n_perm, n_perm_traits, n_features, feature_is_time_variable, perm_feature_idx, ts_i, te_i, occs_sp, log_factorial_occs] = arg
+
+    bdnn_q_rates = get_q_rate_BDNN_noreg(trt_tbl, w_q_i, hidden_act_f, out_act_f, t_reg_q_i, reg_denom_q_i, q, n)
+    if use_HPP_NN_lik:
+        orig_fossil_lik = HPP_NN_lik([ts_i, te_i, bdnn_q_rates, occs_sp, log_factorial_occs, q_time_frames, duration_q_bins, occs_single_bin])
+    else:
+        orig_fossil_lik = HOMPP_NN_lik([ts_i, te_i, bdnn_q_rates, occs_sp, log_factorial_occs])
+    orig_fossil_lik = np.sum(orig_fossil_lik)
+
+    q_lik_j = np.zeros((n_perm, n_perm_traits))
+    rngint = np.random.default_rng()
+    seeds = rngint.integers(low=0, high=1e10, size=n_features)
+    trt_tbls = [trt_tbl, trt_tbl]
+    for j in range(n_perm_traits):
+        perm_feature_idx_j = perm_feature_idx[j]
+        for k in range(n_perm):
+            trt_tbls_perm = copy_lib.deepcopy(trt_tbls)
+            for l in range(len(perm_feature_idx_j)):
+                feat_idx = perm_feature_idx_j[l]
+                if feat_idx is not None:
+                    seed = seeds[feat_idx] + k
+                    if feat_idx.size > 1:
+                        seed = seed[0]
+#                    feature_is_time_variable=False # Placeholder, this should be part of the bdnn_obj dict
+                    trt_tbls_perm = permute_trt_tbl(trt_tbls_perm, feat_idx, feature_is_time_variable, ts_i, seed)
+            bdnn_q_rates = get_q_rate_BDNN_noreg(trt_tbls_perm[0], w_q_i, hidden_act_f, out_act_f, t_reg_q_i, reg_denom_q_i, q, n)
+            if use_HPP_NN_lik:
+                perm_fossil_lik = HPP_NN_lik([ts_i, te_i, bdnn_q_rates, occs_sp, log_factorial_occs, q_time_frames, duration_q_bins, occs_single_bin])
+            else:
+                perm_fossil_lik = HOMPP_NN_lik([ts_i, te_i, bdnn_q_rates, occs_sp, log_factorial_occs])
+            q_lik_j[k, j] = np.sum(perm_fossil_lik)
+    q_delta_lik = q_lik_j - orig_fossil_lik
+    return q_delta_lik
+
+
+def feature_permutation_sampling(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm=10, num_processes=1, combine_discr_features="", show_progressbar=False, do_inter_imp=True):
+    bdnn_obj, _, _, w_q, _, ts, te, _, _, t_reg_q, reg_denom_lam, _, reg_denom_q, norm_q = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
+    n_mcmc = ts.shape[0]
+    trt_tbl = get_trt_tbl(bdnn_obj, rate_type='sampling')
+    feature_is_time_variable = is_time_variable_feature(trt_tbl)
+    occs_sp = np.copy(bdnn_obj.bdnn_settings['occs_sp'])
+    log_factorial_occs = np.copy(bdnn_obj.bdnn_settings['log_factorial_occs'])
+    q = get_baseline_q(mcmc_file, burnin, thin, mean_across_shifts=False)
+    if 'q_time_frames' in bdnn_obj.bdnn_settings.keys():
+        duration_q_bins = np.copy(bdnn_obj.bdnn_settings['duration_q_bins'])
+        occs_single_bin = np.copy(bdnn_obj.bdnn_settings['occs_single_bin'])
+        q_bins = np.copy(bdnn_obj.bdnn_settings['q_time_frames'])
+        if np.any(is_time_variable_feature(trt_tbl)):
+            # Time-variable feature
+            trt_tbls, q_bins, num_repeats_q = set_temporal_resolution(bdnn_obj, min_bs, rate_type='sampling')
+            trt_tbl = trt_tbls[2]
+            if q.shape[1] > 1:
+                q_idx_lowres = np.repeat(np.arange(q.shape[1]), repeats = num_repeats_q)
+                q = q[:, q_idx_lowres]
+            # get occs_sp, log_factorial_occs, occs_single_bin, and duration_q_bins for the new bins
+            occs_sp = get_occs_sp(bdnn_obj.occ_data, q_bins[::-1])
+            log_factorial_occs, duration_q_bins, occs_single_bin = get_fossil_features_q_shifts(bdnn_obj.occ_data, q_bins, occs_sp, te[0, :])
+            duration_q_bins = duration_q_bins[:, ::-1]
+            q_bins = q_bins[::-1]
+    n_features = trt_tbl.shape[-1]
+    names_features = get_names_features(bdnn_obj, rate_type='sampling')
+    perm_traits, perm_feature_idx = create_perm_comb(bdnn_obj, do_inter_imp, combine_discr_features, rate_type='sampling')
+    n_perm_traits = len(perm_traits)
+    out_act_f = bdnn_obj.bdnn_settings['out_act_f_q']
+    args = []
+    for i in range(n_mcmc):
+        a = [q[i, :], norm_q[i], w_q[i], t_reg_q[i], reg_denom_q[i], trt_tbl,
+             bdnn_obj.bdnn_settings['hidden_act_f'], out_act_f,
+             n_perm, n_perm_traits, n_features, feature_is_time_variable, perm_feature_idx,
+             ts[i, :], te[i, :], occs_sp, log_factorial_occs]
+        if 'q_time_frames' in bdnn_obj.bdnn_settings.keys():
+            a += [q_bins, duration_q_bins, occs_single_bin]
+        args.append(a)
+    unixos = is_unix()
+    if unixos and num_processes > 1:
+        pool_perm = multiprocessing.Pool(num_processes)
+        delta_lik = list(tqdm(pool_perm.imap_unordered(perm_mcmc_sample_q_i, args),
+                              total = n_mcmc, disable = show_progressbar == False))
+        pool_perm.close()
+    else:
+        delta_lik = []
+        for i in tqdm(range(n_mcmc), disable = show_progressbar == False):
+            delta_lik.append(perm_mcmc_sample_q_i(args[i]))
+    delta_lik = np.vstack(delta_lik)
+    for j in range(n_perm_traits):
+        if perm_feature_idx[j][1] is None:
+            n_main = j + 1
+    for j in range(n_main, n_perm_traits):
+        perm_feature_idx_j = perm_feature_idx[j]
+        idx_main1 = np.inf
+        idx_main2 = np.inf
+        for k in range(n_main):
+            m = perm_feature_idx[k][0]
+            idx_main1 = get_idx_maineffect(m, perm_feature_idx_j[0], k, idx_main1)
+            idx_main2 = get_idx_maineffect(m, perm_feature_idx_j[1], k, idx_main2)
+        delta_lik[:, j] = (delta_lik[:, idx_main1] + delta_lik[:, idx_main2]) - delta_lik[:, j]
+    names_df = pd.DataFrame(perm_traits, columns = ['feature1', 'feature2'])
+    delta_lik_summary = get_rates_summary(delta_lik.T)
+    delta_lik_df = pd.DataFrame(delta_lik_summary, columns = ['delta_lik', 'lwr_delta_lik', 'upr_delta_lik'])
+    delta_lik_df = pd.concat([names_df, delta_lik_df], axis = 1)
+    delta_lik_df = remove_invariant_feature_from_featperm_results(bdnn_obj, delta_lik_df, trt_tbl, combine_discr_features, 'sampling')
+#    bdnn_obj.bdnn_settings['q_time_frames'] = fixed_times_of_shift
+    return delta_lik_df
 
 
 # Fastshap
@@ -3846,7 +4643,7 @@ def shapley_kernel(M, s):
     return (M - 1) / (binom(M, s) * s * (M - s))
 
 
-def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f, explain_matrix, XX_w):
+def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f, explain_matrix, XX_w, baseline, norm):
     n_species, nAttr = trt_tbl.shape
     trt_tbl_aux2 = np.zeros(nEval * n_species * nAttr).reshape(nEval, n_species, nAttr)
     for ll in range(nEval):
@@ -3856,7 +4653,8 @@ def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_a
         trt_tbl_aux2[ll, :, :] = trt_tbl_aux
     trt_tbl_aux = trt_tbl_aux2.reshape(nEval * n_species, nAttr)
     rate_aux = get_rate_BDNN_noreg(trt_tbl_aux, cov_par, hidden_act_f, out_act_f)
-    rate_aux = rate_aux ** t_reg / reg_denom
+    rate_aux = (rate_aux * norm) ** t_reg / reg_denom
+    rate_aux = rate_aux * baseline
     rate_aux = rate_aux.reshape(nEval, n_species)
     exp_payoffs_ci = 1.0 / np.mean(1.0 / rate_aux, axis = 1)
     exp_payoffs_shap = exp_payoffs_ci + 0.0
@@ -3876,7 +4674,7 @@ def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_a
     return shapley_val_ci_shap, indices
 
 
-def k_add_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f):
+def k_add_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f, baseline=1.0, norm=1.0):
     n_species, nAttr = trt_tbl.shape  # Number of instances and attributes
     k_add = 3
     k_add_not_ok = True
@@ -3900,7 +4698,7 @@ def k_add_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out
             explain_matrix = np.linalg.inv(m @ opt_data) @ m
             X_w = X.T @ np.diag(weights_shap)  # This can be pre-computed once for all species
             XX_w = np.linalg.inv(X_w @ X) @ X_w
-            _, _ = get_shap_species_i(0, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f, explain_matrix, XX_w)
+            _, _ = get_shap_species_i(0, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f, explain_matrix, XX_w, baseline, norm)
             k_add_not_ok = False
         except:
             k_add_not_ok = True
@@ -3911,15 +4709,15 @@ def k_add_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out
     shap_inter = np.zeros((n_species, nAttr, nAttr))
     for i in range(n_species):
         # For all samples
-        shapley_val_ci_shap, indices = get_shap_species_i(i, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f, explain_matrix, XX_w)
+        shapley_val_ci_shap, indices = get_shap_species_i(i, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f, explain_matrix, XX_w, baseline, norm)
         shap_main[i, :] = shapley_val_ci_shap
         shap_inter[i, :, :] = indices
     return shap_main, shap_inter
 
 
-def fastshap_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f):
+def fastshap_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f, baseline=1.0, norm=1.0):
     ke = KernelExplainer(
-        model = lambda X: get_rate_BDNN_noreg(X, cov_par, hidden_act_f, out_act_f) ** t_reg / reg_denom,
+        model = lambda X: ((get_rate_BDNN_noreg(X, cov_par, hidden_act_f, out_act_f) * norm) ** t_reg / reg_denom) * baseline,
         background_data = trt_tbl
     )
 #    shap_main = ke.calculate_shap_values(trt_tbl, verbose = False)
@@ -4092,12 +4890,12 @@ def make_shap_result_for_single_feature(names_features_sp, names_features_ex, co
 def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, combine_discr_features = {}, show_progressbar = False, do_inter_imp = True):
 #    if do_inter_imp == False:
 #        from fastshap import KernelExplainer
-    bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, post_reg_denom_lam, post_reg_denom_mu = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
+    bdnn_obj, post_w_sp, post_w_ex, _, sp_fad_lad, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, _, post_reg_denom_lam, post_reg_denom_mu, _, _ = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
     mcmc_samples = post_ts.shape[0]
-    trt_tbls = bdnn_obj.trait_tbls
+    trt_tbls = bdnn_obj.trait_tbls[:2]
     n_species = trt_tbls[0].shape[-2]
     n_features = trt_tbls[0].shape[-1]
-    names_features_sp = get_names_features(bdnn_obj)
+    names_features_sp = get_names_features(bdnn_obj, rate_type='speciation')
     names_features_ex = copy_lib.deepcopy(names_features_sp)
     n_states = 1
     if len(combine_discr_features) > 0:
@@ -4189,6 +4987,84 @@ def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, comb
     taxa_shap_sp = merge_taxa_shap_and_species_rates(taxa_shap_sp, taxa_names_shap_sp, sp_from_shap, n_species)
     taxa_shap_ex = merge_taxa_shap_and_species_rates(taxa_shap_ex, taxa_names_shap_ex, ex_from_shap, n_species)
     return shap_lam, shap_ex, taxa_shap_sp, taxa_shap_ex
+
+
+def k_add_kernel_shap_sampling_i(arg):
+    [post_w_q_i, t_reg_q_i, reg_denom_q_i, q, n, hidden_act_f, out_act_f, shap_trt_tbl, idx_comb_feat, do_inter_imp] = arg
+    if do_inter_imp:
+        shap_main, shap_interaction = k_add_kernel_explainer(shap_trt_tbl, post_w_q_i, t_reg_q_i, reg_denom_q_i, hidden_act_f, out_act_f, q, n)
+    else:
+        shap_main = fastshap_kernel_explainer(shap_trt_tbl, post_w_q_i, t_reg_q_i, reg_denom_q_i, hidden_act_f, out_act_f, q) # check this later
+        shap_interaction = np.array([])
+    ke = combine_shap_featuregroup(shap_main, shap_interaction, idx_comb_feat)
+    return ke
+
+
+def k_add_kernel_shap_sampling(mcmc_file, pkl_file, burnin, thin, num_processes = 1, combine_discr_features = {}, show_progressbar = False, do_inter_imp = True):
+    bdnn_obj, _, _, post_w_q, sp_fad_lad, post_ts, post_te, _, _, post_t_reg_q, _, _, post_reg_denom_q, post_norm_q = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
+    mcmc_samples = post_ts.shape[0]
+    trt_tbl = get_trt_tbl(bdnn_obj, 'sampling')
+    n_species = trt_tbl.shape[-2]
+    n_features = trt_tbl.shape[-1]
+    names_features = get_names_features(bdnn_obj, rate_type='sampling')
+    n_states = 1
+    if len(combine_discr_features) > 0:
+        n_states = len(combine_discr_features[list(combine_discr_features.keys())[0]])
+    if n_features == 1:
+        if n_states > n_features:
+            do_inter_imp = False
+        else:
+            return make_shap_result_for_single_feature(names_features, names_features, combine_discr_features) # Should be trimmed to half of the rows!
+    hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
+    out_act_f = bdnn_obj.bdnn_settings['out_act_f_q']
+    idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
+    shap_names = make_shap_names(names_features, idx_comb_feat, combine_discr_features, do_inter_imp = do_inter_imp)
+    n_main_eff = np.sum(shap_names[:, 1] == 'none')
+    n_inter_eff = int(n_main_eff * (n_main_eff - 1) / 2)
+    if do_inter_imp is False:
+        n_inter_eff = 0
+    n_effects = n_main_eff + n_inter_eff + 1 + n_species * n_main_eff
+    q = get_baseline_q(mcmc_file, burnin, thin, mean_across_shifts=True)
+    shap_trt_tbl = get_shap_trt_tbl_sampling(bdnn_obj.bdnn_settings['occs_sp'], trt_tbl)
+    args = []
+    for i in range(mcmc_samples):
+        a = [post_w_q[i], post_t_reg_q[i], post_reg_denom_q[i], q[i, :], post_norm_q[i],
+             hidden_act_f, out_act_f,
+             shap_trt_tbl, idx_comb_feat, do_inter_imp]
+        args.append(a)
+    unixos = is_unix()
+    if unixos and num_processes > 1:
+        pool_perm = multiprocessing.Pool(num_processes)
+        shap_values = list(tqdm(pool_perm.imap_unordered(k_add_kernel_shap_sampling_i, args),
+                                total = mcmc_samples, disable = show_progressbar == False))
+        pool_perm.close()
+    else:
+        shap_values = []
+        for i in tqdm(range(mcmc_samples), disable = show_progressbar == False):
+            shap_values.append(k_add_kernel_shap_sampling_i(args[i]))
+    shap_values = np.vstack(shap_values)
+    shap_summary = get_rates_summary(shap_values.T)
+    mean_shap = shap_summary[:(n_main_eff + n_inter_eff), :]
+    taxa_shap = shap_summary[(n_main_eff + n_inter_eff):, :] # First row is baseline
+    feature_without_variance = get_idx_feature_without_variance(trt_tbl)
+    remove_q = []
+    for i in feature_without_variance:
+        remove_q.append(np.where(shap_names[:, 0] == names_features[i])[0])
+        remove_q.append(np.where(shap_names[:, 1] == names_features[i])[0])
+    remove_q = np.array(list(pd.core.common.flatten(remove_q))).astype(int)
+    mean_shap = np.delete(mean_shap, remove_q[remove_q < len(mean_shap)], axis = 0)
+    shap_names_del = np.delete(shap_names, remove_q, axis = 0)
+    shap_values_q = pd.DataFrame(mean_shap, columns = ['shap', 'lwr_shap', 'upr_shap'])
+    shap_names_del = pd.DataFrame(shap_names_del, columns = ['feature1', 'feature2'])
+    shap_q = pd.concat([shap_names_del, shap_values_q], axis = 1)
+    taxa_names = sp_fad_lad["Taxon"]
+    taxa_names_shap = make_taxa_names_shap(taxa_names, n_species, shap_names_del)
+    taxa_shap = delete_invariantfeat_from_taxa_shap(feature_without_variance, names_features,
+                                                    shap_names, taxa_shap)
+    q_from_shap = get_species_rates_from_shap(shap_values[:, (n_main_eff + n_inter_eff):],
+                                              n_species, n_main_eff, mcmc_samples)
+    taxa_shap_q = merge_taxa_shap_and_species_rates(taxa_shap, taxa_names_shap, q_from_shap, n_species)
+    return shap_q, taxa_shap_q
 
 
 # rank aggregation
@@ -4728,12 +5604,12 @@ def get_rscript_species_shap(r_script, species_names, taxa_shap, consrank, rate_
 
 
 def get_features_for_shap_plot(mcmc_file, pkl_file, burnin, thin, rate_type, combine_discr_features, file_transf_features):
-    bdnn_obj, post_w_sp, post_w_ex, sp_fad_lad, ts_post, te_post, post_t_reg_lam, post_t_reg_mu, post_reg_denom_lam, post_reg_denom_mu = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
+    bdnn_obj, post_w_sp, post_w_ex, post_w_q, sp_fad_lad, ts_post, te_post, post_t_reg_lam, post_t_reg_mu, post_t_reg_q, post_reg_denom_lam, post_reg_denom_mu, post_reg_denom_q, post_norm_q = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
     trait_tbl = get_trt_tbl(bdnn_obj, rate_type)
-    names_features = get_names_features(bdnn_obj)
+    names_features = get_names_features(bdnn_obj, rate_type)
     names_features_orig = np.array(names_features)
     # diversity-dependence
-    if "diversity" in names_features:
+    if "diversity" in names_features and rate_type != 'sampling':
         div_time, div_traj = get_mean_div_traj(ts_post, te_post)
         bdnn_time = get_bdnn_time(bdnn_obj, ts_post)
         div_traj_binned = get_binned_div_traj(bdnn_time, div_time, div_traj)[:-1]
@@ -4746,19 +5622,26 @@ def get_features_for_shap_plot(mcmc_file, pkl_file, burnin, thin, rate_type, com
     if idx_comb_feat:
         names_features = replace_names_by_feature_group(names_features, idx_comb_feat, combine_discr_features)
     names_features = np.array(names_features)
-    bdnn_time = get_bdnn_time(bdnn_obj, np.mean(ts_post, axis=0))
-    if rate_type == 'speciation':
-        tse = np.mean(ts_post, axis = 0)
+    if rate_type == 'sampling':
+        shap_trt_tbl = get_shap_trt_tbl_sampling(bdnn_obj.bdnn_settings['occs_sp'], trait_tbl)
+        if file_transf_features != '':
+            names_feat = get_names_features(bdnn_obj, rate_type='sampling') # Needed?
+            backscale_par = read_backscale_file(file_transf_features)
+            shap_trt_tbl = backscale_tbl(bdnn_obj, backscale_par, names_feat, shap_trt_tbl)
     else:
-        tse = np.mean(te_post, axis = 0)
-    shap_trt_tbl = get_shap_trt_tbl(tse, bdnn_time, trait_tbl)
-    # Backscale features
-    if is_time_trait(bdnn_obj):
-        shap_trt_tbl[:, -1] = backscale_bdnn_time(shap_trt_tbl[:, -1], bdnn_obj)
-    if file_transf_features != '':
-        names_feat = get_names_features(bdnn_obj)
-        backscale_par = read_backscale_file(file_transf_features)
-        shap_trt_tbl = backscale_tbl(bdnn_obj, backscale_par, names_feat, shap_trt_tbl)
+        bdnn_time = get_bdnn_time(bdnn_obj, np.mean(ts_post, axis=0))
+        if rate_type == 'speciation':
+            tse = np.mean(ts_post, axis = 0)
+        elif rate_type == 'extinction':
+            tse = np.mean(te_post, axis = 0)
+        shap_trt_tbl = get_shap_trt_tbl(tse, bdnn_time, trait_tbl)
+        # Backscale features
+        if is_time_trait(bdnn_obj):
+            shap_trt_tbl[:, -1] = backscale_bdnn_time(shap_trt_tbl[:, -1], bdnn_obj)
+        if file_transf_features != '':
+            names_feat = get_names_features(bdnn_obj, rate_type='speciation')
+            backscale_par = read_backscale_file(file_transf_features)
+            shap_trt_tbl = backscale_tbl(bdnn_obj, backscale_par, names_feat, shap_trt_tbl)
     # Remove invariant features
     feature_without_variance = get_idx_feature_without_variance(shap_trt_tbl)
     shap_trt_tbl = np.delete(shap_trt_tbl, feature_without_variance, axis = 1)
@@ -4830,7 +5713,8 @@ def get_dotplot_rscript_species_shap(r_script, species_names, taxa_shap, consran
 
 
 def dotplot_species_shap(mcmc_file, pkl_file, burnin, thin, output_wd, name_file,
-                         sp_taxa_shap, ex_taxa_shap, sp_consrank, ex_consrank,
+                         sp_taxa_shap, ex_taxa_shap, q_taxa_shap,
+                         sp_consrank, ex_consrank, q_consrank,
                          combine_discr_features = '', file_transf_features = ''):
     ob = load_pkl(pkl_file)
     species_names = ob.sp_fad_lad["Taxon"]
@@ -4929,6 +5813,10 @@ def dotplot_species_shap(mcmc_file, pkl_file, burnin, thin, output_wd, name_file
     r_script += "\n    rate_name = 'Extinction rate'"
     r_script += "\n    rate_col = 'red'"
     r_script += "\n  }"
+    r_script += "\n  if (rate_type == 'sampling') {"
+    r_script += "\n    rate_name = 'Sampling rate'"
+    r_script += "\n    rate_col = 'burlywood2'"
+    r_script += "\n  }"
     r_script += "\n  layout(cbind(c(1, 2:(nfeat+2)), c(nfeat + 3, rep(nfeat + 4, nfeat), nfeat + 5)),"
     r_script += "\n         heights = heights, widths = c(0.9, 0.1))"
     r_script += "\n  # Rates per species"
@@ -5022,24 +5910,36 @@ def dotplot_species_shap(mcmc_file, pkl_file, burnin, thin, output_wd, name_file
     r_script += "\n  }"
     r_script += "\n}"
     r_script += "\n"
-    if len(sp_taxa_shap) > 1:
-        sp_shap_trt_tbl, sp_names_features, sp_names_features_orig = get_features_for_shap_plot(mcmc_file, pkl_file,
-                                                                                                burnin, thin, 'speciation',
-                                                                                                combine_discr_features,
-                                                                                                file_transf_features)
-        r_script = get_dotplot_rscript_species_shap(r_script, species_names, sp_taxa_shap, sp_consrank, sp_shap_trt_tbl,
-                                                    sp_names_features, sp_names_features_orig, rate_type = 'speciation')
-    else:
-        r_script += "\nplot(1:5, 1:5, type = 'n', main = 'No shap values available when there is only one predictor')"
-    if len(ex_taxa_shap) > 1:
-        ex_shap_trt_tbl, ex_names_features, ex_names_features_orig = get_features_for_shap_plot(mcmc_file, pkl_file,
-                                                                                                burnin, thin, 'extinction',
-                                                                                                combine_discr_features,
-                                                                                                file_transf_features)
-        r_script = get_dotplot_rscript_species_shap(r_script, species_names, ex_taxa_shap, ex_consrank, ex_shap_trt_tbl,
-                                                    ex_names_features, ex_names_features_orig, rate_type = 'extinction')
-    else:
-        r_script += "\nplot(1:5, 1:5, type = 'n', main = 'No shap values available when there is only one predictor')"
+    if not sp_taxa_shap is None:
+        if len(sp_taxa_shap) > 1:
+            sp_shap_trt_tbl, sp_names_features, sp_names_features_orig = get_features_for_shap_plot(mcmc_file, pkl_file,
+                                                                                                    burnin, thin, 'speciation',
+                                                                                                    combine_discr_features,
+                                                                                                    file_transf_features)
+            r_script = get_dotplot_rscript_species_shap(r_script, species_names, sp_taxa_shap, sp_consrank, sp_shap_trt_tbl,
+                                                        sp_names_features, sp_names_features_orig, rate_type = 'speciation')
+        else:
+            r_script += "\nplot(1:5, 1:5, type = 'n', main = 'No shap values available when there is only one predictor')"
+    if not ex_taxa_shap is None:
+        if len(ex_taxa_shap) > 1:
+            ex_shap_trt_tbl, ex_names_features, ex_names_features_orig = get_features_for_shap_plot(mcmc_file, pkl_file,
+                                                                                                    burnin, thin, 'extinction',
+                                                                                                    combine_discr_features,
+                                                                                                    file_transf_features)
+            r_script = get_dotplot_rscript_species_shap(r_script, species_names, ex_taxa_shap, ex_consrank, ex_shap_trt_tbl,
+                                                        ex_names_features, ex_names_features_orig, rate_type = 'extinction')
+        else:
+            r_script += "\nplot(1:5, 1:5, type = 'n', main = 'No shap values available when there is only one predictor')"
+    if not q_taxa_shap is None:
+        if len(q_taxa_shap) > 1:
+            q_shap_trt_tbl, q_names_features, q_names_features_orig = get_features_for_shap_plot(mcmc_file, pkl_file,
+                                                                                                 burnin, thin, 'sampling',
+                                                                                                 combine_discr_features,
+                                                                                                 file_transf_features)
+            r_script = get_dotplot_rscript_species_shap(r_script, species_names, q_taxa_shap, q_consrank, q_shap_trt_tbl,
+                                                        q_names_features, q_names_features_orig, rate_type = 'sampling')
+        else:
+            r_script += "\nplot(1:5, 1:5, type = 'n', main = 'No shap values available when there is only one predictor')"
     r_script += "\ndev.off()"
     newfile.writelines(r_script)
     newfile.close()
