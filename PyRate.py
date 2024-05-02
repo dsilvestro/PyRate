@@ -4633,14 +4633,14 @@ def MCMC(all_arg):
                         margL[j]=LA[indDPP_L[i]]
                         margM[j]=MA[indDPP_M[i]]
                     marginal_rates(it, margL, margM, marginal_file, n_proc)
-            elif TDI in [0,2,4] and log_marginal_rates_to_file==0 and not BDNNmodel:
+            elif TDI in [0,2,4] and log_marginal_rates_to_file==0 and not BDNNmodel in [1, 3]:
                 w_marg_sp.writerow(list(LA) + list(timesLA[1:len(timesLA)-1]))
                 marginal_sp_rate_file.flush()
                 os.fsync(marginal_sp_rate_file)
                 w_marg_ex.writerow(list(MA) + list(timesMA[1:len(timesMA)-1]))
                 marginal_ex_rate_file.flush()
                 os.fsync(marginal_ex_rate_file)
-            elif BDNNmodel:
+            if BDNNmodel:
                 # log harmonic mean of rates through time
                 if BDNNmodel in [1, 3]:
                     if use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
@@ -4669,12 +4669,6 @@ def MCMC(all_arg):
                     # get marginal q rate through time
                     qtt = harmonic_mean_q_through_time(tsA, teA, q_time_frames_bdnn, bdnn_q_ratesA)
                     qtt = list(qtt) + list(q_time_frames_bdnn[1:-1])
-#                    if TPP_model == 1:
-#                        qtt = harmonic_mean_q_through_time(tsA, teA, q_time_frames, bdnn_q_ratesA)
-#                        qtt = list(qtt) + list(q_time_frames[1:-1])
-#                    else:
-#                        qtt = harmonic_mean_q_through_time(tsA, teA, times_rtt, bdnn_q_ratesA)
-#                        qtt = list(qtt) + list(fixed_times_of_shift_bdnn_logger)
                     w_marg_q.writerow(qtt)
                     marginal_q_rate_file.flush()
                     os.fsync(marginal_q_rate_file)
