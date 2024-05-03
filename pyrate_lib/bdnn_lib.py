@@ -245,6 +245,7 @@ def get_qtt(f_q, burn):
 
 
 def get_bdnn_rtt(f, burn):
+    f = f.replace("_mcmc.log", "")
     f_sp = f + "_sp_rates.log"
     f_ex = f + "_ex_rates.log"
     f_q = f + "_q_rates.log"

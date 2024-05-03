@@ -47,10 +47,10 @@ where `-s` and `-n` are used to define sampling frequency and MCMC iterations. *
 ## Output postprocessing
 
 ### Plotting the marginal rates through time
-The marginal speciation and extinction rates through time inferred by the BDNN model can be plotted using the standard `-plotRJ` [command](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#plot-rates-through-time-and-rate-shifts):
+The marginal speciation and extinction rates through time inferred by the BDNN model can be plotted using `-plotBDNN`:
 
 ```
-python PyRate.py -plotRJ .../pyrate_mcmc_logs -b 0.1
+python PyRate.py -plotBDNN .../pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -b 0.1
 ```
 
 where `-b 0.1` specifies the burnin proportion. 
