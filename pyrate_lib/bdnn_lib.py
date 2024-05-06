@@ -124,33 +124,68 @@ def combine_pkl(path_to_files, tag):
     pkl_list = []
     if len(files_pkl) > 0:
         pkl_list = [load_pkl(fp) for fp in files_pkl]
-
-        num_replicates = len(pkl_list)
-        bdnn_rescale_div = np.zeros(num_replicates)
-        time_rescaler = np.zeros(num_replicates)
-        n_bins = np.zeros(num_replicates)
-        for i in range(num_replicates):
-            bdnn_rescale_div[i] = pkl_list[i].bdnn_settings['div_rescaler']
-            time_rescaler[i] = pkl_list[i].bdnn_settings['time_rescaler']
-            if pkl_list[i].trait_tbls[0].ndim == 3:
-                n_bins[i] = len(pkl_list[i].bdnn_settings['fixed_times_of_shift_bdnn'])
-        pkl_most_bins = np.argmax(n_bins)
+        
+        bd = False
+        if 'layers_shapes' in pkl_list[0].bdnn_settings.keys():
+            bd = True
+        q = False
+        if 'layers_shapes_q' in pkl_list[0].bdnn_settings.keys():
+            q = True
+            time_var_q = False
+            if 'q_time_frames' in pkl_list[0].bdnn_settings.keys():
+                time_var_q = True
 
         bdnn_dict = {
-            'layers_shapes': pkl_list[0].bdnn_settings['layers_shapes'],
-            'layers_sizes': pkl_list[0].bdnn_settings['layers_sizes'],
-            'mask_lam': pkl_list[0].bdnn_settings['mask_lam'],
-            'mask_mu': pkl_list[0].bdnn_settings['mask_mu'],
-            'fixed_times_of_shift_bdnn': pkl_list[pkl_most_bins].bdnn_settings['fixed_times_of_shift_bdnn'],
-            'use_time_as_trait': pkl_list[0].bdnn_settings['use_time_as_trait'],
-            'time_rescaler': np.mean(time_rescaler),
-            'bdnn_const_baseline': pkl_list[0].bdnn_settings['bdnn_const_baseline'],
-            'out_act_f': pkl_list[0].bdnn_settings['out_act_f'],
             'hidden_act_f': pkl_list[0].bdnn_settings['hidden_act_f'],
-            'block_nn_model': pkl_list[0].bdnn_settings['block_nn_model'],
-            'names_features': pkl_list[0].bdnn_settings['names_features'],
-            'div_rescaler': np.mean(bdnn_rescale_div)
+            'prior_t_reg': pkl_list[0].bdnn_settings['prior_t_reg'],
+            'prior_cov': pkl_list[0].bdnn_settings['prior_cov']
         }
+
+        num_replicates = len(pkl_list)
+        if bd:
+            bdnn_rescale_div = np.zeros(num_replicates)
+            time_rescaler = np.zeros(num_replicates)
+            n_bins = np.zeros(num_replicates)
+            for i in range(num_replicates):
+                bdnn_rescale_div[i] = pkl_list[i].bdnn_settings['div_rescaler']
+                time_rescaler[i] = pkl_list[i].bdnn_settings['time_rescaler']
+                if pkl_list[i].trait_tbls[0].ndim == 3:
+                    n_bins[i] = len(pkl_list[i].bdnn_settings['fixed_times_of_shift_bdnn'])
+            pkl_most_bins = np.argmax(n_bins)
+
+            bdnn_dict.update({
+                'layers_shapes': pkl_list[0].bdnn_settings['layers_shapes'],
+                'layers_sizes': pkl_list[0].bdnn_settings['layers_sizes'],
+                'out_act_f': pkl_list[0].bdnn_settings['out_act_f'],
+                'mask_lam': pkl_list[0].bdnn_settings['mask_lam'],
+                'mask_mu': pkl_list[0].bdnn_settings['mask_mu'],
+                'fixed_times_of_shift_bdnn': pkl_list[pkl_most_bins].bdnn_settings['fixed_times_of_shift_bdnn'],
+                'use_time_as_trait': pkl_list[0].bdnn_settings['use_time_as_trait'],
+                'time_rescaler': np.mean(time_rescaler),
+                'bdnn_const_baseline': pkl_list[0].bdnn_settings['bdnn_const_baseline'],
+                'out_act_f': pkl_list[0].bdnn_settings['out_act_f'],
+                'hidden_act_f': pkl_list[0].bdnn_settings['hidden_act_f'],
+                'block_nn_model': pkl_list[0].bdnn_settings['block_nn_model'],
+                'names_features': pkl_list[0].bdnn_settings['names_features'],
+                'div_rescaler': np.mean(bdnn_rescale_div)
+            })
+        if q:
+            bdnn_dict.update({
+                'layers_shapes_q': pkl_list[0].bdnn_settings['layers_shapes_q'],
+                'layers_sizes_q': pkl_list[0].bdnn_settings['layers_sizes_q'],
+                'out_act_f_q': pkl_list[0].bdnn_settings['out_act_f_q'],
+                'names_features_q': pkl_list[0].bdnn_settings['names_features_q'],
+                'log_factorial_occs': pkl_list[0].bdnn_settings['log_factorial_occs'],
+                'occs_sp': pkl_list[0].bdnn_settings['occs_sp'], # Mean across replicates?
+                'pert_prior': pkl_list[0].bdnn_settings['pert_prior']
+            })
+            if time_var_q:
+                bdnn_dict.update({
+                    'q_time_frames': pkl_list[0].bdnn_settings['q_time_frames'], # Mean across replicates?
+                    'duration_q_bins': pkl_list[0].bdnn_settings['duration_q_bins'], # Mean across replicates?
+                    'occs_single_bin': pkl_list[0].bdnn_settings['occs_single_bin'] # Mean across replicates?
+                })
+        
         obj = bdnn(bdnn_settings=bdnn_dict,
                    weights=pkl_list[0].weights,
                    trait_tbls=pkl_list[pkl_most_bins].trait_tbls,

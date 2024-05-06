@@ -844,8 +844,19 @@ def comb_rj_rates(infile, files,tag, resample, rate_type):
     with open(outfile, 'w') as f:
         for i in comb: f.write(i)
 
-def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type=""):
+def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type="", keep_q=False):
     j=0
+    if file_type=="mcmc" and keep_q:
+        n_q_shifts = np.zeros(len(files))
+        for k in range(len(files)):
+            f = files[k]
+            if platform.system() == "Windows" or platform.system() == "Microsoft":
+                f = f.replace("\\","/")
+            head = np.array(next(open(f)).split())
+            if len(col_tag) == 0:
+                n_q_shifts[k] = len([i for i in range(len(head)) if head[i].startswith('q_')])
+        max_q_shifts = int(np.max(n_q_shifts))
+    
     for f in files:
         if platform.system() == "Windows" or platform.system() == "Microsoft":
             f = f.replace("\\","/")
@@ -873,13 +884,17 @@ def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type=""):
                 print("removed heated chains:",np.shape(t_file))
 
 
-            # exclude preservation rates under TPP model (they can mismatch)
-            if len(col_tag) == 0:
-                q_ind = np.array([i for i in range(len(head)) if "q_" in head[i]])
-                if len(q_ind)>0:
+            if len(col_tag) == 0 and file_type == "mcmc":
+                q_ind = np.array([i for i in range(len(head)) if head[i].startswith('q_')])
+                if len(q_ind)>0 and not keep_q:
+                    # exclude preservation rates under TPP model (they can mismatch)
                     mean_q = np.mean(t_file[:,q_ind],axis=1)
                     t_file = np.delete(t_file,q_ind,axis=1)
                     t_file = np.insert(t_file,q_ind[0],mean_q,axis=1)
+                elif len(q_ind) < max_q_shifts:
+                    missing_q = np.zeros((t_file.shape[0], max_q_shifts - len(q_ind)))
+                    idx = np.max(q_ind) + 1
+                    t_file = np.c_[t_file[:, :idx], missing_q, t_file[:, idx:]]
 
             shape_f=shape(t_file)
 
@@ -893,14 +908,19 @@ def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type=""):
         if len(col_tag) == 0:
             if j==0:
                 head_temp = np.array(next(open(f)).split())
-                q_not_ind = np.array([i for i in range(len(head)) if "q_" not in head[i]])
-                q_ind = np.array([i for i in range(len(head)) if "q_" in head[i]])
-                if len(q_ind)>0:
-                    head_temp = head_temp[q_not_ind]
-                    head_temp = np.insert(head_temp,q_ind[0],"mean_q")
-                tbl_header=""
-                for i in head_temp: tbl_header = tbl_header + i  + "\t"
-                tbl_header+="\n"
+                if file_type == "mcmc":
+                    q_not_ind = np.array([i for i in range(len(head)) if not head[i].startswith('q_')])
+                    q_ind = np.array([i for i in range(len(head)) if head[i].startswith('q_')])
+                    if len(q_ind)>0 and not keep_q:
+                        head_temp = head_temp[q_not_ind]
+                        head_temp = np.insert(head_temp,q_ind[0],"mean_q")
+                    else:
+                        head_temp = head_temp[q_not_ind]
+                        q_names = np.array(["q_" + str(i) for i in range(max_q_shifts)])
+                        head_temp = np.insert(head_temp, q_ind[0], q_names)
+                    tbl_header=""
+                    for i in head_temp: tbl_header = tbl_header + i  + "\t"
+                    tbl_header+="\n"
                 comb = t_file
             else:
                 comb = np.concatenate((comb,t_file),axis=0)
@@ -958,7 +978,7 @@ def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type=""):
         else:
             np.savetxt(f, comb, delimiter="\t",fmt=fmt_list,newline="\n") #)
 
-def comb_log_files_smart(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
+def comb_log_files_smart(path_to_files,burnin=0,tag="",resample=0,col_tag=[], keep_q=False):
     infile=path_to_files
     sys.path.append(infile)
     direct="%s/*%s*.log" % (infile,tag)
@@ -984,7 +1004,7 @@ def comb_log_files_smart(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
     files_temp = [f for f in files if "_mcmc.log" in os.path.basename(f)]
     if len(files_temp)>1:
         print("processing %s *_mcmc.log files" % (len(files_temp)))
-        comb_mcmc_files(infile, files_temp,burnin,tag,resample,col_tag,file_type="mcmc")
+        comb_mcmc_files(infile, files_temp,burnin,tag,resample,col_tag,file_type="mcmc", keep_q=keep_q)
     files_temp = [f for f in files if "_marginal_rates.log" in os.path.basename(f)]
     if len(files_temp)>1:
         print("processing %s *_marginal_rates.log files" % (len(files_temp)))
@@ -995,6 +1015,15 @@ def comb_log_files_smart(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
     if len(files_temp)>1:
         print("processing %s *_per_species_rates.log files" % (len(files_temp)))
         comb_mcmc_files(infile, files_temp,burnin,tag,resample,col_tag,file_type="per_species_rates")
+    files_temp = [f for f in files if "_q_rates.log" in os.path.basename(f) and not "_species_q_rates.log" in os.path.basename(f)]
+    if len(files_temp)>1:
+        print("processing %s *_q_rates.log files" % (len(files_temp)))
+        comb_rj_rates(infile, files_temp,tag, resample, rate_type="q_rates")
+    files_temp = [f for f in files if "_species_q_rates.log" in os.path.basename(f)]
+    if len(files_temp)>1:
+        print("processing %s *_species_q_rates.log files" % (len(files_temp)))
+        comb_mcmc_files(infile, files_temp,burnin,tag,resample,col_tag,file_type="species_q_rates")
+
 
 def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
     infile=path_to_files
@@ -2100,7 +2129,10 @@ def load_pkl(file_name):
 
 def get_names_variable(var_file):
     vn = np.loadtxt(var_file, max_rows = 1, dtype = str)[1:]
-    return vn.tolist()
+    vn = vn.tolist()
+    vn = [vn[i].replace('"', '') for i in range(len(vn))]
+    vn = [vn[i].replace("'", "") for i in range(len(vn))]
+    return vn
 
 
 def interpolate_constant(x, xp, yp):
@@ -5479,7 +5511,7 @@ if __name__ == '__main__':
         from pyrate_lib.bdnn_lib import combine_pkl
         tag = args.tag
         combine_pkl(args.combBDNN, tag)
-        comb_log_files_smart(args.combBDNN, burnin, tag, resample=args.resample, col_tag=args.col_tag)
+        comb_log_files_smart(args.combBDNN, burnin, tag, resample=args.resample, col_tag=args.col_tag, keep_q=True)
         sys.exit("\n")
     elif len(args.input_data)==0 and args.d == "": sys.exit("\nInput file required. Use '-h' for command list.\n")
 
@@ -6462,14 +6494,8 @@ if __name__ == '__main__':
         if isinstance(bdnn_loaded_tbls[0], np.ndarray):
             names_traits = bdnn_loaded_names_traits
         
-        if args.BDNNexport_taxon_time_tables:
-            import pyrate_lib.bdnn_lib as bdnn_lib
-            path_predictors = bdnn_lib.export_trait_tbl(trait_tbl_NN, names_features, output_wd)
-            sys.exit("BDNN predictors export into %s" % path_predictors)
-        
 
         bdnn_dict = {
-            'out_act_f': out_act_f,
             'hidden_act_f': hidden_act_f,
             'prior_t_reg': prior_lam_t_reg,
             'prior_cov': args.BDNNprior
@@ -6492,6 +6518,7 @@ if __name__ == '__main__':
             bdnn_dict.update({
                 'layers_shapes': layer_shapes_bd,
                 'layers_sizes': layer_sizes_bd,
+                'out_act_f': out_act_f,
                 'mask_lam': BDNN_MASK_lam,
                 'mask_mu': BDNN_MASK_mu,
                 'fixed_times_of_shift_bdnn': fixed_times_of_shift_bdnn,
@@ -6546,7 +6573,10 @@ if __name__ == '__main__':
         print("\n\nBDNN object saved as:", bdnn_obj_out_file, "\n")
         # sys.exit()
     
-
+        if args.BDNNexport_taxon_time_tables:
+            import pyrate_lib.bdnn_lib as bdnn_lib
+            path_predictors = bdnn_lib.export_trait_tbl(trait_tbl_NN, names_features_bd, output_wd)
+            sys.exit("BDNN predictors export into %s" % path_predictors)
     
     if mcmc_gen > 0:
         # OUTPUT 0 SUMMARY AND SETTINGS
