@@ -6146,6 +6146,8 @@ if __name__ == '__main__':
             L=traitfile.readlines()
             head= L[0].split()
             names_traits = head[1:]
+            names_traits = [names_traits[i].replace('"', '') for i in range(len(names_traits))]
+            names_traits = [names_traits[i].replace("'", "") for i in range(len(names_traits))]
 
             trait_val=[l.split() for l in L][1:]
 
