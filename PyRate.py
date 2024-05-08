@@ -892,7 +892,7 @@ def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type="", keep
                     t_file = np.delete(t_file,q_ind,axis=1)
                     t_file = np.insert(t_file,q_ind[0],mean_q,axis=1)
                 elif len(q_ind) < max_q_shifts:
-                    missing_q = np.zeros((t_file.shape[0], max_q_shifts - len(q_ind)))
+                    missing_q = np.full((t_file.shape[0], max_q_shifts - len(q_ind)), np.nan)
                     idx = np.max(q_ind) + 1
                     t_file = np.c_[t_file[:, :idx], missing_q, t_file[:, idx:]]
 
@@ -1795,6 +1795,8 @@ def tanh_f(z):
     return np.tanh(z)
 
 def tanh_f_approx(z):
+#    print('z dtype\n', z.dtype)
+#    print('z\n', z)
     tanh = 1.0 - ( 2.0 / ( np.exp(2.0 * z) + 1.0 ) )
     return tanh
 

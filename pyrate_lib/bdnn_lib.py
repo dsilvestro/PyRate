@@ -176,14 +176,22 @@ def combine_pkl(path_to_files, tag):
                 'out_act_f_q': pkl_list[0].bdnn_settings['out_act_f_q'],
                 'names_features_q': pkl_list[0].bdnn_settings['names_features_q'],
                 'log_factorial_occs': pkl_list[0].bdnn_settings['log_factorial_occs'],
-                'occs_sp': pkl_list[0].bdnn_settings['occs_sp'], # Mean across replicates?
                 'pert_prior': pkl_list[0].bdnn_settings['pert_prior']
             })
-            if time_var_q:
+            if not time_var_q:
                 bdnn_dict.update({
-                    'q_time_frames': pkl_list[0].bdnn_settings['q_time_frames'], # Mean across replicates?
-                    'duration_q_bins': pkl_list[0].bdnn_settings['duration_q_bins'], # Mean across replicates?
-                    'occs_single_bin': pkl_list[0].bdnn_settings['occs_single_bin'] # Mean across replicates?
+                    'occs_sp': pkl_list[0].bdnn_settings['occs_sp']
+                })
+            else:
+                n_bins = np.zeros(num_replicates)
+                for i in range(num_replicates):
+                    n_bins[i] = pkl_list[i].bdnn_settings['duration_q_bins'].shape[1]
+                pkl_most_bins = np.argmax(n_bins)
+                bdnn_dict.update({
+                    'occs_sp': pkl_list[pkl_most_bins].bdnn_settings['occs_sp'],
+                    'q_time_frames': pkl_list[pkl_most_bins].bdnn_settings['q_time_frames'],
+                    'duration_q_bins': pkl_list[pkl_most_bins].bdnn_settings['duration_q_bins'],
+                    'occs_single_bin': pkl_list[0].bdnn_settings['occs_single_bin']
                 })
         
         obj = bdnn(bdnn_settings=bdnn_dict,
@@ -428,7 +436,7 @@ def bdnn_read_mcmc_file(mcmc_file, burn, thin):
     w_q_indx = [i for i in range(len(m.columns)) if 'w_q_' in m.columns[i]]
     ts_indx = [i for i in range(len(m.columns)) if '_TS' in m.columns[i]]
     te_indx = [i for i in range(len(m.columns)) if '_TE' in m.columns[i]]
-    np_m = m.to_numpy()
+    np_m = m.to_numpy().astype(float) # Stupid pandas does not understand nan
     num_it = np_m.shape[0]
     burnin = check_burnin(burn, num_it)
     w_sp = np_m[burnin:, w_sp_indx]
@@ -1644,13 +1652,12 @@ def get_baseline_q2(mcmc_file, burn, thin, mean_across_shifts=True):
 def get_baseline_q(mcmc_file, burn, thin, mean_across_shifts=True):
     m = pd.read_csv(mcmc_file, delimiter = '\t')
     q_indx = np.array([i for i in range(len(m.columns)) if m.columns[i].startswith('q_')])
-    np_m = m.to_numpy()
+    np_m = m.to_numpy().astype(float)
     num_it = np_m.shape[0]
     burnin = check_burnin(burn, num_it)
     q = np_m[burnin:, q_indx]
     if q.shape[1] == 1:
         q = q.reshape((len(q), 1))
-    # This will fail for combined log files when there are different number of q-shifts across replicates !because than the combined mcmc contains just a single q
     if q.shape[1] > 1 and mean_across_shifts:
         pkl_file = mcmc_file.replace("_mcmc.log", "") + ".pkl"
         bdnn_obj = load_pkl(pkl_file)
@@ -1659,7 +1666,10 @@ def get_baseline_q(mcmc_file, burn, thin, mean_across_shifts=True):
             q_time_frames = bdnn_obj.bdnn_settings['q_time_frames']
             weights = np.diff(q_time_frames)
             weights = weights / np.sum(weights)
-        q = np.average(q, weights=weights, axis=1, keepdims=True)
+#        mask = q==0.0 # np.isnan(q)
+        mask = np.isnan(q)
+        qma = np.ma.MaskedArray(q, mask=mask)
+        q = np.ma.average(qma, weights=weights, axis=1, keepdims=True)
     q = apply_thin(q, thin)
     return q
 
@@ -1818,8 +1828,8 @@ def get_mean_rate_through_time(rtt, root):
 
 
 def get_root_age(mcmc_file, burnin):
-    m = pd.read_csv(mcmc_file, delimiter = '\t')
-    root = m['root_age'].to_numpy()[burnin:]
+    m = pd.read_csv(mcmc_file, delimiter = '\t', na_values='nan', keep_default_na=False)
+    root = m['root_age'].to_numpy().astype(float)[burnin:]
     root_CI = util.calcHPD(root, .95).tolist()
     return np.mean(root), root_CI
 
@@ -2356,7 +2366,6 @@ class BdnnTesterSampling():
                     q_per_sp = bdnn_q_ratesA.reshape(-1)
                 q_acc.append(q_per_sp)
 
-
         # summarize results
         q_acc = np.array(q_acc)
         post_q = np.mean(q_acc, axis=0)
@@ -2441,8 +2450,7 @@ def get_coefficient_sampling_variation(path_dir_log_files, burn, combine_discr_f
     cv_rates = np.zeros((1, 3))
     cv_rates[0, 1] = get_cv(species_rates)
 
-    num_traits, levels_cat_trait = get_num_traits_and_cat_levels(bdnn_obj, 'sampling',
-                                                                 combine_discr_features=combine_discr_features)
+    num_traits, levels_cat_trait = get_num_traits_and_cat_levels(bdnn_obj, 'sampling', combine_discr_features=combine_discr_features)
 
     # Network architecture and priors
     layer_shapes = bdnn_obj.bdnn_settings['layers_shapes_q']
@@ -2496,7 +2504,7 @@ def get_sampling_CV_from_sim_i(arg):
     [rep, ts, te, qtt_mean, shift_time_q, num_traits, levels_cat_trait, n_nodes, bdnn_update_f, act_f, out_act_f, prior_t_reg, prior_cov, pert_prior, TPP_model, use_HPP_NN_lik] = arg
     
     # Get fossils and their features for fast lik calculation
-    fossils = sim_fossil_occurrences(np.column_stack((ts, te)), qtt_mean, shift_time_q)
+    fossils = sim_fossil_occurrences(ts, te, qtt_mean, shift_time_q)
     n_taxa = len(fossils)
     log_factorial_occs = None
     duration_q_bins = None
@@ -2541,7 +2549,7 @@ def get_ts_te(mcmc_file, burnin):
     m = pd.read_csv(mcmc_file, delimiter = '\t')
     ts_indx = [i for i in range(len(m.columns)) if '_TS' in m.columns[i]]
     te_indx = [i for i in range(len(m.columns)) if '_TE' in m.columns[i]]
-    np_m = m.to_numpy()
+    np_m = m.to_numpy().astype(float)
     ts = np_m[burnin:, ts_indx]
     te = np_m[burnin:, te_indx]
     ts = np.mean(ts, axis=0)
@@ -2549,29 +2557,28 @@ def get_ts_te(mcmc_file, burnin):
     return ts, te
 
 
-def get_duration(sp_x, upper, lower):
-    ts = np.copy(sp_x[:,0])
-    te = np.copy(sp_x[:, 1])
-    ts[ts > upper] = upper
-    te[te < lower] = lower
-    d = ts - te
+def get_duration(ts, te, upper, lower):
+    ts2 = np.copy(ts)
+    te2 = np.copy(te)
+    ts2[ts2 > upper] = upper
+    te2[te2 < lower] = lower
+    d = ts2 - te2
     d[d < 0.0] = 0.0
-    return d, ts, te
+    return d, ts2, te2
 
 
-def sim_fossil_occurrences(sp_x, q, shift_time_q):
-#    print('shift_time_q', shift_time_q)
-    is_alive = sp_x[:, 1] == 0.0
-    n_taxa = len(sp_x)
+def sim_fossil_occurrences(ts, te, q, shift_time_q):
+    is_alive = te == 0.0
+    n_taxa = len(ts)
     occ = [np.array([])] * n_taxa
     len_q = len(q)
     for i in range(len_q):
-        dur, ts, te = get_duration(sp_x, shift_time_q[i], shift_time_q[i + 1])
-        dur = dur.reshape(-1)
+        dur, ts2, te2 = get_duration(ts, te, shift_time_q[i], shift_time_q[i + 1])
         poi_rate_occ = q[i] * dur
-        exp_occ = np.round(np.random.poisson(poi_rate_occ))
+        exp_occ = np.random.poisson(poi_rate_occ)
+        exp_occ = np.round(exp_occ)
         for y in range(n_taxa):
-            occ_y = np.random.uniform(ts[y], te[y], exp_occ[y])
+            occ_y = np.random.uniform(ts2[y], te2[y], exp_occ[y])
             present = np.array([])
             if is_alive[y] and i == (len_q - 1): # Alive and most recent sampling strata
                 present = np.zeros(1, dtype='float')
@@ -2580,7 +2587,7 @@ def sim_fossil_occurrences(sp_x, q, shift_time_q):
         O = occ[i]
         O = O[O != 0.0] # Do not count single occurrence at the present
         if len(O) == 0:
-            add_singleton = np.random.uniform(sp_x[i, 1], sp_x[i, 0], size=1)
+            add_singleton = np.random.uniform(te[i], ts[i], size=1)
             occ[i] = np.concatenate((add_singleton, occ[i]), axis=None)
     return occ
 
@@ -3837,12 +3844,15 @@ def feature_permutation_sampling(mcmc_file, pkl_file, burnin, thin, min_bs, n_pe
     out_act_f = bdnn_obj.bdnn_settings['out_act_f_q']
     args = []
     for i in range(n_mcmc):
-        a = [q[i, :], norm_q[i], w_q[i], t_reg_q[i], reg_denom_q[i], trt_tbl,
+        not_na = ~np.isnan(q[i, :]) # remove empty q bins resulting from combing replicates with different number of bins
+        q_i = q[i, not_na]
+        a = [q_i, norm_q[i], w_q[i], t_reg_q[i], reg_denom_q[i], trt_tbl,
              bdnn_obj.bdnn_settings['hidden_act_f'], out_act_f,
              n_perm, n_perm_traits, n_features, feature_is_time_variable, perm_feature_idx,
-             ts[i, :], te[i, :], occs_sp, log_factorial_occs]
+             ts[i, :], te[i, :], occs_sp[:, not_na], log_factorial_occs]
         if 'q_time_frames' in bdnn_obj.bdnn_settings.keys():
-            a += [q_bins, duration_q_bins, occs_single_bin]
+            not_na_q_bins = np.concatenate((not_na[::-1], np.array([True])), axis=None)
+            a += [q_bins[not_na_q_bins], duration_q_bins[:, not_na[::-1]], occs_single_bin]
         args.append(a)
     unixos = is_unix()
     if unixos and num_processes > 1:
