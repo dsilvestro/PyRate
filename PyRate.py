@@ -2043,17 +2043,20 @@ def init_trait_and_weights(trait_tbl,time_var_tbl,nodes,bias_node=False,fadlad=0
         if use_time_as_trait:
             rescaled_time = (fixed_times_of_shift[:-1] + fixed_times_of_shift[1:]) / 2
             # Append oldest trait table in case the earliest fossils exceeds the loaded trait tables
+            # Oldest trait table is trait_tbl_lam[0, :, :] and the younest trait_tbl_lam[-1, :, :]
             if num_fixed_times_of_shift - 1 > trait_tbl_lam.shape[0]:
                 n_repeats = num_fixed_times_of_shift - 1 - trait_tbl_lam.shape[0]
-                missing_trt_tbls = np.tile(trait_tbl_lam[-1, :], (n_repeats, 1, 1))
-                trait_tbl_lam = np.concatenate((trait_tbl_lam, missing_trt_tbls), axis=0)
+                missing_trt_tbls = np.tile(trait_tbl_lam[0, :], (n_repeats, 1, 1)) # Oldest bin
+                trait_tbl_lam = np.concatenate((missing_trt_tbls, trait_tbl_lam), axis=0) # Repeated oldest bin stacked on top of younger bins
             if num_fixed_times_of_shift - 1 > trait_tbl_mu.shape[0]:
                 n_repeats = num_fixed_times_of_shift - 1 - trait_tbl_mu.shape[0]
-                missing_trt_tbls = np.tile(trait_tbl_mu[-1, :], (n_repeats, 1, 1))
-                trait_tbl_mu = np.concatenate((trait_tbl_mu, missing_trt_tbls), axis=0)
+                missing_trt_tbls = np.tile(trait_tbl_mu[0, :], (n_repeats, 1, 1))
+                trait_tbl_mu = np.concatenate((missing_trt_tbls, trait_tbl_mu), axis=0)
             # Clip trait tables when they exceed the oldest fossil
-            trait_tbl_lam = trait_tbl_lam[:(num_fixed_times_of_shift - 1), :]
-            trait_tbl_mu = trait_tbl_mu[:(num_fixed_times_of_shift - 1), :]
+            excl_bins = trait_tbl_lam.shape[0] - (num_fixed_times_of_shift - 1)
+            trait_tbl_lam = trait_tbl_lam[excl_bins:, :]
+            excl_bins = trait_tbl_mu.shape[0] - (num_fixed_times_of_shift - 1)
+            trait_tbl_mu = trait_tbl_mu[excl_bins:, :]
             n_taxa = trait_tbl_lam.shape[1]
             rescaled_time = np.repeat(rescaled_time, n_taxa)
             rescaled_time = rescaled_time.reshape((num_fixed_times_of_shift - 1, n_taxa, 1))
@@ -4667,7 +4670,7 @@ def MCMC(all_arg):
                         margL[j]=LA[indDPP_L[i]]
                         margM[j]=MA[indDPP_M[i]]
                     marginal_rates(it, margL, margM, marginal_file, n_proc)
-            elif TDI in [0,2,4] and log_marginal_rates_to_file==0 and not BDNNmodel in [1, 3]:
+            elif TDI in [0,2,4] and log_marginal_rates_to_file==0: #  and not BDNNmodel in [1, 3]
                 w_marg_sp.writerow(list(LA) + list(timesLA[1:len(timesLA)-1]))
                 marginal_sp_rate_file.flush()
                 os.fsync(marginal_sp_rate_file)
@@ -6745,7 +6748,7 @@ if __name__ == '__main__':
 
         # save files with sp/ex rates and times of shift
         elif log_marginal_rates_to_file == 0:
-            if TDI==4 or use_ADE_model != 0 or BDNNmodel in [1, 3]:
+            if TDI==4 or use_ADE_model != 0 or BDNNmodel: #  in [1, 3]
                 marginal_sp_rate_file_name = "%s/%s_sp_rates.log" % (path_dir, suff_out)
                 marginal_sp_rate_file = open(marginal_sp_rate_file_name , "w")
                 w_marg_sp=csv.writer(marginal_sp_rate_file, delimiter='\t')
