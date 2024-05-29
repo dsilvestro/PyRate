@@ -2116,6 +2116,35 @@ def get_q_rate_BDNN(q, t_reg, x, w, act_f, out_act_f):
     return reg_rates, denom, norm_fac
 
 
+def get_highres_repeats(q_time_frames, new_bs, FA):
+    q_time_frames = np.concatenate((np.zeros(1), q_time_frames, FA))
+    bin_size = np.diff(q_time_frames)
+    n_bins_highres = np.floor(bin_size / new_bs).astype(int)
+    n_bins_highres[n_bins_highres == 0] = 1
+    highres_repeats = np.repeat(np.arange(n_bins_lowres), repeats = n_bins_highres)
+
+#   fixed_shifts = np.zeros(len(highres_repeats) - 1)
+#    for i in range(len(bin_size)):
+#        if n_bins_highres[i] == 1:
+#             if i < len(bin_size):
+#                 add_shifts = q_time_frames[i + 1]
+#             else:
+#                 add_shifts = q_time_frames[i]
+#             fixed_shifts[np.sum(n_bins_highres[:i])] = add_shifts
+#        else:
+#             add_shifts = (q_time_frames[i] + new_bs) + np.linspace(0.0, bin_size[i] - new_bs, n_bins_highres[i])
+#             idx = np.arange(np.sum(n_bins_highres[:i]), np.sum(n_bins_highres[:(i + 1)]), 1, dtype = int)
+#             if i == (len(bin_size) - 1):
+#                 idx = idx[:-1]
+#                 add_shifts = add_shifts[:-1]
+#             fixed_shifts[idx] = add_shifts
+#    fixed_shifts = np.concatenate((np.max(q_time_frames), fixed_shifts[::-1], np.zeros(1)), axis=None)
+#    n_bins_highres = n_bins_highres[::-1]
+#    fixed_shifts = fixed_shifts[::-1]
+
+    return highres_repeats
+
+
 def init_cov_par(trait_tbl, n_nodes_lam, n_nodes_mu):
     # lam
     trait_tbl.shape[0]
@@ -4946,6 +4975,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNblockmodel',help='Block NN model', action='store_true', default=False)
     p.add_argument('-BDNNtimevar', type=str, help='Time variable file for birth-death process (e.g. PhanerozoicTempSmooth.txt), several variable in different columns possible', default="", metavar="")
     p.add_argument('-BDNNtimevar_q', type=str, help='Time variable file for sampling process, several variable in different columns possible', default="", metavar="")
+    p.add_argument('-BDNNnhq', type=float, help='Non-homogeneous sampling over time (-1.0: off; 0.0: use qshifts; >0.0 resample qshifts to this value)', default=-1.0, metavar=1)
     p.add_argument('-BDNNpath_taxon_time_tables', type=str, help='Path to director(y|ies) with table(s) of taxon-time specific predictors. One path for identical speciation/extinction predictors, two paths if they differ.', default=["", ""], nargs='+')
     p.add_argument('-BDNNexport_taxon_time_tables', help='Export BDNN predictors. Creates a new directory with one text file per time bin (from most recent to earliest).', action='store_true', default=False)
     p.add_argument('-BDNNupdate_se_f', type=float, help='fraction of updated times of origination and extinction', default=[0.6], metavar=[0.6], nargs=1)
@@ -6079,6 +6109,12 @@ if __name__ == '__main__':
         TPP_model = 0
 
     if BDNNmodel in [2, 3]:
+        bdnn_nhq = args.BDNNnhq
+        if bdnn_nhq > 0.0:
+            if args.qShift != "":
+                highres_repeats = get_highres_repeats(args.qShift, bdnn_nhq, np.max(FA))
+            else:
+                pass
         argsHPP, occs_sp, log_factorial_occs, duration_q_bins, occs_single_bin, q_time_frames_bdnn, use_HPP_NN_lik = precompute_fossil_features(args.qShift, bdnn_timevar)
 
     if fix_Shift == 1 and use_ADE_model == 0: 
@@ -6159,6 +6195,9 @@ if __name__ == '__main__':
             trait_values = np.array(trait_val)
 
             trait_taxa=np.array([l.split()[0] for l in L][1:])
+            trait_taxa = [trait_taxa[i].replace('"', '') for i in range(len(trait_taxa))]
+            trait_taxa = [trait_taxa[i].replace("'", "") for i in range(len(trait_taxa))]
+            trait_taxa = np.array(trait_taxa)
             matched_trait_values = []
             for i in range(len(taxa_names)):
                 taxa_name=taxa_names[i]
