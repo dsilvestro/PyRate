@@ -4699,7 +4699,7 @@ def MCMC(all_arg):
                         margL[j]=LA[indDPP_L[i]]
                         margM[j]=MA[indDPP_M[i]]
                     marginal_rates(it, margL, margM, marginal_file, n_proc)
-            elif TDI in [0,2,4] and log_marginal_rates_to_file==0: #  and not BDNNmodel in [1, 3]
+            elif TDI in [0,2,4] and log_marginal_rates_to_file==0 and not BDNNmodel:
                 w_marg_sp.writerow(list(LA) + list(timesLA[1:len(timesLA)-1]))
                 marginal_sp_rate_file.flush()
                 os.fsync(marginal_sp_rate_file)
