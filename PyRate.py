@@ -5331,9 +5331,8 @@ if __name__ == '__main__':
 
         elif plot_type == 7:
             import pyrate_lib.bdnn_lib as bdnn_lib
-            mcmc_file = path_dir_log_files
-            path_dir_log_files = path_dir_log_files.replace("_mcmc.log", "")
-            pkl_file = path_dir_log_files + ".pkl"
+            mcmc_file = path_dir_log_files.replace("_mcmc.log", "")
+            pkl_file = mcmc_file + ".pkl"
             obj_effect_plot = bdnn_lib.get_effect_objects(mcmc_file, pkl_file,
                                                           burnin,
                                                           thin = args.resample,
