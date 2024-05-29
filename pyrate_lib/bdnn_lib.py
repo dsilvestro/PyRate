@@ -347,6 +347,7 @@ def get_bdnn_rtt(f, burn):
 def plot_bdnn_rtt(f, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum, time_vec_q):
     output_wd = os.path.dirname(f)
     name_file = os.path.basename(f)
+    name_file = name_file.replace("_mcmc.log", "")
     out = "%s/%s_RTT.r" % (output_wd, name_file)
     newfile = open(out, "w")
     n_rows = 0
@@ -3659,7 +3660,7 @@ def set_temporal_resolution(bdnn_obj, min_bs, rate_type='speciation'):
                 n_bins_highres[n_bins_highres == 0] = 1
                 bin_idx_lowres = np.repeat(np.arange(n_bins_lowres), repeats = n_bins_highres)
                 trt_tbl_q_highres = trt_tbl_q[bin_idx_lowres, :, :]
-                trt_tbls[2] = trt_tbl_q_highres[::-1] # Why is reordering not needed for sampling????
+                trt_tbls[2] = trt_tbl_q_highres[::-1]
 #                print('trt_tbl_q resampled\n', trt_tbls[2])
                 fixed_shifts = np.zeros(trt_tbls[2].shape[0] - 1)
                 for i in range(len(bin_size)):
