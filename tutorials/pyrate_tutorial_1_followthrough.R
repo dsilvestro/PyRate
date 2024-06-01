@@ -11,13 +11,13 @@ extract.ages.pbdb(file= "../example_files/Canis_example/Canis_pbdb_data.csv",ext
 # Two files should've been created by ^: 
 #*_SpeciesList.txt (list of all species in the data) and *_PyRate.py (data formatted for PyRate analysis)
 
-# Check the PyRate input files
-# Open a terminal, navigate to the PyRate folder, and run the following command:
-# python PyRate.py '.../Canis_pbdb_data_PyRate.py' -data_info
+# Get Summary Statistics of PyRate Input file (*_PyRate.py)
+# Open TERMINAL, navigate to the PyRate folder, and run the following command:
+# python PyRate.py 'example_files/Canis_example/Canis_pbdb_data_PyRate.py' -data_info
 
-#CHECK SPECIES NAMES FOR TYPOS
-# Run the following command in the terminal, and it should return a table with possible misspellings
-# python PyRate.py -check_names .../PBDB_dataset_TaxonList.txt
+# Check Name Spellings (*_SpeciesList.txt)
+# Open TERMINAL, run this, and it should return a table with possible misspellings
+# python PyRate.py  -check_names example_files/Canis_example/Canis_pbdb_data_TaxonList.txt -data_info
 # Rank 1 and 0 = most likely misspellings, Rank 2 and 3 = most likely truly different names
 # Fix the names in the dataset if needed
 

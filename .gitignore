@@ -3,3 +3,6 @@ ADE-NN/.DS_Store
 example_files/.DS_Store
 mcmcDivE/.DS_Store
 pyrate_lib/.DS_Store
+example_files/Canis_example/__pycache__/
+pyrate_env/
+pyrate_lib/__pycache__/
