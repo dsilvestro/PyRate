@@ -1,0 +1,7 @@
+taxon1	taxon2	rank
+Canis_adustus	Canis_aureus	4
+Canis_lupus	Canis_rufus	4
+Canis_anthus	Canis_aureus	5
+Canis_aureus	Canis_dirus	5
+Canis_aureus	Canis_lupus	5
+Canis_aureus	Canis_rufus	5
