@@ -1,0 +1,45 @@
+]2;PyRate
+                     PyRate - v3.1.3 - 20230825
+
+              Bayesian estimation of origination,
+               extinction and preservation rates
+                  from fossil occurrence data
+
+                     pyrate.help@gmail.com
+
+    
+
+Module FastPyRateC was loaded.
+
+ Canis_pbdb_data_PyRate ['example_files/Canis_example/Canis_pbdb_data_PyRate.py'] 
+
+
+The analysis includes 18 species (0 were excluded)
+Using Gamma priors on the birth-death rates (G_l[1.1,1.1], G_m[1.1,1.1]).
+
+
+DATA SUMMARY
+
+18 taxa included in the analysis
+4 taxa have a single occurrence, 9 taxa are extant
+476 fossil occurrences (1 replicates), ranging from 12.719 (+/- 0.0) to 0.0 (+/- 0.0) Ma
+
+Taxon	FA	LA
+Canis_adustus	3.385	0.006	extant
+Canis_anthus	0.815	0.471	extant
+Canis_apolloniensis	1.478	1.478	
+Canis_armbrusteri	1.78	0.101	
+Canis_aureus	2.77	0.005	extant
+Canis_cedazoensis	1.293	1.293	
+Canis_dirus	2.483	0.014	
+Canis_edwardii	12.719	0.312	
+Canis_familiaris	0.379	0.001	extant
+Canis_ferox	9.47	2.805	
+Canis_latrans	4.443	0.0	extant
+Canis_lepophagus	8.926	0.069	
+Canis_lupus	3.259	0.001	extant
+Canis_mesomelas	4.811	0.002	extant
+Canis_proplatensis	1.403	1.403	
+Canis_rufus	4.6	0.034	extant
+Canis_thooides	2.214	2.214	
+Pseudalopex_gymnocercus	0.938	0.008	extant
