@@ -1,0 +1,30 @@
+# 1. Generating PyRate Input File (2 Methods)
+
+## 1.A.
+
+Loading the file our functions will come from
+
+```{r}
+source("../pyrate_utilities.r")
+```
+
+Defining a ve
+
+```{}
+```
+
+ctor of extant dog species
+
+extant_dogs = c("Canis rufus","Canis lupus","Canis aureus","Canis latrans","Canis mesomelas","Canis anthus","Pseudalopex gymnocercus","Canis adustus","Canis familiaris")
+
+\# Parse raw PBDB data \--\> generate 2 files (\*\_SpeciesList.txt and \*\_PyRate.py)
+
+extract.ages.pbdb(file = "../example_files/Canis_example/Canis_pbdb_data.csv", extant_species = extant_dogs)
+
+\# This should've created two files. \*\_SpeciesList.txt = list of all species names. \*\_PyRate.py = PyRate formatted input
+
+\# TERMINAL: data summary on the \*\_PyRate.py file
+
+\# python PyRate.py 'example_files/Canis_example/Canis_pbdb_data_PyRate.py' -data_info \| tee tutorial_1\_data_summary.txt
+
+\#
