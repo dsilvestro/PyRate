@@ -691,7 +691,7 @@ def get_fossil_age(bdnn_obj, fad_lad, rate_type):
     return fa
 
 
-def get_bin_from_fossil_age(bdnn_obj, fad_lad, rate_type):
+def get_bin_from_fossil_age(bdnn_obj, fad_lad, rate_type, reverse_time=False):
     bin_of_species = np.zeros(fad_lad.shape[0])
     z = 0
     # Also extinction should be from first occurrence on b/c from there on a species can go extinct
@@ -700,6 +700,8 @@ def get_bin_from_fossil_age(bdnn_obj, fad_lad, rate_type):
     if 'fixed_times_of_shift_bdnn' in bdnn_obj.bdnn_settings.keys(): 
         bdnn_time = bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn']
         bins = np.concatenate((bdnn_time, np.zeros(1)))
+        if reverse_time:
+            bins = bins[::-1]
         bin_of_species = np.digitize(fad_lad[:,z], bins)
     return bin_of_species
 
@@ -951,6 +953,7 @@ def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_
     time_dd_temp = False # No time as trait, diversity-dependence, or time-variable environment
     if trait_tbl.ndim == 3:
         time_dd_temp = True
+#        trait_tbl = trait_tbl[::-1, :, :]
     if np.isin(pt, np.array([1., 2., 3., 4.])):
         # Main effects
         comb_exists = np.ones(lw)
@@ -959,13 +962,14 @@ def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_
             if use_time_as_trait and i == (trait_tbl.shape[2] - 1) and rate_type != 'sampling':
                 t = fa
             elif rate_type != 'sampling':
-                bin_species = get_bin_from_fossil_age(bdnn_obj, tste, rate_type)
+                bin_species = get_bin_from_fossil_age(bdnn_obj, tste, rate_type, reverse_time = False)
                 trait_at_ts_or_te = np.zeros((len(bin_species), trait_tbl.shape[2]))
                 for k in range(len(bin_species)):
                     trait_at_ts_or_te[k, :] = trait_tbl[bin_species[k], k, :]
                 t = trait_at_ts_or_te[:, i]
             else:
                 bin_species = bdnn_obj.bdnn_settings['occs_sp']
+                bin_species = bin_species[:, ::-1]
                 trait_at_occurrence = np.zeros((len(bin_species), trait_tbl.shape[2]))
                 for k in range(len(bin_species)):
                     trait_at_occurrence[k, :] = np.mean(trait_tbl[bin_species[k, :] > 0, k, :], axis=0)
@@ -985,12 +989,13 @@ def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_
         if i_time_var or j_time_var:
             if rate_type != 'sampling':
                 fa = get_fossil_age(bdnn_obj, tste, rate_type)
-                bin_species = get_bin_from_fossil_age(bdnn_obj, tste, rate_type)
+                bin_species = get_bin_from_fossil_age(bdnn_obj, tste, rate_type, reverse_time = False)
                 trait_at_ts_or_te = np.zeros((len(bin_species), trait_tbl.shape[2]))
                 for k in range(len(bin_species)):
                     trait_at_ts_or_te[k, :] = trait_tbl[bin_species[k], k, :]
             else:
                 bin_species = bdnn_obj.bdnn_settings['occs_sp']
+                bin_species = bin_species[:, ::-1]
                 trait_at_ts_or_te = np.zeros((len(bin_species), trait_tbl.shape[2]))
                 for k in range(len(bin_species)):
                     trait_at_ts_or_te[k, :] = np.mean(trait_tbl[bin_species[k, :] > 0, k, :], axis=0)
@@ -1721,15 +1726,14 @@ def get_effect_objects(mcmc_file, pkl_file, burnin, thin, combine_discr_features
                                                                            rate_type = "extinction",
                                                                            combine_discr_features = combine_discr_features,
                                                                            do_inter_imp = do_inter_imp)
-        bdnn_time = get_bdnn_time(bdnn_obj, mean_tste[:, 0])
         print("\nGetting partial dependence rates for speciation")
-        sp_rate_cond = get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl_sp,
+        sp_rate_cond = get_partial_dependence_rates(bdnn_obj, cond_trait_tbl_sp,
                                                     post_w_sp, post_t_reg_lam, post_reg_denom_lam,
                                                     post_ts, post_te, combine_discr_features = combine_discr_features,
                                                     rate_type = 'speciation',
                                                     num_processes = num_processes, show_progressbar = show_progressbar)
         print("Getting partial dependence rates for extinction")
-        ex_rate_cond = get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl_ex,
+        ex_rate_cond = get_partial_dependence_rates(bdnn_obj, cond_trait_tbl_ex,
                                                     post_w_ex, post_t_reg_mu, post_reg_denom_mu,
                                                     post_ts, post_te, combine_discr_features = combine_discr_features,
                                                     rate_type = 'extinction',
@@ -1741,11 +1745,10 @@ def get_effect_objects(mcmc_file, pkl_file, burnin, thin, combine_discr_features
                                                                          rate_type = "sampling",
                                                                          combine_discr_features = combine_discr_features,
                                                                          do_inter_imp = do_inter_imp)
-#        np.savetxt("/home/torsten/Work/Conferences/Euromal/2024/Proboscideans/pyrate_mcmc_logs/q.txt", cond_trait_tbl_q, delimiter="\t")
         baseline_q = get_baseline_q(mcmc_file, burnin, thin)
         print("Getting partial dependence rates for sampling")
-        bdnn_time = np.zeros(1) # Placeholder, not doing anything for sampling
-        q_rate_cond = get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl_q,
+#        bdnn_time = np.zeros(1) # Placeholder, not doing anything for sampling
+        q_rate_cond = get_partial_dependence_rates(bdnn_obj, cond_trait_tbl_q,
                                                    post_w_q, post_t_reg_q, post_reg_denom_q,
                                                    post_ts, post_te, combine_discr_features = combine_discr_features,
                                                    rate_type = 'sampling',
@@ -2978,6 +2981,10 @@ def get_shap_trt_tbl(tse, times, trt_tbl):
     if trt_tbl.ndim == 2:
         shap_trt_tbl = trt_tbl + 0.0
     else:
+        # In case of combined replicates where the times can differ among replicates we need to order from present to past 
+        # so that tse = 0 is always the first bin in the trt_tbl
+        trt_tbl = trt_tbl[::-1, :, :]
+        times = times[::-1]
         s = trt_tbl.shape
         n_species = s[1]
         n_features = s[2]
@@ -3047,7 +3054,7 @@ def get_pdp_rate_it_i(arg):
     return rate_it_i
 
 
-def get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl, post_w, post_t_reg, post_denom,
+def get_partial_dependence_rates(bdnn_obj, cond_trait_tbl, post_w, post_t_reg, post_denom,
                                  post_ts, post_te,
                                  combine_discr_features = '', rate_type = 'speciation',
                                  num_processes = 1, show_progressbar = False, baseline=np.ones(1), norm=np.ones(1)):
@@ -3062,6 +3069,7 @@ def get_partial_dependence_rates(bdnn_obj, bdnn_time, cond_trait_tbl, post_w, po
         out_act_f = bdnn_obj.bdnn_settings['out_act_f']
     for i in range(num_it):
         trait_tbl_a = trait_tbl + 0.0
+        bdnn_time = get_bdnn_time(bdnn_obj, post_ts[i, :])
         if rate_type == 'sampling':
             if 'taxon_age' in names_features:
                 trait_tbl_a = add_taxon_age(post_ts[i, :], post_te[i, :], post_ts[i, :] - 1.0, post_te[i, :] - 1.0,
@@ -5722,7 +5730,7 @@ def get_features_for_shap_plot(mcmc_file, pkl_file, burnin, thin, rate_type, com
             backscale_par = read_backscale_file(file_transf_features)
             shap_trt_tbl = backscale_tbl(bdnn_obj, backscale_par, names_feat, shap_trt_tbl)
     else:
-        bdnn_time = get_bdnn_time(bdnn_obj, np.mean(ts_post, axis=0))
+        bdnn_time = get_bdnn_time(bdnn_obj, np.max(ts_post, axis=0))
         if rate_type == 'speciation':
             tse = np.mean(ts_post, axis = 0)
         elif rate_type == 'extinction':
