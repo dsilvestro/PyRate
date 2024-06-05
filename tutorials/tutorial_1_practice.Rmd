@@ -1,6 +1,6 @@
 # 1. Generating PyRate Input File (2 Methods)
 
-## 1.A.
+## 1.A. CSV From Outside Source
 
 Loading the file our functions will come from
 
@@ -8,23 +8,40 @@ Loading the file our functions will come from
 source("../pyrate_utilities.r")
 ```
 
-Defining a ve
+Defining a vector of extant dog species
+
+```{r}
+extant_dogs = c("Canis rufus","Canis lupus","Canis aureus","Canis latrans","Canis mesomelas","Canis anthus","Pseudalopex gymnocercus","Canis adustus","Canis familiaris")
+```
+
+Parse raw PBDB data --\> generate 2 files:
+
+1.   \*\_SpeciesList.txt = list of all species names
+2.  \*\_PyRate.py = PyRate formatted input
+
+```{r}
+extract.ages.pbdb(file = "../example_files/Canis_example/Canis_pbdb_data.csv", extant_species = extant_dogs)
+```
+
+### 1.A.i. TERMINAL: data summary on the \*\_PyRate.py file
+
+Obviously, be in the PyRate folder. This command will generate summary statistics for the dataset and save those off as a .txt file with a name of your choosing. The .txt can be used in a dataframe later
+
+python PyRate.py 'example_files/Canis_example/Canis_pbdb_data_PyRate.py' -data_info \| tee tutorial_1_data_summary.txt
+
+## 1.B. CSV Created by Hand
+
+Prepare a fossil occurrence table with 4 columns: Taxon name, Status (extinct or extant), Minimum age, and Maximum age. An additional column can be included for a trait value (e.g., body mass)
+
+Loading the file our functions will come from
+
+```{r}
+source("../pyrate_utilities.r")
+```
+
+Parse the raw data and generate PyRate input file
+
+extract.ages(file="../PyRate/example_files/Ursidae.txt", replicates=10)
 
 ```{}
 ```
-
-ctor of extant dog species
-
-extant_dogs = c("Canis rufus","Canis lupus","Canis aureus","Canis latrans","Canis mesomelas","Canis anthus","Pseudalopex gymnocercus","Canis adustus","Canis familiaris")
-
-\# Parse raw PBDB data \--\> generate 2 files (\*\_SpeciesList.txt and \*\_PyRate.py)
-
-extract.ages.pbdb(file = "../example_files/Canis_example/Canis_pbdb_data.csv", extant_species = extant_dogs)
-
-\# This should've created two files. \*\_SpeciesList.txt = list of all species names. \*\_PyRate.py = PyRate formatted input
-
-\# TERMINAL: data summary on the \*\_PyRate.py file
-
-\# python PyRate.py 'example_files/Canis_example/Canis_pbdb_data_PyRate.py' -data_info \| tee tutorial_1\_data_summary.txt
-
-\#
