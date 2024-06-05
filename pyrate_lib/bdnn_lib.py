@@ -942,7 +942,7 @@ def get_plot_idx_freq(x):
     return freq
 
 
-def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_obj, tste, rate_type, pt):
+def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_obj, tste, rate_type, pt, names_features):
     lw = len(w)
     comb_exists = np.zeros(lw)
     use_time_as_trait = False
@@ -970,12 +970,13 @@ def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_
                 for k in range(len(bin_species)):
                     trait_at_occurrence[k, :] = np.mean(trait_tbl[bin_species[k, :] > 0, k, :], axis=0)
                 t = trait_at_occurrence[:, i]
-            w = w.flatten()
-            delta_w = np.abs(np.diff(w[:2]))
-            max_t = np.max(t) + delta_w
-            min_t = np.min(t) - delta_w
-            outside_obs = np.logical_or(w > max_t, w < min_t)
-            comb_exists[outside_obs] = 0.0
+            if not names_features[i] == 'taxon_age':
+                w = w.flatten()
+                delta_w = np.abs(np.diff(w[:2]))
+                max_t = np.max(t) + delta_w
+                min_t = np.min(t) - delta_w
+                outside_obs = np.logical_or(w > max_t, w < min_t)
+                comb_exists[outside_obs] = 0.0
     elif pt < 15:
         # Interactions
         i_bin, j_bin = is_binary_feature(trait_tbl)[0][[i, j]]
@@ -1039,13 +1040,16 @@ def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_
                     t[:, j] = trait_at_ts_or_te[:, j]
             states = np.unique(t[:, bin_idx]).astype(int)
             wc = w[:, cont_idx_w]
-            for s in states:
-                # State-dependent continuous trait
-                ts = t[t[:, bin_idx] == s, cont_idx]
-                in_range_cont = np.logical_and(wc >= np.min(ts), wc <= np.max(ts))
-                is_state = w[:, bin_idx_w] == s
-                exists_idx = np.logical_and(in_range_cont, is_state)
-                comb_exists[exists_idx] = 1.0
+            if not 'taxon_age' in names_features[[i, j]]:
+                for s in states:
+                    # State-dependent continuous trait
+                    ts = t[t[:, bin_idx] == s, cont_idx]
+                    in_range_cont = np.logical_and(wc >= np.min(ts), wc <= np.max(ts))
+                    is_state = w[:, bin_idx_w] == s
+                    exists_idx = np.logical_and(in_range_cont, is_state)
+                    comb_exists[exists_idx] = 1.0
+            else:
+                comb_exists = np.ones(lw)
         else:
             # 7: continuous x continuous
             if time_dd_temp:
@@ -1058,16 +1062,19 @@ def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_
                     # Time as trait but no other time variable feature
                     # Are we ever here with sampling?
                     t[:, j] = fa + 0.0
-            try:
-                hull = ConvexHull(t[:, [i, j]])
-            except:
-                hull = ConvexHull(t[:, [i, j]], qhull_options = 'QJ')
-            vertices = t[hull.vertices, :][:, [i, j]]
-            path_p = Path(vertices)
-            inside_poly = path_p.contains_points(w, radius=0.1)
-            comb_exists[inside_poly] = 1.0
-            tmin = np.min(t[:, [i, j]], axis = 0)
-            tmax = np.max(t[:, [i, j]], axis = 0)
+            if not 'taxon_age' in names_features[[i, j]]:
+                try:
+                    hull = ConvexHull(t[:, [i, j]])
+                except:
+                    hull = ConvexHull(t[:, [i, j]], qhull_options = 'QJ')
+                vertices = t[hull.vertices, :][:, [i, j]]
+                path_p = Path(vertices)
+                inside_poly = path_p.contains_points(w, radius=0.1)
+                comb_exists[inside_poly] = 1.0
+#                tmin = np.min(t[:, [i, j]], axis = 0)
+#                tmax = np.max(t[:, [i, j]], axis = 0)
+            else:
+                comb_exists = np.ones(lw)
     else:
         comb_exists = 1.0 # Multiple continuous features combined in a feature group. Do not plot this but keep for predictor importance.
     return comb_exists
@@ -1095,7 +1102,7 @@ def build_conditional_trait_tbl(bdnn_obj,
         trait_tbl[ :, :, div_idx_trt_tbl] = div_traj_binned
     if rate_type == "sampling" and "taxon_age" in names_features:
         s0, s1, _ = trait_tbl.shape
-        trait_tbl[ :, :, -1] = np.repeat(np.linspace(0.0, 1.0, s0)[::-1], s1).reshape((s0, s1))
+        trait_tbl[ :, :, -1] = np.repeat(np.linspace(-0.5, 0.5, s0)[::-1], s1).reshape((s0, s1))
     n_features = trait_tbl.shape[-1]
     idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
     conc_comb_feat = np.array([])
@@ -1178,7 +1185,8 @@ def build_conditional_trait_tbl(bdnn_obj,
                                                                               bdnn_obj,
                                                                               tste,
                                                                               rate_type,
-                                                                              plot_type[k, 2])
+                                                                              plot_type[k, 2],
+                                                                              names_features)
         if comparison_incl_feature_without_variance:
             cond_trait_tbl[counter:(counter + lv), -1] = np.nan
         counter = counter + lv
@@ -1733,6 +1741,7 @@ def get_effect_objects(mcmc_file, pkl_file, burnin, thin, combine_discr_features
                                                                          rate_type = "sampling",
                                                                          combine_discr_features = combine_discr_features,
                                                                          do_inter_imp = do_inter_imp)
+#        np.savetxt("/home/torsten/Work/Conferences/Euromal/2024/Proboscideans/pyrate_mcmc_logs/q.txt", cond_trait_tbl_q, delimiter="\t")
         baseline_q = get_baseline_q(mcmc_file, burnin, thin)
         print("Getting partial dependence rates for sampling")
         bdnn_time = np.zeros(1) # Placeholder, not doing anything for sampling

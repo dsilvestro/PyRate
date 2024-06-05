@@ -2112,7 +2112,7 @@ def init_sampling_trait_and_weights(trait_tbl, time_var_tbl, nodes, bias_node=Fa
 
 def get_q_rate_BDNN(q, t_reg, x, w, act_f, out_act_f):
     reg_rates, denom, norm_fac = get_rate_BDNN_3D(t_reg, x, w, act_f, out_act_f, True)
-    if len(q) > 2: # Why a model without shifts has two qs???
+    if len(q) > 2 or (len(q) == 2 and q[0] != 1.0): # 2nd case is when there is exactly one shift time
         # Several q rates
         if reg_rates.ndim == 1:
             # No time-varying trait table
@@ -2440,7 +2440,8 @@ def add_taxon_age(ts, te, tsA, teA, q_time_frames, trt_tbl):
             age_norm = (age - np.min(age)) / np.ptp(age)
             # This give 0.5 if a taxon occurs in just a single bin
             rel_age = np.bincount(age_bins - np.min(age_bins), weights=age_norm) / c
-        trt_tbl[n_bins - u, i, -1] = rel_age[::-1] # np.random.uniform(size=len(u)) #
+        trt_tbl[n_bins - u, i, -1] = rel_age[::-1]
+    trt_tbl[:, ts_te_changed, -1] -= 0.5 # center in 0
     return trt_tbl
 
 
@@ -3810,6 +3811,8 @@ def MCMC(all_arg):
                 #            # But not when doing this in line 3824. Fix this later because it makes BDNN ca. 20% faster
 #            if BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar):
 #                i_events_sp, i_events_ex, n_all_inframe, n_S = get_events_inframe_ns_list(ts, te, timesL)
+            if bdnn_ads >= 0.0:
+                trait_tbl_NN[2] = add_taxon_age(ts, te, tsA, teA, q_time_frames_bdnn, trait_tbl_NN[2])
 
             tot_L=np.sum(ts-te)
         
@@ -3835,10 +3838,8 @@ def MCMC(all_arg):
                     if prior_lam_t_reg > 0:
                         cov_par[5] = update_parameter(cov_parA[5], 0, 1, d=0.05, f=1)
                 q_rates_tmp = q_rates
-                if bdnn_ads >= 0.0:
-                    trait_tbl_NN[2] = add_taxon_age(ts, te, tsA, teA, q_time_frames_bdnn, trait_tbl_NN[2])
-                    if bdnn_ads > 0.0:
-                        q_rates_tmp = q_rates[highres_q_repeats]
+                if bdnn_ads > 0.0:
+                    q_rates_tmp = q_rates[highres_q_repeats]
                 bdnn_q_rates, denom_q, norm_fac = get_q_rate_BDNN(q_rates_tmp, cov_par[5], trait_tbl_NN[2], cov_par[2], hidden_act_f, out_act_f_q)
                 bdnn_prior_q = np.sum([np.sum(prior_normal(cov_par[2][i], prior_bdnn_w_q_sd[i])) for i in range(len(cov_par[2]))])
                 if prior_lam_t_reg > 0:
@@ -6162,9 +6163,9 @@ if __name__ == '__main__':
     else:
         TPP_model = 0
 
+    bdnn_ads = args.BDNNads
     if BDNNmodel in [2, 3]:
         highres_q_repeats = None
-        bdnn_ads = args.BDNNads
         if bdnn_ads >= 0.0:
             highres_q_repeats, times_q_shift = get_highres_repeats(args.qShift, bdnn_ads, np.max(FA))
         argsHPP, occs_sp, log_factorial_occs, duration_q_bins, occs_single_bin, q_time_frames_bdnn, use_HPP_NN_lik = precompute_fossil_features(args.qShift, bdnn_timevar)
