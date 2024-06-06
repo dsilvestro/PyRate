@@ -2,46 +2,72 @@
 
 ## 1.A. CSV From Outside Source
 
-Loading the file our functions will come from
+**Loading the file** our functions will come from
 
 ```{r}
 source("../pyrate_utilities.r")
 ```
 
-Defining a vector of extant dog species
+**Download fossil occurrences** for a clade from the [Paleobiology Database](https://paleobiodb.org/classic/displayDownloadGenerator). E.g. search for the genus *Canis*
+
+-   Check the box "Show accepted names only" in the "Select by taxonomy" section
+-   Uncheck the box "Include metadata at the beginning of the output" in the "Choose output options" section. - Save it as a cvs file, e.g. using the file name *Canis_pbdb_data.csv*.
+
+**Defining a vector** of extant (still alive) species from all the species in the data
 
 ```{r}
 extant_dogs = c("Canis rufus","Canis lupus","Canis aureus","Canis latrans","Canis mesomelas","Canis anthus","Pseudalopex gymnocercus","Canis adustus","Canis familiaris")
 ```
 
-Parse raw PBDB data --\> generate 2 files:
+**Parse raw PBDB data with extract.ages.pbdb() → generate 3 files:**
 
-1.   \*\_SpeciesList.txt = list of all species names
-2.  \*\_PyRate.py = PyRate formatted input
+\* = name of the dataset
+
+1.  **\*.txt** = dataset as a .txt
+    1.  Then the function passes the .txt to the **extract.ages()** function, which creates the following two files
+2.  **\*\_TaxonList.txt** = list of species in the dataset and their status (extinct vs. extant). This is created because the **extract.ages()** function has the argument 'save_tax_list' set to TRUE by default
+3.  **\*\_PyRate.py** = PyRate formatted input, with the specified number of replicated datasets (if replicates 'argument' was used)
+    1.  \*See "**example_files/Canis_example/PyRate_input_txt_visualized.png**"
+    2.  In the resultant file, there is a list of arrays. Each array represents one taxon (species)
+    3.  The values in the arrays are the resampled ages (in mills of years) of all the fossil occurrences for that taxon. Longer arrays = more occurrences of a fossil of that species, so more resampled ages
+    4.  The taxa_names variables at the end of the file = the order of the arrays
+    5.  If a taxon is extant (still alive), the last value in its array is = 0 to represent the present day
 
 ```{r}
 extract.ages.pbdb(file = "../example_files/Canis_example/Canis_pbdb_data.csv", extant_species = extant_dogs)
 ```
 
+-   **Replicates**: The `replicates` argument specifies the number of times the age range (min and max) of each fossil occurrence should be resampled. Resampling = when the function creates that n number of datasets, in each dataset it will select a random age range for each species from within that species' original age range. Setting `replicates = 10` will generate 10 replicated datasets in the PyRate input file, each with different age ranges selected for each species. Then in the downstream PyRate analysis, you can analyze each dataset separately, and the combined results will account for age uncertainties in the fossil record.
+
+    -   So if a fossil occurrence has a min age of 10 Ma and a max age of 12 Ma, and `replicates=10` is specified, the function will generate 10 replicated datasets where the age of that fossil occurrence is randomly sampled between 10 Ma and 12 Ma for each of the 10 replicates.
+
+-   **Random**: The `random` argument is set to `TRUE` by default, which means that the resampling of ages will be done randomly within the specified temporal ranges.
+
+-   **Cutoff**: The `cutoff` argument can be used to remove fossil occurrences with an age range greater than the range you specify (in millions of years). For example, setting `cutoff = 10` will remove all occurrences where the difference between the maximum and minimum age is larger than 10 million years.
+
 ### 1.A.i. TERMINAL: data summary on the \*\_PyRate.py file
 
 Obviously, be in the PyRate folder. This command will generate summary statistics for the dataset and save those off as a .txt file with a name of your choosing. The .txt can be used in a dataframe later
 
-python PyRate.py 'example_files/Canis_example/Canis_pbdb_data_PyRate.py' -data_info \| tee tutorial_1_data_summary.txt
+`python PyRate.py 'example_files/Canis_example/Canis_pbdb_data_PyRate.py' -data_info \| tee tutorial_1_data_summary.txt`
 
 ## 1.B. CSV Created by Hand
 
-Prepare a fossil occurrence table with 4 columns: Taxon name, Status (extinct or extant), Minimum age, and Maximum age. An additional column can be included for a trait value (e.g., body mass)
+**Prepare a fossil occurrence table** **in .txt format** with 4 columns: Taxon name, Status (extinct or extant), Minimum age, and Maximum age. An additional column can be included for a trait value (e.g., body mass)
 
-Loading the file our functions will come from
+**Loading the file** our functions will come from
 
 ```{r}
 source("../pyrate_utilities.r")
 ```
 
-Parse the raw data and generate PyRate input file
+**Parse the raw data with extract.ages() –\> generate 2 files:**
 
+1.  \*\_PyRate.py
+2.  \*\_TaxonList.txt
+
+```{r}
 extract.ages(file="../PyRate/example_files/Ursidae.txt", replicates=10)
-
-```{}
 ```
+
+'Replicates', 'cutoff' arguments available in this function too.
