@@ -2425,23 +2425,23 @@ def harmonic_mean_q_through_time(ts, te, time_frames, q_rates):
 
 
 def add_taxon_age(ts, te, tsA, teA, q_time_frames, trt_tbl):
-    ts_te_changed = np.unique(np.concatenate((np.where(ts != tsA)[0], np.where(te != teA)[0]), axis=None))
-    bins = q_time_frames[::-1]
-    bins[-1] = np.inf
-    n_bins = len(bins) - 2
-    step_size = 0.01
-    for i in ts_te_changed:
-        trt_tbl[:, i, -1] = 0.0
-        age = np.arange(te[i], ts[i], step=step_size)
-        age_bins = np.digitize(age, bins) - 1
-        u, c = np.unique(age_bins, return_counts=True)
-        rel_age = np.array([0.5])
-        if (ts[i] - te[i]) >= step_size:
-            age_norm = (age - np.min(age)) / np.ptp(age)
-            # This give 0.5 if a taxon occurs in just a single bin
-            rel_age = np.bincount(age_bins - np.min(age_bins), weights=age_norm) / c
-        trt_tbl[n_bins - u, i, -1] = rel_age[::-1]
-    trt_tbl[:, ts_te_changed, -1] -= 0.5 # center in 0
+#    ts_te_changed = np.unique(np.concatenate((np.where(ts != tsA)[0], np.where(te != teA)[0]), axis=None))
+#    bins = q_time_frames[::-1]
+#    bins[-1] = np.inf
+#    n_bins = len(bins) - 2
+#    step_size = 0.01
+#    for i in ts_te_changed:
+#        trt_tbl[:, i, -1] = 0.0
+#        age = np.arange(te[i], ts[i], step=step_size)
+#        age_bins = np.digitize(age, bins) - 1
+#        u, c = np.unique(age_bins, return_counts=True)
+#        rel_age = np.array([0.5])
+#        if (ts[i] - te[i]) >= step_size:
+#            age_norm = (age - np.min(age)) / np.ptp(age)
+#            # This give 0.5 if a taxon occurs in just a single bin
+#            rel_age = np.bincount(age_bins - np.min(age_bins), weights=age_norm) / c
+#        trt_tbl[n_bins - u, i, -1] = rel_age[::-1]
+#    trt_tbl[:, ts_te_changed, -1] -= 0.5 # center in 0
     return trt_tbl
 
 

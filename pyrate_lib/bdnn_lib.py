@@ -701,8 +701,11 @@ def get_bin_from_fossil_age(bdnn_obj, fad_lad, rate_type, reverse_time=False):
         bdnn_time = bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn']
         bins = np.concatenate((bdnn_time, np.zeros(1)))
         if reverse_time:
+            # In case of combined replicates where the times can differ among replicates we need to order from present to past.
             bins = bins[::-1]
-        bin_of_species = np.digitize(fad_lad[:,z], bins)
+            bin_of_species = np.digitize(fad_lad[:,z], bins) - 1
+        else:
+            bin_of_species = np.digitize(fad_lad[:,z], bins)
     return bin_of_species
 
 
@@ -953,16 +956,15 @@ def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_
     time_dd_temp = False # No time as trait, diversity-dependence, or time-variable environment
     if trait_tbl.ndim == 3:
         time_dd_temp = True
-#        trait_tbl = trait_tbl[::-1, :, :]
     if np.isin(pt, np.array([1., 2., 3., 4.])):
         # Main effects
         comb_exists = np.ones(lw)
         if feature_is_time_variable[i]:
-            fa = get_fossil_age(bdnn_obj, tste, rate_type)
             if use_time_as_trait and i == (trait_tbl.shape[2] - 1) and rate_type != 'sampling':
+                fa = get_fossil_age(bdnn_obj, tste, rate_type)
                 t = fa
             elif rate_type != 'sampling':
-                bin_species = get_bin_from_fossil_age(bdnn_obj, tste, rate_type, reverse_time = False)
+                bin_species = get_bin_from_fossil_age(bdnn_obj, tste, rate_type, reverse_time=True)
                 trait_at_ts_or_te = np.zeros((len(bin_species), trait_tbl.shape[2]))
                 for k in range(len(bin_species)):
                     trait_at_ts_or_te[k, :] = trait_tbl[bin_species[k], k, :]
@@ -989,7 +991,7 @@ def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_
         if i_time_var or j_time_var:
             if rate_type != 'sampling':
                 fa = get_fossil_age(bdnn_obj, tste, rate_type)
-                bin_species = get_bin_from_fossil_age(bdnn_obj, tste, rate_type, reverse_time = False)
+                bin_species = get_bin_from_fossil_age(bdnn_obj, tste, rate_type, reverse_time=True)
                 trait_at_ts_or_te = np.zeros((len(bin_species), trait_tbl.shape[2]))
                 for k in range(len(bin_species)):
                     trait_at_ts_or_te[k, :] = trait_tbl[bin_species[k], k, :]
@@ -1123,13 +1125,18 @@ def build_conditional_trait_tbl(bdnn_obj,
                                                   len_cont)
     feature_variation = is_time_variable_feature(trait_tbl)
     feature_is_time_variable = feature_variation[0,:]
+    
+    if trait_tbl.ndim == 3:
+        # In case of combined replicates where the times can differ among replicates we need to order from present to past.
+        trait_tbl = trait_tbl[::-1, :, :]
+    
     if np.any(feature_is_time_variable) and rate_type != 'sampling':
         fossil_age = get_fossil_age(bdnn_obj, tste, 'speciation')
         fossil_age = backscale_bdnn_time(fossil_age, bdnn_obj)
-        fossil_bin_ts = get_bin_from_fossil_age(bdnn_obj, tste, 'speciation')
+        fossil_bin_ts = get_bin_from_fossil_age(bdnn_obj, tste, 'speciation', reverse_time=True)
         fossil_age = get_fossil_age(bdnn_obj, tste, 'extinction')
         fossil_age = backscale_bdnn_time(fossil_age, bdnn_obj)
-        fossil_bin_te = get_bin_from_fossil_age(bdnn_obj, tste, 'extinction')
+        fossil_bin_te = get_bin_from_fossil_age(bdnn_obj, tste, 'extinction', reverse_time=True)
         n_taxa = len(fossil_bin_te)
         trait_at_ts = np.zeros((n_taxa, trait_tbl.shape[2]))
         trait_at_te = np.zeros((n_taxa, trait_tbl.shape[2]))
@@ -1244,6 +1251,7 @@ def remove_conditional_features(t):
 def get_observed(bdnn_obj, feature_idx, feature_is_time_variable, fossil_age, fossil_bin, rate_type):
     trait_tbl = get_trt_tbl(bdnn_obj, rate_type)
     if len(trait_tbl.shape) == 3:
+        trait_tbl = trait_tbl[::-1, :, :]
         obs_cont = trait_tbl[0, :, feature_idx]
         obs_cont = obs_cont.transpose()
     else:
@@ -1532,7 +1540,7 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, tste, r_script,
     feature_is_time_variable = is_time_variable_feature(trait_tbl)[0, :]
     fossil_age = get_fossil_age(bdnn_obj, tste, rate_type2)
     fossil_age = backscale_bdnn_time(fossil_age, bdnn_obj)
-    fossil_bin = get_bin_from_fossil_age(bdnn_obj, tste, rate_type2)
+    fossil_bin = get_bin_from_fossil_age(bdnn_obj, tste, rate_type2, reverse_time=True)
     names_features_original = np.array(get_names_features(bdnn_obj, rate_type=rate_type))
     binary_feature = is_binary_feature(trait_tbl)[0]
     for i in range(n_plots):
