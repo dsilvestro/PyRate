@@ -1896,6 +1896,12 @@ def get_CV_from_sim_bdnn(bdnn_obj, num_taxa, sp_rates, ex_rates, lam_tt, mu_tt, 
     rangeL = lam_tt[1:].tolist()
     rangeM = mu_tt[1:].tolist()
 
+    maxL = np.max(rangeL)
+    minM = np.min(rangeM)
+#    if maxL < minM:
+#        rangeL[1] = minM
+#        rangeM[0] = maxL
+
     # Number of continuous and categorical features
     num_traits, levels_cat_trait = get_num_traits_and_cat_levels(bdnn_obj, 'extinction',
                                                                  combine_discr_features=combine_discr_features)
@@ -3198,14 +3204,13 @@ def get_pdp_rate_free_combination(bdnn_obj,
                                                   conc_comb_feat,
                                                   len_cont)
     feature_is_time_variable = is_time_variable_feature(trait_tbl)[0, :]
+    if trait_tbl.ndim == 3:
+        # In case of combined replicates where the times can differ among replicates we need to order from present to past.
+        trait_tbl = trait_tbl[::-1, :, :]
     tste = get_mean_inferred_tste(ts_post, te_post)
     if np.any(feature_is_time_variable):
-        fossil_age = get_fossil_age(bdnn_obj, tste, 'speciation')
-        fossil_age = backscale_bdnn_time(fossil_age, bdnn_obj)
-        fossil_bin_ts = get_bin_from_fossil_age(bdnn_obj, tste, 'speciation')
-        fossil_age = get_fossil_age(bdnn_obj, tste, 'extinction')
-        fossil_age = backscale_bdnn_time(fossil_age, bdnn_obj)
-        fossil_bin_te = get_bin_from_fossil_age(bdnn_obj, tste, 'extinction')
+        fossil_bin_ts = get_bin_from_fossil_age(bdnn_obj, tste, 'speciation', reverse_time=True)
+        fossil_bin_te = get_bin_from_fossil_age(bdnn_obj, tste, 'extinction', reverse_time=True)
         n_taxa = len(fossil_bin_te)
         trait_at_ts = np.zeros((n_taxa, trait_tbl.shape[2]))
         trait_at_te = np.zeros((n_taxa, trait_tbl.shape[2]))
@@ -3232,7 +3237,8 @@ def get_pdp_rate_free_combination(bdnn_obj,
         else:
             all_comb_tbl[:, feature_is_time_variable] = trait_at_te[:, feature_is_time_variable]
         all_comb_tbl = all_comb_tbl[:, names_comb_idx_conc]
-    bdnn_time = get_bdnn_time(bdnn_obj, tste[:, int(rate_type == "extinction")])
+    bdnn_time = get_bdnn_time(bdnn_obj, np.max(ts_post))
+    bdnn_time = bdnn_time[::-1]
     if rate_type == 'sampling':
         out_act_f = bdnn_obj.bdnn_settings['out_act_f_q']
     else:

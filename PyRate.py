@@ -5448,14 +5448,14 @@ if __name__ == '__main__':
         BDNNmodel = bdnn_lib.get_bdnn_model(pkl_file)
         sp_taxa_shap, ex_taxa_shap, q_taxa_shap = None, None, None
         sp_main_consrank, ex_main_consrank, q_main_consrank = None, None, None
-        if BDNNmodel in [1, 3]:
+        if BDNNmodel in [1, 3] and args.BDNN_nsim_expected_cv > 0:
             print("Getting expected coefficient of rate variation")
             bdnn_lib.get_coefficient_rate_variation(path_dir_log_files, burnin,
                                                     combine_discr_features=args.BDNN_groups,
                                                     num_sim=args.BDNN_nsim_expected_cv,
                                                     num_processes=args.thread[0],
                                                     show_progressbar=True)
-        if BDNNmodel in [2, 3]:
+        if BDNNmodel in [2, 3] and args.BDNN_nsim_expected_cv > 0:
             print("Getting expected coefficient of sampling variation")
             bdnn_lib.get_coefficient_sampling_variation(path_dir_log_files, burnin,
                                                         combine_discr_features=args.BDNN_groups,
@@ -5475,15 +5475,15 @@ if __name__ == '__main__':
                                                                     do_inter_imp=do_inter_imp)
         if BDNNmodel in [2, 3]:
             print("Getting permutation importance sampling")
-            q_featperm = bdnn_lib.feature_permutation_sampling(mcmc_file, pkl_file,
-                                                               burnin,
-                                                               thin=args.resample,
-                                                               min_bs=args.BDNN_pred_importance_window_size[-1],
-                                                               n_perm=args.BDNN_pred_importance_nperm,
-                                                               num_processes=args.thread[0],
-                                                               combine_discr_features= args.BDNN_groups,
-                                                               show_progressbar=True,
-                                                               do_inter_imp=do_inter_imp)
+#            q_featperm = bdnn_lib.feature_permutation_sampling(mcmc_file, pkl_file,
+#                                                               burnin,
+#                                                               thin=args.resample,
+#                                                               min_bs=args.BDNN_pred_importance_window_size[-1],
+#                                                               n_perm=args.BDNN_pred_importance_nperm,
+#                                                               num_processes=args.thread[0],
+#                                                               combine_discr_features= args.BDNN_groups,
+#                                                               show_progressbar=True,
+#                                                               do_inter_imp=do_inter_imp)
         if BDNNmodel in [1, 3]:
             print("Getting SHAP values birth-death")
             sp_shap, ex_shap, sp_taxa_shap, ex_taxa_shap = bdnn_lib.k_add_kernel_shap(mcmc_file, pkl_file,
@@ -5554,7 +5554,7 @@ if __name__ == '__main__':
         path_dir_log_files = args.BDNN_interaction.replace("_mcmc.log", "")
         pkl_file = path_dir_log_files + ".pkl"
         mcmc_file = path_dir_log_files + "_mcmc.log"
-        bdnn_obj, w_sp, w_ex, sp_fad_lad, ts_post, te_post, t_reg_lam, t_reg_mu, reg_denom_lam, reg_denom_mu = bdnn_lib.bdnn_parse_results(mcmc_file, pkl_file, burnin, args.resample)
+        bdnn_obj, w_sp, w_ex, _, sp_fad_lad, ts_post, te_post, t_reg_lam, t_reg_mu, _, reg_denom_lam, reg_denom_mu, _, _ = bdnn_lib.bdnn_parse_results(mcmc_file, pkl_file, burnin, args.resample)
         backscale_par = bdnn_lib.read_backscale_file(args.plotBDNN_transf_features)
         sp_inter, sp_trt_tbl, names_features = bdnn_lib.get_pdp_rate_free_combination(bdnn_obj, sp_fad_lad, ts_post, te_post,
                                                                                       w_sp, t_reg_lam, reg_denom_lam,
