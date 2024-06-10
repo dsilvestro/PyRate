@@ -28,10 +28,11 @@ extant_dogs = c("Canis rufus","Canis lupus","Canis aureus","Canis latrans","Cani
 2.  **\*\_TaxonList.txt** = list of species in the dataset and their status (extinct vs. extant). This is created because the **extract.ages()** function has the argument 'save_tax_list' set to TRUE by default
 3.  **\*\_PyRate.py** = PyRate formatted input, with the specified number of replicated datasets (if replicates 'argument' was used)
     1.  \*See "**example_files/Canis_example/PyRate_input_txt_visualized.png**"
-    2.  In the resultant file, there is a list of arrays. Each array represents one taxon (species)
-    3.  The values in the arrays are the resampled ages (in mills of years) of all the fossil occurrences for that taxon. Longer arrays = more occurrences of a fossil of that species, so more resampled ages
-    4.  The taxa_names variables at the end of the file = the order of the arrays
-    5.  If a taxon is extant (still alive), the last value in its array is = 0 to represent the present day
+    2.  In the resultant file, there is a list of arrays containing a list of numbers. The list is one PyRate input dataset, parsed form the raw data. In this example there is only one list because we didn't specify any replicated data (replicates argument below)
+    3.  Each array represents one taxon (species)
+    4.  Each value in the array represents one fossil occurence. Each value is a randomly sampled age (in mills of years) of the fossil occurrence for that taxon/array. Longer arrays = more occurrences of a fossil of that species, so more ages
+    5.  The taxa_names variables at the end of the file = the order of the arrays
+    6.  If a taxon is extant (still alive), the last value in its array is = 0 to represent the present day
 
 ```{r}
 extract.ages.pbdb(file = "../example_files/Canis_example/Canis_pbdb_data.csv", extant_species = extant_dogs)
@@ -63,11 +64,57 @@ source("../pyrate_utilities.r")
 
 **Parse the raw data with extract.ages() –\> generate 2 files:**
 
-1.  \*\_PyRate.py
-2.  \*\_TaxonList.txt
+1.  **\*\_PyRate.py**
+2.  **\*\_TaxonList.txt**
 
 ```{r}
 extract.ages(file="../PyRate/example_files/Ursidae.txt", replicates=10)
 ```
 
-'Replicates', 'cutoff' arguments available in this function too.
+'**Replicates**', '**cutoff**' arguments available in this function too.
+
+## 1.C. Input Dataset with a "Site" Column
+
+If your data contains info on which site a fossil came from, and some fossils were found at the same site, we will randomize the ages by the common site NOT by each fossil occurrence individually.
+
+I.e., earlier we said extract.ages() and extract.ages.pbdb() (functions for parsing the raw data) would –\> PyRate.py input file where each fossil's age was a random sample taken from within their individual, unique temporal age range (min_age to max_age).
+
+Now, we're saying that if we have data that specifies which site a fossil came from, and fossils share sites, we will instead assign each fossil occurrence an age that is a random sample of the SITE's unique temporal range. We'll average the min and max ages of all the fossils occurring at the same site, randomly sample within that, then assign EVERY fossil that occurred at that site the same randomly sampled site's age. So every fossil found at Site A will have the same randomly sampled age. Process:
+
+1.  The average minimum age and maximum age of all fossils found in Site A will be calculated, and assigned as the temporal range for Site A, called 'mimima_1' and 'maxima_1' respectively
+2.  The function runif() will randomly select an age from within each Site's range 'mimima_1' to 'maxima_1', round it to 6 decimal places, and store it as a new column (new entry in each array in \*\_PyRate.py) '**new**\_**age**'
+3.  The resultant \*\_PyRate.py file will look the same as "**example_files/Canis_example/PyRate_input_txt_visualized.png**" except that each array (taxon/species) will only have a maximum of two values:
+    1.  One value corresponding to its site's randomly sampled age.
+    2.  A 0 value at the end of the array, if it's an extant species (discussed previously)
+
+## 1.D. Check \*\_TaxonList.txt for Species Name Typos
+
+**TERMINAL** command:
+
+`python PyRate.py -check_names *_TaxonList.txt`
+
+This will return a table ranking possible typos. You should check these yourself to see if they are errors. If they are, go back to the dataset, fix it, and re-run the needed steps above.
+
+-   Ranks 0-1 = possible misspellings
+
+-   Ranks 2-3 = possibly different names
+
+# 2. Estimation of Speciation & Extinction Rates Through Time
+
+## 2.A. Defining the Preservation Model Type
+
+### 2.A.i.  (NHPP) Non-Homogenous Poisson Process of Preservation
+
+NHPP models the preservation rate as a function of time, which = the preservation process can vary (has temporal heterogeneity) over time
+
+### 2.A.ii. (HPP) Homogenous Poisson Process
+
+HPP is the simplest model. It assumes preservation rate is constant: a single parameter.
+
+### 2.A.iii. (TPP) Time-Variable Poisson Process
+
+TPP allows the user to specify specific time intervals when the preservation rate changes. The model will output different preservation rates for each interval
+
+### 1.A.iv. (Addition to the above) Rate Heterogeneity: Gamma Model 
+
+## 2.B. Analysis of Model
