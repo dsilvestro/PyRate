@@ -2063,7 +2063,7 @@ class BdSimulator():
         return -np.array(ts) / self.scale, -np.array(te) / self.scale
 
 
-    def get_random_settings(self, root):
+    def get_random_settings(self, root, num_trial, max_trial):
         root = np.abs(root)
         timesL = np.array([root, 0.])
         timesM = np.array([root, 0.])
@@ -2071,40 +2071,49 @@ class BdSimulator():
         M = self._rs.uniform(np.min(self.rangeM), np.max(self.rangeM), 1)
         # Speciation should be higher than extinction
 #        LM = np.sort(np.array([L, M]))
-#        L = LM[0]
-#        M = LM[1]
+#        L = LM[1]
+#        M = LM[0]
+        if L < M and num_trial > max_trial/2:
+            L = M * 1.1
         return timesL, timesM, L, M
 
 
-    def run_simulation(self, print_res=False, return_bd_settings=False):
+    def run_simulation(self, print_res=False):
         LOtrue = [0]
         n_extinct = -0
         n_extant = -0
         min_extant = self.minEXTANT_SP
         max_extant = self.maxEXTANT_SP
 
-        while len(LOtrue) < self.minSP or len(LOtrue) > self.maxSP or n_extinct < self.minEX_SP or n_extant < min_extant or n_extant > max_extant:
+        max_trial = 1e3
+        num_trial = 0
+        while (len(LOtrue) < self.minSP or len(LOtrue) > self.maxSP or n_extinct < self.minEX_SP or n_extant < min_extant or n_extant > max_extant) and num_trial < max_trial:
             if isinstance(self.root_r, Iterable):
                 root = -self._rs.uniform(np.min(self.root_r), np.max(self.root_r))
             else:
                 root = -self.root_r
-            timesL, timesM, L, M = self.get_random_settings(root)
+            timesL, timesM, L, M = self.get_random_settings(root, num_trial, max_trial)
             FAtrue, LOtrue = self.simulate(L, M, timesL, timesM, root, verbose=print_res)
             n_extinct = len(LOtrue[LOtrue > 0])
             n_extant = len(LOtrue[LOtrue == 0])
+            num_trial += 1
 
-        ts_te = np.array([FAtrue, LOtrue])
-        if print_res:
-            print("L", L, "M", M, "tL", timesL, "tM", timesM)
-            print("N. species", len(LOtrue))
-            max_standin_div = np.max([len(FAtrue[FAtrue > i]) - len(LOtrue[LOtrue > i]) for i in range(int(max(FAtrue)))]) / 80
-            ltt = ""
-            for i in range(int(max(FAtrue))):
-                n = len(FAtrue[FAtrue > i]) - len(LOtrue[LOtrue > i])
-                ltt += "\n%s\t%s\t%s" % (i, n, "*" * int(n / max_standin_div))
-            print(ltt)
+        if num_trial < max_trial:
+            ts_te = np.array([FAtrue, LOtrue])
+            if print_res:
+                print("L", L, "M", M, "tL", timesL, "tM", timesM)
+                print("N. species", len(LOtrue))
+                max_standin_div = np.max([len(FAtrue[FAtrue > i]) - len(LOtrue[LOtrue > i]) for i in range(int(max(FAtrue)))]) / 80
+                ltt = ""
+                for i in range(int(max(FAtrue))):
+                    n = len(FAtrue[FAtrue > i]) - len(LOtrue[LOtrue > i])
+                    ltt += "\n%s\t%s\t%s" % (i, n, "*" * int(n / max_standin_div))
+                print(ltt)
+            sim_res = ts_te.T
+        else:
+            sim_res = None
 
-        return ts_te.T
+        return sim_res
 
     def reset_s_species(self, s):
         self.s_species = s
@@ -2435,23 +2444,25 @@ def get_CV_from_sim_i(arg):
                          root_r=root_age,
                          seed=rep)
     sp_x = sim_bd.run_simulation(print_res=False)
-    sp_longevities = sp_x[:,0] - sp_x[:,1]
-    extant_species = (sp_x[:,1] == 0).astype(int)
-    n_species = len(sp_longevities)
-
-    bdnn_sim = BdnnTester(sp_longevities=sp_longevities,
-                          extant_species=extant_species,
-                          n_traits=num_traits,
-                          levels_cat_trait=levels_cat_trait,
-                          out_act_f=out_act_f,
-                          act_f=act_f,
-                          n_nodes=n_nodes,
-                          bdnn_update_f=bdnn_update_f,
-                          prior_t_reg=prior_t_reg,
-                          prior_cov=prior_cov,
-                          verbose=False)
-    cv = bdnn_sim.get_cv()
+    cv = np.full(2, np.nan)
     
+    if isinstance(sp_x, np.ndarray):
+        sp_longevities = sp_x[:,0] - sp_x[:,1]
+        extant_species = (sp_x[:,1] == 0).astype(int)
+        n_species = len(sp_longevities)
+
+        bdnn_sim = BdnnTester(sp_longevities=sp_longevities,
+                              extant_species=extant_species,
+                              n_traits=num_traits,
+                              levels_cat_trait=levels_cat_trait,
+                              out_act_f=out_act_f,
+                              act_f=act_f,
+                              n_nodes=n_nodes,
+                              bdnn_update_f=bdnn_update_f,
+                              prior_t_reg=prior_t_reg,
+                              prior_cov=prior_cov,
+                              verbose=False)
+        cv = bdnn_sim.get_cv()
     return cv
 
 
@@ -2533,7 +2544,7 @@ def get_coefficient_sampling_variation(path_dir_log_files, burn, combine_discr_f
         for i in tqdm(range(num_sim), disable = show_progressbar == False):
             cv_sim.append(get_sampling_CV_from_sim_i(args[i]))
 
-    cv_rates[0, 2] = np.quantile(np.array(cv_sim).reshape(-1), q=0.95)
+    cv_rates[0, 2] = np.nanquantile(np.array(cv_sim).reshape(-1), q=0.95)
     print('Coefficient of rate variation')
     print('    Sampling:', f'{float(cv_rates[0, 1]):.2f}', 'Expected:' + f'{float(cv_rates[0, 2]):.2f}')
     cv_rates = pd.DataFrame(cv_rates, columns = ['rate', 'cv_empirical', 'cv_expected'])
