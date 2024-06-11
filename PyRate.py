@@ -5475,15 +5475,15 @@ if __name__ == '__main__':
                                                                     do_inter_imp=do_inter_imp)
         if BDNNmodel in [2, 3]:
             print("Getting permutation importance sampling")
-#            q_featperm = bdnn_lib.feature_permutation_sampling(mcmc_file, pkl_file,
-#                                                               burnin,
-#                                                               thin=args.resample,
-#                                                               min_bs=args.BDNN_pred_importance_window_size[-1],
-#                                                               n_perm=args.BDNN_pred_importance_nperm,
-#                                                               num_processes=args.thread[0],
-#                                                               combine_discr_features= args.BDNN_groups,
-#                                                               show_progressbar=True,
-#                                                               do_inter_imp=do_inter_imp)
+            q_featperm = bdnn_lib.feature_permutation_sampling(mcmc_file, pkl_file,
+                                                               burnin,
+                                                               thin=args.resample,
+                                                               min_bs=args.BDNN_pred_importance_window_size[-1],
+                                                               n_perm=args.BDNN_pred_importance_nperm,
+                                                               num_processes=args.thread[0],
+                                                               combine_discr_features= args.BDNN_groups,
+                                                               show_progressbar=True,
+                                                               do_inter_imp=do_inter_imp)
         if BDNNmodel in [1, 3]:
             print("Getting SHAP values birth-death")
             sp_shap, ex_shap, sp_taxa_shap, ex_taxa_shap = bdnn_lib.k_add_kernel_shap(mcmc_file, pkl_file,
