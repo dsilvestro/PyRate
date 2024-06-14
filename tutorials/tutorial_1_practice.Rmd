@@ -99,13 +99,29 @@ This will return a table ranking possible typos. You should check these yourself
 
 -   Ranks 2-3 = possibly different names
 
-# 2. Estimation of Speciation & Extinction Rates Through Time
+# 2. Estimating S + E W/ Preservation Models
 
 ## 2.A. Defining the Preservation Model Type in TERMINAL
 
-### 2.A.i.  (NHPP) Non-Homogenous Poisson Process of Preservation
+Epoch = a predefined time interval. Can be based on geological, environmental, etc. criteria. Set by the user in PyRate.
 
-NHPP models the preservation rate as a function of time, which = the preservation process can vary (has temporal heterogeneity) over time
+**Types of Models:**
+
+-   NHPP, HPP, TPP models assume all lineages have the same preservation rate
+
+    -   All lineages have equal chances of being preserved in the fossil record
+
+-   NHPP, TPP models assume all lineages have the same preservation rate, but not all times have the same preservation rates (temporal heterogeneity, in different ways)
+
+    -   All lineages have the same time-variable chance of being preserved in the fossil record
+
+-   Gamma model assumes that preservation rates vary across both lineages and time (lineage AND temporal heterogeneity)
+
+    -   Used in combo with NHPP, HPP, or TPP, allows each lineage to have its own time-variable preservation rate, taken from the gamma distribution
+
+### 2.A.i. (NHPP) Non-Homogenous Poisson Process of Preservation
+
+PyRate's default model. NHPP models the preservation rate as a function of time Q(t), which means the preservation rate varies over time, following a specific bell-shaped distribution. The rate's temporal heterogeneity is a continuous function, and is not defined by discrete epochs. All lineages have this same rate.
 
 ```{python}
 # Function in PyRate.py to calcculate the likelihood of the NHPP AND the TPP model
@@ -114,7 +130,7 @@ NHPP_lik()
 
 ### 2.A.ii. (HPP) Homogenous Poisson Process
 
-HPP is the simplest model. It assumes preservation rate is constant: a single parameter. In **Terminal**, feed your PyRate input file into PyRate, and run the HPP model.
+HPP is the simplest model. It assumes preservation rate (q) is constant throughout all of time: a single parameter. All lineages have the same rate. **In Terminal, feed your PyRate input file into PyRate, and run the HPP model using the command -`mHPP`:**
 
 `python PyRate.py *_PyRate.py -mHPP`
 
@@ -123,21 +139,29 @@ HPP is the simplest model. It assumes preservation rate is constant: a single pa
 HOMPP_lik()
 ```
 
-### 2.A.iii. (TPP) Time-Variable Poisson Process
+### 2.A.iii. (TPP) Time-Variable Poisson Process: **Rate Heterogeneity through Time**
 
-In the TPP model, the preservation rates are allowed to vary across different epochs or time intervals that the USER DEFINES. Each epoch has its own preservation rate, and each individual preservation rate has its own prior probability distribution. The model will output different preservation rates for each interval.
+In the TPP model, the preservation rate has temporal heterogeneity (can vary over time) just like the NHPP, BUT the way the rate varies is different:
 
-You need to create a file (below called epochs_q.txt) specifying the time intervals (epochs).
+TPP explicitly introduces the idea of discrete epochs. Each epoch has its own individual, constant/unchanging preservation rate, allowing for abrupt changes in the preservation process at specific time points. TPP will estimate each preservation rate (and its individual prior probability distribution, more on that below) in each epoch independently.
 
-In **Terminal**, feed your PyRate input file + a file with times delimiting the epochsinto PyRate, and run the TPP model.
+Use this when you think rate heterogeneity is mostly occurring through time, not among lineages.
 
-`python PyRate.py *_PyRate.py -qShift epochs_q.txt`
+Firstly, you need to **create a .txt file** (below called epochs_q.txt) **defining your epochs.**
 
-So we have a preservation rates vector (the list of preservation rate occurring for each epoch we specified). The prior probability on that vector = a probability distribution PER preservation rate in each epoch = the probability distribution of that preservation rate ocurring before considering the observed fossil occurrence data
+Then, in **Terminal, feed your PyRate input file and your .txt epochs file into PyRate, specifying python and TPP using the command `-qShift`.**
+
+`python PyRate.py *_PyRate.py -qShift path/to/epochs_q.txt`
+
+So we have a preservation rates vector (the list of preservation rate occurring for each epoch we specified). The prior probability on that vector = a probability distribution PER preservation rate in each epoch = the probability distribution of that preservation rate occurring before considering the observed fossil occurrence data
+
+Each epoch has its own preservation rate, with its own prior probability distribution. Here we model that prior probability distribution as a gamma distribution. Gamma distributions have 2 parameters allowing us to control what we think the probability of a fossil's preservation looked like: shape and rate.
+
+Prior probability (P(A)) on a preservation rate = how likely it was that that fossil was preserved, before we take into account the fossil occurrence data. It is a distribution not a single value, one per preservation rate, one per epoch (since each epoch has its own individual preservation rate)
 
 We need to set this prior probability distribution for each preservation rate. We model them each as their own gamma distribution w/ two parameters: shape and rate. The default is shape = 1.5 and rate = 1.5. This default prior assumes preservation rates are more likely to be concentrated around moderate values, with lower probability of extremely high or low rates.
 
--   Shape \> 1 = unimodal distribution
+-   Shape \> 1 = unimodal (single peak) distribution. Since default is 1.5, default assumes unimodal
 
 -   Shape \< 1 = exponentially decreasing distribution
 
@@ -149,10 +173,9 @@ We need to set this prior probability distribution for each preservation rate. W
 
     -   1.5 is a moderate variability in preservation rates
 
-Being able to change the gamma distribution means we have flexibility in modelling the shape/scale of prior probability
+Being able to change the gamma distribution means we have flexibility in modelling the shape/scale of prior probability.
 
-Adding `-pP shape rate` to the end of that command is optional. The default prior on the vector of preservation rates is a single gamma distribution with shape parameter = 1.5 and rate parameter = 1.5. These values can be changed using the `-pP` command, e.g., `-pP 2 0.1`.
-The rate parameter of the prior can be estimated from the data by setting it to 0.
+Adding `-pP shape rate` to the end of that command is optional. The default prior on the vector of preservation rates is a single gamma distribution with shape parameter = 1.5 and rate parameter = 1.5. These values can be changed using the `-pP` command, e.g., `-pP 2 0.1`. The rate parameter of the prior can be estimated from the data by setting it to 0.
 
 During the MCMC sampling process, PyRate explores different values for the preservation rates in each epoch, guided by the prior probability distributions. The posterior distribution of the preservation rates is then obtained by combining the prior probabilities with the likelihood of the observed fossil occurrence data.
 
@@ -160,7 +183,7 @@ By using a probability distribution as the prior for each preservation rate, PyR
 
 The model will output different preservation rates for each interval. These are known as the posterior probability (P(A\|B) = our model's updated belief about the preservation rates after we considered both
 
--   P(A) the prior probabilities (gamma distributions of the preservation rate in each epoch)
+-   P(A) the prior probabilities (gamma distributions of the preservation rate in each epoch). How you set this obviously affects your posterior calculation, the ultimate output/goal of the model: P(A\|B)
 
 -   and P(B\|A) the likelihood of observing the data (fossil occurrences)
 
@@ -169,8 +192,56 @@ The model will output different preservation rates for each interval. These are 
 TPP_model
 ```
 
-### 2.A.iv. Gamma Model: Accounting for Preservation Rate Heterogeneity
+### 2.A.iv. Gamma Model: Rate Heterogeneity Among Lineages
 
 Can be coupled with NHPP, HPP, TPP
 
-## 2.B. Analysis of Model
+### 2.A.v. Gamma + TPP –\> Saving Per-Lineage Relative Preservation Rates
+
+## 2.B. Preservation Models Testing
+
+# 3. Analysis Setup
+
+Now we have the specified settings + input data.
+
+We are finally running the PyRate analysis
+
+MCMC Sampling: MCMC function to do the MCMC sampling based on the preservation model, MCMC algorithm, and other settings
+
+Estimation of Rates: during the MCMC sampling, PyRate will estimate S + E and preservation rates all over time
+
+BPD_partial_lik: likelihood of birth-death process, NHPP_lik, HOMPP_lik, TPP_model all = calculate likelihoods of the preservation process under those different models
+
+# 4. Output Files
+
+[how to save the results of the 3.Analysis]{.underline}
+
+MCMC Log Files: mcmc.log (posterior samples of model parameters), marginal_rates.log (marginal rates of S, E, net diversificaiton over time)
+
+[How to show/output our results:]{.underline}
+
+Summarize MCMC results: Tracer program for convergence, burn-in period. -mProb command for sampling frequencies of different birth-death models
+
+Visualization: using the marginal_rates.log: plot_RTT: rates-through-time plots
+
+Combine log files from different replicates: -combLog
+
+Generate combined RTT plots
+
+[now you can Interpret the S and E rates, the validity of different preservtion models, and visualize temporal dynamics of diversification]{.underline}
+
+# 5. Summarizing the Results
+
+## 5.A. Results Log Files
+
+## 5.B. Combining Log Files Across Replicates
+
+## 5.C. Plot Preservation Rates Through Time
+
+# 6. S + E Rates W/in Fixed Time Bins
+
+## 6.A. Analysis Setup
+
+## 6.B. Summarize the Results
+
+# 7. Setting Fixed Shifts at the Boundaries, While Searching for Rate Shifts Between Them
