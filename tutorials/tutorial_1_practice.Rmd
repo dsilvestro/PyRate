@@ -123,6 +123,8 @@ Epoch = a predefined time interval. Can be based on geological, environmental, e
 
 PyRate's default model. NHPP models the preservation rate as a function of time Q(t), which means the preservation rate varies over time, following a specific bell-shaped distribution. The rate's temporal heterogeneity is a continuous function, and is not defined by discrete epochs. All lineages have this same rate.
 
+**Terminal:** `python PyRate.py *_PyRate.py`
+
 ```{python}
 # Function in PyRate.py to calcculate the likelihood of the NHPP AND the TPP model
 NHPP_lik()
@@ -130,9 +132,9 @@ NHPP_lik()
 
 ### 2.A.ii. (HPP) Homogenous Poisson Process
 
-HPP is the simplest model. It assumes preservation rate (q) is constant throughout all of time: a single parameter. All lineages have the same rate. **In Terminal, feed your PyRate input file into PyRate, and run the HPP model using the command -`mHPP`:**
+HPP is the simplest model. It assumes preservation rate (q) is constant throughout all of time: a single parameter. All lineages have the same rate.
 
-`python PyRate.py *_PyRate.py -mHPP`
+**In Terminal, feed your PyRate input file into PyRate, and specify the HPP model with the -mHPP flag:** `python PyRate.py *_PyRate.py -mHPP`
 
 ```{python}
 # The HOMPP_lik function in PyRate.py calculates the likelihood of the HPP model.
@@ -194,9 +196,21 @@ TPP_model
 
 ### 2.A.iv. Gamma Model: Rate Heterogeneity Among Lineages
 
-Can be coupled with NHPP, HPP, TPP
+Can be coupled with NHPP, HPP, TPP. In **Terminal, simply add this flag to the end of any of the model's run commands: -**`mG`
+
+```{python}
+argsG # variable in PyRate.py will indicate whether the Gamma model is being used
+
+get_gamma_rates() # PyRate function calculates the Gamma-distributed rate heterogeneity across lineages
+
+NHPP_lik(), HOMPP_lik(), TPP_model() # PyRate functions incorporate Gamma rate heterogeneity when calculating the likelihoods
+```
 
 ### 2.A.v. Gamma + TPP –\> Saving Per-Lineage Relative Preservation Rates
+
+If you're doing TPP Model + Gamma Model, you can **save off the estimated relative preservation rate for each lineage** with the following flag at the end of the TPP + Gamma run: `-log_sp_q_rates`
+
+**Terminal:** `python PyRate.py *_PyRate.py *_PyRate.py -qShift epochs_q.txt -mG -log_sp_q_rates`
 
 ## 2.B. Preservation Models Testing
 
