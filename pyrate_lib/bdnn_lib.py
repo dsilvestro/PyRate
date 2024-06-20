@@ -3097,15 +3097,16 @@ def get_partial_dependence_rates(bdnn_obj, cond_trait_tbl, post_w, post_t_reg, p
         out_act_f = bdnn_obj.bdnn_settings['out_act_f']
     for i in range(num_it):
         trait_tbl_a = trait_tbl + 0.0
-        bdnn_time = get_bdnn_time(bdnn_obj, post_ts[i, :])
         if rate_type == 'sampling':
             if 'taxon_age' in names_features:
                 trait_tbl_a = add_taxon_age(post_ts[i, :], post_te[i, :], post_ts[i, :] - 1.0, post_te[i, :] - 1.0,
                                             bdnn_obj.bdnn_settings['q_time_frames'], trait_tbl_a)
             trait_tbl_a = get_shap_trt_tbl_sampling(bdnn_obj.bdnn_settings['occs_sp'], trait_tbl_a)
         elif rate_type == 'speciation':
+            bdnn_time = get_bdnn_time(bdnn_obj, post_ts[i, :])
             trait_tbl_a = get_shap_trt_tbl(post_ts[i, :], bdnn_time, trait_tbl_a)
         else:
+            bdnn_time = get_bdnn_time(bdnn_obj, post_ts[i, :])
             trait_tbl_a = get_shap_trt_tbl(post_te[i, :], bdnn_time, trait_tbl_a)
         b=baseline
         n=norm
