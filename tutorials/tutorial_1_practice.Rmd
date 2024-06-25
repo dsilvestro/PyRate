@@ -105,7 +105,7 @@ This will return a table ranking possible typos. You should check these yourself
 
 Epoch = a predefined time interval. Can be based on geological, environmental, etc. criteria. Set by the user in PyRate.
 
-**Types of Models:**
+**Types of Models:** \*See Preservation_Models_Visualizations.png in tutorials folder
 
 -   NHPP, HPP, TPP models assume all lineages have the same preservation rate
 
@@ -145,7 +145,7 @@ HOMPP_lik()
 
 In the TPP model, the preservation rate has temporal heterogeneity (can vary over time) just like the NHPP, BUT the way the rate varies is different:
 
-TPP explicitly introduces the idea of discrete epochs. Each epoch has its own individual, constant/unchanging preservation rate, allowing for abrupt changes in the preservation process at specific time points. TPP will estimate each preservation rate (and its individual prior probability distribution, more on that below) in each epoch independently. So, basically it's a compilation of HPP likelihoods across multiple time periods, each with their own preservation rate.
+TPP explicitly introduces the idea of discrete epochs. Each epoch has its own individual, constant/unchanging preservation rate, allowing for abrupt changes in the preservation process at specific time points. TPP will estimate each preservation rate (and its individual prior probability distribution, more on that below) in each epoch independently. So, basically it's a piecewise compilation of HPP likelihoods across multiple time periods, each with their own preservation rate.
 
 Use this when you think rate heterogeneity is mostly occurring through time, not among lineages.
 
@@ -197,6 +197,8 @@ TPP_model
 ### 2.A.iv. Gamma Model: Rate Heterogeneity Among Lineages
 
 TPP uses gamma distribution in preservation rate priors. This section describes how to distribute NHPP, HPP, and TPP lineage-specific preservation rates across a gamma distribution.
+
+The Gamma model for lineage heterogeneity only adds a single parameter, which voids overparameterization
 
 Can be coupled with NHPP, HPP, TPP. In **Terminal, simply add this flag to the end of any of the model's run commands: -**`mG`
 
