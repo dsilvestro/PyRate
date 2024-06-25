@@ -3530,7 +3530,7 @@ def create_perm_comb(bdnn_obj, do_inter_imp = True, combine_discr_features = Non
     return perm_names, perm_feat_idx
 
 
-def permute_trt_tbl(feat_idx, feature_is_time_variable, post_ts_i, trt_tbl, trt_tbl_lowres=None, seed=None):
+def permute_trt_tbl(feat_idx, feature_is_time_variable, post_ts_i, trt_tbl=None, trt_tbl_lowres=None, seed=None):
     # # 4 bins, 5 species, 3 trait
     # a = np.arange(60).reshape((4, 5, 3))
     # print(a)
@@ -3897,7 +3897,7 @@ def perm_mcmc_sample_q_i(arg):
                     seed = seeds[feat_idx] + k
                     if feat_idx.size > 1:
                         seed = seed[0]
-                    trt_tbls_perm; _ = permute_trt_tbl(feat_idx, feature_is_time_variable, ts_i, trt_tbls_perm, seed=seed)
+                    trt_tbls_perm, _ = permute_trt_tbl(feat_idx, feature_is_time_variable, ts_i, trt_tbl=trt_tbls_perm, trt_tbl_lowres=trt_tbls_perm, seed=seed)
             bdnn_q_rates = get_q_rate_BDNN_noreg(trt_tbls_perm[0], w_q_i, hidden_act_f, out_act_f, t_reg_q_i, reg_denom_q_i, q, n)
             if use_HPP_NN_lik:
                 perm_fossil_lik = HPP_NN_lik([ts_i, te_i, bdnn_q_rates, occs_sp, log_factorial_occs, q_time_frames, duration_q_bins, occs_single_bin])
