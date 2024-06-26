@@ -1120,7 +1120,9 @@ def build_conditional_trait_tbl(bdnn_obj,
         trait_tbl[ :, :, div_idx_trt_tbl] = div_traj_binned
     if rate_type == "sampling" and "taxon_age" in names_features:
         s0, s1, _ = trait_tbl.shape
-        trait_tbl[ :, :, -1] = np.repeat(np.linspace(-0.5, 0.5, s0)[::-1], s1).reshape((s0, s1))
+        # Use random values to avoid being detected as categorical feature
+        trait_tbl[ :, :, -1] = np.random.uniform(-0.5, 0.5, size=s0 * s1).reshape((s0, s1))
+        trait_tbl[ :, 0, -1] = np.linspace(0.5, -0.5, s0)
     n_features = trait_tbl.shape[-1]
     idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
     conc_comb_feat = np.array([])
@@ -1274,6 +1276,7 @@ def get_observed(bdnn_obj, feature_idx, feature_is_time_variable, fossil_age, fo
         obs_cont[:, obs_cont.shape[1] - 1] = fossil_age # Time is always the last
     if np.any(feature_is_time_variable[feature_idx]) and rate_type == 'sampling':
         bin_species = bdnn_obj.bdnn_settings['occs_sp']
+        bin_species = bin_species[:, ::-1]
         obs_cont = np.zeros((len(bin_species), len(feature_idx)))
         for k in range(len(bin_species)):
             obs_cont[k, :] = np.mean(trait_tbl[bin_species[k, :] > 0, k, :][:, feature_idx], axis=0)
@@ -4676,11 +4679,15 @@ class KernelExplainer:
 
 # k-additive Choque SHAP
 ########################
-def main_shap_for_onehot_features(idx_comb_feat, sm):
+def main_shap_for_onehot_features(idx_comb_feat, sm, use_mean=False):
     if len(idx_comb_feat) > 0:
         drop = np.array([], dtype = int)
         for i in range(len(idx_comb_feat)):
-            sm[:, idx_comb_feat[i][0]] = np.sum(sm[:, idx_comb_feat[i]], axis = 1)
+            if use_mean:
+                group_value = np.mean(sm[:, idx_comb_feat[i]], axis = 1)
+            else:
+                group_value = np.sum(sm[:, idx_comb_feat[i]], axis = 1)
+            sm[:, idx_comb_feat[i][0]] = group_value
             drop = np.concatenate((drop, idx_comb_feat[i][1:]))
         sm = np.delete(sm, drop, axis = 1)
     return sm
@@ -4961,12 +4968,20 @@ def make_taxa_names_shap(taxa_names, n_species, shap_names):
 
 def combine_shap_featuregroup(shap_main_instances, shap_interaction_instances, idx_comb_feat):
     baseline = np.array([shap_main_instances[0, -1]])
-    
+
+#    # first the sum of all instance specific shaps and then the absolute of this sum to get the global importance
     shap_main_instances = main_shap_for_onehot_features(idx_comb_feat, shap_main_instances[:, 0:-1])
     shap_main = np.mean(np.abs(shap_main_instances), axis = 0)
 
+#    # first the absolute of all instance specific shaps and then their sum
 #    abs_shap_main_instances = np.abs(shap_main_instances)
 #    abs_shap_main_instances = main_shap_for_onehot_features(idx_comb_feat, abs_shap_main_instances[:, 0:-1])
+#    shap_main = np.mean(abs_shap_main_instances, axis = 0)
+#    shap_main_instances = main_shap_for_onehot_features(idx_comb_feat, shap_main_instances[:, 0:-1])
+
+#    # Mean absolute values across all instance values
+#    abs_shap_main_instances = np.abs(shap_main_instances)
+#    abs_shap_main_instances = main_shap_for_onehot_features(idx_comb_feat, abs_shap_main_instances[:, 0:-1], use_mean=True)
 #    shap_main = np.mean(abs_shap_main_instances, axis = 0)
 #    shap_main_instances = main_shap_for_onehot_features(idx_comb_feat, shap_main_instances[:, 0:-1])
 
