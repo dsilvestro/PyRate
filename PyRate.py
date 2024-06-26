@@ -2169,7 +2169,7 @@ def get_highres_repeats(args_qShift, new_bs, FA):
         highres_repeats = np.abs(highres_repeats[::-1] - np.max(highres_repeats))
 
     elif args_qShift != '' and new_bs == 0.0:
-        highres_repeats = np.zeros(len(times_q_shift) + 1)
+        highres_repeats = np.arange(len(times_q_shift) + 1)
         qt_highres = times_q_shift
 
     elif args_qShift == '': # and new_bs > 0.0:
@@ -4785,6 +4785,7 @@ def MCMC(all_arg):
                 w_marg_ex.writerow(list(MA) + list(timesMA[1:len(timesMA)-1]))
                 marginal_ex_rate_file.flush()
                 os.fsync(marginal_ex_rate_file)
+            
             if BDNNmodel:
                 # log harmonic mean of rates through time
                 if BDNNmodel in [1, 3]:
@@ -4817,25 +4818,32 @@ def MCMC(all_arg):
                     w_marg_q.writerow(qtt)
                     marginal_q_rate_file.flush()
                     os.fsync(marginal_q_rate_file)
+                    if not samplingNN_TDI0:
+                        w_marg_sp.writerow(list(LA) + list(timesLA[1:len(timesLA)-1]))
+                        marginal_sp_rate_file.flush()
+                        os.fsync(marginal_sp_rate_file)
+                        w_marg_ex.writerow(list(MA) + list(timesMA[1:len(timesMA)-1]))
+                        marginal_ex_rate_file.flush()
+                        os.fsync(marginal_ex_rate_file)
                 
-            if BDNNmodel and log_per_species_rates:
-                if BDNNmodel in [1, 3]:
-                    # get time-trait dependent rate at ts (speciation) and te (extinction) | (only works with bdnn_const_baseline)
-                    arg_taxon_rates = [tsA, teA, timesLA, timesMA, bdnn_lam_ratesA, bdnn_mu_ratesA]
-                    sp_lam_vec, sp_mu_vec = get_taxon_rates_bdnn(arg_taxon_rates)
-                    species_rate_writer.writerow([it] + list(sp_lam_vec) + list(sp_mu_vec))
-                    species_rate_file.flush()
-                    os.fsync(species_rate_file)
-                if BDNNmodel in [2, 3]:
-                    # Should we log (in addition) the deviation of the bdnn_rate from the baseline q rates?
-                    if use_HPP_NN_lik:
-                        time_in_q_bins = get_time_in_q_bins(tsA, teA, q_time_frames_bdnn, duration_q_bins, occs_single_bin)
-                        q_per_sp = harmonic_mean_q_per_sp(bdnn_q_ratesA, time_in_q_bins)
-                        sp_q_marg.writerow([it] + q_per_sp)
-                    else:
-                        sp_q_marg.writerow([it] + bdnn_q_ratesA.tolist())
-                    sp_q_marg_rate_file.flush()
-                    os.fsync(sp_q_marg_rate_file)
+                if log_per_species_rates:
+                    if BDNNmodel in [1, 3]:
+                        # get time-trait dependent rate at ts (speciation) and te (extinction) | (only works with bdnn_const_baseline)
+                        arg_taxon_rates = [tsA, teA, timesLA, timesMA, bdnn_lam_ratesA, bdnn_mu_ratesA]
+                        sp_lam_vec, sp_mu_vec = get_taxon_rates_bdnn(arg_taxon_rates)
+                        species_rate_writer.writerow([it] + list(sp_lam_vec) + list(sp_mu_vec))
+                        species_rate_file.flush()
+                        os.fsync(species_rate_file)
+                    if BDNNmodel in [2, 3]:
+                        # Should we log (in addition) the deviation of the bdnn_rate from the baseline q rates?
+                        if use_HPP_NN_lik:
+                            time_in_q_bins = get_time_in_q_bins(tsA, teA, q_time_frames_bdnn, duration_q_bins, occs_single_bin)
+                            q_per_sp = harmonic_mean_q_per_sp(bdnn_q_ratesA, time_in_q_bins)
+                            sp_q_marg.writerow([it] + q_per_sp)
+                        else:
+                            sp_q_marg.writerow([it] + bdnn_q_ratesA.tolist())
+                        sp_q_marg_rate_file.flush()
+                        os.fsync(sp_q_marg_rate_file)
         
         it += 1
     if TDI==1 and n_proc==0: marginal_likelihood(marginal_file, marginal_lik, temperatures)
@@ -6869,7 +6877,8 @@ if __name__ == '__main__':
 
         # save files with sp/ex rates and times of shift
         elif log_marginal_rates_to_file == 0:
-            if TDI==4 or use_ADE_model != 0 or BDNNmodel: #  in [1, 3]
+            samplingNN_TDI0 = BDNNmodel == 2 and TDI == 0
+            if TDI==4 or use_ADE_model != 0 or (BDNNmodel and not samplingNN_TDI0):
                 marginal_sp_rate_file_name = "%s/%s_sp_rates.log" % (path_dir, suff_out)
                 marginal_sp_rate_file = open(marginal_sp_rate_file_name , "w")
                 w_marg_sp=csv.writer(marginal_sp_rate_file, delimiter='\t')

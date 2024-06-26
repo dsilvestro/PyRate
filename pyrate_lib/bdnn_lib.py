@@ -259,10 +259,11 @@ def make_t_vec(r_list):
     return time_vec
     
 
-def format_t_vec(t_vec):
+def format_t_vec(t_vec, FA):
     """Format time vector for rates through time plot"""
-    a = np.abs(np.mean(np.diff(t_vec)))
-    t_vec = np.concatenate((np.array([t_vec[0] + a]), t_vec, np.zeros(1)))
+#    a = np.abs(np.mean(np.diff(t_vec)))
+#    t_vec = np.concatenate((np.array([t_vec[0] + a]), t_vec, np.zeros(1)))
+    t_vec = np.concatenate((np.array([FA]), t_vec, np.zeros(1)))
     t_vec = np.repeat(t_vec, repeats = 2)
     t_vec = t_vec + np.tile(np.array([0.00001, 0.0]), int(len(t_vec)/2))
     t_vec = t_vec[1:]
@@ -289,6 +290,8 @@ def get_qtt(f_q, burn):
 
 
 def get_bdnn_rtt(f, burn):
+    _, _, _, post_ts, _, _, _, _, _, _, _, _ = bdnn_read_mcmc_file(f, burn, thin=0)
+    FA = np.max(np.mean(post_ts, axis=0))
     f = f.replace("_mcmc.log", "")
     f_sp = f + "_sp_rates.log"
     f_ex = f + "_ex_rates.log"
@@ -318,7 +321,7 @@ def get_bdnn_rtt(f, burn):
         r_ex = r_ex[:, ::-1]
         n_rates = r_sp.shape[1]
 
-        time_vec = format_t_vec(time_vec)
+        time_vec = format_t_vec(time_vec, FA)
         r_div = r_sp - r_ex
         longevity = 1. / r_ex
         r_sp_sum = summarize_rate(r_sp, n_rates)
@@ -335,7 +338,7 @@ def get_bdnn_rtt(f, burn):
     try:
         r_q, time_vec_q = get_qtt(f_q, burn)
         n_rates = r_q.shape[1]
-        time_vec_q = format_t_vec(time_vec_q)
+        time_vec_q = format_t_vec(time_vec_q, FA)
         r_q_sum = summarize_rate(r_q, n_rates)
     except:
         r_q_sum = None
@@ -352,16 +355,21 @@ def plot_bdnn_rtt(f, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum,
     out = "%s/%s_RTT.r" % (output_wd, name_file)
     newfile = open(out, "w")
     n_rows = 0
+    n_elements = 0
     if not r_sp_sum is None:
         n_rows += 2
+        n_elements += 4
     if not r_q_sum is None:
         n_rows += 1
+        n_elements += 1
+        if not r_sp_sum is None:
+            n_elements += 1
     if platform.system() == "Windows" or platform.system() == "Microsoft":
         wd_forward = os.path.abspath(output_wd).replace('\\', '/')
         r_script = "pdf(file='%s/%s_RTT.pdf', width = 9, height = %s, useDingbats = FALSE)\n" % (wd_forward, name_file, 3 * n_rows)
     else:
         r_script = "pdf(file='%s/%s_RTT.pdf', width = 9, height = %s, useDingbats = FALSE)\n" % (output_wd, name_file, 3 * n_rows)
-    r_script += "\nlayout(matrix(1:%s, ncol = 2, nrow = %s, byrow = TRUE))" % (2 * n_rows, n_rows)
+    r_script += "\nlayout(matrix(1:%s, ncol = 2, nrow = %s, byrow = TRUE))" % (n_elements, n_rows)
     r_script += "\npar(las = 1, mar = c(4.5, 4.5, 0.5, 0.5))"
     if not r_sp_sum is None:
         r_script += util.print_R_vec('\ntime_vec', time_vec)
@@ -2370,6 +2378,9 @@ class BdnnTesterSampling():
         q_ratesA = np.array([np.random.uniform(.5, 1), np.random.uniform(0.25, 1)])
         if self.TPP_model == 1:
             q_ratesA = np.zeros(len(self.time_frames) - 1) + q_ratesA[1]
+        else:
+            # There is no non-homogeneous sampling for now
+            q_ratesA[0] = 1.0
 
         w_qA = init_weight_prm(self.n_nodes, self.n_traits, size_output=1, init_std=0.1, bias_node=1)
         t_regA = 1.0
@@ -3744,7 +3755,6 @@ def set_temporal_resolution(bdnn_obj, min_bs, rate_type='speciation'):
             if new_bs > 0.0:
                 n_bins_lowres = trt_tbls[2].shape[0]
                 trt_tbl_q = trt_tbls[2][::-1]
-#                print('trt_tbl_q original\n', trt_tbls[2])
                 n_bins_highres = np.floor(bin_size / new_bs).astype(int)
                 if np.all(n_bins_highres == 0):
                     sys.exit("\nError: Decreasing temporal resolution instead of increasing\n")
@@ -3752,7 +3762,6 @@ def set_temporal_resolution(bdnn_obj, min_bs, rate_type='speciation'):
                 bin_idx_lowres = np.repeat(np.arange(n_bins_lowres), repeats = n_bins_highres)
                 trt_tbl_q_highres = trt_tbl_q[bin_idx_lowres, :, :]
                 trt_tbls[2] = trt_tbl_q_highres[::-1]
-#                print('trt_tbl_q resampled\n', trt_tbls[2])
                 fixed_shifts = np.zeros(trt_tbls[2].shape[0] - 1)
                 for i in range(len(bin_size)):
                     if n_bins_highres[i] == 1:
@@ -3760,7 +3769,9 @@ def set_temporal_resolution(bdnn_obj, min_bs, rate_type='speciation'):
                              add_shifts = fixed_shifts2[i + 1]
                          else:
                              add_shifts = fixed_shifts2[i]
-                         fixed_shifts[np.sum(n_bins_highres[:i])] = add_shifts
+                         add_shift_idx = np.sum(n_bins_highres[:i])
+                         if add_shift_idx < len(fixed_shifts):
+                            fixed_shifts[add_shift_idx] = add_shifts
                     else:
                          add_shifts = (fixed_shifts2[i] + new_bs) + np.linspace(0.0, bin_size[i] - new_bs, n_bins_highres[i])
                          idx = np.arange(np.sum(n_bins_highres[:i]), np.sum(n_bins_highres[:(i + 1)]), 1, dtype = int)
@@ -3920,9 +3931,9 @@ def feature_permutation_sampling(mcmc_file, pkl_file, burnin, thin, min_bs, n_pe
         duration_q_bins = np.copy(bdnn_obj.bdnn_settings['duration_q_bins'])
         occs_single_bin = np.copy(bdnn_obj.bdnn_settings['occs_single_bin'])
         q_bins = np.copy(bdnn_obj.bdnn_settings['q_time_frames'])
-        if np.any(is_time_variable_feature(trt_tbl)):
+        age_dependent_sampling = 'highres_q_repeats' in bdnn_obj.bdnn_settings.keys()
+        if np.any(feature_is_time_variable) or age_dependent_sampling:
             # Time-variable feature
-            age_dependent_sampling = 'highres_q_repeats' in bdnn_obj.bdnn_settings.keys()
             if age_dependent_sampling:
                 # No upsampling with set_temporal_resolution() if this has been already done during model inference
                 min_bs = 0.0
@@ -3932,7 +3943,7 @@ def feature_permutation_sampling(mcmc_file, pkl_file, burnin, thin, min_bs, n_pe
                 q_idx_lowres = np.repeat(np.arange(q.shape[1]), repeats = num_repeats_q)
                 q = q[:, q_idx_lowres]
             if age_dependent_sampling:
-                q = q[:, bdnn_obj.bdnn_settings['highres_q_repeats']]
+                q = q[:, bdnn_obj.bdnn_settings['highres_q_repeats'].astype(int)]
             # get occs_sp, log_factorial_occs, occs_single_bin, and duration_q_bins for the new bins
             occs_sp = get_occs_sp(bdnn_obj.occ_data, q_bins[::-1])
             log_factorial_occs, duration_q_bins, occs_single_bin = get_fossil_features_q_shifts(bdnn_obj.occ_data, q_bins, occs_sp, te[0, :])
@@ -3945,18 +3956,25 @@ def feature_permutation_sampling(mcmc_file, pkl_file, burnin, thin, min_bs, n_pe
     out_act_f = bdnn_obj.bdnn_settings['out_act_f_q']
     args = []
     for i in range(n_mcmc):
+        constant_baseline_q = q.shape[1] == 1
         not_na = ~np.isnan(q[i, :]) # remove empty q bins resulting from combing replicates with different number of bins
         q_i = q[i, not_na]
         trt_tbl_a = np.copy(trt_tbl)
         if "taxon_age" in names_features:
             trt_tbl_a = add_taxon_age(ts[i, :], te[i, :], ts[i, :] - 1.0, te[i, :] - 1.0, q_bins, trt_tbl_a)
+        occ_sp_for_a = occs_sp
+        if not constant_baseline_q:
+            occ_sp_for_a = occs_sp[:, not_na]
         a = [q_i, norm_q[i], w_q[i], t_reg_q[i], reg_denom_q[i], trt_tbl_a,
              bdnn_obj.bdnn_settings['hidden_act_f'], out_act_f,
              n_perm, n_perm_traits, n_features, feature_is_time_variable, perm_feature_idx,
-             ts[i, :], te[i, :], occs_sp[:, not_na], log_factorial_occs]
+             ts[i, :], te[i, :], occ_sp_for_a, log_factorial_occs]
         if 'q_time_frames' in bdnn_obj.bdnn_settings.keys():
-            not_na_q_bins = np.concatenate((not_na[::-1], np.array([True])), axis=None)
-            a += [q_bins[not_na_q_bins], duration_q_bins[:, not_na[::-1]], occs_single_bin]
+            if constant_baseline_q:
+                a += [q_bins, duration_q_bins, occs_single_bin]
+            else:
+                not_na_q_bins = np.concatenate((not_na[::-1], np.array([True])), axis=None)
+                a += [q_bins[not_na_q_bins], duration_q_bins[:, not_na[::-1]], occs_single_bin]
         args.append(a)
     unixos = is_unix()
     if unixos and num_processes > 1:
@@ -4943,15 +4961,23 @@ def make_taxa_names_shap(taxa_names, n_species, shap_names):
 
 def combine_shap_featuregroup(shap_main_instances, shap_interaction_instances, idx_comb_feat):
     baseline = np.array([shap_main_instances[0, -1]])
+    
     shap_main_instances = main_shap_for_onehot_features(idx_comb_feat, shap_main_instances[:, 0:-1])
     shap_main = np.mean(np.abs(shap_main_instances), axis = 0)
+
+#    abs_shap_main_instances = np.abs(shap_main_instances)
+#    abs_shap_main_instances = main_shap_for_onehot_features(idx_comb_feat, abs_shap_main_instances[:, 0:-1])
+#    shap_main = np.mean(abs_shap_main_instances, axis = 0)
+#    shap_main_instances = main_shap_for_onehot_features(idx_comb_feat, shap_main_instances[:, 0:-1])
+
     shap_interaction = np.array([])
     if np.any(shap_interaction_instances):
         shap_interaction_instances = inter_shap_for_onehot_features(idx_comb_feat, shap_interaction_instances)
         shap_interaction = np.mean(np.abs(shap_interaction_instances), axis = 0)
         iu1 = np.triu_indices(shap_interaction.shape[0], 1)
         shap_interaction = shap_interaction[iu1]
-    return np.concatenate((shap_main, shap_interaction, baseline, shap_main_instances.flatten()))
+    combined_shap = np.concatenate((shap_main, shap_interaction, baseline, shap_main_instances.flatten()))
+    return combined_shap
 
 
 def k_add_kernel_shap_i(arg):
@@ -5034,6 +5060,18 @@ def make_shap_result_for_single_feature(names_features_sp, names_features_ex, co
     taxa_shap_sp = pd.DataFrame(columns = ['shap', 'lwr_shap', 'upr_shap', 'rate', 'rate_lwr', 'rate_upr'])
     taxa_shap_ex = pd.DataFrame(columns = ['shap', 'lwr_shap', 'upr_shap', 'rate', 'rate_lwr', 'rate_upr'])
     return shap_lam, shap_ex, taxa_shap_sp, taxa_shap_ex
+
+
+def make_shap_result_for_single_feature_sampling(names_features_q, combine_discr_features):
+    one_feature_name_q = names_features_q[0]
+    if len(combine_discr_features) > 0:
+        first_feature_group = list(combine_discr_features.keys())[0]
+        one_feature_name_q = first_feature_group
+    shap_q = pd.DataFrame({'feature1': one_feature_name_q, 'feature2': 'none',
+                           'shap': np.nan, 'lwr_shap': np.nan, 'upr_shap': np.nan},
+                           index = [0])
+    taxa_shap_q = pd.DataFrame(columns = ['shap', 'lwr_shap', 'upr_shap', 'rate', 'rate_lwr', 'rate_upr'])
+    return shap_q, shap_q
 
 
 def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, combine_discr_features = {}, show_progressbar = False, do_inter_imp = True):
@@ -5163,7 +5201,7 @@ def k_add_kernel_shap_sampling(mcmc_file, pkl_file, burnin, thin, num_processes 
         if n_states > n_features:
             do_inter_imp = False
         else:
-            return make_shap_result_for_single_feature(names_features, names_features, combine_discr_features) # Should be trimmed to half of the rows!
+            return make_shap_result_for_single_feature_sampling(names_features, combine_discr_features)
     hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
     out_act_f = bdnn_obj.bdnn_settings['out_act_f_q']
     idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
