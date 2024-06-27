@@ -4681,6 +4681,8 @@ class KernelExplainer:
 ########################
 def main_shap_for_onehot_features(idx_comb_feat, sm, use_mean=False):
     if len(idx_comb_feat) > 0:
+        if use_mean:
+            sm = np.abs(sm)
         drop = np.array([], dtype = int)
         for i in range(len(idx_comb_feat)):
             if use_mean:
@@ -4901,8 +4903,10 @@ def fastshap_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, 
     return shap_main
 
 
-def inter_shap_for_onehot_features(idx_comb_feat, si):
+def inter_shap_for_onehot_features(idx_comb_feat, si, use_mean=False):
     if len(idx_comb_feat) > 0:
+        if use_mean:
+            si = np.abs(si)
         conc_comb_feat = np.concatenate(idx_comb_feat)
         n = si.shape[1]
         J = np.arange(n)
@@ -4911,7 +4915,11 @@ def inter_shap_for_onehot_features(idx_comb_feat, si):
         if len(J) > 0:
             for i in range(len(idx_comb_feat)):
                 for j in J:
-                    inter_value = np.sum(si[:, :, idx_comb_feat[i]][:, j, :], axis = 1)
+                    if use_mean:
+                        group_value = np.mean(si[:, :, idx_comb_feat[i]][:, j, :], axis = 1)
+                    else:
+                        group_value = np.sum(si[:, :, idx_comb_feat[i]][:, j, :], axis = 1)
+                    inter_value = group_value
                     si[:, j, idx_comb_feat[i][0]] = inter_value
                     si[:, idx_comb_feat[i][0], j] = inter_value
         # Cases of interaction between two one-hot encoded features
@@ -4966,28 +4974,19 @@ def make_taxa_names_shap(taxa_names, n_species, shap_names):
     return taxa_names_shap
 
 
-def combine_shap_featuregroup(shap_main_instances, shap_interaction_instances, idx_comb_feat):
+def combine_shap_featuregroup(shap_main_instances, shap_interaction_instances, idx_comb_feat, use_mean=False):
+    '''
+    Combines instance-specific shap values of a feature group, e.g. one-hot encoded multistate traits
+    use_mean switches between (a) taking first the sum of all instance-specific shaps and then the absolute of this sum to get the global importance, or (b) using the mean absolute values across all instance values
+    '''
     baseline = np.array([shap_main_instances[0, -1]])
-
-#    # first the sum of all instance specific shaps and then the absolute of this sum to get the global importance
+    shap_main_instances_global_importance = main_shap_for_onehot_features(idx_comb_feat, shap_main_instances[:, 0:-1], use_mean)
+    shap_main = np.mean(np.abs(shap_main_instances_global_importance), axis = 0)
     shap_main_instances = main_shap_for_onehot_features(idx_comb_feat, shap_main_instances[:, 0:-1])
-    shap_main = np.mean(np.abs(shap_main_instances), axis = 0)
-
-#    # first the absolute of all instance specific shaps and then their sum
-#    abs_shap_main_instances = np.abs(shap_main_instances)
-#    abs_shap_main_instances = main_shap_for_onehot_features(idx_comb_feat, abs_shap_main_instances[:, 0:-1])
-#    shap_main = np.mean(abs_shap_main_instances, axis = 0)
-#    shap_main_instances = main_shap_for_onehot_features(idx_comb_feat, shap_main_instances[:, 0:-1])
-
-#    # Mean absolute values across all instance values
-#    abs_shap_main_instances = np.abs(shap_main_instances)
-#    abs_shap_main_instances = main_shap_for_onehot_features(idx_comb_feat, abs_shap_main_instances[:, 0:-1], use_mean=True)
-#    shap_main = np.mean(abs_shap_main_instances, axis = 0)
-#    shap_main_instances = main_shap_for_onehot_features(idx_comb_feat, shap_main_instances[:, 0:-1])
 
     shap_interaction = np.array([])
     if np.any(shap_interaction_instances):
-        shap_interaction_instances = inter_shap_for_onehot_features(idx_comb_feat, shap_interaction_instances)
+        shap_interaction_instances = inter_shap_for_onehot_features(idx_comb_feat, shap_interaction_instances, use_mean)
         shap_interaction = np.mean(np.abs(shap_interaction_instances), axis = 0)
         iu1 = np.triu_indices(shap_interaction.shape[0], 1)
         shap_interaction = shap_interaction[iu1]
@@ -4996,7 +4995,7 @@ def combine_shap_featuregroup(shap_main_instances, shap_interaction_instances, i
 
 
 def k_add_kernel_shap_i(arg):
-    [bdnn_obj, post_ts_i, post_te_i, post_w_sp_i, post_w_ex_i, t_reg_lam_i, t_reg_mu_i, reg_denom_lam_i, reg_denom_mu_i, hidden_act_f, out_act_f, trt_tbls, bdnn_dd, div_idx_trt_tbl, idx_comb_feat_sp, idx_comb_feat_ex, do_inter_imp] = arg
+    [bdnn_obj, post_ts_i, post_te_i, post_w_sp_i, post_w_ex_i, t_reg_lam_i, t_reg_mu_i, reg_denom_lam_i, reg_denom_mu_i, hidden_act_f, out_act_f, trt_tbls, bdnn_dd, div_idx_trt_tbl, idx_comb_feat_sp, idx_comb_feat_ex, do_inter_imp, use_mean] = arg
     bdnn_time = get_bdnn_time(bdnn_obj, post_ts_i)
     if bdnn_dd:
         n_taxa = trt_tbls[0].shape[1]
@@ -5017,8 +5016,8 @@ def k_add_kernel_shap_i(arg):
         shap_main_ex = fastshap_kernel_explainer(shap_trt_tbl_ex, post_w_ex_i, t_reg_mu_i, reg_denom_mu_i, hidden_act_f, out_act_f)
         shap_interaction_sp = np.array([])
         shap_interaction_ex = np.array([])
-    lam_ke = combine_shap_featuregroup(shap_main_sp, shap_interaction_sp, idx_comb_feat_sp)
-    mu_ke = combine_shap_featuregroup(shap_main_ex, shap_interaction_ex, idx_comb_feat_ex)
+    lam_ke = combine_shap_featuregroup(shap_main_sp, shap_interaction_sp, idx_comb_feat_sp, use_mean)
+    mu_ke = combine_shap_featuregroup(shap_main_ex, shap_interaction_ex, idx_comb_feat_ex, use_mean)
     return np.concatenate((lam_ke, mu_ke))
 
 
@@ -5089,7 +5088,7 @@ def make_shap_result_for_single_feature_sampling(names_features_q, combine_discr
     return shap_q, shap_q
 
 
-def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, combine_discr_features = {}, show_progressbar = False, do_inter_imp = True):
+def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes=1, combine_discr_features={}, show_progressbar=False, do_inter_imp=True, use_mean=False):
 #    if do_inter_imp == False:
 #        from fastshap import KernelExplainer
     bdnn_obj, post_w_sp, post_w_ex, _, sp_fad_lad, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, _, post_reg_denom_lam, post_reg_denom_mu, _, _ = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
@@ -5132,7 +5131,7 @@ def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes = 1, comb
     for i in range(mcmc_samples):
         a = [bdnn_obj, post_ts[i, :], post_te[i, :],
              post_w_sp[i], post_w_ex[i], post_t_reg_lam[i], post_t_reg_mu[i], post_reg_denom_lam[i], post_reg_denom_mu[i],
-             hidden_act_f, out_act_f, trt_tbls, bdnn_dd, div_idx_trt_tbl, idx_comb_feat_sp, idx_comb_feat_ex, do_inter_imp]
+             hidden_act_f, out_act_f, trt_tbls, bdnn_dd, div_idx_trt_tbl, idx_comb_feat_sp, idx_comb_feat_ex, do_inter_imp, use_mean]
         args.append(a)
     unixos = is_unix()
     if unixos and num_processes > 1:
