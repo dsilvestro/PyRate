@@ -1121,8 +1121,8 @@ def build_conditional_trait_tbl(bdnn_obj,
     if rate_type == "sampling" and "taxon_age" in names_features:
         s0, s1, _ = trait_tbl.shape
         # Use random values to avoid being detected as categorical feature
-        trait_tbl[ :, :, -1] = np.random.uniform(-0.5, 0.5, size=s0 * s1).reshape((s0, s1))
-        trait_tbl[ :, 0, -1] = np.linspace(0.5, -0.5, s0)
+        trait_tbl[ :, :, -1] = np.random.uniform(0.0, 1.0, size=s0 * s1).reshape((s0, s1))
+        trait_tbl[ :, 0, -1] = np.linspace(1.0, 0.0, s0)
     n_features = trait_tbl.shape[-1]
     idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
     conc_comb_feat = np.array([])

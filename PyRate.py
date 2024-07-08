@@ -2136,6 +2136,7 @@ def get_q_rate_BDNN(q, t_reg, x, w, act_f, out_act_f):
     else:
         # Constant baseline sampling
         reg_rates = reg_rates * q[1] # Two q's because of NHPP, but 1st is always equal to 1
+#    print('reg_rates\n', reg_rates)
     return reg_rates, denom, norm_fac
 
 
@@ -2461,9 +2462,17 @@ def add_taxon_age(ts, te, tsA, teA, q_time_frames, trt_tbl):
             # This give 0.5 if a taxon occurs in just a single bin
             rel_age = np.bincount(age_bins - np.min(age_bins), weights=age_norm) / c
         trt_tbl[n_bins - u, i, -1] = rel_age[::-1]
-    trt_tbl[:, ts_te_changed, -1] -= 0.5 # center in 0
-#    if 0 in ts_te_changed:
-#        print(trt_tbl[:, 0, -1])
+#    trt_tbl[:, ts_te_changed, -1] -= 0.5 # center in 0
+    return trt_tbl
+
+
+def add_diversity(trt_tbl, ts, te, timesLA, time_vec, bdnn_rescale_div, n_taxa):
+    bdnn_time_div = np.arange(timesLA[0], 0.0, -0.001)
+    bdnn_div = get_DT(bdnn_time_div, ts, te)
+    bdnn_binned_div = get_binned_div_traj(time_vec, bdnn_time_div, bdnn_div).flatten()[:-1] / bdnn_rescale_div
+    bdnn_binned_div = np.repeat(bdnn_binned_div, n_taxa).reshape((len(bdnn_binned_div), n_taxa))
+    trt_tbl[0][ :, :, div_idx_trt_tbl] = bdnn_binned_div
+    trt_tbl[1][ :, :, div_idx_trt_tbl] = bdnn_binned_div
     return trt_tbl
 
 
@@ -3793,6 +3802,7 @@ def MCMC(all_arg):
 
         move_type = 0 # move types: 1) ts/te; 2) q rates; 3) timesL/M; 4) L/M rates;
 
+        updated_lam_mu = False
         if rr<f_update_se: # ts/te
             move_type = 1
             if FBDrange == 3:
@@ -3831,6 +3841,7 @@ def MCMC(all_arg):
                 bdnn_binned_div = np.repeat(bdnn_binned_div, n_taxa).reshape((len(bdnn_binned_div), n_taxa))
                 trait_tbl_NN[0][ :, :, div_idx_trt_tbl] = bdnn_binned_div
                 trait_tbl_NN[1][ :, :, div_idx_trt_tbl] = bdnn_binned_div
+#                trait_tbl_NN = add_diversity(trait_tbl_NN, ts, te, timesLA, time_vec, bdnn_rescale_div, n_taxa) # Why we miss the trait table?
                 #            # This causes root age to ever increase when mG and shifts in sampling over time
                 #            # But not when doing this in line 3824. Fix this later because it makes BDNN ca. 20% faster
 #            if BDNNmodel and (use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar):
@@ -3841,7 +3852,6 @@ def MCMC(all_arg):
             tot_L=np.sum(ts-te)
         
         elif rr<f_update_q: # q/alpha
-#            print('update q')
             move_type = 2
             q_rates=np.zeros(len(q_ratesA))+q_ratesA
             if TPP_model == 1:
@@ -3853,23 +3863,9 @@ def MCMC(all_arg):
                 q_rates[0], hasting=update_multiplier_proposal(q_ratesA[0],d2[0]) # shape prm Gamma
             else:
                 q_rates[1], hasting=update_multiplier_proposal(q_ratesA[1],d2[1]) #  preservation rate (q)
-            if BDNNmodel in [2, 3]:
-                # Trait-dependent sampling
-                if np.random.random() > -0.5:
-                    rnd_layer = np.random.randint(0, len(cov_parA[2]))
-                    # update layers q rate
-                    cov_par[2][rnd_layer] = update_parameter_normal_vec(cov_parA[2][rnd_layer], d=0.05, f=bdnn_update_f[rnd_layer])
-                    if prior_lam_t_reg > 0:
-                        cov_par[5] = update_parameter(cov_parA[5], 0, 1, d=0.05, f=1)
-                q_rates_tmp = q_rates
-                if bdnn_ads > 0.0 and argsHPP == 0:
-                    q_rates_tmp = q_rates[highres_q_repeats]
-                bdnn_q_rates, denom_q, norm_fac = get_q_rate_BDNN(q_rates_tmp, cov_par[5], trait_tbl_NN[2], cov_par[2], hidden_act_f, out_act_f_q) # When not updating cov_par in this chunk, use cov_parA!
-                bdnn_prior_q = np.sum([np.sum(prior_normal(cov_par[2][i], prior_bdnn_w_q_sd[i])) for i in range(len(cov_par[2]))])
-                if prior_lam_t_reg > 0:
-                    bdnn_prior_q += np.log(prior_lam_t_reg) - prior_lam_t_reg * cov_par[5]
 
         elif rr < f_update_lm: # l/m
+            updated_lam_mu = True
             if np.random.random()<f_shift and len(LA)+len(MA)>2:
                 move_type = 3
                 if fix_edgeShift > 0:
@@ -3931,7 +3927,14 @@ def MCMC(all_arg):
                     bdnn_prior_cov_par += np.log(prior_lam_t_reg) - prior_lam_t_reg * cov_par[3]
 #                    bdnn_prior_cov_par += np.log(prior_lam_t_reg) - prior_lam_t_reg * cov_par[4]
 
-            elif not BDNNmodel in [2]:
+            if BDNNmodel in [2, 3]:
+                rnd_layer = np.random.randint(0, len(cov_parA[2]))
+                # update layers q rate
+                cov_par[2][rnd_layer] = update_parameter_normal_vec(cov_parA[2][rnd_layer], d=0.05, f=bdnn_update_f[rnd_layer])
+                if prior_lam_t_reg > 0:
+                    cov_par[5] = update_parameter(cov_parA[5], 0, 1, d=0.05, f=1)
+
+            if not BDNNmodel:
                 rcov=np.random.random()
                 if est_COVAR_prior == 1 and rcov<0.05:
                     covar_prior = get_post_sd(cov_parA[cov_parA>0]) # est hyperprior only based on non-zero rates
@@ -4052,6 +4055,15 @@ def MCMC(all_arg):
                 else:
                     if num_processes_ts==0:
                         if BDNNmodel in [2, 3]:
+                            if not updated_lam_mu:
+                                q_rates_tmp = q_rates
+                                if bdnn_ads > 0.0 and argsHPP == 0:
+                                    q_rates_tmp = q_rates[highres_q_repeats]
+                                bdnn_q_rates, denom_q, norm_fac = get_q_rate_BDNN(q_rates_tmp, cov_par[5], trait_tbl_NN[2], cov_par[2], hidden_act_f, out_act_f_q)
+                                bdnn_prior_q = np.sum([np.sum(prior_normal(cov_par[2][i], prior_bdnn_w_q_sd[i])) for i in range(len(cov_par[2]))])
+                                if prior_lam_t_reg > 0:
+                                    bdnn_prior_q += np.log(prior_lam_t_reg) - prior_lam_t_reg * cov_par[5]
+
                             if use_HPP_NN_lik: #TPP_model == 1: #  or 
                                 lik_fossil[ind1] = HPP_NN_lik([ts[ind1], te[ind1], bdnn_q_rates[ind1, :],
                                                                occs_sp[ind1, :], log_factorial_occs[ind1],
@@ -4558,6 +4570,7 @@ def MCMC(all_arg):
                     norm_facA = norm_fac
                     bdnn_prior_qA = bdnn_prior_q
             elif BDNNmodel:
+                cov_par = cov_parA
                 if BDNNmodel in [1, 3]:
                     bdnn_lam_rates = bdnn_lam_ratesA
                     bdnn_mu_rates = bdnn_mu_ratesA
@@ -4570,6 +4583,21 @@ def MCMC(all_arg):
                         i_events_ex = i_events_exA
                         n_all_inframe = n_all_inframeA
                         n_S = n_SA
+                        if bdnn_dd:
+                            bdnn_time_div = np.arange(timesLA[0], 0.0, -0.001)
+                            bdnn_div = get_DT(bdnn_time_div, tsA, teA)
+                            bdnn_binned_div = get_binned_div_traj(time_vec, bdnn_time_div, bdnn_div).flatten()[:-1] / bdnn_rescale_div
+                            bdnn_binned_div = np.repeat(bdnn_binned_div, n_taxa).reshape((len(bdnn_binned_div), n_taxa))
+                            trait_tbl_NN[0][ :, :, div_idx_trt_tbl] = bdnn_binned_div
+                            trait_tbl_NN[1][ :, :, div_idx_trt_tbl] = bdnn_binned_div
+#                            trait_tbl_NN = add_diversity(trait_tbl_NN, ts, te, timesLA, time_vec, bdnn_rescale_div, n_taxa)
+                if BDNNmodel in [2, 3]:
+                    bdnn_q_rates = bdnn_q_ratesA
+                    denom_q = denom_qA
+                    norm_fac = norm_facA
+                    bdnn_prior_q = bdnn_prior_qA
+                    if bdnn_ads >= 0.0:
+                        trait_tbl_NN[2] = add_taxon_age(tsA, teA, ts, te, q_time_frames_bdnn, trait_tbl_NN[2])
 
 
         if it % print_freq ==0 or it==burnin:
@@ -6203,6 +6231,15 @@ if __name__ == '__main__':
         if bdnn_ads >= 0.0:
             highres_q_repeats, times_q_shift = get_highres_repeats(args.qShift, bdnn_ads, np.max(FA))
         argsHPP, occs_sp, log_factorial_occs, duration_q_bins, occs_single_bin, q_time_frames_bdnn, use_HPP_NN_lik, TPP_model = precompute_fossil_features(args.qShift, bdnn_timevar_q, bdnn_ads)
+#        print('highres_q_repeats\n', highres_q_repeats)
+#        print('argsHPP\n', argsHPP)
+#        print('occs_sp\n', occs_sp[10, :])
+#        print('log_factorial_occs\n', log_factorial_occs[10])
+#        print('duration_q_bins\n', duration_q_bins[10, :])
+#        print('occs_single_bin\n', occs_single_bin[10])
+#        print('q_time_frames_bdnn\n', q_time_frames_bdnn)
+#        print('use_HPP_NN_lik\n', use_HPP_NN_lik)
+#        print('TPP_model\n', TPP_model)
 
     if fix_Shift == 1 and use_ADE_model == 0: 
         est_hyperP = 1
@@ -6362,7 +6399,7 @@ if __name__ == '__main__':
                 trait_tbl_NN[2], cov_par_init_NN_q = init_sampling_trait_and_weights(trait_values,
                                                                                      time_var_q,
                                                                                      n_BDNN_nodes,
-                                                                                     bias_node=True,
+                                                                                     bias_node=False,
                                                                                      n_taxa=n_taxa,
                                                                                      replicates_tbls=highres_q_repeats)
                 cov_par_init_NN[2] = cov_par_init_NN_q
