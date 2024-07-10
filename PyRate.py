@@ -4576,7 +4576,6 @@ def MCMC(all_arg):
                     bdnn_mu_rates = bdnn_mu_ratesA
                     denom_lam = denom_lamA
                     denom_mu = denom_muA
-                    cov_par = cov_parA
                     if use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
                         bdnn_prior_cov_par = bdnn_prior_cov_parA
                         i_events_sp = i_events_spA
