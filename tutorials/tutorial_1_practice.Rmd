@@ -224,19 +224,25 @@ Both estimate the \# and timing/placement of rate shits (temporal rate heterogen
 
 -   Argument order afterwards:
 
-    -   No flag or with `-A 4` for RJMCMC
+    -   No flag or `-A 4` for RJMCMC
 
     -   `-A 2` for BDMCMC
 
-    -   Preservation model flag or lack thereof to default to nHPP
+    -   Preservation model flag (\***Section 2.A.**):
 
-    -   Gamma model flag `-mG`
+        -   No flag to default to NHPP
 
-    -   Specify which randomized replicate (remember, the separate datasets for differently randomized ages): `-j 1` flag, where the "1" in this case indicates the replicate number we want to analyze
+        -   `-mHPP` for HPP
+
+        -   `-qShift path/to/epochs_q.txt -pP shape rate` for TPP, where -pP is optional
+
+        -   Gamma model flag `-mG`
+
+    -   Specify which randomized replicate (**\*Section 1.A.**): `-j 1` flag, where the "1" in this case indicates the replicate number we want to analyze
 
     -   MCMC parameters:
 
-        -   `-n 20000000` : do 20 million iterations. Default is 10 million! If the dataset is really large, Iterations may need to be increased in order to reach convergence
+        -   `-n 20000000` : do 20 million iterations or "steps" the MCMC algorithm will run (not 20 million states, depending on the acceptance/rejection rule). Default is 10 million! If the dataset is really large, Iterations may need to be increased in order to reach convergence
 
         -   `-s 5000`: sample every 5,000. Default is 1,000! If the dataset is really large, you may need to sample the chain less frequently (increase -s) to reduce the size of the ouput files
 
@@ -246,7 +252,86 @@ Both estimate the \# and timing/placement of rate shits (temporal rate heterogen
 
 # 4. Output Files
 
-1.  **sum.txt:** text file with the list of settings used in the analysis
-2.  **mcmc.log**: tab-separated table with MCMC samples of:
+Make a **directory** for your files! ([?unclear where the PyRate analysis puts the output files in the first place]{.underline})
+
+1.  **\*\_sum.txt:** text file with the list of settings used in the analysis
+2.  **\*\_mcmc.log**: tab-separated table with MCMC samples of:
     1.  Preservation Model: posterior, prior, likelihood (PP_lik)
-    2.  Birth-Death Model: posterior, prior, likelihood
+    2.  Birth-Death Model: posterior, prior, likelihood (BD_lik)
+    3.  Preservation Rate (q_rate)
+        1.  q_rate's level of heterogeneity: gamma-distributed heterogeneity (alpha)
+        2.  (q_0, q_1, q_2...) if you used TPP model
+    4.  \# of Sampled Rate Shifts (k_birth, k_death)
+    5.  Origin time of the oldest lineage (root_age)
+    6.  Total branch length (tot_length)
+    7.  Times of S + E of all taxa/species in the dataset (\*\_*TS, \*\_*TE): I.e., origination and extinction times of each lineage
+3.  **\*\_marginal_rates.log**: tab-separated table with posterior samples of the marginal rates of
+    1.  Speciation rate, extinction rate, net diversification. calculated w/in 1 time unit (typically Myr)
+4.  [IF YOU USED RJMCMC]{.underline}: you will get these 2 log files instead of #3 above. You can still get #3, but you'll have to specify a command when doing the analysis. See RJMCMC tutorial
+    1.  **sp_rates.log:** tab-separated text file of sampled rates
+    2.  **ex_rates.log:** tab-separated text file of times of rate shifts
+    3.  \^ Additional visualization commands can be added to a call of these log files, see the RJMCMC tutorial
+
+Summarize MCMC results: Tracer program for convergence, burn-in period. -mProb command for sampling frequencies of different birth-death models
+
+Visualization: using the marginal_rates.log: plot_RTT: rates-through-time plots
+
+Combine log files from different replicates: -combLog
+
+Generate combined RTT plots
+
+[now you can Interpret the S and E rates, the validity of different preservtion models, and visualize temporal dynamics of diversification]{.underline}
+
+# 5. Results
+
+## 5.A. MCMC Results: Tracer
+
+Put all the outputted log files into Tracer, a program for analyzing the performance of the MCMC. Check if MCMC has converged, look at the ESS's, determine the proportion of burn-in.
+
+Replicate datasets obviously might converge to slightly different solutions, with different ESS's
+
+## 5.B. BD Model Sampling Frequencies
+
+Take the \*\_**mcmc.log** output file and in **Terminal:** `python PyRate.py -mProb .../*_mcmc.log -b 200`
+
+-   `-b #` flag: indicates how many beginning samples should be removed because in Tracer you decided that that \# was the burn-in
+
+    -    Samples, not iterations. The number of samples you have will be = `-n`/`-s` flags from the analysis command in **\*Section 3**
+
+**Output**: table with the relative probabilities of each BD model (each model is the same type, just with different number of rate shifts)
+
+## 5.C. Rates-Through-Time (RTT) Plots
+
+RTT plot: speciation, extinction, net diversification through time
+
+Take the **\*marginal_rates.log** output file and in **Terminal:** `python PyRate.py -plot .../*_marginal_rates.log -b 200`
+
+-   do `-plot2` instead of `-plot` for a different type of RTT
+
+-   `-b` flag is the same as above
+
+**Output**:
+
+-   R script
+
+-   PDF file with the RTT plots
+
+## 5.D. Combine All The Replicates' Log Files
+
+You should already have a **directory** (folder) with all your output and Input files in it, indicated below as `path_to_your_log_files`
+
+**Terminal:** `PyRate.py -combLog path_to_your_log_files -tag mcmc -b 100`
+
+-   `-tag mcmc` specifies to PyRate that it should combine (`combLog`) all the files that contain `mcmc.log` in the file name. If you need to combine other files, just switch out the word that comes after `-tag`
+
+-   `-b` flag is the same as above
+
+## 5.E. Preservation Rates Through Time Plots
+
+# 6. S + E Rates W/in Fixed Time Bins
+
+## 6.A. Analysis Setup
+
+## 6.B. Summarize the Results
+
+# 7. Setting Fixed Shifts at the Boundaries, While Searching for Rate Shifts Between Them
