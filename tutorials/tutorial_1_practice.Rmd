@@ -181,6 +181,8 @@ The model will output different preservation rates for each interval. These are 
 
 -   and P(B\|A) the likelihood of observing the data (fossil occurrences)
 
+In any anaysis with time bins, be careful that changes in diversification may be due to the change in preservation rate, not true biological signals
+
 ```{python}
 # Variable to indicate whether TPP model is being used. == 1 means yes
 TPP_model
@@ -237,6 +239,10 @@ Both estimate the \# and timing/placement of rate shits (temporal rate heterogen
         -   `-qShift path/to/epochs_q.txt -pP shape rate` for TPP, where -pP is optional
 
         -   Gamma model flag `-mG`
+
+    -   **Section 7**. If you want to set fixed time bins for the BD model: do `-fixShift path/to/bd_epochs_q.txt`
+
+        -   `bd_epochs_q.txt` can be the same or diff from the `epochs_q.txt` in the TPP (I.e., can be the same file if you want to use the same time bins for Preservation and S+E (Birth-Death)
 
     -   Specify which randomized replicate (**\*Section 1.A.**): `-j 1` flag, where the "1" in this case indicates the replicate number we want to analyze
 
@@ -336,14 +342,40 @@ TPP model has different rates for different time bins, and we'd like to view tho
 
 RJMCMC allows you to estimate timing and number of rate shifts using MCMC. If you want to fix those a priori though (based on external theory like geological epochs), you can do this by providing a file with pre-defined times of rate shifts, just like TPP took
 
-Model assumes half-Cauchy prior distributions for speciation and extinction rates between shifts. Hyperprior on the half-Cauchy distribution's scale parameter, to reduce the risk of over-parameterization
+Remember that adding these time bins increases the model complexity, so you want to make sure you have sufficient data to support this complexity. Model assumes half-Cauchy prior distributions for speciation and extinction rates between shifts. Hyperprior on the half-Cauchy distribution's scale parameter, to reduce the risk of over-parameterization
 
 `python PyRate.py .../*_PyRate.py -fixShift .../epochs.txt`
 
 -   Follow up with all of your other arguments, Preservation model, length of the MCMC, sampling frequency
 
-## 6.A. Analysis Setup
+**Output:** the same 3 files as the previous analysis, but with these changes:
 
-## 6.B. Summarize the Results
+1.  **\*\_sum.txt**
+2.  **\*\_mcmc.log**
+    1.  ~~\# of Sampled Rate Shifts (k_birth, k_death)~~ –\> this \# is now fixed, so instead we will get:
+        1.  Speciation rates between shifts (lambda_0, lambda_1...)
+        2.  Extinction rates between shifts (mu_0, mu_1...)
+    2.  Estimated scale parameter on the half-Cauchy distribution of speciation rates (hypL) and extinction rates (hypM)
+3.  **\*\_marginal_rates.log**
 
 # 7. Setting Fixed Shifts at the Boundaries, While Searching for Rate Shifts Between Them
+
+Sometimes fossil data is only available during a certain time window, which means the min and max boundaries of that time window SEEM like they have rate shifts, when they actually don't (this is the edge effect, where the data at the edges of the time bin reflect a sampling bias).
+
+You can fix this by setting fixed times of rate shifts at the edges of that time bin (`-edgeShift`), where you know the dataset is cut off. You're basicaly setting temporal boundaries so you can truncate your analysis to just the rates within that time window.
+
+`python PyRate.py <data_set> -A 4 -edgeShift max min`
+
+-   max = a NUMBER representing the maximum age boundary
+
+    -   If you only want to set a maximum age boundary, just set min = `0`
+
+-   min = a NUMBER representing the minimum age boundary
+
+    -   If you only want to set a minimum age boundary, set max = to `inf`
+
+-   `-A 4`: Then you run an RJMCMC on it to infer rate shifts within that time window
+
+## 7.A. Plotting Fixed Boundary Results
+
+`plotRJ` command (see **RJMCMC tutorial) with `-root_plot`** and `-min_age_plot` tags
