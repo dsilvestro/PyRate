@@ -2447,6 +2447,7 @@ def harmonic_mean_q_through_time(ts, te, time_frames, q_rates):
 
 def add_taxon_age(ts, te, tsA, teA, q_time_frames, trt_tbl):
     ts_te_changed = np.unique(np.concatenate((np.where(ts != tsA)[0], np.where(te != teA)[0]), axis=None))
+    # np.where( (ts - te) != (tsA -teA) )[0]
     bins = q_time_frames[::-1]
     bins[-1] = np.inf
     n_bins = len(bins) - 2
@@ -3536,17 +3537,24 @@ def get_init_values(mcmc_log_file,taxa_names):
         from pyrate_lib.bdnn_lib import bdnn_reshape_w
         pkl_file = mcmc_log_file.replace("_mcmc.log", "") + ".pkl"
         bdnn_obj = load_pkl(pkl_file)
-        cov_par = []
-        w_lam_index = [head.index(i) for i in head if "w_lam_" in i]
-        w_mu_index = [head.index(i) for i in head if "w_mu_" in i]
-        w_lam = tbl[last_row, w_lam_index].reshape((1, len(w_lam_index)))
-        w_mu = tbl[last_row, w_mu_index].reshape((1, len(w_mu_index)))
-        w_lam = bdnn_reshape_w(w_lam, bdnn_obj)[0]
-        w_mu = bdnn_reshape_w(w_mu, bdnn_obj)[0]
-        cov_par.append(w_lam)
-        cov_par.append(w_mu)
-        cov_par.append(0) # covar prm for preservation rate (currently not used)
-    #print
+        cov_par = [0] * 6
+        if BDNNmodel in [1, 3]:
+            w_lam_index = [head.index(i) for i in head if "w_lam_" in i]
+            w_mu_index = [head.index(i) for i in head if "w_mu_" in i]
+            w_lam = tbl[last_row, w_lam_index].reshape((1, len(w_lam_index)))
+            w_mu = tbl[last_row, w_mu_index].reshape((1, len(w_mu_index)))
+            w_lam = bdnn_reshape_w(w_lam, bdnn_obj, rate_type="diversification")[0]
+            w_mu = bdnn_reshape_w(w_mu, bdnn_obj, rate_type="diversification")[0]
+            cov_par[0] = w_lam
+            cov_par[1] = w_mu
+            cov_par[3] = tbl[last_row, head.index("t_reg_lam")]
+            cov_par[4] = tbl[last_row, head.index("t_reg_mu")]
+        if BDNNmodel in [2, 3]:
+            w_q_index = [head.index(i) for i in head if "w_q_" in i]
+            w_q = tbl[last_row, w_q_index].reshape((1, len(w_q_index)))
+            w_q = bdnn_reshape_w(w_q, bdnn_obj, rate_type="sampling")[0]
+            cov_par[2] = w_q
+            cov_par[5] = tbl[last_row, head.index("t_reg_q")]
 
     return [ts,te,q_rates,lam,mu,hyp,alpha_pp, cov_par]
 
@@ -3897,7 +3905,9 @@ def MCMC(all_arg):
                         L,M,hasting=update_rates(LA,MA,3,mod_d3)
 
         elif rr<f_update_cov: # cov
-            if BDNNmodel in [1, 3]:
+            # Do not update weights for lam/mu and q at the same time
+            rr_bdnn = (np.random.random() - 0.5) * BDNNmodel in [3]
+            if BDNNmodel in [1, 3] and rr_bdnn <= 0.0:
                 rnd_layer = np.random.randint(0, len(cov_parA[0]))
                 # update layers B rate
                 cov_par[0][rnd_layer]=update_parameter_normal_vec(cov_parA[0][rnd_layer],d=0.05,f= bdnn_update_f[rnd_layer] ) 
@@ -3927,7 +3937,7 @@ def MCMC(all_arg):
                     bdnn_prior_cov_par += np.log(prior_lam_t_reg) - prior_lam_t_reg * cov_par[3]
 #                    bdnn_prior_cov_par += np.log(prior_lam_t_reg) - prior_lam_t_reg * cov_par[4]
 
-            if BDNNmodel in [2, 3]:
+            if BDNNmodel in [2, 3] and rr_bdnn >= 0.0:
                 rnd_layer = np.random.randint(0, len(cov_parA[2]))
                 # update layers q rate
                 cov_par[2][rnd_layer] = update_parameter_normal_vec(cov_parA[2][rnd_layer], d=0.05, f=bdnn_update_f[rnd_layer])
