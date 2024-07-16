@@ -23,6 +23,20 @@ extant_dogs = c("Canis rufus","Canis lupus","Canis aureus","Canis latrans","Cani
 
 **Parse raw PBDB data with extract.ages.pbdb() → generate 3 files:**
 
+```{r}
+extract.ages.pbdb(file = "../example_files/Canis_example/Canis_pbdb_data.csv", extant_species = extant_dogs)
+```
+
+-   **Replicates**: The `replicates` argument specifies the number of times the age range (min and max) of each fossil occurrence should be resampled. Resampling = when the function creates that n number of datasets, in each dataset it will select a random age range for each species from within that species' original age range. Setting `replicates = 10` will generate 10 replicated datasets in the PyRate input file, each with different age ranges selected for each species. Then in the downstream PyRate analysis, you can analyze each dataset separately, and the combined results will account for age uncertainties in the fossil record.
+
+    -   So if a fossil occurrence has a min age of 10 Ma and a max age of 12 Ma, and `replicates=10` is specified, the function will generate 10 replicated datasets where the age of that fossil occurrence is randomly sampled between 10 Ma and 12 Ma for each of the 10 replicates.
+
+-   **Random**: The `random` argument is set to `TRUE` by default, which means that the resampling of ages will be done randomly within the specified temporal ranges.
+
+-   **Cutoff**: The `cutoff` argument can be used to remove fossil occurrences with an age range greater than the range you specify (in millions of years). For example, setting `cutoff = 10` will remove all occurrences where the difference between the maximum and minimum age is larger than 10 million years.
+
+**3 Output Files:**
+
 \* = name of the dataset
 
 1.  **\*.txt** = dataset as a .txt
@@ -36,25 +50,13 @@ extant_dogs = c("Canis rufus","Canis lupus","Canis aureus","Canis latrans","Cani
     5.  The taxa_names variables at the end of the file = the order of the arrays
     6.  If a taxon is extant (still alive), the last value in its array is = 0 to represent the present day
 
-```{r}
-extract.ages.pbdb(file = "../example_files/Canis_example/Canis_pbdb_data.csv", extant_species = extant_dogs)
-```
-
--   **Replicates**: The `replicates` argument specifies the number of times the age range (min and max) of each fossil occurrence should be resampled. Resampling = when the function creates that n number of datasets, in each dataset it will select a random age range for each species from within that species' original age range. Setting `replicates = 10` will generate 10 replicated datasets in the PyRate input file, each with different age ranges selected for each species. Then in the downstream PyRate analysis, you can analyze each dataset separately, and the combined results will account for age uncertainties in the fossil record.
-
-    -   So if a fossil occurrence has a min age of 10 Ma and a max age of 12 Ma, and `replicates=10` is specified, the function will generate 10 replicated datasets where the age of that fossil occurrence is randomly sampled between 10 Ma and 12 Ma for each of the 10 replicates.
-
--   **Random**: The `random` argument is set to `TRUE` by default, which means that the resampling of ages will be done randomly within the specified temporal ranges.
-
--   **Cutoff**: The `cutoff` argument can be used to remove fossil occurrences with an age range greater than the range you specify (in millions of years). For example, setting `cutoff = 10` will remove all occurrences where the difference between the maximum and minimum age is larger than 10 million years.
-
 ### 1.A.i. TERMINAL: data summary on the \*\_PyRate.py file
 
-Obviously, be in the PyRate folder. This command will generate summary statistics for the dataset
+**Start in the PyRate Directory** (parent). This command will generate summary statistics for the dataset
 
 1.  And save those off as a **.txt file** with a name of your choosing. The .txt can be used in a dataframe later
 
-`python PyRate.py 'example_files/Canis_example/Canis_pbdb_data_PyRate.py' -data_info \| tee tutorial_1_data_summary.txt`
+`python PyRate.py 'example_files/Canis_example/Canis_pbdb_data_PyRate.py' -data_info | tee path/tutorial_1_data_summary.txt`
 
 ## 1.B. CSV Created by Hand
 
@@ -93,9 +95,11 @@ Now, we're saying that if we have data that specifies which site a fossil came f
 
 ## 1.D. Check \*\_TaxonList.txt for Species Name Typos
 
+**\*Any command involving PyRate.py calls that PyRate file, which means we need to be in the master directory of PyRate (the parent folder containing PyRate.py**
+
 **TERMINAL** command:
 
-`python PyRate.py -check_names *_TaxonList.txt`
+`python PyRate.py -check_names path/*_TaxonList.txt`
 
 This will return a table ranking possible typos. You should check these yourself to see if they are errors. If they are, go back to the dataset, fix it, and re-run the needed steps above.
 
