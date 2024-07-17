@@ -44,6 +44,8 @@ Bassariscus | NAmerica
 Canis | Eurasia
 Canis | NAmerica
 
+PyRateDES works for groups of taxa without any living representative. In this case the file with the recent distribution should contain only the header of scientificName and higherGeography.
+
 To launch PyRateDES open a Terminal window and browse to the PyRate directory 
 
 `cd /path/to/PyRate`
