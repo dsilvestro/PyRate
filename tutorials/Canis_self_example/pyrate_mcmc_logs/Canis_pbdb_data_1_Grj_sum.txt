@@ -1,0 +1,27 @@
+
+PyRate build v3.1.3 - 20230825
+
+input: ['.\\tutorials\\Canis_self_example\\Canis_pbdb_data_PyRate.py'] output: .\tutorials\Canis_self_example\pyrate_mcmc_logs/Canis_pbdb_data_1_G
+
+PyRate was called as follows:
+Namespace(seed=-1, useCPPlib=1, cite=False, input_data=['.\\tutorials\\Canis_self_example\\Canis_pbdb_data_PyRate.py'], j=1, trait=1, logT=0, N=-1, wd='', out='', singleton=0, frac_sampled_singleton=0, rescale=1, translate=0, d='', clade=-1, trait_file='', restore_mcmc='', filter=[inf, 0], filter_taxa='', initDiv=0, PPmodeltest=False, log_marginal_rates=-1, log_sp_q_rates=False, drop_zero=0, drop_internal=False, tree='', sampling=1.0, bdc=False, eqr=False, plot='', plot2='', plot3='', plotRJ='', plotBDNN='', plotBDNN_effects='', plotBDNN_transf_features='', BDNN_groups={}, BDNN_interaction='', BDNN_interaction_fix=False, n_prior=100000, plotQ='', grid_plot=0, root_plot=0, min_age_plot=0, tag='', ltt=0, mProb='', BF=[], data_info=False, SE_stats=[], ginput='', combLog='', combLogRJ='', combBDNN='', resample=0, col_tag=[], check_names='', reduceLog='', n=10000000, s=1000, p=1000, b=0, fast_burnin=0, thread=[0, 0], A=4, use_DA=False, r=1, t=0.03, sw=100, M=10, B=1, T=1.0, S=1000, k=10, a=0.3, dpp_f=500, dpp_hp=2.0, dpp_eK=2.0, dpp_grid=1.5, dpp_nB=0, rj_pr=1, rj_Ga=1.5, rj_Gb=3.0, rj_beta=10, rj_dm=0, rj_bd_shift=0.5, se_gibbs=False, pL=[1.1, 1.1], pM=[1.1, 1.1], pP=[1.5, 1.1], pS=2.5, pC=1, cauchy=[-1, -1], min_dt=1.0, mHPP=False, mL=1, mM=1, mC=False, mCov=0, mG=True, mPoiD=False, mBirth=-1, mDeath=False, mBDI=-1, ncat=4, fixShift='', qShift='', fixSE='', ADE=0, discrete=False, twotrait=False, bound=[inf, 0], partialBD=False, edgeShift=[inf, 0], qFilter=1, FBDrange=0, BDNNmodel=0, BDNNnodes=[16, 8], BDNNfadlad=0, BDNNtimetrait=-1, BDNNconstbaseline=1, BDNNoutputfun=5, BDNNactfun=5, BDNNprior=1, BDNNreg=1.0, BDNNblockmodel=False, BDNNtimevar='', BDNNtimevar_q='', BDNNpath_taxon_time_tables=['', ''], BDNNexport_taxon_time_tables=False, BDNNupdate_se_f=[0.6], BDNNupdate_f=[0.1], BDNNdd=False, BDNNpklfile='', BDNN_pred_importance='', BDNN_pred_importance_nperm=100, BDNN_nsim_expected_cv=100, BDNN_pred_importance_only_main=True, BDNN_pred_importance_window_size=[-1.0], edge_indicator=False, tT=1.0, nT=5, tQ=[1.2, 1.2], tR=1.2, tS=1.0, fR=0.5, fS=0.7, fQ=0.5, tC=[0.2, 0.2, 0.15], fU=[0.02, 0.18, 0], multiR=1, tHP=[1.2, 1.2])
+
+Using Gamma priors on the birth-death rates (G_l[1.1,1.1], G_m[1.1,1.1]).
+Using Non-Homogeneous Poisson Process of preservation (NHPP).
+
+        Please cite: 
+Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
+Improved estimation of macroevolutionary rates from fossil data using a Bayesian framework. 
+Paleobiology, doi: 10.1017/pab.2019.23.
+
+
+        Feedback and support: pyrate.help@gmail.com
+        OS: Windows 11
+        Python version: 3.12.4 (tags/v3.12.4:8e8a4ba, Jun  6 2024, 19:30:16) [MSC v.1940 64 bit (AMD64)]
+
+        Numpy version: 2.0.0
+        Scipy version: 1.14.0
+
+        Random seed: 7869 
+Using module FastPyRateC
+        
