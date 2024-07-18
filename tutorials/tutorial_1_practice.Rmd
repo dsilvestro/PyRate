@@ -382,4 +382,4 @@ You can fix this by setting fixed times of rate shifts at the edges of that time
 
 ## 7.A. Plotting Fixed Boundary Results
 
-`plotRJ` command (see **RJMCMC tutorial) with `-root_plot`** and `-min_age_pl
+`plotRJ` command (see **RJMCMC tutorial) with `-root_plot`** and `-min_age_plot` tags
