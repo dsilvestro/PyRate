@@ -101,6 +101,8 @@ Now, we're saying that if we have data that specifies which site a fossil came f
 
 `python PyRate.py -check_names path/*_TaxonList.txt`
 
+**Output: \*\_TaxonList\_**scores
+
 This will return a table ranking possible typos. You should check these yourself to see if they are errors. If they are, go back to the dataset, fix it, and re-run the needed steps above.
 
 -   Ranks 0-1 = possible misspellings

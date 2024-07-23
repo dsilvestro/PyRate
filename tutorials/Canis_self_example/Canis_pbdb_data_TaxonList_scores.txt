@@ -1,10 +1,1 @@
-taxon1	taxon2	rank
-Canis_arnensis	Canis_tarijensis	3
-Canis_cedazoensis	Canis_senezensis	3
-Canis_arnensis	Canis_simensis	4
-Canis_lupus	Canis_rufus	4
-Canis_adoxus	Canis_aureus	5
-Canis_aureus	Canis_feneus	5
-Canis_aureus	Canis_lupus	5
-Canis_aureus	Canis_rufus	5
-Canis_feneus	Canis_gezi	5
+taxon1	taxon2	rank
