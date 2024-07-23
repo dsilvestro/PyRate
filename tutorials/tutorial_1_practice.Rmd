@@ -254,9 +254,9 @@ Both BDMCMC and RJMCMC estimate the \# and timing/placement of rate shits (tempo
 
     -   MCMC parameters:
 
-        -   `-n 20000000` : do 20 million iterations or "steps" the MCMC algorithm will run (not 20 million states, depending on the acceptance/rejection rule). Default is 10 million! If the dataset is really large, Iterations may need to be increased in order to reach convergence
+        -   `-n 20000000` : do 20 million iterations or "steps" the MCMC algorithm will run (not 20 million states, depending on the acceptance/rejection rule). **Default is 10 million**! If the dataset is really large, Iterations may need to be increased in order to reach convergence
 
-        -   `-s 5000`: sample every 5,000. Default is 1,000! If the dataset is really large, you may need to sample the chain less frequently (increase -s) to reduce the size of the ouput files
+        -   `-s 5000`: sample every 5,000. **Default is 1,000**! If the dataset is really large, you may need to sample the chain less frequently (increase -s) to reduce the size of the ouput files
 
         -   **n/s = the \# of posterior samples the output log file will have.**
 
@@ -264,7 +264,9 @@ Both BDMCMC and RJMCMC estimate the \# and timing/placement of rate shits (tempo
 
 # 4. Output Files
 
-Make a **directory** for your files! ([?unclear where the PyRate analysis puts the output files in the first place]{.underline})
+Will be outputted automatically to a sub-folder called "pyrate_mcmc_logs"
+
+All these file names will be **\*\_#\_Grj_sum.txt** (for example), with the \# corresponding to the \# replicate (if applicable), and the Grj indicating that RJMCMC was used
 
 1.  **\*\_sum.txt:** text file with the list of settings used in the analysis
 2.  **\*\_mcmc.log**: tab-separated table with MCMC samples of:
@@ -276,7 +278,7 @@ Make a **directory** for your files! ([?unclear where the PyRate analysis puts t
     4.  \# of Sampled Rate Shifts (k_birth, k_death)
     5.  Origin time of the oldest lineage (root_age)
     6.  Total branch length (tot_length)
-    7.  Times of S + E of all taxa/species in the dataset (\*\_*TS, \*\_*TE): I.e., origination and extinction times of each lineage
+    7.  Times of S + E of all taxa/species in the dataset (\*\_TS*, \*\_*TE): I.e., origination and extinction times of each lineage
 3.  **sp_rates.log:** tab-separated text file of sampled rates
 4.  **ex_rates.log:** tab-separated text file of times of rate shifts
     1.  \^ Additional visualization commands can be added to a call of these log files, see the RJMCMC tutorial
