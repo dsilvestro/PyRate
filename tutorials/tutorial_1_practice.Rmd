@@ -1,6 +1,6 @@
 Tutorial paper: doi: 10.1111/2041-210X.12263
 
-# 1. Generating PyRate Input File (2 Methods)
+# 1. Generating PyRate.py Input File (2 Methods)
 
 ## 1.A. CSV From Outside Source
 
@@ -109,7 +109,7 @@ This will return a table ranking possible typos. You should check these yourself
 
 # 2. Estimating S + E W/ Preservation Models
 
-## 2.A. Defining the Preservation Model Type in TERMINAL
+## 2.A. Defining the Preservation Model Type in TERMINAL. For later use in Section 3.
 
 Epoch = a predefined time interval. Can be based on geological, environmental, etc. criteria. Set by the user in PyRate.
 
@@ -220,9 +220,9 @@ If you're doing TPP Model + Gamma Model, you can **save off the estimated relati
 
 Does not test Gamma model, but you should take the best model among the NHPP, HPP or TPP outputted from this command, and add the Gamma to it
 
-# 3. MCMC Analysis Setup
+# 3. MCMC Analysis Setup: Generating pyrate_mcmc_logs Directory
 
-So before we run the MCMC analysis, we chose a Preservation Model. In other tutorials we show how to choose a different Birth-Death Model. But in this tutorial we will use the default: Birth-Death Model with Rate Shifts. You don't have to indicate anything with this. Both MCMC options, BDMCMC or RJMCMC (default, better) use BDS as default.
+So before we run the MCMC analysis, we chose a Preservation Model (conceptually, we haven't run it yet). In other tutorials we show how to choose a different Birth-Death Model. But in this tutorial we will use the default: Birth-Death Model with Rate Shifts. You don't have to indicate anything with this. Both MCMC options, BDMCMC or RJMCMC (default, better) use BDS as default.
 
 Both BDMCMC and RJMCMC estimate the \# and timing/placement of rate shits (temporal rate heterogeneity).
 
@@ -275,12 +275,13 @@ Make a **directory** for your files! ([?unclear where the PyRate analysis puts t
     5.  Origin time of the oldest lineage (root_age)
     6.  Total branch length (tot_length)
     7.  Times of S + E of all taxa/species in the dataset (\*\_*TS, \*\_*TE): I.e., origination and extinction times of each lineage
-3.  **\*\_marginal_rates.log**: tab-separated table with posterior samples of the marginal rates of
-    1.  Speciation rate, extinction rate, net diversification. calculated w/in 1 time unit (typically Myr)
-4.  [IF YOU USED RJMCMC]{.underline}: you will get these 2 log files instead of #3 above. You can still get #3, but you'll have to specify a command when doing the analysis. See RJMCMC tutorial
-    1.  **sp_rates.log:** tab-separated text file of sampled rates
-    2.  **ex_rates.log:** tab-separated text file of times of rate shifts
-    3.  \^ Additional visualization commands can be added to a call of these log files, see the RJMCMC tutorial
+3.  **sp_rates.log:** tab-separated text file of sampled rates
+4.  **ex_rates.log:** tab-separated text file of times of rate shifts
+    1.  \^ Additional visualization commands can be added to a call of these log files, see the RJMCMC tutorial
+5.  You can add the command `-log_marginal_rates 1` to get this older output file:
+    1.  **\*\_marginal_rates.log**: tab-separated table with posterior samples of the marginal rates of
+        1.  Speciation rate, extinction rate, net diversification. calculated w/in 1 time unit (typically Myr)
+        2.  This file can be later processed using `-plot` (for RTT), but it cannot take `-plotRJ`
 
 # 5. Results
 
@@ -308,6 +309,8 @@ RTT plot: speciation, extinction, net diversification through time
 
 Take the **\*marginal_rates.log** output file and in **Terminal:** `python PyRate.py -plot .../*_marginal_rates.log -b 200`
 
+-   **Can you do -plot with the sp_rates.log and/or ex_rates.log files??**
+
 -   do `-plot2` instead of `-plot` for a different type of RTT
 
 -   `-b` flag is the same as above
@@ -324,9 +327,13 @@ You should already have a **directory** (folder) with all your output and Input 
 
 **Terminal:** `PyRate.py -combLog path_to_your_log_files -tag mcmc -b 100`
 
--   `-tag mcmc` specifies to PyRate that it should combine (`combLog`) all the files that contain `mcmc.log` in the file name. If you need to combine other files, just switch out the word that comes after `-tag`
+-   `-tag mcmc` specifies to PyRate that it should combine (`combLog`) all the files that contain `mcmc` in the file name. If you need to combine other files, just switch out the word that comes after `-tag`
 
 -   `-b` flag is the same as above
+
+**Output:**
+
+-   **?**
 
 ## 5.E. Combining Replicates' \*\_marginal_rates.log files (for Combined RTT plot)
 
