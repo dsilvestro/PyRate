@@ -297,7 +297,7 @@ Put all the outputted log files into Tracer, a program for analyzing the perform
 
 Replicate datasets obviously might converge to slightly different solutions, with different ESS's
 
-## 5.B. BD Model Sampling Frequencies
+## 5.B. BD Model Sampling Frequencies (RJMCMC Only?)
 
 Take the \*\_**mcmc.log** output file and in **Terminal:** `python PyRate.py -mProb .../*_mcmc.log -b 200`
 
@@ -306,6 +306,8 @@ Take the \*\_**mcmc.log** output file and in **Terminal:** `python PyRate.py -mP
     -   Samples, not iterations. The number of samples you have will be = `-n`/`-s` flags from the analysis command in **\*Section 3**
 
 **Output**: table with the relative probabilities of each BD model (each model is the same type, just with different number of rate shifts)
+
+Example: ![-mProb output in Terminal example]("Canis_self_example\\5.B.\_BD_Model_Sampling_Frequencies.png")
 
 ## 5.C. Rates-Through-Time (RTT) Plots
 
