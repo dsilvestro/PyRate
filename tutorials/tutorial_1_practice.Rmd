@@ -246,7 +246,7 @@ Both BDMCMC and RJMCMC estimate the \# and timing/placement of rate shits (tempo
 
         -   Gamma model flag `-mG`
 
-    -   **Section 7**. If you want to set fixed time bins for the BD model: do `-fixShift path/to/bd_epochs_q.txt`
+    -   **Section 7**. If you want to set fixed time bins for the BD model (**BDC Skyline Model)**: do `-fixShift path/to/bd_epochs_q.txt`
 
         -   `bd_epochs_q.txt` can be the same or diff from the `epochs_q.txt` in the TPP (I.e., can be the same file if you want to use the same time bins for Preservation and S+E (Birth-Death)
 
@@ -374,7 +374,7 @@ TPP model has different rates for different time bins, and we'd like to view tho
 
 # 6. BD Models with Fixed Rate Shifts
 
-RJMCMC allows you to estimate timing and number of rate shifts using MCMC. If you want to fix those a priori though (based on external theory like geological epochs), you can do this by providing a file with pre-defined times of rate shifts, just like TPP took
+RJMCMC allows you to estimate timing and number of rate shifts using MCMC. If you want to fix those a priori though (based on external theory like geological epochs), you can do this by providing a file with pre-defined times of rate shifts, just like TPP took.
 
 Remember that adding these time bins increases the model complexity, so you want to make sure you have sufficient data to support this complexity. Model assumes half-Cauchy prior distributions for speciation and extinction rates between shifts. Hyperprior on the half-Cauchy distribution's scale parameter, to reduce the risk of over-parameterization
 
