@@ -194,11 +194,13 @@ In any anaysis with time bins, be careful that changes in diversification may be
 TPP_model
 ```
 
-### 2.A.iv. Gamma Model: Rate Heterogeneity Among Lineages
+### 2.A.iv. Gamma Model: q Rate Heterogeneity Among Lineages
 
-TPP uses gamma distribution in preservation rate priors. This section describes how to distribute NHPP, HPP, and TPP lineage-specific preservation rates across a gamma distribution.
+TPP uses gamma distribution in preservation rate (q) priors. By adding the `-mG` flag do your analyses, the model will assume that the preservation rate follows a Gamma distribution, with each taxon getting assigned a preservation rate chosen from that distribution. Thus, each lineage can have it's own q rate.
 
-The Gamma model for lineage heterogeneity only adds a single parameter, which voids overparameterization
+This section describes how to distribute NHPP, HPP, and TPP lineage-specific preservation rates across a gamma distribution.
+
+The Gamma model for lineage heterogeneity only adds a single parameter, which voids over-parameterization
 
 Can be coupled with NHPP, HPP, TPP. In **Terminal, simply add this flag to the end of any of the model's run commands: -**`mG`
 
@@ -261,6 +263,8 @@ Both BDMCMC and RJMCMC estimate the \# and timing/placement of rate shits (tempo
         -   **n/s = the \# of posterior samples the output log file will have.**
 
         -   So in this example, at 20 mill iterations, sampled every 5,000 –\> the output log file will have 4,000 posterior samples
+
+        -   `-p 100` = the program will show its progress every 100 iterations
 
 # 4. Output Files
 
