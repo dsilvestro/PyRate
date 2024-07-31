@@ -282,7 +282,7 @@ All these file names will be **\*\_#\_Grj_sum.txt** (for example), with the \# c
 3.  **sp_rates.log:** tab-separated text file of sampled rates
 4.  **ex_rates.log:** tab-separated text file of times of rate shifts
     1.  \^ Additional visualization commands can be added to a call of these log files, see the RJMCMC tutorial
-5.  If you want to make **RTT plots (Section 5.C. or 5.F.**) you need to add the command `-log_marginal_rates 1` to get this older output file:
+5.  If you want to make **RTT plots (Section 5.C. or 5.F.**) you need to add the command `-log_marginal_rates 1` to get this older output file INSTEAD OF files 3 and 4 above:
     1.  **\*\_marginal_rates.log**: tab-separated table with posterior samples of the marginal rates of
         1.  Speciation rate, extinction rate, net diversification. calculated w/in 1 time unit (typically Myr)
         2.  This file can be later processed using `-plot` (for RTT), but it cannot take `-plotRJ`
