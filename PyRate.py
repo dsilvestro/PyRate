@@ -80,7 +80,6 @@ np.set_printoptions(suppress= 1, precision=3) # prints floats, no scientific not
 original_stderr = sys.stderr
 NO_WARN = original_stderr #open('pyrate_warnings.log', 'w')
 small_number= 1e-50
-#prior_lam_t_reg = 10
 
 def get_self_path():
     self_path = -1
@@ -3697,9 +3696,10 @@ def MCMC(all_arg):
                 i_events_spA, i_events_exA, n_SA = get_events_ns(tsA, teA, timesLA)
             bdnn_prior_cov_parA = np.sum([np.sum(prior_normal(cov_parA[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_parA[0]))])
             bdnn_prior_cov_parA += np.sum([np.sum(prior_normal(cov_parA[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_parA[1]))])
-            if prior_lam_t_reg > 0:
-                bdnn_prior_cov_parA += np.log(prior_lam_t_reg) - prior_lam_t_reg * cov_parA[3]
-#                bdnn_prior_cov_parA += np.log(prior_lam_t_reg) - prior_lam_t_reg * cov_parA[4]
+            if prior_lam_t_reg[0] > 0:
+                bdnn_prior_cov_parA += np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_parA[3]
+            if prior_lam_t_reg[1] > 0 and independ_reg:
+                bdnn_prior_cov_parA += np.log(prior_lam_t_reg[1]) - prior_lam_t_reg[1] * cov_parA[4]
         
         alpha_pp_gammaA = 1.
         if TPP_model == 1: # init multiple q rates
@@ -3723,8 +3723,8 @@ def MCMC(all_arg):
                 qbin_ts_te = get_qbin_ts_te(tsA, teA, q_time_frames_bdnn)
             bdnn_q_ratesA, denom_qA, norm_facA = get_q_rate_BDNN(q_rates_tmp, cov_parA[5], trait_tbl_NN[2], cov_parA[2], hidden_act_f, out_act_f_q, singleton_mask, qbin_ts_te)
             bdnn_prior_qA = np.sum([np.sum(prior_normal(cov_parA[2][i], prior_bdnn_w_q_sd[i])) for i in range(len(cov_parA[2]))])
-            if prior_lam_t_reg > 0:
-                bdnn_prior_qA += np.log(prior_lam_t_reg) - prior_lam_t_reg * cov_parA[5]
+            if prior_lam_t_reg[0] > 0:
+                bdnn_prior_qA += np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_parA[5]
 
         if est_COVAR_prior == 1:
             covar_prior = 1.
@@ -3959,21 +3959,25 @@ def MCMC(all_arg):
                     for i_layer in range(len(cov_parA[1])):
                         cov_par[1][i_layer] *= BDNN_MASK_mu[i_layer]
                 
-                if prior_lam_t_reg > 0:
+                if prior_lam_t_reg[0] > 0:
                     cov_par[3] = update_parameter(cov_parA[3], 0, 1, d=0.05, f=1)
-#                    cov_par[4] = update_parameter(cov_parA[4], 0, 1, d=0.05, f=1)
+                    if not independ_reg:
+                        cov_par[4] = cov_par[3]
+                if prior_lam_t_reg[1] > 0 and independ_reg:
+                    cov_par[4] = update_parameter(cov_parA[4], 0, 1, d=0.05, f=1)
                 
                 # Recalculate bdnn rates when we updated cov_par
                 bdnn_lam_rates, denom_lam, _ = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f)
-                bdnn_mu_rates, denom_mu, _ = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f)
+                bdnn_mu_rates, denom_mu, _ = get_rate_BDNN_3D(cov_par[4], trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f)
                 bdnn_prior_cov_par = np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[0]))])
                 bdnn_prior_cov_par += np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[1]))])
-                if prior_lam_t_reg > 0:
-                    bdnn_prior_cov_par += np.log(prior_lam_t_reg) - prior_lam_t_reg * cov_par[3]
-#                    bdnn_prior_cov_par += np.log(prior_lam_t_reg) - prior_lam_t_reg * cov_par[4]
+                if prior_lam_t_reg[0] > 0:
+                    bdnn_prior_cov_par += np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_par[3]
+                if prior_lam_t_reg[1] > 0 and independ_reg:
+                    bdnn_prior_cov_par += np.log(prior_lam_t_reg[1]) - prior_lam_t_reg[1] * cov_par[4]
 
             if BDNNmodel in [2, 3] and rr_bdnn >= 0.0:
-                if prior_lam_t_reg > 0 and np.random.random() < 0.1:
+                if prior_lam_t_reg[0] > 0 and np.random.random() < 0.1:
                     cov_par[5] = update_parameter(cov_parA[5], 0, 1, d=0.05, f=1)
                 else:
                     rnd_layer = np.random.randint(0, len(cov_parA[2]))
@@ -4108,8 +4112,8 @@ def MCMC(all_arg):
                                     q_rates_tmp = q_rates[highres_q_repeats]
                                 bdnn_q_rates, denom_q, norm_fac = get_q_rate_BDNN(q_rates_tmp, cov_par[5], trait_tbl_NN[2], cov_par[2], hidden_act_f, out_act_f_q, singleton_mask, qbin_ts_te)
                                 bdnn_prior_q = np.sum([np.sum(prior_normal(cov_par[2][i], prior_bdnn_w_q_sd[i])) for i in range(len(cov_par[2]))])
-                                if prior_lam_t_reg > 0:
-                                    bdnn_prior_q += np.log(prior_lam_t_reg) - prior_lam_t_reg * cov_par[5]
+                                if prior_lam_t_reg[0] > 0:
+                                    bdnn_prior_q += np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_par[5]
 
                             if use_HPP_NN_lik: #TPP_model == 1: #  or 
                                 lik_fossil[ind1] = HPP_NN_lik([ts[ind1], te[ind1], bdnn_q_rates[ind1, :],
@@ -4793,7 +4797,10 @@ def MCMC(all_arg):
                         log_state += list(cov_parA[2][i].flatten())
                 if BDNNmodel in [1, 3]:
                     log_state += [cov_parA[3]]
-                    log_state += [cov_parA[3]]
+                    if independ_reg:
+                        log_state += [cov_parA[4]]
+                    else:
+                        log_state += [cov_parA[3]]
                     log_state += [denom_lamA]
                     log_state += [denom_muA]
                 if BDNNmodel in [2, 3]:
@@ -5123,7 +5130,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) abs, 1) softPlus, 2) exp, 3) relu 4) sigmoid 5) sigmoid_rate', default=5, metavar=5)
     p.add_argument('-BDNNactfun', type=int, help='Activation function hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid, 5) fast approximation tanh', default=5, metavar=0)
     p.add_argument('-BDNNprior', type=float, help='sd normal prior', default=1, metavar=1)
-    p.add_argument('-BDNNreg', type=float, help='regularization prior (-1.0 to turn off regularization)', default=1.0, metavar=1)
+    p.add_argument('-BDNNreg', type=float, help='regularization prior (-1.0 to turn off regularization, provide two values for independent regularization of lam and mu)', default=[1.0], metavar=[1.0], nargs='+')
     p.add_argument('-BDNNblockmodel',help='Block NN model', action='store_true', default=False)
     p.add_argument('-BDNNtimevar', type=str, help='Time variable file for birth-death process (e.g. PhanerozoicTempSmooth.txt), several variable in different columns possible', default="", metavar="")
     p.add_argument('-BDNNtimevar_q', type=str, help='Time variable file for sampling process, several variable in different columns possible', default="", metavar="")
@@ -6332,6 +6339,10 @@ if __name__ == '__main__':
 
         n_BDNN_nodes = args.BDNNnodes
         prior_lam_t_reg = args.BDNNreg
+        independ_reg = True
+        if len(prior_lam_t_reg) == 1:
+            independ_reg = False
+            prior_lam_t_reg = [prior_lam_t_reg[0], prior_lam_t_reg[0]]
     
         # load trait data
         names_traits = []
@@ -6434,10 +6445,11 @@ if __name__ == '__main__':
                                                                                      replicates_tbls=highres_q_repeats)
                 cov_par_init_NN[2] = cov_par_init_NN_q
                 prior_bdnn_w_q_sd = [np.ones(cov_par_init_NN[2][i].shape) * args.BDNNprior for i in range(len(cov_par_init_NN[2]))]
-            if prior_lam_t_reg > 0:
+            if prior_lam_t_reg[0] > 0:
                 cov_par_init_NN[3] = 0.5
-                cov_par_init_NN[4] = 0.5
                 cov_par_init_NN[5] = 0.5
+            if prior_lam_t_reg[1] > 0:
+                cov_par_init_NN[4] = 0.5
             else:
                 cov_par_init_NN[3] = 1.0
                 cov_par_init_NN[4] = 1.0
