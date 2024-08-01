@@ -41,5 +41,11 @@ extract.ages.pbdb(file = "Canis_pbdb_data.csv", extant_species = extant_dogs, re
 
 # RTT plot replicate 1 using *_marginal_rates.log: py PyRate.py -plot .\tutorials\Canis_self_example\pyrate_mcmc_logs\Canis_pbdb_data_1_Grj_marginal_rates.log -b 1000
 # RTT plot replicate 2: py PyRate.py -plot .\tutorials\Canis_self_example\pyrate_mcmc_logs\Canis_pbdb_data_2_Grj_marginal_rates.log -b 1000
-# Outputs R scripts, that you then run to create the RTT PDF's. Edit the scripts if you want to change the PDF's
+# Outputs R scripts, that you then run to create the RTT PDF's. Ex: "Canis_pbdb_data_1_Grj_marginal_rates_RTT.r" Edit the scripts if you want to change the PDF's. 
 
+# Combining the 2 replicates' MCMC log files: py PyRate.py -combLog .\tutorials\Canis_self_example\pyrate_mcmc_logs\ -tag mcmc -b 1000
+# Output: "combined_2mcmc.log"
+
+# Since we used the TPP model, we can take the combined_2mcmc.log to Plot Preservation Rates Through Time: 
+# py PyRate.py -plotQ .\tutorials\Canis_self_example\pyrate_mcmc_logs\combined_2mcmc.log -qShift .\tutorials\Canis_self_example\epochs_q.txt -b 1000
+# Output: combined_2_mcmc_RTT_Qrates
