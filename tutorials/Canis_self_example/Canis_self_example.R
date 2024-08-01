@@ -28,19 +28,18 @@ extract.ages.pbdb(file = "Canis_pbdb_data.csv", extant_species = extant_dogs, re
 # TPP + Gamma model, replicate 2, RJMCMC, default MCMC -n (iterations) and -s (samples)
 # Output: *_2_Grj_sum.txt, *_2_Grj_sp_rates.log, *_2_Grj_ex_rates.log, *_Grj_2_mcmc.log
 
-
 # Add all MCMC log files to Tracer, examine burn-in samples
 # Used default MCMC -n 10 mill and -s 1000, decided on a burn-in of about 1 mill iterations --> 1 mill/s --> 1000 burn-in samples
 
-# BD Model Sampling Frequencies for Replicate 1: python PyRate.py -mProb "\tutorials\Canis_self_example\pyrate_mcmc_logs\Canis_pbdb_data_1_Grj_mcmc.log" -b 1000
-# BD Model Sampling Frequencies for Replicate 2: python PyRate.py -mProb "\tutorials\Canis_self_example\pyrate_mcmc_logs\Canis_pbdb_data_2_Grj_mcmc.log" -b 1000
-# Output: A table showing which # of rate shifts has the highest probability
-#For both replicates, the most likely configuration was 1 Speciation rate shift, 2 Extinction rate shifts
+# BD Model Sampling Frequencies for Replicate 1:  py PyRate.py -mProb .\tutorials\Canis_self_example\pyrate_mcmc_logs\Canis_pbdb_data_1_Grj_mcmc.log -b 1000 | tee .\tutorials\Canis_self_example\pyrate_mcmc_logs\BD_Sampling_Freq.txt
+# BD Model Sampling Frequencies for Replicate 2:  py PyRate.py -mProb .\tutorials\Canis_self_example\pyrate_mcmc_logs\Canis_pbdb_data_1_Grj_mcmc.log -b 1000 | tee .\tutorials\Canis_self_example\pyrate_mcmc_logs\BD_Sampling_Freq_1.txt
+# Output: BD_Sampling_Freq_1.txt and BD_Sampling_Freq_2.txt: tables showing which # of rate shifts has the highest probability
+# For both replicates, the most likely configuration was 1 Speciation rate shift, 2 Extinction rate shifts
 
-# RTT plot replicate 1 using mcmc.log: python PyRate.py -mProb tutorials/Canis_self_example/pyrate_mcmc_logs/Canis_pbdb_data_1_Grj_mcmc.log -b 1000
-# RTT plot replicate 2: python PyRate.py -mProb tutorials/Canis_self_example/pyrate_mcmc_logs/Canis_pbdb_data_2_Grj_mcmc.log -b 1000
+# Re-Run MCMC to get *_marginal_rates.log file, for later use in creating RTT plots: py PyRate.py .\tutorials\Canis_self_example\Canis_pbdb_data_PyRate.py -qShift .\tutorials\Canis_self_example\epochs_q.txt -mG -j 1 -log_marginal_rates 1
+# MCMC analysis set up for replicate 1, but with the addition of a -log_marginal_rates 1 tag to output the *_marginal_rates.log file needed
 
+# RTT plot replicate 1 using *_marginal_rates.log: py PyRate.py -plot .\tutorials\Canis_self_example\pyrate_mcmc_logs\Canis_pbdb_data_1_Grj_marginal_rates.log -b 1000
+# RTT plot replicate 2: py PyRate.py -plot .\tutorials\Canis_self_example\pyrate_mcmc_logs\Canis_pbdb_data_2_Grj_marginal_rates.log -b 1000
+# Outputs R scripts, that you then run to create the RTT PDF's. Edit the scripts if you want to change the PDF's
 
-#after py PyRate.py .\tutorials\Canis_self_example\Canis_pbdb_data_PyRate.py -qShift .\tutorials\Canis_self_example\epochs_q.txt -mG -j 1 -log_marginal_rates 1
-#which is mcmc analysis set up for replicate 1, but with the addition of a -log_marginal_rates 1 tag to output the *_marginal_rates.log file needed
-#for an RTT plot in section 5.C., check whether *_sp_rates and *_ex_rates has been update to July 24th (b/c that would mean the new flag outputs ALL output files, in addition to the *_marginal_rates.log)
