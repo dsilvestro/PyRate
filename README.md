@@ -88,3 +88,11 @@ For questions, suggestions or bugs [contact us](mailto:pyrate.help@gmail.com)
 * Pimiento C., Bacon C. D., Silvestro D., Handy A., Jaramillo C., Zizka A., Meyer X., Antonelli A. (2020) Selective extinction against redundant species buffers functional diversity. Proceedings of the Royal Society B [doi: 10.1098/rspb.2020.1162](https://royalsocietypublishing.org/doi/abs/10.1098/rspb.2020.1162).
 
 * Tutorial in prep., example file [here](https://github.com/dsilvestro/PyRate/blob/master/example_files/Example_data_MTE.txt). 
+
+
+
+#### The birth-death neural network model (BDNN) is described here:
+
+* Hauffe T., Cantalapiedra J. L., Silvestro D. (2024) Trait-mediated speciation and human-driven extinctions in proboscideans revealed by unsupervised Bayesian neural networks. Science Advances [doi: 10.1126/sciadv.adl2643](https://www.science.org/doi/full/10.1126/sciadv.adl2643)
+
+* See tutorial [7](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#the-birth-death-neural-network-model)
