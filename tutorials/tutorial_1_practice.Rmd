@@ -286,7 +286,7 @@ All these file names will be **\*\_#\_Grj_sum.txt** (for example), with the \# c
 3.  **sp_rates.log:** tab-separated text file of sampled rates
 4.  **ex_rates.log:** tab-separated text file of times of rate shifts
     1.  \^ Additional visualization commands can be added to a call of these log files, see the RJMCMC tutorial
-5.  If you want to make **RTT plots (Section 5.C. or 5.F.**) you need to add the command `-log_marginal_rates 1` to get this older output file:
+5.  If you want to make **RTT plots (Section 5.C. or 5.F.**) you need to add the command `-log_marginal_rates 1` to get this older output file INSTEAD OF files 3 and 4 above:
     1.  **\*\_marginal_rates.log**: tab-separated table with posterior samples of the marginal rates of
         1.  Speciation rate, extinction rate, net diversification. calculated w/in 1 time unit (typically Myr)
         2.  This file can be later processed using `-plot` (for RTT), but it cannot take `-plotRJ`
@@ -303,13 +303,15 @@ Replicate datasets obviously might converge to slightly different solutions, wit
 
 ## 5.B. BD Model Sampling Frequencies (RJMCMC Only)
 
-Take the \*\_**mcmc.log** output file and in **Terminal:** `python PyRate.py -mProb .../*_mcmc.log -b 200`
+Take the \*\_**mcmc.log** output file and in **Terminal:** `python PyRate.py -mProb .../*_mcmc.log -b 200 | tee .../BD_Sampling_Freq.txt`
 
 -   `-b #` flag: indicates how many beginning samples should be removed because in Tracer you decided that that \# was the burn-in
 
     -   Samples, not iterations. The number of samples you have will be = `-n`/`-s` flags from the analysis command in **\*Section 3**
 
-**Output**: table with the relative probabilities of each BD model (each model is the same type, just with different number of rate shifts)
+-   `BD_Sampling_Freq.txt` : can be named anything you want
+
+**Output**: .txt file saved with the relative probabilities of each BD model (each model is the same type, just with different number of rate shifts)
 
 -   Obviously only RJMCMC analyzes different \#'s of rate shifts, so the table below would only work if you did the `-A 4` flag, or omitted the flag entirely in the MCMC analysis, because both indicate that you want to do an RJMCMC
 
