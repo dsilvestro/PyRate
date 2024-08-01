@@ -408,12 +408,4 @@ You can fix this by setting fixed times of rate shifts at the edges of that time
 
     -   If you only want to set a maximum age boundary, just set min = `0`
 
--   min = a NUMBER representing the minimum age boundary
-
-    -   If you only want to set a minimum age boundary, set max = to `inf`
-
--   `-A 4`: Then you run an RJMCMC on it to infer rate shifts within that time window
-
-## 7.A. Plotting Fixed Boundary Results
-
-`plotRJ` command (see **RJMCMC tutorial) with `-root_plot`** and `-min_age_plot` tags
+-   min =
