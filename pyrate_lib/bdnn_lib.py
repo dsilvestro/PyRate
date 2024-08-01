@@ -1934,9 +1934,15 @@ def get_CV_from_sim_bdnn(bdnn_obj, num_taxa, sp_rates, ex_rates, lam_tt, mu_tt, 
     bdnn_update_f = bdnn_update_f / (2.0 * np.max(bdnn_update_f))
     act_f = bdnn_obj.bdnn_settings['hidden_act_f']
     out_act_f = bdnn_obj.bdnn_settings['out_act_f']
-    prior_t_reg = -1.0
+    prior_t_reg = [-1.0, -1.0] # In case of very old log files witout regularization
     if 'prior_t_reg' in bdnn_obj.bdnn_settings:
         prior_t_reg = bdnn_obj.bdnn_settings['prior_t_reg']
+        independ_reg = False
+        # Keep compatibility with pre-independent regularization
+        if 'independent_t_reg' in bdnn_obj.bdnn_settings:
+            independ_reg = bdnn_obj.bdnn_settings['independent_t_reg']
+        else:
+            prior_t_reg = [prior_t_reg, prior_t_reg]
     prior_cov = 1.0
     if 'prior_cov' in bdnn_obj.bdnn_settings:
         prior_cov = bdnn_obj.bdnn_settings['prior_cov']
@@ -1948,7 +1954,7 @@ def get_CV_from_sim_bdnn(bdnn_obj, num_taxa, sp_rates, ex_rates, lam_tt, mu_tt, 
              num_traits, levels_cat_trait,
              n_nodes, bdnn_update_f,
              act_f, out_act_f,
-             prior_t_reg, prior_cov]
+             prior_t_reg, independ_reg, prior_cov]
         args.append(a)
     unixos = is_unix()
     if unixos and num_processes > 1:
@@ -2146,6 +2152,7 @@ class BdnnTester():
                  act_f=np.tanh,
                  bdnn_update_f=[0.1, 0.2, 0.4],
                  prior_t_reg=-1.0,
+                 independ_reg=False,
                  prior_cov=1.0,
                  mcmc_iterations=25000,
                  burnin=5000,
@@ -2169,6 +2176,7 @@ class BdnnTester():
         # mcmc settings
         self.bdnn_update_f = bdnn_update_f
         self.prior_t_reg = prior_t_reg
+        self.independ_reg = independ_reg
         self.prior_cov = prior_cov
         self.mcmc_iterations = mcmc_iterations
         self.burnin = burnin
@@ -2193,8 +2201,8 @@ class BdnnTester():
 
 
     def get_bd_lik(self, w_lam, w_mu, t_reg):
-        lam, _ = get_rate_BDNN(t_reg, self.traits, w_lam, act_f=self.act_f, out_act_f=self.out_act_f)
-        mu, _ = get_rate_BDNN(t_reg, self.traits, w_mu, act_f=self.act_f, out_act_f=self.out_act_f)
+        lam, _ = get_rate_BDNN(t_reg[0], self.traits, w_lam, act_f=self.act_f, out_act_f=self.out_act_f)
+        mu, _ = get_rate_BDNN(t_reg[1], self.traits, w_mu, act_f=self.act_f, out_act_f=self.out_act_f)
         bd_lik = np.sum(np.log(lam)) + np.sum(self.extant_species * np.log(mu)) - np.sum((lam + mu) * self.sp_longevities)
         return bd_lik
 
@@ -2202,8 +2210,10 @@ class BdnnTester():
     def get_prior(self, w_lam, w_mu, t_reg):
         prior = np.sum([np.sum(stats.norm.logpdf(i, loc=0, scale=self.prior_cov)) for i in w_lam])
         prior += np.sum([np.sum(stats.norm.logpdf(i, loc=0, scale=self.prior_cov)) for i in w_mu])
-        if self.prior_t_reg > 0.0:
-            prior += np.log(self.prior_t_reg) - self.prior_t_reg * t_reg
+        if self.prior_t_reg[0] > 0.0:
+            prior += np.log(self.prior_t_reg[0]) - self.prior_t_reg[0] * t_reg[0]
+        if self.prior_t_reg[1] > 0.0 and self.independ_reg:
+            prior += np.log(self.prior_t_reg[1]) - self.prior_t_reg[1] * t_reg[1]
         return prior
 
 #    def get_prior(self, w_lam, w_mu):
@@ -2220,10 +2230,11 @@ class BdnnTester():
         # init model
         w_lamA = init_weight_prm(self.n_nodes, self.n_traits, size_output=1, init_std=0.1, bias_node=1)
         w_muA = init_weight_prm(self.n_nodes, self.n_traits, size_output=1, init_std=0.1, bias_node=1)
-        t_regA = 1.0
-        t_reg = 1.0
-        if self.prior_t_reg > 0.0:
-            t_regA = 0.5
+        t_regA = np.ones(2)
+        t_reg = np.ones(2)
+        if self.prior_t_reg[0] > 0.0:
+            t_regA[0] = 0.5
+            t_regA[1] = 0.5
         postA = self.get_bd_lik(w_lamA, w_muA, t_regA) + self.get_prior(w_lamA, w_muA, t_regA)
         
         # run mcmc
@@ -2241,8 +2252,12 @@ class BdnnTester():
                                                             d=0.05,
                                                             f=self.bdnn_update_f[rnd_layer] )
             # update temp regularization
-            if self.prior_t_reg > 0.0:
-                t_reg = update_parameter(t_regA, 0, 1, d=0.05, f=1)
+            if self.prior_t_reg[0] > 0.0:
+                t_reg[0] = update_parameter(t_regA[0], 0, 1, d=0.05, f=1)
+                if not self.independ_reg:
+                    t_reg[1] = t_reg[0]
+            if self.prior_t_reg[1] > 0.0 and self.independ_reg:
+                t_reg[1] = update_parameter(t_regA[1], 0, 1, d=0.05, f=1)
 
             post = self.get_bd_lik(w_lam, w_mu, t_reg) + self.get_prior(w_lam, w_mu, t_reg)
 
@@ -2255,8 +2270,8 @@ class BdnnTester():
                 t_regA = t_reg
     
             if iteration % 100 == 0 and iteration > self.burnin:
-                lam, _ = get_rate_BDNN(t_reg, self.traits, w_lam, act_f=self.act_f, out_act_f=self.out_act_f)
-                mu, _ = get_rate_BDNN(t_reg, self.traits, w_mu, act_f=self.act_f, out_act_f=self.out_act_f)
+                lam, _ = get_rate_BDNN(t_reg[0], self.traits, w_lam, act_f=self.act_f, out_act_f=self.out_act_f)
+                mu, _ = get_rate_BDNN(t_reg[1], self.traits, w_mu, act_f=self.act_f, out_act_f=self.out_act_f)
                 lam_acc.append(lam)
                 mu_acc.append(mu)
 
@@ -2453,7 +2468,7 @@ class BdnnTesterSampling():
 
 
 def get_CV_from_sim_i(arg):
-    [rep, rangeSP, rangeL, rangeM, root_age, num_traits, levels_cat_trait, n_nodes, bdnn_update_f, act_f, out_act_f, prior_t_reg, prior_cov] = arg
+    [rep, rangeSP, rangeL, rangeM, root_age, num_traits, levels_cat_trait, n_nodes, bdnn_update_f, act_f, out_act_f, prior_t_reg, independ_reg, prior_cov] = arg
 
 #    # Random seed
 #    rs = np.random.default_rng(None)
@@ -2481,6 +2496,7 @@ def get_CV_from_sim_i(arg):
                               n_nodes=n_nodes,
                               bdnn_update_f=bdnn_update_f,
                               prior_t_reg=prior_t_reg,
+                              independ_reg=independ_reg,
                               prior_cov=prior_cov,
                               verbose=False)
         cv = bdnn_sim.get_cv()
@@ -3808,7 +3824,7 @@ def trim_trt_tbls_to_match_event(trt_tbls, events):
 
 def feature_permutation(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm = 10, num_processes = 1, combine_discr_features = "", show_progressbar = False, do_inter_imp = True):
     bdnn_obj, post_w_sp, post_w_ex, _, sp_fad_lad, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, post_t_reg_q, post_reg_denom_lam, post_reg_denom_mu, _, _ = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
-    n_mcmc = post_ts.shape[0]
+    n_mcmc, n_taxa = post_ts.shape
     fixed_times_of_shift = copy_lib.deepcopy(bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn']) # We need this for the diversity dependence
     trt_tbls = bdnn_obj.trait_tbls[:2]
 #    trt_tbls_highres, bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'], _ = set_temporal_resolution(bdnn_obj, min_bs) # We need the fixed_times setting for the diversity-dependence
@@ -3839,9 +3855,11 @@ def feature_permutation(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm = 10, 
         if trt_tbls[0].ndim == 3:
             bdnn_time = get_bdnn_time(fixed_times_of_shift, post_ts[i, :])
             bdnn_time_highres = get_bdnn_time(fixed_times_of_shift_highres, post_ts[i, :])
-            i_events_sp_highres, i_events_ex_highres, n_S_highres = get_events_ns(post_ts[i, :], post_te[i, :], bdnn_time_highres)
+            bin_size = np.tile(np.abs(np.diff(bdnn_time_highres)), n_taxa).reshape((n_taxa, len(bdnn_time_highres) - 1))
+            i_events_sp_highres, i_events_ex_highres, n_S_highres = get_events_ns(post_ts[i, :], post_te[i, :], bdnn_time_highres, bin_size)
             trt_tbls_highres_trimmed = trim_trt_tbls_to_match_event(trt_tbls_highres, i_events_sp_highres)
-        i_events_sp, i_events_ex, n_S = get_events_ns(post_ts[i, :], post_te[i, :], bdnn_time)
+        bin_size = np.tile(np.abs(np.diff(bdnn_time)), n_taxa).reshape((n_taxa, len(bdnn_time) - 1))
+        i_events_sp, i_events_ex, n_S = get_events_ns(post_ts[i, :], post_te[i, :], bdnn_time, bin_size)
         a = [bdnn_obj, post_ts[i, :], post_te[i, :],
              bdnn_time, i_events_sp, i_events_ex, n_S,
              bdnn_time_highres, i_events_sp_highres, i_events_ex_highres, n_S_highres,
