@@ -342,7 +342,7 @@ Take the **\*marginal_rates.log** output file and in **Terminal:** `python PyRat
 
 **Output**:
 
--   R script
+-   R script which you can run to create –\>
 
 -   PDF file with the RTT plots
 
@@ -365,6 +365,7 @@ You should already have a **directory** (folder) with all your output and Input 
 `PyRate.py -plot path_to_your_log_files -tag Canis_pbdb -b 100`
 
 -   `-tag Canis_pbdb` : We used 'Canis_pbdb' as an example here. You should add part of the file name after the -tag so the command can combine all the **marginal_rates.log** files that contain that name
+-   **Output:** combined\_#mcmc.log where the \# is the number of replicates
 
 ## 5.F. Plotting Preservation Rates Through Time (TPP)
 
