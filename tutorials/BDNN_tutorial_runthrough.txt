@@ -12,6 +12,7 @@ Carnivora_1_G_BDS_BDNN_16_8TVc_sp_rates.log
 RTT PLOT:
 python PyRate.py -plotBDNN example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -b 0.1
 
+Output:
 pyrate_mcmc_logs\Carnivora_1_G_BDS_BDNN_16_8TVc_RTT.r
 ^Run that to get PDF
 
@@ -19,6 +20,7 @@ pyrate_mcmc_logs\Carnivora_1_G_BDS_BDNN_16_8TVc_RTT.r
 PARTIAL DEPENDENCE PLOTS: *Use single quotes instead of double quotes around the -BDNN_groups JSON dictionary! On Windows at least
 python PyRate.py -plotBDNN_effects example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features example_files/BDNN_examples/Carnivora/Backscale.txt -BDNN_groups '{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}' -b 0.1 -resample 100
 
+Output:
 pyrate_mcmc_logs\Carnivora_1_G_BDS_BDNN_16_8TVc_PDP.r
 ^Run that to get PDF
 
@@ -33,6 +35,7 @@ OverflowError: high - low range exceeds valid bounds
 CUSTOM PREDICTORS TABLE EDITS:
 python PyRate.py example_files/BDNN_examples/Carnivora/Carnivora_occs.py -fixShift example_files/BDNN_examples/Carnivora/Time_windows.txt -BDNNmodel 1 -BDNNtimevar example_files/BDNN_examples/Carnivora/Paleotemperature.txt -qShift example_files/BDNN_examples/Carnivora/Stages.txt -mG -A 0 -trait_file example_files/BDNN_examples/Carnivora/Traits.txt -BDNNexport_taxon_time_tables
 
+Output:
 pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc.pkl = BDNN object
 Carnivora\BDNN_predictors = BDNN predictors
 
@@ -42,4 +45,4 @@ Carnivora\BDNN_predictors = BDNN predictors
 CUSTOM PREDICTORS ANALYSIS:
 python PyRate.py example_files/BDNN_examples/Carnivora/Carnivora_occs.py -fixShift example_files/BDNN_examples/Carnivora/Time_windows.txt -BDNNmodel 1 -BDNNmodel 1 -BDNNpath_taxon_time_tables example_files/BDNN_examples/Carnivora/load_predictors/speciation example_files/BDNN_examples/Carnivora/load_predictors/extinction -qShift example_files/BDNN_examples/Carnivora/Stages.txt -mG -A 0  -s 10 -n 1000
 
-
+Output: BDNN_predictors folder
