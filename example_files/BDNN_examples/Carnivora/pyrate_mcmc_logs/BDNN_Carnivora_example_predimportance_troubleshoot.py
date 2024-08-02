@@ -1,3 +1,5 @@
+venv/bin/python
+
 import os
 print(os.environ.get('VIRTUAL_ENV', 'No active virtual environment'))
 
