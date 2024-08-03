@@ -5086,7 +5086,8 @@ if __name__ == '__main__':
     p.add_argument('-plot2',      metavar='<input file>', type=str,help="RTT plot (type 2): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
     p.add_argument('-plot3',      metavar='<input file>', type=str,help="RTT plot for fixed number of shifts: provide 'mcmc.log' file",default="")
     p.add_argument('-plotRJ',     metavar='<input file>', type=str,help="RTT plot for runs with '-log_marginal_rates 0': provide path to 'mcmc.log' files",default="")
-    p.add_argument('-plotBDNN',   metavar='<input file>', type=str,help="RTT plot for BDNN runs: provide path to 'mcmc.log' and '*.pkl' files",default="")
+    p.add_argument('-plotBDNN',   metavar='<input file>', type=str,help="RTT plot for BDNN runs: provide path to the 'mcmc.log' file",default="")
+    p.add_argument('-plotBDNN_groups', metavar='<input file>', type=str, help="Path to tab-separated text file giving the taxa for which the RTT plot should be created (see BDNN tutorial)", default = "")
     p.add_argument('-plotBDNN_effects',   metavar='<input file>', type=str, help="Effect plot for BDNN runs: provide path and base name for 'mcmc.log' file (e.g. .../pyrate_mcmc_logs/example_BDS_BDNN_16_8Tc_mcmc.log)", default = "")
     p.add_argument('-plotBDNN_transf_features', metavar='<input file>', type=str,
                    help="Optional back transformation of z-standardized BDNN features (text file with name of the feature as header, its mean, and standard deviation before z-standardization", default = "")
@@ -5185,7 +5186,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNfadlad', type=float, help='if > 0 include FAD LAD as traits (rescaled i.e. FAD * BDNNfadlad)', default=0, metavar=0)
     p.add_argument('-BDNNtimetrait', type=float, help='if > 0 use (rescaled) time as a trait (only with -fixShift option). if = -1 auto-rescaled', default= -1, metavar= -1)
     p.add_argument('-BDNNconstbaseline', type=int, help='constant baseline rates (only with -fixShift option AND time as a trait)', default=1, metavar=1)
-    p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) abs, 1) softPlus, 2) exp, 3) relu 4) sigmoid 5) sigmoid_rate', default=5, metavar=5)
+    p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) abs, 1) softPlus, 2) exp, 3) relu 4) sigmoid 5) sigmoid_rate', default=1, metavar=1)
     p.add_argument('-BDNNactfun', type=int, help='Activation function hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid, 5) fast approximation tanh', default=5, metavar=0)
     p.add_argument('-BDNNprior', type=float, help='sd normal prior', default=1, metavar=1)
     p.add_argument('-BDNNreg', type=float, help='regularization prior (-1.0 to turn off regularization, provide two values for independent regularization of lam and mu)', default=[1.0], metavar=[1.0], nargs='+')
@@ -5544,8 +5545,10 @@ if __name__ == '__main__':
                 rtt_plot_bds = rtt_plot_bds.RTTplot_Q(path_dir_log_files,args.qShift,burnin=burnin,max_age=root_plot)
             elif plot_type== 6:
                 import pyrate_lib.bdnn_lib as bdnn_lib
-                sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q = bdnn_lib.get_bdnn_rtt(path_dir_log_files, burn = burnin)
-                bdnn_lib.plot_bdnn_rtt(path_dir_log_files, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q)
+                output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q = bdnn_lib.get_bdnn_rtt(path_dir_log_files, burn = burnin)
+                bdnn_lib.plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q)
+                if args.plotBDNN_groups != "":
+                    bdnn_lib.plot_bdnn_rtt_groups(path_dir_log_files, args.plotBDNN_groups, burn=burnin)
 
         elif plot_type == 7:
             import pyrate_lib.bdnn_lib as bdnn_lib

@@ -38,6 +38,7 @@ from PyRate import get_events_ns
 from PyRate import BDNN_fast_partial_lik
 from PyRate import HPP_NN_lik
 from PyRate import HOMPP_NN_lik
+from PyRate import get_sp_indx_in_timeframe
 from PyRate import get_time_in_q_bins
 from PyRate import get_occs_sp
 from PyRate import get_fossil_features_q_shifts
@@ -347,15 +348,18 @@ def get_bdnn_rtt(f, burn):
         r_q_sum = None
         time_vec_q = None
 
-    return r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum, time_vec_q
-
-
-
-def plot_bdnn_rtt(f, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum, time_vec_q):
     output_wd = os.path.dirname(f)
     name_file = os.path.basename(f)
     name_file = name_file.replace("_mcmc.log", "")
-    out = "%s/%s_RTT.r" % (output_wd, name_file)
+    r_file = "%s_RTT.r" % name_file
+    pdf_file = "%s_RTT.pdf" % name_file
+
+    return output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum, time_vec_q
+
+
+
+def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum, time_vec_q):
+    out = "%s/%s" % (output_wd, r_file)
     newfile = open(out, "w")
     n_rows = 0
     n_elements = 0
@@ -369,9 +373,9 @@ def plot_bdnn_rtt(f, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum,
             n_elements += 1
     if platform.system() == "Windows" or platform.system() == "Microsoft":
         wd_forward = os.path.abspath(output_wd).replace('\\', '/')
-        r_script = "pdf(file='%s/%s_RTT.pdf', width = 9, height = %s, useDingbats = FALSE)\n" % (wd_forward, name_file, 3 * n_rows)
+        r_script = "pdf(file='%s/%s', width = 9, height = %s, useDingbats = FALSE)\n" % (wd_forward, pdf_file, 3 * n_rows)
     else:
-        r_script = "pdf(file='%s/%s_RTT.pdf', width = 9, height = %s, useDingbats = FALSE)\n" % (output_wd, name_file, 3 * n_rows)
+        r_script = "pdf(file='%s/%s', width = 9, height = %s, useDingbats = FALSE)\n" % (output_wd, pdf_file, 3 * n_rows)
     r_script += "\nlayout(matrix(1:%s, ncol = 2, nrow = %s, byrow = TRUE))" % (n_elements, n_rows)
     r_script += "\npar(las = 1, mar = c(4.5, 4.5, 0.5, 0.5))"
     if not r_sp_sum is None:
@@ -426,11 +430,95 @@ def plot_bdnn_rtt(f, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum,
     newfile.close()
 
     if platform.system() == "Windows" or platform.system() == "Microsoft":
-        cmd = "cd %s & Rscript %s_RTT.r" % (output_wd, name_file)
+        cmd = "cd %s & Rscript %s" % (output_wd, r_file)
     else:
-        cmd = "cd %s; Rscript %s_RTT.r" % (output_wd, name_file)
-        print("cmd", cmd)
-        os.system(cmd)
+        cmd = "cd %s; Rscript %s" % (output_wd, r_file)
+    print("cmd", cmd)
+    os.system(cmd)
+
+
+def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn):
+    """Make RTT plots for the groups of species defined in the tab-delimited group_path file"""
+    mcmc_file = path_dir_log_files
+    path_dir_log_files = path_dir_log_files.replace("_mcmc.log", "")
+    pkl_file = path_dir_log_files + ".pkl" 
+    
+    output_wd = os.path.dirname(mcmc_file)
+    name_file = os.path.basename(path_dir_log_files)
+    name_file = name_file.replace("_mcmc.log", "")
+
+    bdnn_obj, w_sp, w_ex, _, sp_fad_lad, ts, te, t_reg_lam, t_reg_mu, _, reg_denom_lam, reg_denom_mu, _, _ = bdnn_parse_results(mcmc_file, pkl_file, burn)
+    species_names = bdnn_obj.sp_fad_lad["Taxon"].to_numpy()
+    group_file = pd.read_csv(groups_path, delimiter = '\t')
+    group_names = group_file.columns.tolist()
+    group_species_idx = []
+    for gn in group_names:
+        species_in_group = group_file[gn].dropna().to_numpy()
+        group_species_idx.append(np.where(np.in1d(species_names, species_in_group))[0])
+    
+    try:
+        # Diversification
+        times_of_shift = get_bdnn_time(bdnn_obj, ts)
+        num_bins = len(times_of_shift) - 1
+        hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
+        out_act_f = bdnn_obj.bdnn_settings['out_act_f']
+        trait_tbl = bdnn_obj.trait_tbls
+        names_features = get_names_features(bdnn_obj, rate_type='speciation')
+        bdnn_dd = 'diversity' in names_features
+        bdnn_rescale_div = bdnn_obj.bdnn_settings['div_rescaler']
+        div_idx_trt_tbl = -1
+        if is_time_trait(bdnn_obj):
+            div_idx_trt_tbl = -2
+        n_taxa = trait_tbl[0].shape[1]
+        num_it = ts.shape[0]
+        lam_it = np.zeros((num_it, n_taxa, num_bins))
+        mu_it = lam_it + 0.0
+        # Get speciation and extinction rates (the same as we obtained them during the BDNN inference)
+        for i in range(num_it):
+            if bdnn_dd:
+                bdnn_time_div = np.arange(np.max(ts[i, :]), 0.0, -0.001)
+                bdnn_div = get_DT(bdnn_time_div, ts[i, :], te[i, :])
+                bdnn_div = get_DT(bdnn_time_div, post_ts_i, post_te_i)
+                bdnn_binned_div = get_binned_div_traj(bdnn_time, bdnn_time_div, bdnn_div)[:-1] / bdnn_rescale_div
+                bdnn_binned_div = np.repeat(bdnn_binned_div, n_taxa).reshape((len(bdnn_binned_div), n_taxa))
+                trait_tbl[0][:, :, div_idx_trt_tbl] = bdnn_binned_div
+                trait_tbl[1][:, :, div_idx_trt_tbl] = bdnn_binned_div
+            lam = get_rate_BDNN_3D_noreg(trait_tbl[0], w_sp[i], hidden_act_f, out_act_f)
+            lam_it[i, :, :] = lam ** t_reg_lam[i] / reg_denom_lam[i]
+            mu = get_rate_BDNN_3D_noreg(trait_tbl[1], w_ex[i], hidden_act_f, out_act_f)
+            mu_it[i, :, :] = mu ** t_reg_mu[i] / reg_denom_mu[i]
+
+        # Get marginal rates through time for the specified group of taxa
+        FA = np.max(np.mean(ts, axis=0))
+        time_vec = format_t_vec(times_of_shift[1:-1], FA)
+        for g in range(len(group_names)):
+            gs = group_species_idx[g]
+            r_sp = np.zeros((num_it, num_bins))
+            r_ex = np.zeros((num_it, num_bins))
+            for i in range(num_it):
+                for j in range(num_bins):
+                    lam_tmp = lam_it[i, gs, j]
+                    mu_tmp = mu_it[i, gs, j]
+                    indx = get_sp_indx_in_timeframe(ts[i, gs], te[i, gs], up = times_of_shift[j], lo = times_of_shift[j + 1])
+                    with warnings.catch_warnings():
+                        warnings.simplefilter('ignore', category = RuntimeWarning)
+                        r_sp[i, j] = 1 / np.mean(1 / lam_tmp[indx])
+                        r_ex[i, j] = 1 / np.mean(1 / mu_tmp[indx])
+            
+            r_div = r_sp - r_ex
+            longevity = 1. / r_ex
+            sptt = summarize_rate(r_sp, num_bins)
+            extt = summarize_rate(r_ex, num_bins)
+            divtt = summarize_rate(r_div, num_bins)
+            longtt = summarize_rate(longevity, num_bins)
+            qtt = None
+            time_vec_q = None
+            r_file = "%s_%s_RTT.r" % (name_file, group_names[g])
+            pdf_file = "%s_%s_RTT.pdf" % (name_file, group_names[g])
+            plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q)
+    except:
+        pass
+    # Add sampling through time
 
 
 def apply_thin(w, thin):
@@ -3823,7 +3911,7 @@ def trim_trt_tbls_to_match_event(trt_tbls, events):
 
 
 def feature_permutation(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm = 10, num_processes = 1, combine_discr_features = "", show_progressbar = False, do_inter_imp = True):
-    bdnn_obj, post_w_sp, post_w_ex, _, sp_fad_lad, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, post_t_reg_q, post_reg_denom_lam, post_reg_denom_mu, _, _ = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
+    bdnn_obj, post_w_sp, post_w_ex, _, sp_fad_lad, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, _, post_reg_denom_lam, post_reg_denom_mu, _, _ = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
     n_mcmc, n_taxa = post_ts.shape
     fixed_times_of_shift = copy_lib.deepcopy(bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn']) # We need this for the diversity dependence
     trt_tbls = bdnn_obj.trait_tbls[:2]
