@@ -1930,7 +1930,7 @@ def BDNN_partial_lik(arg):
 
 def BDNN_fast_partial_lik(arg):
     [i_events, n_S, r] = arg
-    lik = np.sum(np.nan_to_num(np.log(r * i_events))) + np.sum(-r * n_S)
+    lik = np.sum(np.nan_to_num(np.log(r * i_events)) + -r * n_S, axis=1)
     return lik
 
 
@@ -1946,7 +1946,7 @@ def get_events_ns(ts, te, times, bin_size):
     i_events_ex[ind, ind_te] = 1.0
 
     n_S = bin_size + 0.0
-    for i in range(n_S.shape[0]):
+    for i in range(num_taxa):
         n_S[i, :ind_ts[i]] = 0.0
         n_S[i, ind_te[i]:] = 0.0
     time_in_first_bin = ts - times[1:][ind_ts]
@@ -1955,6 +1955,36 @@ def get_events_ns(ts, te, times, bin_size):
     n_S[ind, ind_te] = time_in_last_bin
     ts_te_same_bin = ind_ts == ind_te
     n_S[ts_te_same_bin, ind_ts[ts_te_same_bin]] = ts[ts_te_same_bin] - te[ts_te_same_bin]
+
+    return i_events_sp, i_events_ex, n_S
+
+
+def update_events_ns(ts, te, times, bin_size, events_sp, events_ex, n_S, ind_update):
+    i_events_sp = events_sp + 0.0
+    i_events_ex = events_ex + 0.0
+    i_events_sp[ind_update, :] = np.nan
+    i_events_ex[ind_update, :] = np.nan
+    ts = ts[ind_update]
+    te = te[ind_update]
+    ind_ts = np.digitize(ts, times[1:])
+    ind_te = np.digitize(te, times[1:])
+    i_events_sp[ind_update, ind_ts] = 1.0
+    i_events_ex[ind_update, ind_te] = 1.0
+
+    n_S_up = bin_size[ind_update, :]
+    num_taxa = len(ind_update)
+    ind = np.arange(num_taxa)
+    for i in range(num_taxa):
+        n_S_up[i, :ind_ts[i]] = 0.0
+        n_S_up[i, ind_te[i]:] = 0.0
+    time_in_first_bin = ts - times[1:][ind_ts]
+    time_in_last_bin = times[1:][ind_te - 1] - te
+    n_S_up[ind, ind_ts] = time_in_first_bin
+    n_S_up[ind, ind_te] = time_in_last_bin
+    ts_te_same_bin = ind_ts == ind_te
+    n_S_up[ts_te_same_bin, ind_ts[ts_te_same_bin]] = ts[ts_te_same_bin] - te[ts_te_same_bin]
+    n_S = n_S + 0.0
+    n_S[ind_update, :] = n_S_up
 
     return i_events_sp, i_events_ex, n_S
 
@@ -3709,9 +3739,9 @@ def MCMC(all_arg):
             if use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
                 bin_size_lam_mu = np.tile(np.abs(np.diff(timesLA)), n_taxa).reshape((n_taxa, len(timesLA) - 1))
                 i_events_spA, i_events_exA, n_SA = get_events_ns(tsA, teA, timesLA, bin_size_lam_mu)
-                likBDtempA = np.zeros(2)
-                likBDtempA[0] = BDNN_fast_partial_lik([i_events_spA, n_SA, bdnn_lam_ratesA])
-                likBDtempA[1] = BDNN_fast_partial_lik([i_events_spA, n_SA, bdnn_lam_ratesA])
+                likBDtempA = np.zeros((2, n_taxa))
+                likBDtempA[0, :] = BDNN_fast_partial_lik([i_events_spA, n_SA, bdnn_lam_ratesA])
+                likBDtempA[1, :] = BDNN_fast_partial_lik([i_events_spA, n_SA, bdnn_lam_ratesA])
             bdnn_prior_cov_parA[0] = np.sum([np.sum(prior_normal(cov_parA[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_parA[0]))])
             bdnn_prior_cov_parA[1] = np.sum([np.sum(prior_normal(cov_parA[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_parA[1]))])
             if prior_lam_t_reg[0] > 0:
@@ -4317,9 +4347,11 @@ def MCMC(all_arg):
                     args=list()
                     if use_ADE_model == 0: # speciation rate is not used under ADE model
                         if BDNNmodel in [1, 3]:
+                            ind_bdnn_lik = np.arange(n_taxa)
                             if ts_te_updated:
-                                i_events_sp, i_events_ex, n_S = get_events_ns(ts, te, timesL, bin_size_lam_mu)
-                            args.append([i_events_sp, n_S, bdnn_lam_rates])
+                                ind_bdnn_lik = (ts-te != tsA-teA).nonzero()[0]
+                                i_events_sp, i_events_ex, n_S = update_events_ns(ts, te, timesL, bin_size_lam_mu, i_events_sp, i_events_ex, n_S, ind_bdnn_lik)
+                            args.append([i_events_sp[ind_bdnn_lik, :], n_S[ind_bdnn_lik, :], bdnn_lam_rates[ind_bdnn_lik, :]])
                         else:
                             for temp_l in range(len(timesL)-1):
                                 up, lo = timesL[temp_l], timesL[temp_l+1]
@@ -4328,7 +4360,7 @@ def MCMC(all_arg):
                     # print(args[0][4], args[0][6], args[0][-1])
                     # parameters of each partial likelihood and prior (m)
                     if BDNNmodel in [1, 3]:
-                        args.append([i_events_ex, n_S, bdnn_mu_rates])
+                        args.append([i_events_ex[ind_bdnn_lik, :], n_S[ind_bdnn_lik, :], bdnn_mu_rates[ind_bdnn_lik, :]])
                     else:
                         for temp_m in range(len(timesM)-1):
                             up, lo = timesM[temp_m], timesM[temp_m+1]
@@ -4387,19 +4419,16 @@ def MCMC(all_arg):
                                 
                             if BDNNmodel in [1, 3]:
                                 if ts_te_updated or cov_lam_updated:
-                                    likBDtemp[0] = BDNN_fast_partial_lik(args[0])
+                                    likBDtemp[0, ind_bdnn_lik] = BDNN_fast_partial_lik(args[0])
                                 if ts_te_updated or cov_mu_updated:
-                                    likBDtemp[1] = BDNN_fast_partial_lik(args[1])
+                                    likBDtemp[1, ind_bdnn_lik] = BDNN_fast_partial_lik(args[1])
                             else:
                                 likBDtemp=np.zeros(len(args))
                                 for i in range(len(args)):
                                     likBDtemp[i] = BPD_partial_lik(args[i])
                         # multi-thread computation of lik and prior (rates)
                         else:
-                            if BDNNmodel in [1, 3]:
-                                likBDtemp = np.array(pool_lik.map(BDNN_fast_partial_lik, args))
-                            else:
-                                likBDtemp = np.array(pool_lik.map(BPD_partial_lik, args))
+                            likBDtemp = np.array(pool_lik.map(BPD_partial_lik, args))
                     
 
             else:
