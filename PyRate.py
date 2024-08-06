@@ -4349,7 +4349,8 @@ def MCMC(all_arg):
                         if BDNNmodel in [1, 3]:
                             ind_bdnn_lik = np.arange(n_taxa)
                             if ts_te_updated:
-                                ind_bdnn_lik = (ts-te != tsA-teA).nonzero()[0]
+                                if not bdnn_dd:
+                                    ind_bdnn_lik = (ts-te != tsA-teA).nonzero()[0]
                                 i_events_sp, i_events_ex, n_S = update_events_ns(ts, te, timesL, bin_size_lam_mu, i_events_sp, i_events_ex, n_S, ind_bdnn_lik)
                             args.append([i_events_sp[ind_bdnn_lik, :], n_S[ind_bdnn_lik, :], bdnn_lam_rates[ind_bdnn_lik, :]])
                         else:
