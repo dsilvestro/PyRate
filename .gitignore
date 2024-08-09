@@ -1,8 +1,33 @@
+
+
+# OS generated files
 .DS_Store
-ADE-NN/.DS_Store
-example_files/.DS_Store
-mcmcDivE/.DS_Store
-pyrate_lib/.DS_Store
-example_files/Canis_example/__pycache__/
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# Virtual environments
 pyrate_env/
-pyrate_lib/__pycache__/
+.venv/
+
+# Log files
+**/*.log
+
+# Specific directories to ignore
+ADE-NN/
+mcmcDivE/
+pyrate_lib/fastPyRateC/boost_1_82_0.zip
+
+# R files
+.RData
+.Rhistory
+
+# Specific files to ignore
+tutorials/Canis_self_example/__pycache__/Canis_pbdb_data_PyRate.cpython-312.pyc
+
+# Ignore all files in this directory
+tutorials/Canis_example/pyrate_mcmc_logs/*
+
+# Do not ignore .gitattributes
+!.gitattributes
