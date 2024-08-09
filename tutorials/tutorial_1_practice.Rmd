@@ -194,11 +194,13 @@ In any anaysis with time bins, be careful that changes in diversification may be
 TPP_model
 ```
 
-### 2.A.iv. Gamma Model: Rate Heterogeneity Among Lineages
+### 2.A.iv. Gamma Model: q Rate Heterogeneity Among Lineages
 
-TPP uses gamma distribution in preservation rate priors. This section describes how to distribute NHPP, HPP, and TPP lineage-specific preservation rates across a gamma distribution.
+TPP uses gamma distribution in preservation rate (q) priors. By adding the `-mG` flag do your analyses, the model will assume that the preservation rate follows a Gamma distribution, with each taxon getting assigned a preservation rate chosen from that distribution. Thus, each lineage can have it's own q rate.
 
-The Gamma model for lineage heterogeneity only adds a single parameter, which voids overparameterization
+This section describes how to distribute NHPP, HPP, and TPP lineage-specific preservation rates across a gamma distribution.
+
+The Gamma model for lineage heterogeneity only adds a single parameter, which voids over-parameterization
 
 Can be coupled with NHPP, HPP, TPP. In **Terminal, simply add this flag to the end of any of the model's run commands: -**`mG`
 
@@ -246,7 +248,7 @@ Both BDMCMC and RJMCMC estimate the \# and timing/placement of rate shits (tempo
 
         -   Gamma model flag `-mG`
 
-    -   **Section 7**. If you want to set fixed time bins for the BD model: do `-fixShift path/to/bd_epochs_q.txt`
+    -   **Section 7**. If you want to set fixed time bins for the BD model (**BDC Skyline Model)**: do `-fixShift path/to/bd_epochs_q.txt`
 
         -   `bd_epochs_q.txt` can be the same or diff from the `epochs_q.txt` in the TPP (I.e., can be the same file if you want to use the same time bins for Preservation and S+E (Birth-Death)
 
@@ -261,6 +263,8 @@ Both BDMCMC and RJMCMC estimate the \# and timing/placement of rate shits (tempo
         -   **n/s = the \# of posterior samples the output log file will have.**
 
         -   So in this example, at 20 mill iterations, sampled every 5,000 –\> the output log file will have 4,000 posterior samples
+
+        -   `-p 100` = the program will show its progress every 100 iterations
 
 # 4. Output Files
 
@@ -365,7 +369,7 @@ You should already have a **directory** (folder) with all your output and Input 
 `PyRate.py -plot path_to_your_log_files -tag Canis_pbdb -b 100`
 
 -   `-tag Canis_pbdb` : We used 'Canis_pbdb' as an example here. You should add part of the file name after the -tag so the command can combine all the **marginal_rates.log** files that contain that name
--   **Output:** combined\_#mcmc.log where the \# is the number of replicates
+-   **Output: combined\_#mcmc.log** where the \# is the number of replicates
 
 ## 5.F. Plotting Preservation Rates Through Time (TPP)
 
@@ -377,7 +381,7 @@ TPP model has different rates for different time bins, and we'd like to view tho
 
 # 6. BD Models with Fixed Rate Shifts
 
-RJMCMC allows you to estimate timing and number of rate shifts using MCMC. If you want to fix those a priori though (based on external theory like geological epochs), you can do this by providing a file with pre-defined times of rate shifts, just like TPP took
+RJMCMC allows you to estimate timing and number of rate shifts using MCMC. If you want to fix those a priori though (based on external theory like geological epochs), you can do this by providing a file with pre-defined times of rate shifts, just like TPP took.
 
 Remember that adding these time bins increases the model complexity, so you want to make sure you have sufficient data to support this complexity. Model assumes half-Cauchy prior distributions for speciation and extinction rates between shifts. Hyperprior on the half-Cauchy distribution's scale parameter, to reduce the risk of over-parameterization
 
