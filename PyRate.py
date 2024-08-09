@@ -1930,22 +1930,62 @@ def BDNN_partial_lik(arg):
 
 def BDNN_fast_partial_lik(arg):
     [i_events, n_S, r] = arg
-    lik = np.sum(np.nan_to_num(np.log(r * i_events))) + np.sum(-r * n_S)
+    lik = np.sum(np.nan_to_num(np.log(r * i_events)) + -r * n_S, axis=1)
     return lik
 
 
-def get_events_ns(ts, te, times):
+def get_events_ns(ts, te, times, bin_size):
     num_taxa = len(ts)
     num_bins = len(times)-1
-    i_events_sp = np.full((num_taxa, num_bins), np.nan)#np.zeros((num_bins, num_taxa))
-    i_events_ex = np.full((num_taxa, num_bins), np.nan)#np.zeros((num_bins, num_taxa))
-    n_S = np.zeros((num_taxa, num_bins))
-    for i in range(len(times)-1):
-        up, lo = times[i], times[i + 1]
-        i_events_sp[np.intersect1d((ts <= up).nonzero()[0], (ts > lo).nonzero()[0]), i] = 1.0
-        i_events_ex[np.intersect1d((te <= up).nonzero()[0], (te > lo).nonzero()[0]), i] = 1.0
-        n_all_inframe_temp, n_S_temp = get_sp_in_frame_br_length(ts, te, up, lo)
-        n_S[n_all_inframe_temp, i] = n_S_temp
+    i_events_sp = np.full((num_taxa, num_bins), np.nan)
+    i_events_ex = np.full((num_taxa, num_bins), np.nan)
+    ind = np.arange(num_taxa)
+    ind_ts = np.digitize(ts, times[1:])
+    ind_te = np.digitize(te, times[1:])
+    i_events_sp[ind, ind_ts] = 1.0
+    i_events_ex[ind, ind_te] = 1.0
+
+    n_S = bin_size + 0.0
+    for i in range(num_taxa):
+        n_S[i, :ind_ts[i]] = 0.0
+        n_S[i, ind_te[i]:] = 0.0
+    time_in_first_bin = ts - times[1:][ind_ts]
+    time_in_last_bin = times[1:][ind_te - 1] - te
+    n_S[ind, ind_ts] = time_in_first_bin
+    n_S[ind, ind_te] = time_in_last_bin
+    ts_te_same_bin = ind_ts == ind_te
+    n_S[ts_te_same_bin, ind_ts[ts_te_same_bin]] = ts[ts_te_same_bin] - te[ts_te_same_bin]
+
+    return i_events_sp, i_events_ex, n_S
+
+
+def update_events_ns(ts, te, times, bin_size, events_sp, events_ex, n_S, ind_update):
+    i_events_sp = events_sp + 0.0
+    i_events_ex = events_ex + 0.0
+    i_events_sp[ind_update, :] = np.nan
+    i_events_ex[ind_update, :] = np.nan
+    ts = ts[ind_update]
+    te = te[ind_update]
+    ind_ts = np.digitize(ts, times[1:])
+    ind_te = np.digitize(te, times[1:])
+    i_events_sp[ind_update, ind_ts] = 1.0
+    i_events_ex[ind_update, ind_te] = 1.0
+
+    n_S_up = bin_size[ind_update, :]
+    num_taxa = len(ind_update)
+    ind = np.arange(num_taxa)
+    for i in range(num_taxa):
+        n_S_up[i, :ind_ts[i]] = 0.0
+        n_S_up[i, ind_te[i]:] = 0.0
+    time_in_first_bin = ts - times[1:][ind_ts]
+    time_in_last_bin = times[1:][ind_te - 1] - te
+    n_S_up[ind, ind_ts] = time_in_first_bin
+    n_S_up[ind, ind_te] = time_in_last_bin
+    ts_te_same_bin = ind_ts == ind_te
+    n_S_up[ts_te_same_bin, ind_ts[ts_te_same_bin]] = ts[ts_te_same_bin] - te[ts_te_same_bin]
+    n_S = n_S + 0.0
+    n_S[ind_update, :] = n_S_up
+
     return i_events_sp, i_events_ex, n_S
 
 
@@ -3685,6 +3725,10 @@ def MCMC(all_arg):
         
         if BDNNmodel in [1, 3]:
             cov_parA = cov_par_init_NN
+            bdnn_prior_cov_parA = np.zeros(4)
+            cov_par_update_f = np.array([0.2, 0.6, -1.0])
+            if independ_reg:
+                cov_par_update_f = np.array([0.1, 0.5, 0.6])
             # rates not updated and replaced by bias node
             if bdnn_const_baseline:
                 LA = np.ones(len(timesLA)-1)
@@ -3693,13 +3737,17 @@ def MCMC(all_arg):
             bdnn_lam_ratesA, denom_lamA, _ = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[0], cov_parA[0], hidden_act_f, out_act_f)
             bdnn_mu_ratesA, denom_muA, _ = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[1], cov_parA[1], hidden_act_f, out_act_f)
             if use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
-                i_events_spA, i_events_exA, n_SA = get_events_ns(tsA, teA, timesLA)
-            bdnn_prior_cov_parA = np.sum([np.sum(prior_normal(cov_parA[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_parA[0]))])
-            bdnn_prior_cov_parA += np.sum([np.sum(prior_normal(cov_parA[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_parA[1]))])
+                bin_size_lam_mu = np.tile(np.abs(np.diff(timesLA)), n_taxa).reshape((n_taxa, len(timesLA) - 1))
+                i_events_spA, i_events_exA, n_SA = get_events_ns(tsA, teA, timesLA, bin_size_lam_mu)
+                likBDtempA = np.zeros((2, n_taxa))
+                likBDtempA[0, :] = BDNN_fast_partial_lik([i_events_spA, n_SA, bdnn_lam_ratesA])
+                likBDtempA[1, :] = BDNN_fast_partial_lik([i_events_spA, n_SA, bdnn_lam_ratesA])
+            bdnn_prior_cov_parA[0] = np.sum([np.sum(prior_normal(cov_parA[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_parA[0]))])
+            bdnn_prior_cov_parA[1] = np.sum([np.sum(prior_normal(cov_parA[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_parA[1]))])
             if prior_lam_t_reg[0] > 0:
-                bdnn_prior_cov_parA += np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_parA[3]
+                bdnn_prior_cov_parA[2] = np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_parA[3]
             if prior_lam_t_reg[1] > 0 and independ_reg:
-                bdnn_prior_cov_parA += np.log(prior_lam_t_reg[1]) - prior_lam_t_reg[1] * cov_parA[4]
+                bdnn_prior_cov_parA[3] = np.log(prior_lam_t_reg[1]) - prior_lam_t_reg[1] * cov_parA[4]
         
         alpha_pp_gammaA = 1.
         if TPP_model == 1: # init multiple q rates
@@ -3824,12 +3872,13 @@ def MCMC(all_arg):
             norm_fac = norm_facA
         if BDNNmodel in [1, 3]:
             cov_par = copy_lib.deepcopy(cov_parA)
-            bdnn_prior_cov_par = bdnn_prior_cov_parA
+            bdnn_prior_cov_par = bdnn_prior_cov_parA + 0.0
             bdnn_lam_rates = bdnn_lam_ratesA
             bdnn_mu_rates = bdnn_mu_ratesA
             denom_lam = denom_lamA + 0.0
             denom_mu = denom_muA + 0.0
             if use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
+                likBDtemp = likBDtempA + 0.0
                 i_events_sp = i_events_spA
                 i_events_ex = i_events_exA
                 n_S = n_SA
@@ -3847,6 +3896,8 @@ def MCMC(all_arg):
 
         updated_lam_mu = False
         ts_te_updated = 0
+        cov_lam_updated = 0
+        cov_mu_updated = 0
 
         if rr<f_update_se: # ts/te
             ts_te_updated = 1
@@ -3947,34 +3998,68 @@ def MCMC(all_arg):
             # Do not update weights for lam/mu and q at the same time
             rr_bdnn = (np.random.random() - 0.5) * BDNNmodel in [3]
             if BDNNmodel in [1, 3] and rr_bdnn <= 0.0:
+                cov_lam_updated = 1
+                cov_mu_updated = 1
                 rnd_layer = np.random.randint(0, len(cov_parA[0]))
                 # update layers B rate
-                cov_par[0][rnd_layer]=update_parameter_normal_vec(cov_parA[0][rnd_layer],d=0.05,f= bdnn_update_f[rnd_layer] ) 
+                cov_par[0][rnd_layer] = update_parameter_normal_vec(cov_parA[0][rnd_layer], d=0.05, f= bdnn_update_f[rnd_layer] )
+                bdnn_prior_cov_par[0] = np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[0]))])
                 # update layers D rate
-                cov_par[1][rnd_layer]=update_parameter_normal_vec(cov_parA[1][rnd_layer],d=0.05,f= bdnn_update_f[rnd_layer] ) 
+                cov_par[1][rnd_layer] = update_parameter_normal_vec(cov_parA[1][rnd_layer], d=0.05, f= bdnn_update_f[rnd_layer] )
+                bdnn_prior_cov_par[1] = np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[1]))])
                 if BDNN_MASK_lam:
                     for i_layer in range(len(cov_parA[0])):
                         cov_par[0][i_layer] *= BDNN_MASK_lam[i_layer]
                 if BDNN_MASK_mu:
                     for i_layer in range(len(cov_parA[1])):
                         cov_par[1][i_layer] *= BDNN_MASK_mu[i_layer]
-                
                 if prior_lam_t_reg[0] > 0:
                     cov_par[3] = update_parameter(cov_parA[3], 0, 1, d=0.05, f=1)
+                    bdnn_prior_cov_par[2] = np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_par[3]
                     if not independ_reg:
                         cov_par[4] = cov_par[3]
                 if prior_lam_t_reg[1] > 0 and independ_reg:
                     cov_par[4] = update_parameter(cov_parA[4], 0, 1, d=0.05, f=1)
-                
-                # Recalculate bdnn rates when we updated cov_par
+                    bdnn_prior_cov_par[3] = np.log(prior_lam_t_reg[1]) - prior_lam_t_reg[1] * cov_par[4]
                 bdnn_lam_rates, denom_lam, _ = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f)
                 bdnn_mu_rates, denom_mu, _ = get_rate_BDNN_3D(cov_par[4], trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f)
-                bdnn_prior_cov_par = np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[0]))])
-                bdnn_prior_cov_par += np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[1]))])
-                if prior_lam_t_reg[0] > 0:
-                    bdnn_prior_cov_par += np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_par[3]
-                if prior_lam_t_reg[1] > 0 and independ_reg:
-                    bdnn_prior_cov_par += np.log(prior_lam_t_reg[1]) - prior_lam_t_reg[1] * cov_par[4]
+#                # do not update all at once - why is the BD_lik lower?
+#                rr_cov_lam_mu = np.random.random()
+#                if rr_cov_lam_mu < cov_par_update_f[0] and prior_lam_t_reg[0] > 0:
+#                    # update treg lam
+#                    cov_lam_updated = 1
+#                    cov_par[3] = update_parameter(cov_parA[3], 0, 1, d=0.05, f=1)
+#                    bdnn_prior_cov_par[2] = np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_par[3]
+#                    if not independ_reg:
+#                        cov_par[4] = cov_par[3]
+#                elif rr_cov_lam_mu < cov_par_update_f[1]:
+#                    # update layers B rate
+#                    cov_lam_updated = 1
+#                    rnd_layer_lam = np.random.randint(0, len(cov_parA[0]))
+#                    cov_par[0][rnd_layer_lam] = update_parameter_normal_vec(cov_parA[0][rnd_layer_lam], d=0.05, f=bdnn_update_f[rnd_layer_lam] )
+#                    bdnn_prior_cov_par[0] = np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[0]))])
+#                    if BDNN_MASK_lam:
+#                        for i_layer in range(len(cov_parA[0])):
+#                            cov_par[0][i_layer] *= BDNN_MASK_lam[i_layer]
+#                elif rr_cov_lam_mu < cov_par_update_f[2] and prior_lam_t_reg[1] > 0:
+#                    # update treg mu
+#                    cov_mu_updated = 1
+#                    cov_par[4] = update_parameter(cov_parA[4], 0, 1, d=0.05, f=1)
+#                    bdnn_prior_cov_par[3] = np.log(prior_lam_t_reg[1]) - prior_lam_t_reg[1] * cov_par[4]
+#                else:
+#                    # update layers D rate
+#                    cov_mu_updated = 1
+#                    rnd_layer_mu = np.random.randint(0, len(cov_parA[1]))
+#                    cov_par[1][rnd_layer_mu] = update_parameter_normal_vec(cov_parA[1][rnd_layer_mu], d=0.05, f=bdnn_update_f[rnd_layer_mu] )
+#                    bdnn_prior_cov_par[1] = np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[1]))])
+#                    if BDNN_MASK_mu:
+#                        for i_layer in range(len(cov_parA[1])):
+#                            cov_par[1][i_layer] *= BDNN_MASK_mu[i_layer]
+#                # Recalculate bdnn rates when we updated cov_par
+#                if cov_lam_updated:
+#                    bdnn_lam_rates, denom_lam, _ = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f)
+#                if cov_mu_updated:
+#                    bdnn_mu_rates, denom_mu, _ = get_rate_BDNN_3D(cov_par[4], trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f)
 
             if BDNNmodel in [2, 3] and rr_bdnn >= 0.0:
                 if prior_lam_t_reg[0] > 0 and np.random.random() < 0.1:
@@ -4262,9 +4347,12 @@ def MCMC(all_arg):
                     args=list()
                     if use_ADE_model == 0: # speciation rate is not used under ADE model
                         if BDNNmodel in [1, 3]:
+                            ind_bdnn_lik = np.arange(n_taxa)
                             if ts_te_updated:
-                                i_events_sp, i_events_ex, n_S = get_events_ns(ts, te, timesL)
-                            args.append([i_events_sp, n_S, bdnn_lam_rates])
+                                if not bdnn_dd:
+                                    ind_bdnn_lik = (ts-te != tsA-teA).nonzero()[0]
+                                i_events_sp, i_events_ex, n_S = update_events_ns(ts, te, timesL, bin_size_lam_mu, i_events_sp, i_events_ex, n_S, ind_bdnn_lik)
+                            args.append([i_events_sp[ind_bdnn_lik, :], n_S[ind_bdnn_lik, :], bdnn_lam_rates[ind_bdnn_lik, :]])
                         else:
                             for temp_l in range(len(timesL)-1):
                                 up, lo = timesL[temp_l], timesL[temp_l+1]
@@ -4273,7 +4361,7 @@ def MCMC(all_arg):
                     # print(args[0][4], args[0][6], args[0][-1])
                     # parameters of each partial likelihood and prior (m)
                     if BDNNmodel in [1, 3]:
-                        args.append([i_events_ex, n_S, bdnn_mu_rates])
+                        args.append([i_events_ex[ind_bdnn_lik, :], n_S[ind_bdnn_lik, :], bdnn_mu_rates[ind_bdnn_lik, :]])
                     else:
                         for temp_m in range(len(timesM)-1):
                             up, lo = timesM[temp_m], timesM[temp_m+1]
@@ -4330,18 +4418,18 @@ def MCMC(all_arg):
 #                                    # print(m, up, lo, fixed_times_of_shift_bdnn[temp_m+1], timesM[rj_ind])
 #                                    args.append([ts, te, up, lo, m, 'm', cov_par[1],1])
                                 
-                            likBDtemp=np.zeros(len(args))
-                            for i in range(len(args)):
-                                if BDNNmodel in [1, 3]:
-                                    likBDtemp[i] = BDNN_fast_partial_lik(args[i])
-                                else:
+                            if BDNNmodel in [1, 3]:
+                                if ts_te_updated or cov_lam_updated:
+                                    likBDtemp[0, ind_bdnn_lik] = BDNN_fast_partial_lik(args[0])
+                                if ts_te_updated or cov_mu_updated:
+                                    likBDtemp[1, ind_bdnn_lik] = BDNN_fast_partial_lik(args[1])
+                            else:
+                                likBDtemp=np.zeros(len(args))
+                                for i in range(len(args)):
                                     likBDtemp[i] = BPD_partial_lik(args[i])
                         # multi-thread computation of lik and prior (rates)
                         else:
-                            if BDNNmodel in [1, 3]:
-                                likBDtemp = np.array(pool_lik.map(BDNN_fast_partial_lik, args))
-                            else:
-                                likBDtemp = np.array(pool_lik.map(BPD_partial_lik, args))
+                            likBDtemp = np.array(pool_lik.map(BPD_partial_lik, args))
                     
 
             else:
@@ -4505,9 +4593,9 @@ def MCMC(all_arg):
 #                    prior +=  np.sum([np.sum(prior_normal(cov_par[2][i],prior_bdnn_w_q_sd[i], mu=mu_empirical_prior[1][i])) for i in range(len(cov_par[1]))])
             else:
                 if BDNNmodel in [1, 3]:
-                    prior += bdnn_prior_cov_par
+                    prior += np.sum(bdnn_prior_cov_par)
 #                if BDNNmodel in [2, 3]:
-#                    prior += bdnn_prior_cov_par_q
+#                    prior += bdnn_prior_cov_par2_q
 
         # exponential prior on root age
         maxFA = np.max(FA)
@@ -4607,7 +4695,7 @@ def MCMC(all_arg):
                     denom_lamA = denom_lam
                     denom_muA = denom_mu
                     if use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
-                        bdnn_prior_cov_parA = bdnn_prior_cov_par
+                        bdnn_prior_cov_parA = bdnn_prior_cov_par + 0.0
                         i_events_spA = i_events_sp
                         i_events_exA = i_events_ex
                         n_SA = n_S
@@ -4623,7 +4711,7 @@ def MCMC(all_arg):
                     denom_lam = denom_lamA
                     denom_mu = denom_muA
                     if use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
-                        bdnn_prior_cov_par = bdnn_prior_cov_parA
+                        bdnn_prior_cov_par = bdnn_prior_cov_parA + 0.0
                         i_events_sp = i_events_spA
                         i_events_ex = i_events_exA
                         n_S = n_SA
@@ -5028,7 +5116,8 @@ if __name__ == '__main__':
     p.add_argument('-plot2',      metavar='<input file>', type=str,help="RTT plot (type 2): provide path to 'marginal_rates.log' files or 'marginal_rates' file",default="")
     p.add_argument('-plot3',      metavar='<input file>', type=str,help="RTT plot for fixed number of shifts: provide 'mcmc.log' file",default="")
     p.add_argument('-plotRJ',     metavar='<input file>', type=str,help="RTT plot for runs with '-log_marginal_rates 0': provide path to 'mcmc.log' files",default="")
-    p.add_argument('-plotBDNN',   metavar='<input file>', type=str,help="RTT plot for BDNN runs: provide path to 'mcmc.log' and '*.pkl' files",default="")
+    p.add_argument('-plotBDNN',   metavar='<input file>', type=str,help="RTT plot for BDNN runs: provide path to the 'mcmc.log' file",default="")
+    p.add_argument('-plotBDNN_groups', metavar='<input file>', type=str, help="Path to tab-separated text file giving the taxa for which the RTT plot should be created (see BDNN tutorial)", default = "")
     p.add_argument('-plotBDNN_effects',   metavar='<input file>', type=str, help="Effect plot for BDNN runs: provide path and base name for 'mcmc.log' file (e.g. .../pyrate_mcmc_logs/example_BDS_BDNN_16_8Tc_mcmc.log)", default = "")
     p.add_argument('-plotBDNN_transf_features', metavar='<input file>', type=str,
                    help="Optional back transformation of z-standardized BDNN features (text file with name of the feature as header, its mean, and standard deviation before z-standardization", default = "")
@@ -5127,7 +5216,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNfadlad', type=float, help='if > 0 include FAD LAD as traits (rescaled i.e. FAD * BDNNfadlad)', default=0, metavar=0)
     p.add_argument('-BDNNtimetrait', type=float, help='if > 0 use (rescaled) time as a trait (only with -fixShift option). if = -1 auto-rescaled', default= -1, metavar= -1)
     p.add_argument('-BDNNconstbaseline', type=int, help='constant baseline rates (only with -fixShift option AND time as a trait)', default=1, metavar=1)
-    p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) abs, 1) softPlus, 2) exp, 3) relu 4) sigmoid 5) sigmoid_rate', default=5, metavar=5)
+    p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) abs, 1) softPlus, 2) exp, 3) relu 4) sigmoid 5) sigmoid_rate', default=1, metavar=1)
     p.add_argument('-BDNNactfun', type=int, help='Activation function hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid, 5) fast approximation tanh', default=5, metavar=0)
     p.add_argument('-BDNNprior', type=float, help='sd normal prior', default=1, metavar=1)
     p.add_argument('-BDNNreg', type=float, help='regularization prior (-1.0 to turn off regularization, provide two values for independent regularization of lam and mu)', default=[1.0], metavar=[1.0], nargs='+')
@@ -5486,8 +5575,10 @@ if __name__ == '__main__':
                 rtt_plot_bds = rtt_plot_bds.RTTplot_Q(path_dir_log_files,args.qShift,burnin=burnin,max_age=root_plot)
             elif plot_type== 6:
                 import pyrate_lib.bdnn_lib as bdnn_lib
-                sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q = bdnn_lib.get_bdnn_rtt(path_dir_log_files, burn = burnin)
-                bdnn_lib.plot_bdnn_rtt(path_dir_log_files, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q)
+                output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q = bdnn_lib.get_bdnn_rtt(path_dir_log_files, burn = burnin)
+                bdnn_lib.plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q)
+                if args.plotBDNN_groups != "":
+                    bdnn_lib.plot_bdnn_rtt_groups(path_dir_log_files, args.plotBDNN_groups, burn=burnin)
 
         elif plot_type == 7:
             import pyrate_lib.bdnn_lib as bdnn_lib
@@ -6404,7 +6495,7 @@ if __name__ == '__main__':
             BDNN_MASK_lam = bdnn_pkl.bdnn_settings['mask_lam']
             BDNN_MASK_mu = bdnn_pkl.bdnn_settings['mask_mu']
         else:
-            cov_par_init_NN = [0] * 6
+            cov_par_init_NN = [0, 0, 0, 1.0, 1.0, 1.0]
             trait_tbl_NN = [None] * 3
             if BDNNmodel in [1, 3]:
                 time_var = None
@@ -6711,6 +6802,7 @@ if __name__ == '__main__':
         bdnn_dict = {
             'hidden_act_f': hidden_act_f,
             'prior_t_reg': prior_lam_t_reg,
+            'independent_t_reg': independ_reg,
             'prior_cov': args.BDNNprior
         }
         

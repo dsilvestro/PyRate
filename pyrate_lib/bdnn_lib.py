@@ -38,6 +38,7 @@ from PyRate import get_events_ns
 from PyRate import BDNN_fast_partial_lik
 from PyRate import HPP_NN_lik
 from PyRate import HOMPP_NN_lik
+from PyRate import get_sp_indx_in_timeframe
 from PyRate import get_time_in_q_bins
 from PyRate import get_occs_sp
 from PyRate import get_fossil_features_q_shifts
@@ -347,15 +348,18 @@ def get_bdnn_rtt(f, burn):
         r_q_sum = None
         time_vec_q = None
 
-    return r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum, time_vec_q
-
-
-
-def plot_bdnn_rtt(f, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum, time_vec_q):
     output_wd = os.path.dirname(f)
     name_file = os.path.basename(f)
     name_file = name_file.replace("_mcmc.log", "")
-    out = "%s/%s_RTT.r" % (output_wd, name_file)
+    r_file = "%s_RTT.r" % name_file
+    pdf_file = "%s_RTT.pdf" % name_file
+
+    return output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum, time_vec_q
+
+
+
+def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum, time_vec_q):
+    out = "%s/%s" % (output_wd, r_file)
     newfile = open(out, "w")
     n_rows = 0
     n_elements = 0
@@ -369,9 +373,9 @@ def plot_bdnn_rtt(f, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum,
             n_elements += 1
     if platform.system() == "Windows" or platform.system() == "Microsoft":
         wd_forward = os.path.abspath(output_wd).replace('\\', '/')
-        r_script = "pdf(file='%s/%s_RTT.pdf', width = 9, height = %s, useDingbats = FALSE)\n" % (wd_forward, name_file, 3 * n_rows)
+        r_script = "pdf(file='%s/%s', width = 9, height = %s, useDingbats = FALSE)\n" % (wd_forward, pdf_file, 3 * n_rows)
     else:
-        r_script = "pdf(file='%s/%s_RTT.pdf', width = 9, height = %s, useDingbats = FALSE)\n" % (output_wd, name_file, 3 * n_rows)
+        r_script = "pdf(file='%s/%s', width = 9, height = %s, useDingbats = FALSE)\n" % (output_wd, pdf_file, 3 * n_rows)
     r_script += "\nlayout(matrix(1:%s, ncol = 2, nrow = %s, byrow = TRUE))" % (n_elements, n_rows)
     r_script += "\npar(las = 1, mar = c(4.5, 4.5, 0.5, 0.5))"
     if not r_sp_sum is None:
@@ -426,11 +430,95 @@ def plot_bdnn_rtt(f, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum,
     newfile.close()
 
     if platform.system() == "Windows" or platform.system() == "Microsoft":
-        cmd = "cd %s & Rscript %s_RTT.r" % (output_wd, name_file)
+        cmd = "cd %s & Rscript %s" % (output_wd, r_file)
     else:
-        cmd = "cd %s; Rscript %s_RTT.r" % (output_wd, name_file)
-        print("cmd", cmd)
-        os.system(cmd)
+        cmd = "cd %s; Rscript %s" % (output_wd, r_file)
+    print("cmd", cmd)
+    os.system(cmd)
+
+
+def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn):
+    """Make RTT plots for the groups of species defined in the tab-delimited group_path file"""
+    mcmc_file = path_dir_log_files
+    path_dir_log_files = path_dir_log_files.replace("_mcmc.log", "")
+    pkl_file = path_dir_log_files + ".pkl" 
+    
+    output_wd = os.path.dirname(mcmc_file)
+    name_file = os.path.basename(path_dir_log_files)
+    name_file = name_file.replace("_mcmc.log", "")
+
+    bdnn_obj, w_sp, w_ex, _, sp_fad_lad, ts, te, t_reg_lam, t_reg_mu, _, reg_denom_lam, reg_denom_mu, _, _ = bdnn_parse_results(mcmc_file, pkl_file, burn)
+    species_names = bdnn_obj.sp_fad_lad["Taxon"].to_numpy()
+    group_file = pd.read_csv(groups_path, delimiter = '\t')
+    group_names = group_file.columns.tolist()
+    group_species_idx = []
+    for gn in group_names:
+        species_in_group = group_file[gn].dropna().to_numpy()
+        group_species_idx.append(np.where(np.in1d(species_names, species_in_group))[0])
+    
+    try:
+        # Diversification
+        times_of_shift = get_bdnn_time(bdnn_obj, ts)
+        num_bins = len(times_of_shift) - 1
+        hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
+        out_act_f = bdnn_obj.bdnn_settings['out_act_f']
+        trait_tbl = bdnn_obj.trait_tbls
+        names_features = get_names_features(bdnn_obj, rate_type='speciation')
+        bdnn_dd = 'diversity' in names_features
+        bdnn_rescale_div = bdnn_obj.bdnn_settings['div_rescaler']
+        div_idx_trt_tbl = -1
+        if is_time_trait(bdnn_obj):
+            div_idx_trt_tbl = -2
+        n_taxa = trait_tbl[0].shape[1]
+        num_it = ts.shape[0]
+        lam_it = np.zeros((num_it, n_taxa, num_bins))
+        mu_it = lam_it + 0.0
+        # Get speciation and extinction rates (the same as we obtained them during the BDNN inference)
+        for i in range(num_it):
+            if bdnn_dd:
+                bdnn_time_div = np.arange(np.max(ts[i, :]), 0.0, -0.001)
+                bdnn_div = get_DT(bdnn_time_div, ts[i, :], te[i, :])
+                bdnn_div = get_DT(bdnn_time_div, post_ts_i, post_te_i)
+                bdnn_binned_div = get_binned_div_traj(bdnn_time, bdnn_time_div, bdnn_div)[:-1] / bdnn_rescale_div
+                bdnn_binned_div = np.repeat(bdnn_binned_div, n_taxa).reshape((len(bdnn_binned_div), n_taxa))
+                trait_tbl[0][:, :, div_idx_trt_tbl] = bdnn_binned_div
+                trait_tbl[1][:, :, div_idx_trt_tbl] = bdnn_binned_div
+            lam = get_rate_BDNN_3D_noreg(trait_tbl[0], w_sp[i], hidden_act_f, out_act_f)
+            lam_it[i, :, :] = lam ** t_reg_lam[i] / reg_denom_lam[i]
+            mu = get_rate_BDNN_3D_noreg(trait_tbl[1], w_ex[i], hidden_act_f, out_act_f)
+            mu_it[i, :, :] = mu ** t_reg_mu[i] / reg_denom_mu[i]
+
+        # Get marginal rates through time for the specified group of taxa
+        FA = np.max(np.mean(ts, axis=0))
+        time_vec = format_t_vec(times_of_shift[1:-1], FA)
+        for g in range(len(group_names)):
+            gs = group_species_idx[g]
+            r_sp = np.zeros((num_it, num_bins))
+            r_ex = np.zeros((num_it, num_bins))
+            for i in range(num_it):
+                for j in range(num_bins):
+                    lam_tmp = lam_it[i, gs, j]
+                    mu_tmp = mu_it[i, gs, j]
+                    indx = get_sp_indx_in_timeframe(ts[i, gs], te[i, gs], up = times_of_shift[j], lo = times_of_shift[j + 1])
+                    with warnings.catch_warnings():
+                        warnings.simplefilter('ignore', category = RuntimeWarning)
+                        r_sp[i, j] = 1 / np.mean(1 / lam_tmp[indx])
+                        r_ex[i, j] = 1 / np.mean(1 / mu_tmp[indx])
+            
+            r_div = r_sp - r_ex
+            longevity = 1. / r_ex
+            sptt = summarize_rate(r_sp, num_bins)
+            extt = summarize_rate(r_ex, num_bins)
+            divtt = summarize_rate(r_div, num_bins)
+            longtt = summarize_rate(longevity, num_bins)
+            qtt = None
+            time_vec_q = None
+            r_file = "%s_%s_RTT.r" % (name_file, group_names[g])
+            pdf_file = "%s_%s_RTT.pdf" % (name_file, group_names[g])
+            plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q)
+    except:
+        pass
+    # Add sampling through time
 
 
 def apply_thin(w, thin):
@@ -1934,9 +2022,15 @@ def get_CV_from_sim_bdnn(bdnn_obj, num_taxa, sp_rates, ex_rates, lam_tt, mu_tt, 
     bdnn_update_f = bdnn_update_f / (2.0 * np.max(bdnn_update_f))
     act_f = bdnn_obj.bdnn_settings['hidden_act_f']
     out_act_f = bdnn_obj.bdnn_settings['out_act_f']
-    prior_t_reg = -1.0
+    prior_t_reg = [-1.0, -1.0] # In case of very old log files witout regularization
     if 'prior_t_reg' in bdnn_obj.bdnn_settings:
         prior_t_reg = bdnn_obj.bdnn_settings['prior_t_reg']
+        independ_reg = False
+        # Keep compatibility with pre-independent regularization
+        if 'independent_t_reg' in bdnn_obj.bdnn_settings:
+            independ_reg = bdnn_obj.bdnn_settings['independent_t_reg']
+        else:
+            prior_t_reg = [prior_t_reg, prior_t_reg]
     prior_cov = 1.0
     if 'prior_cov' in bdnn_obj.bdnn_settings:
         prior_cov = bdnn_obj.bdnn_settings['prior_cov']
@@ -1948,7 +2042,7 @@ def get_CV_from_sim_bdnn(bdnn_obj, num_taxa, sp_rates, ex_rates, lam_tt, mu_tt, 
              num_traits, levels_cat_trait,
              n_nodes, bdnn_update_f,
              act_f, out_act_f,
-             prior_t_reg, prior_cov]
+             prior_t_reg, independ_reg, prior_cov]
         args.append(a)
     unixos = is_unix()
     if unixos and num_processes > 1:
@@ -2146,6 +2240,7 @@ class BdnnTester():
                  act_f=np.tanh,
                  bdnn_update_f=[0.1, 0.2, 0.4],
                  prior_t_reg=-1.0,
+                 independ_reg=False,
                  prior_cov=1.0,
                  mcmc_iterations=25000,
                  burnin=5000,
@@ -2169,6 +2264,7 @@ class BdnnTester():
         # mcmc settings
         self.bdnn_update_f = bdnn_update_f
         self.prior_t_reg = prior_t_reg
+        self.independ_reg = independ_reg
         self.prior_cov = prior_cov
         self.mcmc_iterations = mcmc_iterations
         self.burnin = burnin
@@ -2193,8 +2289,8 @@ class BdnnTester():
 
 
     def get_bd_lik(self, w_lam, w_mu, t_reg):
-        lam, _ = get_rate_BDNN(t_reg, self.traits, w_lam, act_f=self.act_f, out_act_f=self.out_act_f)
-        mu, _ = get_rate_BDNN(t_reg, self.traits, w_mu, act_f=self.act_f, out_act_f=self.out_act_f)
+        lam, _ = get_rate_BDNN(t_reg[0], self.traits, w_lam, act_f=self.act_f, out_act_f=self.out_act_f)
+        mu, _ = get_rate_BDNN(t_reg[1], self.traits, w_mu, act_f=self.act_f, out_act_f=self.out_act_f)
         bd_lik = np.sum(np.log(lam)) + np.sum(self.extant_species * np.log(mu)) - np.sum((lam + mu) * self.sp_longevities)
         return bd_lik
 
@@ -2202,8 +2298,10 @@ class BdnnTester():
     def get_prior(self, w_lam, w_mu, t_reg):
         prior = np.sum([np.sum(stats.norm.logpdf(i, loc=0, scale=self.prior_cov)) for i in w_lam])
         prior += np.sum([np.sum(stats.norm.logpdf(i, loc=0, scale=self.prior_cov)) for i in w_mu])
-        if self.prior_t_reg > 0.0:
-            prior += np.log(self.prior_t_reg) - self.prior_t_reg * t_reg
+        if self.prior_t_reg[0] > 0.0:
+            prior += np.log(self.prior_t_reg[0]) - self.prior_t_reg[0] * t_reg[0]
+        if self.prior_t_reg[1] > 0.0 and self.independ_reg:
+            prior += np.log(self.prior_t_reg[1]) - self.prior_t_reg[1] * t_reg[1]
         return prior
 
 #    def get_prior(self, w_lam, w_mu):
@@ -2220,10 +2318,11 @@ class BdnnTester():
         # init model
         w_lamA = init_weight_prm(self.n_nodes, self.n_traits, size_output=1, init_std=0.1, bias_node=1)
         w_muA = init_weight_prm(self.n_nodes, self.n_traits, size_output=1, init_std=0.1, bias_node=1)
-        t_regA = 1.0
-        t_reg = 1.0
-        if self.prior_t_reg > 0.0:
-            t_regA = 0.5
+        t_regA = np.ones(2)
+        t_reg = np.ones(2)
+        if self.prior_t_reg[0] > 0.0:
+            t_regA[0] = 0.5
+            t_regA[1] = 0.5
         postA = self.get_bd_lik(w_lamA, w_muA, t_regA) + self.get_prior(w_lamA, w_muA, t_regA)
         
         # run mcmc
@@ -2241,8 +2340,12 @@ class BdnnTester():
                                                             d=0.05,
                                                             f=self.bdnn_update_f[rnd_layer] )
             # update temp regularization
-            if self.prior_t_reg > 0.0:
-                t_reg = update_parameter(t_regA, 0, 1, d=0.05, f=1)
+            if self.prior_t_reg[0] > 0.0:
+                t_reg[0] = update_parameter(t_regA[0], 0, 1, d=0.05, f=1)
+                if not self.independ_reg:
+                    t_reg[1] = t_reg[0]
+            if self.prior_t_reg[1] > 0.0 and self.independ_reg:
+                t_reg[1] = update_parameter(t_regA[1], 0, 1, d=0.05, f=1)
 
             post = self.get_bd_lik(w_lam, w_mu, t_reg) + self.get_prior(w_lam, w_mu, t_reg)
 
@@ -2255,8 +2358,8 @@ class BdnnTester():
                 t_regA = t_reg
     
             if iteration % 100 == 0 and iteration > self.burnin:
-                lam, _ = get_rate_BDNN(t_reg, self.traits, w_lam, act_f=self.act_f, out_act_f=self.out_act_f)
-                mu, _ = get_rate_BDNN(t_reg, self.traits, w_mu, act_f=self.act_f, out_act_f=self.out_act_f)
+                lam, _ = get_rate_BDNN(t_reg[0], self.traits, w_lam, act_f=self.act_f, out_act_f=self.out_act_f)
+                mu, _ = get_rate_BDNN(t_reg[1], self.traits, w_mu, act_f=self.act_f, out_act_f=self.out_act_f)
                 lam_acc.append(lam)
                 mu_acc.append(mu)
 
@@ -2453,7 +2556,7 @@ class BdnnTesterSampling():
 
 
 def get_CV_from_sim_i(arg):
-    [rep, rangeSP, rangeL, rangeM, root_age, num_traits, levels_cat_trait, n_nodes, bdnn_update_f, act_f, out_act_f, prior_t_reg, prior_cov] = arg
+    [rep, rangeSP, rangeL, rangeM, root_age, num_traits, levels_cat_trait, n_nodes, bdnn_update_f, act_f, out_act_f, prior_t_reg, independ_reg, prior_cov] = arg
 
 #    # Random seed
 #    rs = np.random.default_rng(None)
@@ -2481,6 +2584,7 @@ def get_CV_from_sim_i(arg):
                               n_nodes=n_nodes,
                               bdnn_update_f=bdnn_update_f,
                               prior_t_reg=prior_t_reg,
+                              independ_reg=independ_reg,
                               prior_cov=prior_cov,
                               verbose=False)
         cv = bdnn_sim.get_cv()
@@ -3807,8 +3911,8 @@ def trim_trt_tbls_to_match_event(trt_tbls, events):
 
 
 def feature_permutation(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm = 10, num_processes = 1, combine_discr_features = "", show_progressbar = False, do_inter_imp = True):
-    bdnn_obj, post_w_sp, post_w_ex, _, sp_fad_lad, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, post_t_reg_q, post_reg_denom_lam, post_reg_denom_mu, _, _ = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
-    n_mcmc = post_ts.shape[0]
+    bdnn_obj, post_w_sp, post_w_ex, _, sp_fad_lad, post_ts, post_te, post_t_reg_lam, post_t_reg_mu, _, post_reg_denom_lam, post_reg_denom_mu, _, _ = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
+    n_mcmc, n_taxa = post_ts.shape
     fixed_times_of_shift = copy_lib.deepcopy(bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn']) # We need this for the diversity dependence
     trt_tbls = bdnn_obj.trait_tbls[:2]
 #    trt_tbls_highres, bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'], _ = set_temporal_resolution(bdnn_obj, min_bs) # We need the fixed_times setting for the diversity-dependence
@@ -3839,9 +3943,11 @@ def feature_permutation(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm = 10, 
         if trt_tbls[0].ndim == 3:
             bdnn_time = get_bdnn_time(fixed_times_of_shift, post_ts[i, :])
             bdnn_time_highres = get_bdnn_time(fixed_times_of_shift_highres, post_ts[i, :])
-            i_events_sp_highres, i_events_ex_highres, n_S_highres = get_events_ns(post_ts[i, :], post_te[i, :], bdnn_time_highres)
+            bin_size = np.tile(np.abs(np.diff(bdnn_time_highres)), n_taxa).reshape((n_taxa, len(bdnn_time_highres) - 1))
+            i_events_sp_highres, i_events_ex_highres, n_S_highres = get_events_ns(post_ts[i, :], post_te[i, :], bdnn_time_highres, bin_size)
             trt_tbls_highres_trimmed = trim_trt_tbls_to_match_event(trt_tbls_highres, i_events_sp_highres)
-        i_events_sp, i_events_ex, n_S = get_events_ns(post_ts[i, :], post_te[i, :], bdnn_time)
+        bin_size = np.tile(np.abs(np.diff(bdnn_time)), n_taxa).reshape((n_taxa, len(bdnn_time) - 1))
+        i_events_sp, i_events_ex, n_S = get_events_ns(post_ts[i, :], post_te[i, :], bdnn_time, bin_size)
         a = [bdnn_obj, post_ts[i, :], post_te[i, :],
              bdnn_time, i_events_sp, i_events_ex, n_S,
              bdnn_time_highres, i_events_sp_highres, i_events_ex_highres, n_S_highres,

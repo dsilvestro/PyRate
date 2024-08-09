@@ -54,7 +54,14 @@ python PyRate.py -plotBDNN .../pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_m
 ```
 
 where `-b 0.1` specifies the burnin proportion. 
-The command will generate a PDF file and an R script with the rates-through-time plots, which will be saved in the `pyrate_mcmc_logs` directory. The R script file can be edited to customize the plot. 
+The command will generate a PDF file and an R script with the rates-through-time plots, which will be saved in the `pyrate_mcmc_logs` directory. The R script file can be edited to customize the plot.
+
+#### Marginal rates through time for a specific group of taxa
+It is possible to plot the rates through time for a subset of the taxa, e.g. for a group of taxa sharing the same trait. The grouping needs to be provided in a tab-separated text file by assigning the taxon names for the group. For instance, the [example grouping](https://github.com/dsilvestro/PyRate/tree/master/example_files/BDNN_examples/Carnivora/RTT_groups.csv) specifies the subsets of carnivore that belong to Canidae or Musteloidea, occure in Eurasia, or weighing less than 10 kg.
+
+```
+python PyRate.py -plotBDNN .../pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -b 0.1 -plotBDNN_groups .../RTT_groups.csv
+```
 
 
 ### Partial dependence plots
