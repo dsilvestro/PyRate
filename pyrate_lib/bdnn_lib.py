@@ -43,7 +43,7 @@ from PyRate import get_time_in_q_bins
 from PyRate import get_occs_sp
 from PyRate import get_fossil_features_q_shifts
 from PyRate import make_singleton_mask
-from PyRate import get_qbin_ts_te
+from PyRate import get_bin_ts_te
 from PyRate import get_q_rate_BDNN
 from PyRate import harmonic_mean_q_per_sp
 from PyRate import prior_gamma
@@ -515,6 +515,17 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn):
             time_vec_q = None
             r_file = "%s_%s_RTT.r" % (name_file, group_names[g])
             pdf_file = "%s_%s_RTT.pdf" % (name_file, group_names[g])
+
+#            sptt_file = output_wd + "/" + "%s_%s_LamTT.txt" % (name_file, group_names[g])
+#            sptt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), sptt)), columns = ['time', 'mean', 'lwr', 'upr'])
+#            sptt2.to_csv(sptt_file, na_rep = 'NA', index = False)
+#            extt_file = output_wd + "/" + "%s_%s_MuTT.txt" % (name_file, group_names[g])
+#            extt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), extt)), columns = ['time', 'mean', 'lwr', 'upr'])
+#            extt2.to_csv(extt_file, na_rep = 'NA', index = False)
+#            divtt_file = output_wd + "/" + "%s_%s_DivTT.txt" % (name_file, group_names[g])
+#            divtt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), divtt)), columns = ['time', 'mean', 'lwr', 'upr'])
+#            divtt2.to_csv(divtt_file, na_rep = 'NA', index = False)
+
             plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q)
     except:
         pass
@@ -3603,7 +3614,7 @@ def get_bdnn_lik(bdnn_obj, bdnn_time, i_events_sp, i_events_ex, n_S, w, t_reg, r
     else:
         args = [ i_events_ex, n_S, r ]
     bdnn_lik = BDNN_fast_partial_lik(args)
-    return bdnn_lik
+    return np.sum(bdnn_lik)
 
 
 def create_perm_comb(bdnn_obj, do_inter_imp = True, combine_discr_features = None, rate_type='speciation'):
@@ -4107,7 +4118,7 @@ def feature_permutation_sampling(mcmc_file, pkl_file, burnin, thin, min_bs, n_pe
 
         qbins_ts_te = None
         if trt_tbl_a.ndim == 3:
-            qbins_ts_te = get_qbin_ts_te(ts[i, :], te[i, :], q_bins)
+            qbins_ts_te = get_bin_ts_te(ts[i, :], te[i, :], q_bins)
 
         a = [q_i, norm_q[i], w_q[i], t_reg_q[i], reg_denom_q[i], trt_tbl_a,
              bdnn_obj.bdnn_settings['hidden_act_f'], out_act_f,

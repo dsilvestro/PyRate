@@ -1853,37 +1853,38 @@ def get_reg_rates(rates, t_reg):
     denom = np.nanmean(r_tmp) / np.nanmean(rates)
     return r_tmp / denom, denom
 
-def get_rate_BDNN_3D(t_reg, x, w, act_f, out_act_f, sampling=False, singleton_mask=None, qbin_ts_te=None):
+
+def get_unreg_rate_BDNN_3D(x, w, act_f, out_act_f):
     tmp = x + 0
     for i in range(len(w)-1):
         tmp = act_f(MatrixMultiplication3D(tmp, w[i]))
-    
     tmp = MatrixMultiplication3D(tmp, w[i+1])
     tmp = np.squeeze(tmp).T
     # output
     rates = out_act_f(tmp)
     rates += small_number
+    
+    return rates
 
+
+def get_reg_rate_BDNN_3D(rates, t_reg, bin_ts_te=None):
     normalize_factor = None
-    if sampling:
-        if rates.ndim == 2:
-            # set rate to NA before ts and after te
-            for i in range(rates.shape[0]):
-                rates[i, :qbin_ts_te[i, 0]] = np.nan
-                rates[i, qbin_ts_te[i, 1]:] = np.nan
-            rates_not_nan = np.isnan(rates) == False
-        else:
-            rates_not_nan = np.repeat(True, rates.shape[-1])
-        rates[np.logical_and(singleton_mask, rates_not_nan)] = np.nan # singletons, they should not impact the regularization
+    if rates.ndim == 2:
+        # set rate to NA before ts and after te
+        for i in range(rates.shape[0]):
+            rates[i, :bin_ts_te[i, 0]] = np.nan
+            rates[i, bin_ts_te[i, 1]:] = np.nan
+    reg_rates, denom = get_reg_rates(rates, t_reg)
+    
+    return reg_rates, denom, normalize_factor
 
+
+def get_rate_BDNN_3D(t_reg, x, w, act_f, out_act_f):
+    rates = get_unreg_rate_BDNN_3D(x, w, act_f, out_act_f)
     reg_rates, denom = get_reg_rates(rates, t_reg)
 
-    if sampling:
-        normalize_factor = 1 / np.mean(reg_rates[np.logical_and(~singleton_mask, rates_not_nan)])
-        reg_rates *= normalize_factor
-        reg_rates[np.logical_and(singleton_mask, rates_not_nan)] = 1.0
+    return reg_rates, denom
 
-    return reg_rates, denom, normalize_factor
 
 def BDNN_likelihood(arg):
     [ts,te,trait_tbl,rate_l,rate_m,cov_par] = arg
@@ -2073,7 +2074,6 @@ def init_trait_and_weights(trait_tbl,time_var_tbl,nodes,bias_node=False,fadlad=0
         
         for i in w_lam:
             print(i.shape)
-        print(trait_tbl_lam.shape)
     elif isinstance(loaded_tbls[0], np.ndarray):
 #        if use_time_as_trait and num_fixed_times_of_shift - 1 > loaded_tbls[0].shape[0]:
 #            sys.exit("Error: Number of taxon-time specific tables must be the same than age of the oldest fossil + 1 or -fixShifts ")
@@ -2178,21 +2178,39 @@ def init_sampling_trait_and_weights(trait_tbl, time_var_tbl, nodes, bias_node=Fa
     return trait_tbl_q, w_q
 
 
-def get_q_rate_BDNN(q, t_reg, x, w, act_f, out_act_f, singleton_mask=None, qbin_ts_te=None):
-    reg_rates, denom, norm_fac = get_rate_BDNN_3D(t_reg, x, w, act_f, out_act_f, True, singleton_mask, qbin_ts_te)
+def get_q_rate_BDNN(q, t_reg, qnn_output, singleton_mask, qbin_ts_te):
+
+    qnn = qnn_output + 0.0
+    if qnn.ndim == 2:
+        # set rate to NA before ts and after te
+        for i in range(qnn.shape[0]):
+            qnn[i, :qbin_ts_te[i, 0]] = np.nan
+            qnn[i, qbin_ts_te[i, 1]:] = np.nan
+        qnn_not_nan = np.isnan(qnn) == False
+    else:
+        qnn_not_nan = np.repeat(True, qnn.shape[-1])
+    qnn[np.logical_and(singleton_mask, qnn_not_nan)] = np.nan # singletons, they should not impact the regularization
+
+    reg_qnn, denom = get_reg_rates(qnn, t_reg)
+
+    # convert to multipliers
+    normalize_factor = 1 / np.mean(reg_qnn[np.logical_and(~singleton_mask, qnn_not_nan)])
+    reg_qnn *= normalize_factor
+    reg_qnn[np.logical_and(singleton_mask, qnn_not_nan)] = 1.0
+
     if len(q) > 2 or (len(q) == 2 and q[0] != 1.0): # 2nd case is when there is exactly one shift time
         # Several q rates
-        if reg_rates.ndim == 1:
+        if reg_qnn.ndim == 1:
             # No time-varying trait table, no age-dependent sampling
-            reg_rates = reg_rates[:, np.newaxis] * q
+            reg_qnn = reg_qnn[:, np.newaxis] * q
         else:
             # Time-varying trait table or age-dependent sampling with shift in baseline
-            reg_rates = reg_rates * q[np.newaxis, :]
+            reg_qnn = reg_qnn * q[np.newaxis, :]
     else:
         # Constant baseline sampling
-        reg_rates = reg_rates * q[1] # Two q's because of NHPP, but 1st is always equal to 1
-#    print('reg_rates\n', reg_rates)
-    return reg_rates, denom, norm_fac
+        reg_qnn = reg_qnn * q[1] # Two q's because of NHPP, but 1st is always equal to 1
+#    print('reg_qnn\n', reg_qnn)
+    return reg_qnn, denom, normalize_factor
 
 
 def get_highres_repeats(args_qShift, new_bs, FA):
@@ -2512,9 +2530,9 @@ def harmonic_mean_q_through_time(ts, te, time_frames, q_rates):
     return qtt
 
 
-def get_qbin_ts_te(ts, te, time_frames):
-    qbin_ts_te = np.stack([np.digitize(ts, time_frames[1:]), np.digitize(te, time_frames[1:]) + 1], axis=1)
-    return qbin_ts_te
+def get_bin_ts_te(ts, te, time_frames):
+    bin_ts_te = np.stack([np.digitize(ts, time_frames[1:]), np.digitize(te, time_frames[1:]) + 1], axis=1)
+    return bin_ts_te
 
 
 def add_taxon_age(ts, te, q_time_frames, trt_tbl, tsA=None, teA=None):
@@ -3734,8 +3752,8 @@ def MCMC(all_arg):
                 LA = np.ones(len(timesLA)-1)
                 MA = np.ones(len(timesMA)-1)
             
-            bdnn_lam_ratesA, denom_lamA, _ = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[0], cov_parA[0], hidden_act_f, out_act_f)
-            bdnn_mu_ratesA, denom_muA, _ = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[1], cov_parA[1], hidden_act_f, out_act_f)
+            bdnn_lam_ratesA, denom_lamA = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[0], cov_parA[0], hidden_act_f, out_act_f)
+            bdnn_mu_ratesA, denom_muA = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[1], cov_parA[1], hidden_act_f, out_act_f)
             if use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
                 bin_size_lam_mu = np.tile(np.abs(np.diff(timesLA)), n_taxa).reshape((n_taxa, len(timesLA) - 1))
                 i_events_spA, i_events_exA, n_SA = get_events_ns(tsA, teA, timesLA, bin_size_lam_mu)
@@ -3768,8 +3786,9 @@ def MCMC(all_arg):
                     q_rates_tmp = q_ratesA[highres_q_repeats]
             qbin_ts_te = None
             if trait_tbl_NN[2].ndim == 3:
-                qbin_ts_te = get_qbin_ts_te(tsA, teA, q_time_frames_bdnn)
-            bdnn_q_ratesA, denom_qA, norm_facA = get_q_rate_BDNN(q_rates_tmp, cov_parA[5], trait_tbl_NN[2], cov_parA[2], hidden_act_f, out_act_f_q, singleton_mask, qbin_ts_te)
+                qbin_ts_te = get_bin_ts_te(tsA, teA, q_time_frames_bdnn)
+            qnn_output_unregA = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_parA[2], hidden_act_f, out_act_f_q)
+            bdnn_q_ratesA, denom_qA, norm_facA = get_q_rate_BDNN(q_rates_tmp, cov_parA[5], qnn_output_unregA, singleton_mask, qbin_ts_te)
             bdnn_prior_qA = np.sum([np.sum(prior_normal(cov_parA[2][i], prior_bdnn_w_q_sd[i])) for i in range(len(cov_parA[2]))])
             if prior_lam_t_reg[0] > 0:
                 bdnn_prior_qA += np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_parA[5]
@@ -3868,6 +3887,7 @@ def MCMC(all_arg):
             cov_par = copy_lib.deepcopy(cov_parA)
             bdnn_prior_q = bdnn_prior_qA
             bdnn_q_rates = bdnn_q_ratesA
+            qnn_output_unreg = qnn_output_unregA + 0.0
             denom_q = denom_qA + 0.0
             norm_fac = norm_facA
         if BDNNmodel in [1, 3]:
@@ -3898,6 +3918,7 @@ def MCMC(all_arg):
         ts_te_updated = 0
         cov_lam_updated = 0
         cov_mu_updated = 0
+        cov_q_updated = 0
 
         if rr<f_update_se: # ts/te
             ts_te_updated = 1
@@ -3944,8 +3965,6 @@ def MCMC(all_arg):
                 if BDNNmodel in [2, 3]:
                     if bdnn_ads >= 0.0:
                         trait_tbl_NN[2] = add_taxon_age(ts, te, q_time_frames_bdnn, trait_tbl_NN[2], tsA, teA)
-                    if trait_tbl_NN[2].ndim == 3:
-                        qbin_ts_te = get_qbin_ts_te(ts, te, q_time_frames_bdnn)
 
             tot_L=np.sum(ts-te)
         
@@ -4021,8 +4040,8 @@ def MCMC(all_arg):
                 if prior_lam_t_reg[1] > 0 and independ_reg:
                     cov_par[4] = update_parameter(cov_parA[4], 0, 1, d=0.05, f=1)
                     bdnn_prior_cov_par[3] = np.log(prior_lam_t_reg[1]) - prior_lam_t_reg[1] * cov_par[4]
-                bdnn_lam_rates, denom_lam, _ = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f)
-                bdnn_mu_rates, denom_mu, _ = get_rate_BDNN_3D(cov_par[4], trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f)
+                bdnn_lam_rates, denom_lam = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f)
+                bdnn_mu_rates, denom_mu = get_rate_BDNN_3D(cov_par[4], trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f)
 #                # do not update all at once - why is the BD_lik lower?
 #                rr_cov_lam_mu = np.random.random()
 #                if rr_cov_lam_mu < cov_par_update_f[0] and prior_lam_t_reg[0] > 0:
@@ -4057,17 +4076,19 @@ def MCMC(all_arg):
 #                            cov_par[1][i_layer] *= BDNN_MASK_mu[i_layer]
 #                # Recalculate bdnn rates when we updated cov_par
 #                if cov_lam_updated:
-#                    bdnn_lam_rates, denom_lam, _ = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f)
+#                    bdnn_lam_rates, denom_lam = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f)
 #                if cov_mu_updated:
-#                    bdnn_mu_rates, denom_mu, _ = get_rate_BDNN_3D(cov_par[4], trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f)
+#                    bdnn_mu_rates, denom_mu = get_rate_BDNN_3D(cov_par[4], trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f)
 
             if BDNNmodel in [2, 3] and rr_bdnn >= 0.0:
+                cov_q_updated = 1
                 if prior_lam_t_reg[0] > 0 and np.random.random() < 0.1:
                     cov_par[5] = update_parameter(cov_parA[5], 0, 1, d=0.05, f=1)
                 else:
                     rnd_layer = np.random.randint(0, len(cov_parA[2]))
                     # update layers q rate
                     cov_par[2][rnd_layer] = update_parameter_normal_vec(cov_parA[2][rnd_layer], d=0.05, f=bdnn_update_f[rnd_layer])
+#                    qnn_output_unreg = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_par[2], hidden_act_f, out_act_f_q)
 
 
             if not BDNNmodel:
@@ -4195,12 +4216,15 @@ def MCMC(all_arg):
                                 q_rates_tmp = q_rates
                                 if bdnn_ads > 0.0 and argsHPP == 0:
                                     q_rates_tmp = q_rates[highres_q_repeats]
-                                bdnn_q_rates, denom_q, norm_fac = get_q_rate_BDNN(q_rates_tmp, cov_par[5], trait_tbl_NN[2], cov_par[2], hidden_act_f, out_act_f_q, singleton_mask, qbin_ts_te)
+                                if trait_tbl_NN[2].ndim == 3:
+                                    qbin_ts_te = get_bin_ts_te(ts, te, q_time_frames_bdnn)
+                                qnn_output_unreg = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_par[2], hidden_act_f, out_act_f_q)
+                                bdnn_q_rates, denom_q, norm_fac = get_q_rate_BDNN(q_rates_tmp, cov_par[5], qnn_output_unreg, singleton_mask, qbin_ts_te)
                                 bdnn_prior_q = np.sum([np.sum(prior_normal(cov_par[2][i], prior_bdnn_w_q_sd[i])) for i in range(len(cov_par[2]))])
                                 if prior_lam_t_reg[0] > 0:
                                     bdnn_prior_q += np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_par[5]
 
-                            if use_HPP_NN_lik: #TPP_model == 1: #  or 
+                            if use_HPP_NN_lik:
                                 lik_fossil[ind1] = HPP_NN_lik([ts[ind1], te[ind1], bdnn_q_rates[ind1, :],
                                                                occs_sp[ind1, :], log_factorial_occs[ind1],
                                                                q_time_frames_bdnn, duration_q_bins[ind1, :], occs_single_bin[ind1]])
@@ -4589,13 +4613,9 @@ def MCMC(all_arg):
                 if BDNNmodel in [1, 3]:
                     prior +=  np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i], mu=mu_empirical_prior[0][i])) for i in range(len(cov_par[0]))])
                     prior +=  np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i], mu=mu_empirical_prior[1][i])) for i in range(len(cov_par[1]))])
-#                if BDNNmodel in [2, 3]:
-#                    prior +=  np.sum([np.sum(prior_normal(cov_par[2][i],prior_bdnn_w_q_sd[i], mu=mu_empirical_prior[1][i])) for i in range(len(cov_par[1]))])
             else:
                 if BDNNmodel in [1, 3]:
                     prior += np.sum(bdnn_prior_cov_par)
-#                if BDNNmodel in [2, 3]:
-#                    prior += bdnn_prior_cov_par2_q
 
         # exponential prior on root age
         maxFA = np.max(FA)
@@ -4701,6 +4721,7 @@ def MCMC(all_arg):
                         n_SA = n_S
                 if BDNNmodel in [2, 3]:
                     bdnn_q_ratesA = bdnn_q_rates
+                    qnn_output_unregA = qnn_output_unreg + 0.0
                     denom_qA = denom_q
                     norm_facA = norm_fac
                     bdnn_prior_qA = bdnn_prior_q
@@ -4726,8 +4747,8 @@ def MCMC(all_arg):
                 if BDNNmodel in [2, 3]:
                     if bdnn_ads >= 0.0 and ts_te_updated == 1:
                         trait_tbl_NN[2] = add_taxon_age(tsA, teA, q_time_frames_bdnn, trait_tbl_NN[2], ts, te)
-                    if trait_tbl_NN[2].ndim == 3 and ts_te_updated == 1:
-                        qbin_ts_te = get_qbin_ts_te(tsA, teA, q_time_frames_bdnn)
+#                    if trait_tbl_NN[2].ndim == 3 and ts_te_updated == 1:
+#                        qbin_ts_te = get_bin_ts_te(tsA, teA, q_time_frames_bdnn)
 
         if it % print_freq ==0 or it==burnin:
             try: l=[round(y, 2) for y in [PostA, likA, priorA, SA]]
