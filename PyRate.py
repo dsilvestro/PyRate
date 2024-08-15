@@ -1171,6 +1171,13 @@ def get_gamma_rates(a):
     s=pp_gamma_ncat/sum(m) # multiplier to scale the so that the mean of the discrete distribution is one
     return array(m)*s # SCALED VALUES
 
+# using get_gamma_rates() in bdnn_lib is not working because it cannot access the YangGammaQuant
+def get_gamma_rates_qnn(a, pp_gamma_ncat, YangGammaQuant):
+    b = a
+    m = gdtrix(b, a, YangGammaQuant) # user defined categories
+    s = pp_gamma_ncat / np.sum(m) # multiplier to scale the so that the mean of the discrete distribution is one
+    return np.array(m)*s # SCALED VALUES
+
 def init_ts_te(FA,LO):
     #ts=FA+np.random.exponential(.75, len(FA)) # exponential random starting point
     #tt=np.random.beta(2.5, 1, len(LO)) # beta random starting point
@@ -2178,8 +2185,42 @@ def init_sampling_trait_and_weights(trait_tbl, time_var_tbl, nodes, bias_node=Fa
     return trait_tbl_q, w_q
 
 
-def get_q_rate_BDNN(q, t_reg, qnn_output, singleton_mask, qbin_ts_te):
+#def get_q_rate_BDNN(q, t_reg, qnn_output, singleton_mask, qbin_ts_te):
 
+#    qnn = qnn_output + 0.0
+#    if qnn.ndim == 2:
+#        # set rate to NA before ts and after te
+#        for i in range(qnn.shape[0]):
+#            qnn[i, :qbin_ts_te[i, 0]] = np.nan
+#            qnn[i, qbin_ts_te[i, 1]:] = np.nan
+#        qnn_not_nan = np.isnan(qnn) == False
+#    else:
+#        qnn_not_nan = np.repeat(True, qnn.shape[-1])
+#    qnn[np.logical_and(singleton_mask, qnn_not_nan)] = np.nan # singletons, they should not impact the regularization
+
+#    reg_qnn, denom = get_reg_rates(qnn, t_reg)
+
+#    # convert to multipliers
+#    normalize_factor = 1 / np.mean(reg_qnn[np.logical_and(~singleton_mask, qnn_not_nan)])
+#    reg_qnn *= normalize_factor
+#    reg_qnn[np.logical_and(singleton_mask, qnn_not_nan)] = 1.0
+
+#    if len(q) > 2 or (len(q) == 2 and q[0] != 1.0): # 2nd case is when there is exactly one shift time
+#        # Several q rates
+#        if reg_qnn.ndim == 1:
+#            # No time-varying trait table, no age-dependent sampling
+#            reg_qnn = reg_qnn[:, np.newaxis] * q
+#        else:
+#            # Time-varying trait table or age-dependent sampling with shift in baseline
+#            reg_qnn = reg_qnn * q[np.newaxis, :]
+#    else:
+#        # Constant baseline sampling
+#        reg_qnn = reg_qnn * q[1] # Two q's because of NHPP, but 1st is always equal to 1
+##    print('reg_qnn\n', reg_qnn)
+#    return reg_qnn, denom, normalize_factor
+
+
+def get_q_multipliers_NN(t_reg, qnn_output, singleton_mask, qbin_ts_te=None):
     qnn = qnn_output + 0.0
     if qnn.ndim == 2:
         # set rate to NA before ts and after te
@@ -2191,40 +2232,7 @@ def get_q_rate_BDNN(q, t_reg, qnn_output, singleton_mask, qbin_ts_te):
         qnn_not_nan = np.repeat(True, qnn.shape[-1])
     qnn[np.logical_and(singleton_mask, qnn_not_nan)] = np.nan # singletons, they should not impact the regularization
 
-    reg_qnn, denom = get_reg_rates(qnn, t_reg)
-
-    # convert to multipliers
-    normalize_factor = 1 / np.mean(reg_qnn[np.logical_and(~singleton_mask, qnn_not_nan)])
-    reg_qnn *= normalize_factor
-    reg_qnn[np.logical_and(singleton_mask, qnn_not_nan)] = 1.0
-
-    if len(q) > 2 or (len(q) == 2 and q[0] != 1.0): # 2nd case is when there is exactly one shift time
-        # Several q rates
-        if reg_qnn.ndim == 1:
-            # No time-varying trait table, no age-dependent sampling
-            reg_qnn = reg_qnn[:, np.newaxis] * q
-        else:
-            # Time-varying trait table or age-dependent sampling with shift in baseline
-            reg_qnn = reg_qnn * q[np.newaxis, :]
-    else:
-        # Constant baseline sampling
-        reg_qnn = reg_qnn * q[1] # Two q's because of NHPP, but 1st is always equal to 1
-#    print('reg_qnn\n', reg_qnn)
-    return reg_qnn, denom, normalize_factor
-
-
-def get_q_multipliers_NN(t_reg, qnn_output, singleton_mask, qbin_ts_te):
-    qnn = qnn_output + 0.0
-    if qnn.ndim == 2:
-        # set rate to NA before ts and after te
-        for i in range(qnn.shape[0]):
-            qnn[i, :qbin_ts_te[i, 0]] = np.nan
-            qnn[i, qbin_ts_te[i, 1]:] = np.nan
-        qnn_not_nan = np.isnan(qnn) == False
-    else:
-        qnn_not_nan = np.repeat(True, qnn.shape[-1])
-    qnn[np.logical_and(singleton_mask, qnn_not_nan)] = np.nan # singletons, they should not impact the regularization
-
+    # perform regularization
     reg_qnn, denom = get_reg_rates(qnn, t_reg)
 
     # convert to multipliers
@@ -2523,7 +2531,7 @@ def make_singleton_mask(occs_sp, timevar_q="", ads=-1.0):
 
 
 def HPP_NN_lik(arg):
-    [ts, te, q, alpha, q_multipliers, const_q, k, log_factorial_occs, time_frames, duration_q_bins, single_bin, singletons] = arg
+    [ts, te, q, alpha, q_multipliers, const_q, k, log_factorial_occs, time_frames, duration_q_bins, single_bin, singletons, argsG, gamma_ncat, YangGammaQuant] = arg
     # calc time lived in each time frame
     d = get_time_in_q_bins(ts, te, time_frames, duration_q_bins, single_bin)
     if argsG == 0:
@@ -2540,17 +2548,17 @@ def HPP_NN_lik(arg):
             alpha = q[0]
             q = q[1]
             n_bins_q = q_multipliers.shape[-1]
-        q_rates = np.zeros((pp_gamma_ncat, n_taxa_q, n_bins_q))
-        lik_vec = np.zeros((pp_gamma_ncat, n_taxa_q))
-        YangGamma = get_gamma_rates(alpha)
-        for i in range(pp_gamma_ncat):
+        q_rates = np.zeros((gamma_ncat, n_taxa_q, n_bins_q))
+        lik_vec = np.zeros((gamma_ncat, n_taxa_q))
+        YangGamma = get_gamma_rates_qnn(alpha, gamma_ncat, YangGammaQuant)
+        for i in range(gamma_ncat):
             q_rates[i, :, :] = get_q_rates_NN(YangGamma[i] * q, q_multipliers, const_q)
         q_rates[:, singletons, :] = q
         qtl = -q_rates * d
         lik_vec = np.nansum(qtl + np.log(q_rates) * k[np.newaxis, :, :], axis=2) - np.log(1 - np.exp(np.nansum(qtl, axis=2))) - log_factorial_occs
         lik_max = np.max(lik_vec, axis=0)
         lik_vec2 = lik_vec - lik_max
-        lik = np.log(np.sum(np.exp(lik_vec2), axis=0) / pp_gamma_ncat) + lik_max
+        lik = np.log(np.sum(np.exp(lik_vec2), axis=0) / gamma_ncat) + lik_max
         # Get relative weight of the gamma categories
         lik_vec_exp = np.exp(lik_vec2)
         weight_per_taxon = lik_vec_exp / np.sum(lik_vec_exp, axis=0)
@@ -2559,7 +2567,7 @@ def HPP_NN_lik(arg):
 
 
 def HOMPP_NN_lik(arg):
-    [ts, te, q, q_multipliers, const_q, k, log_factorial_occs, singletons] = arg
+    [ts, te, q, q_multipliers, const_q, k, log_factorial_occs, singletons, argsG, gamma_ncat, YangGammaQuant] = arg
     br_length = ts - te
     if argsG == 0:
         q_rates = get_q_rates_NN(q[1], q_multipliers, const_q)
@@ -2567,16 +2575,16 @@ def HOMPP_NN_lik(arg):
         lik = qtl + np.log(q_rates) * k - log_factorial_occs - np.log(1 - np.exp(qtl))
     else:
         n_taxa_q = len(ts)
-        q_rates = np.zeros((pp_gamma_ncat, n_taxa_q))
-        YangGamma = get_gamma_rates(q[0])
-        for i in range(pp_gamma_ncat):
+        q_rates = np.zeros((gamma_ncat, n_taxa_q))
+        YangGamma = get_gamma_rates_qnn(q[0], gamma_ncat, YangGammaQuant)
+        for i in range(gamma_ncat):
             q_rates[i, :] = get_q_rates_NN(YangGamma[i] * q[1], q_multipliers, const_q)
         q_rates[:, singletons] = q[1]
         qtl = -q_rates * br_length
         lik_vec = qtl + np.log(q_rates) * k - log_factorial_occs - np.log(1 - np.exp(qtl))
         lik_max = np.max(lik_vec, axis=0)
         lik_vec2 = lik_vec - lik_max
-        lik = np.log(np.sum(np.exp(lik_vec2), axis=0) / pp_gamma_ncat) + lik_max
+        lik = np.log(np.sum(np.exp(lik_vec2), axis=0) / gamma_ncat) + lik_max
         lik_vec_exp = np.exp(lik_vec)
         weight_per_taxon = lik_vec_exp / np.sum(lik_vec_exp, axis=0)
         q_rates = np.sum(q_rates * weight_per_taxon, axis=0)
@@ -4215,9 +4223,9 @@ def MCMC(all_arg):
         if fix_SE == 0 and FBDrange==0:
             ind1=list(range(0,len(fossil)))
             ind2=[]
-            if it>0 and rr<f_update_se and not timevar_qnn: # recalculate likelihood only for ts, te that were updated
-                ind1=((ts-te != tsA-teA).nonzero()[0]).tolist()
-                ind2=(ts-te == tsA-teA).nonzero()[0]
+#            if it>0 and rr<f_update_se and not timevar_qnn: # recalculate likelihood only for ts, te that were updated
+#                ind1=((ts-te != tsA-teA).nonzero()[0]).tolist()
+#                ind2=(ts-te == tsA-teA).nonzero()[0]
             lik_fossil=zeros(len(fossil))
 
             if len(ind1)>0 and it<stop_update and fix_SE == 0:
@@ -4313,13 +4321,15 @@ def MCMC(all_arg):
                                                                                       q_multi[ind1], const_q,
                                                                                       occs_sp[ind1, :], log_factorial_occs[ind1],
                                                                                       q_time_frames_bdnn, duration_q_bins[ind1, :],
-                                                                                      occs_single_bin[ind1], singleton_lik[ind1]])
+                                                                                      occs_single_bin[ind1], singleton_lik[ind1],
+                                                                                      argsG, pp_gamma_ncat, YangGammaQuant])
                             else:
                                 lik_fossil[ind1], bdnn_q_rates[ind1] = HOMPP_NN_lik([ts[ind1], te[ind1],
                                                                                      q_rates_tmp,
                                                                                      q_multi[ind1], const_q,
                                                                                      occs_sp[ind1], log_factorial_occs[ind1],
-                                                                                     singleton_lik[ind1]])
+                                                                                     singleton_lik[ind1],
+                                                                                     argsG, pp_gamma_ncat, YangGammaQuant])
                         else:
                             for j in range(len(ind1)):
                                 i=ind1[j] # which species' lik
@@ -5401,6 +5411,7 @@ if __name__ == '__main__':
     time_framesM=args.mM          # no. (starting) time frames (mu)
     constrain_time_frames=args.mC # True/False
     pp_gamma_ncat=args.ncat              # args.ncat
+    YangGammaQuant = None
     if args.mG:             # number of gamma categories
         argsG = 1
         YangGammaQuant=(np.linspace(0,1,pp_gamma_ncat+1)-np.linspace(0,1,pp_gamma_ncat+1)[1]/2)[1:]
@@ -5862,7 +5873,7 @@ if __name__ == '__main__':
         path_dir_log_files = args.BDNN_interaction.replace("_mcmc.log", "")
         pkl_file = path_dir_log_files + ".pkl"
         mcmc_file = path_dir_log_files + "_mcmc.log"
-        bdnn_obj, w_sp, w_ex, _, sp_fad_lad, ts_post, te_post, t_reg_lam, t_reg_mu, _, reg_denom_lam, reg_denom_mu, _, _ = bdnn_lib.bdnn_parse_results(mcmc_file, pkl_file, burnin, args.resample)
+        bdnn_obj, w_sp, w_ex, _, sp_fad_lad, ts_post, te_post, t_reg_lam, t_reg_mu, _, reg_denom_lam, reg_denom_mu, _, _, _ = bdnn_lib.bdnn_parse_results(mcmc_file, pkl_file, burnin, args.resample)
         backscale_par = bdnn_lib.read_backscale_file(args.plotBDNN_transf_features)
         sp_inter, sp_trt_tbl, names_features = bdnn_lib.get_pdp_rate_free_combination(bdnn_obj, sp_fad_lad, ts_post, te_post,
                                                                                       w_sp, t_reg_lam, reg_denom_lam,
@@ -6959,7 +6970,8 @@ if __name__ == '__main__':
                 'log_factorial_occs': log_factorial_occs,
                 'singleton_mask': singleton_mask,
                 'occs_sp': occs_sp,
-                'pert_prior': pert_prior
+                'pert_prior': pert_prior,
+                'pp_gamma_ncat': pp_gamma_ncat
             })
             if use_HPP_NN_lik == 1:
                 bdnn_dict.update({
