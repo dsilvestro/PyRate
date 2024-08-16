@@ -5430,6 +5430,9 @@ if __name__ == '__main__':
     ############################ MCMC SETTINGS ############################
     # GENERAL SETTINGS
     TDI=args.A                  # 0: parameter estimation, 1: thermodynamic integration, 2: BD-MCMC
+    BDNNmodel = args.BDNNmodel
+    if BDNNmodel in [1, 3]:
+        TDI = 0
     if constrain_time_frames == 1 or args.fixShift != "":
         if TDI in [2,4]:
             # print("\nConstrained shift times (-mC,-fixShift) cannot be used with BD/RJ MCMC alorithms. Using standard MCMC instead.\n")
@@ -5526,7 +5529,6 @@ if __name__ == '__main__':
     if model_cov==3: f_cov_par= [.5 ,1  ,0 ]
     if model_cov==4: f_cov_par= [0  ,0  ,1 ]
     if model_cov==5: f_cov_par= [.33,.66,1 ]
-    BDNNmodel = args.BDNNmodel
 
     if covar_prior_fixed==0: est_COVAR_prior = 1
     else: est_COVAR_prior = 0
