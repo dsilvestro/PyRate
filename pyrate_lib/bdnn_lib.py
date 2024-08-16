@@ -2072,8 +2072,11 @@ def get_CV_from_sim_bdnn(bdnn_obj, num_taxa, sp_rates, ex_rates, lam_tt, mu_tt, 
         cv_sim = []
         for i in tqdm(range(num_sim), disable = show_progressbar == False):
             cv_sim.append(get_CV_from_sim_i(args[i]))
-    cv_rate = np.array(cv_sim)
-    cv_rates[:, 2] = np.quantile(cv_sim, q=0.95, axis=0)
+    cv_sim = np.array(cv_sim)
+    n_failed_sims = np.sum(np.isnan(cv_sim[:, 0])) / cv_sim.shape[0]
+    if n_failed_sims > 0:
+        print('Successful simulations:', f'{float(n_failed_sims):.2f}', '%')
+    cv_rates[:, 2] = np.nanquantile(cv_sim, q=0.95, axis=0)
     return cv_rates
 
 
@@ -2378,6 +2381,8 @@ class BdnnTester():
             if iteration % 100 == 0 and iteration > self.burnin:
                 lam, _ = get_rate_BDNN(t_reg[0], self.traits, w_lam, act_f=self.act_f, out_act_f=self.out_act_f)
                 mu, _ = get_rate_BDNN(t_reg[1], self.traits, w_mu, act_f=self.act_f, out_act_f=self.out_act_f)
+#                print('inferred lam', lam)
+#                print('inferred mu', mu)
                 lam_acc.append(lam)
                 mu_acc.append(mu)
 
@@ -2613,7 +2618,6 @@ def get_CV_from_sim_i(arg):
 
 #    # Random seed
 #    rs = np.random.default_rng(None)
-    
     sim_bd = BdSimulator(s_species=1,
                          rangeSP=rangeSP,
                          rangeL=rangeL,
@@ -3721,40 +3725,36 @@ def create_perm_comb(bdnn_obj, do_inter_imp = True, combine_discr_features = Non
     return perm_names, perm_feat_idx
 
 
-def permute_trt_tbl(feat_idx, feature_is_time_variable, post_ts_i, trt_tbl_lowres, trt_tbl=None, seed=None):
-    # # 4 bins, 5 species, 3 trait
-    # a = np.arange(60).reshape((4, 5, 3))
-    # print(a)
-    # # Flip trait 1 in all bins
-    # b = a + 0
-    # b[:, :, 1] = a[:, [4, 3, 2, 1, 0], 1]
-    # print(b)
-    # # Flip trait 3 (e.g. time) across bins
-    # d = a + 0
-    # d[:, :, 2] = a[[3, 2, 1, 0], :, 2]
-    # print(d)
+def permute_trt_tbl(feat_idx, feature_is_time_variable, use_high_res, trt_tbl_lowres, trt_tbl_highres=None, trt_tbl_already_permuted=None, seed=None):
     rng = np.random.default_rng(seed)
-    use_high_res = False
     if trt_tbl_lowres[0].ndim == 3:
-        if np.any(feature_is_time_variable[0, feat_idx]):
-            use_high_res = True
-#            print(feat_idx)
+        if use_high_res:
+            if trt_tbl_already_permuted is not None:
+                trt_tbl_highres = trt_tbl_already_permuted
             if np.any(feature_is_time_variable[1, feat_idx]):
                 ## Swapping time for all species together among bins
 #                print('Varies through time but not species', feat_idx)
-                n_bins = trt_tbl[0].shape[0]
+                n_bins = trt_tbl_highres[0].shape[0]
                 bins_perm_idx = rng.permuted(np.arange(n_bins))
-                trt_tbl[0][:, :, feat_idx] = trt_tbl[0][bins_perm_idx, :, :][:, :, feat_idx]
-                trt_tbl[1][:, :, feat_idx] = trt_tbl[1][bins_perm_idx, :, :][:, :, feat_idx]
-            if np.any(feature_is_time_variable[2, feat_idx]):
+                trt_tbl_highres[0][:, :, feat_idx] = trt_tbl_highres[0][bins_perm_idx, :, :][:, :, feat_idx]
+                trt_tbl_highres[1][:, :, feat_idx] = trt_tbl_highres[1][bins_perm_idx, :, :][:, :, feat_idx]
+                trt_tbl = trt_tbl_highres
+            elif np.any(feature_is_time_variable[2, feat_idx]):
 #                print('Varies through time and species', feat_idx)
                 ## Free permutation
-                feat_sp = trt_tbl[0][:, :, feat_idx]
-                feat_ex = trt_tbl[1][:, :, feat_idx]
+                feat_sp = trt_tbl_highres[0][:, :, feat_idx]
+                feat_ex = trt_tbl_highres[1][:, :, feat_idx]
                 n = len(feat_sp)
                 perm_idx = rng.permuted(np.arange(n))
-                trt_tbl[0][:, :, feat_idx] = feat_sp[perm_idx]
-                trt_tbl[1][:, :, feat_idx] = feat_ex[perm_idx]
+                trt_tbl_highres[0][:, :, feat_idx] = feat_sp[perm_idx]
+                trt_tbl_highres[1][:, :, feat_idx] = feat_ex[perm_idx]
+                trt_tbl = trt_tbl_highres
+            else:
+                n_species = trt_tbl_highres[0].shape[1]
+                species_perm_idx = rng.permuted(np.arange(n_species))
+                trt_tbl_highres[0][:, :, feat_idx] = trt_tbl_highres[0][:, species_perm_idx, :][:, :, feat_idx]
+                trt_tbl_highres[1][:, :, feat_idx] = trt_tbl_highres[1][:, species_perm_idx, :][:, :, feat_idx]
+                trt_tbl = trt_tbl_highres
                 ## Permutation (sampling with replacement) according to relative length of each time-bin (what if there is no time e.g. only div-dep?)
 #                n_species = trt_tbl[0].shape[1]
 #                n_bins = trt_tbl[0].shape[0]
@@ -3766,18 +3766,31 @@ def permute_trt_tbl(feat_idx, feature_is_time_variable, post_ts_i, trt_tbl_lowre
 #                   trt_tbl[0][:, s, feat_idx] = trt_tbl_org[0][:, s, feat_idx][perm_idx[:, s], :]
 #                   trt_tbl[1][:, s, feat_idx] = trt_tbl_org[1][:, s, feat_idx][perm_idx[:, s], :]
         else:
-            n_species = trt_tbl[0].shape[1]
+            if trt_tbl_already_permuted is not None:
+                trt_tbl_lowres = trt_tbl_already_permuted
+            n_species = trt_tbl_lowres[0].shape[1]
             species_perm_idx = rng.permuted(np.arange(n_species))
             trt_tbl_lowres[0][:, :, feat_idx] = trt_tbl_lowres[0][:, species_perm_idx, :][:, :, feat_idx]
             trt_tbl_lowres[1][:, :, feat_idx] = trt_tbl_lowres[1][:, species_perm_idx, :][:, :, feat_idx]
             trt_tbl = trt_tbl_lowres
     else:
+        if trt_tbl_already_permuted is not None:
+            trt_tbl_lowres = trt_tbl_already_permuted
         n_species = trt_tbl_lowres[0].shape[0]
         species_perm_idx = rng.permuted(np.arange(n_species))
         trt_tbl_lowres[0][:, feat_idx] = trt_tbl_lowres[0][species_perm_idx, :][:, feat_idx]
         trt_tbl_lowres[1][:, feat_idx] = trt_tbl_lowres[1][species_perm_idx, :][:, feat_idx]
         trt_tbl = trt_tbl_lowres
-    return trt_tbl, use_high_res
+    return trt_tbl
+
+
+def needs_high_res(idx, feat_is_time_var):
+    feat1_high_res = np.any(feat_is_time_var[0, idx[0]])
+    feat2_high_res = False
+    if idx[1] is not None:
+        feat2_high_res = np.any(feat_is_time_var[0, idx[1]])
+    use_high_res = feat1_high_res | feat2_high_res
+    return use_high_res
 
 
 def perm_mcmc_sample_i(arg):
@@ -3815,16 +3828,18 @@ def perm_mcmc_sample_i(arg):
 #    print(perm_feature_idx)
     for j in range(n_perm_traits):
         perm_feature_idx_j = perm_feature_idx[j]
+        use_high_res = needs_high_res(perm_feature_idx_j, feature_is_time_variable)
         for k in range(n_perm):
-            trt_tbls_perm = copy_lib.deepcopy(trt_tbls)
+            trt_tbls_perm_lowres = copy_lib.deepcopy(trt_tbls)
             trt_tbls_perm_highres = copy_lib.deepcopy(trt_tbls_highres)
+            trt_tbls_perm = None
             for l in range(len(perm_feature_idx_j)):
                 feat_idx = perm_feature_idx_j[l]
                 if feat_idx is not None:
                     seed = seeds[feat_idx] + k
                     if feat_idx.size > 1:
                         seed = seed[0]
-                    trt_tbls_perm, use_high_res = permute_trt_tbl(feat_idx, feature_is_time_variable, post_ts_i, trt_tbls_perm, trt_tbls_perm_highres, seed=seed)
+                    trt_tbls_perm = permute_trt_tbl(feat_idx, feature_is_time_variable, use_high_res, trt_tbls_perm_lowres, trt_tbls_perm_highres, trt_tbls_perm, seed=seed)
             if use_high_res:
                 # Use high temporal resolution (obtained with set_temporal_resolution) for time-variable features but not for traits.
                 # This makes the calculation faster.
