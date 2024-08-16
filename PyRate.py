@@ -5353,7 +5353,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNpklfile', type=str, help='Load BDNN pickle file', default="", metavar="")
     p.add_argument('-BDNN_pred_importance', metavar='<input file>', type = str, help = "Predictor importance in BDNN: provide path for 'mcmc.log' file (e.g. .../pyrate_mcmc_logs/example_BDS_BDNN_16_8Tc_mcmc.log)", default = "")
     p.add_argument('-BDNN_nsim_expected_cv', type=int, help='Number of simulations to get expected coefficient of rate variation', default=100, metavar=100)
-    p.add_argument('-BDNN_pred_importance_only_main', help='Obtain only importance of main effects and not of interactions', action='store_false', default=True)
+    p.add_argument('-BDNN_pred_importance_interaction', help='Obtain importance for two-way interactions in addition to the main effects', action='store_false', default=True)
     p.add_argument('-BDNN_pred_importance_window_size', type=float, help='Resample to time windows of a given size. Same value for birth-death and sampling or two different values.', default=[-1.0], metavar=[-1.0], nargs='+')
     p.add_argument('-BDNN_pred_importance_nperm', type=int, help='Number of permutation for BDNN predictor importance', default=100, metavar=100)
     p.add_argument('-BDNN_mean_shap_per_group', help='Calculating shap value for BDNN_groups using the mean importance across all grouped predictors', action='store_true', default=False)
@@ -5764,7 +5764,7 @@ if __name__ == '__main__':
         path_dir_log_files = args.BDNN_pred_importance.replace("_mcmc.log", "")
         pkl_file = path_dir_log_files + ".pkl"
         mcmc_file = path_dir_log_files + "_mcmc.log"
-        do_inter_imp = args.BDNN_pred_importance_only_main
+        do_inter_imp = args.BDNN_pred_importance_interaction is False
         BDNNmodel = bdnn_lib.get_bdnn_model(pkl_file)
         sp_taxa_shap, ex_taxa_shap, q_taxa_shap = None, None, None
         sp_main_consrank, ex_main_consrank, q_main_consrank = None, None, None
