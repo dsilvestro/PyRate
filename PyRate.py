@@ -4223,9 +4223,9 @@ def MCMC(all_arg):
         if fix_SE == 0 and FBDrange==0:
             ind1=list(range(0,len(fossil)))
             ind2=[]
-#            if it>0 and rr<f_update_se and not timevar_qnn: # recalculate likelihood only for ts, te that were updated
-#                ind1=((ts-te != tsA-teA).nonzero()[0]).tolist()
-#                ind2=(ts-te == tsA-teA).nonzero()[0]
+            if it>0 and rr<f_update_se and not timevar_qnn: # recalculate likelihood only for ts, te that were updated
+                ind1=((ts-te != tsA-teA).nonzero()[0]).tolist()
+                ind2=(ts-te == tsA-teA).nonzero()[0]
             lik_fossil=zeros(len(fossil))
 
             if len(ind1)>0 and it<stop_update and fix_SE == 0:
