@@ -2041,9 +2041,9 @@ def get_CV_from_sim_bdnn(bdnn_obj, num_taxa, sp_rates, ex_rates, lam_tt, mu_tt, 
     act_f = bdnn_obj.bdnn_settings['hidden_act_f']
     out_act_f = bdnn_obj.bdnn_settings['out_act_f']
     prior_t_reg = [-1.0, -1.0] # In case of very old log files witout regularization
+    independ_reg = False
     if 'prior_t_reg' in bdnn_obj.bdnn_settings:
         prior_t_reg = bdnn_obj.bdnn_settings['prior_t_reg']
-        independ_reg = False
         # Keep compatibility with pre-independent regularization
         if 'independent_t_reg' in bdnn_obj.bdnn_settings:
             independ_reg = bdnn_obj.bdnn_settings['independent_t_reg']
@@ -3267,7 +3267,7 @@ def get_pdp_rate_it_i(arg):
                                                post_w_i,  # list of arrays
                                                bdnn_obj.bdnn_settings['hidden_act_f'],
                                                out_act_f)
-            rate_BDNN = (rate_BDNN * norm) ** post_t_reg_i / post_denom_i
+            rate_BDNN = norm * (rate_BDNN ** post_t_reg_i / post_denom_i) # either b/d rates or multiplier for q
             rate_BDNN = baseline * rate_BDNN
             rate_it_i[j] = 1.0 / np.mean(1.0 / rate_BDNN) #np.mean(rate_BDNN)
     return rate_it_i
