@@ -5,7 +5,7 @@
 [![DOI](https://zenodo.org/badge/21620870.svg)](https://zenodo.org/badge/latestdoi/21620870)
 
 ---
-PyRate requires Python v.3.8 or higher. 
+PyRate requires Python v.3.10 or higher. 
 To install or upgrade Python visit: [python.org](https://www.python.org/downloads/). 
 To ensure all the dependencies are installed, you can **setup a virtual environment** as shown [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_0.md).
 Older versions of PyRate for Python v.2 are available [here](https://github.com/dsilvestro/PyRate/releases/tag/v3.1.1) (PyRate\_for\_Python2 directory).
