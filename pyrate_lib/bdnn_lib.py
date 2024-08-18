@@ -2073,10 +2073,13 @@ def get_CV_from_sim_bdnn(bdnn_obj, num_taxa, sp_rates, ex_rates, lam_tt, mu_tt, 
         for i in tqdm(range(num_sim), disable = show_progressbar == False):
             cv_sim.append(get_CV_from_sim_i(args[i]))
     cv_sim = np.array(cv_sim)
-    n_failed_sims = np.sum(np.isnan(cv_sim[:, 0])) / cv_sim.shape[0]
-    if n_failed_sims > 0:
-        print('Successful simulations:', f'{float(n_failed_sims):.2f}', '%')
-    cv_rates[:, 2] = np.nanquantile(cv_sim, q=0.95, axis=0)
+#    print('cv_sim\n', cv_sim)
+    n_failed_sims = 100.0 * (1.0 - np.sum(np.isnan(cv_sim[:, 0])) / cv_sim.shape[0])
+    if n_failed_sims < 100.0:
+        print('Successful simulations:', f'{float(n_failed_sims):.0f}', '%')
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', category = RuntimeWarning)
+        cv_rates[:, 2] = np.nanquantile(cv_sim, q=0.95, axis=0)
     return cv_rates
 
 
@@ -2144,8 +2147,8 @@ class BdSimulator():
         self.minEXTANT_SP = minEXTANT_SP
         self.maxEXTANT_SP = maxEXTANT_SP
         self.root_r = root_r
-        self.rangeL = rangeL
-        self.rangeM = rangeM
+        self.rangeL = np.array(rangeL)
+        self.rangeM = np.array(rangeM)
         self.scale = scale
         self._rs = get_rnd_gen(seed)
 
@@ -2204,6 +2207,9 @@ class BdSimulator():
 #        LM = np.sort(np.array([L, M]))
 #        L = LM[1]
 #        M = LM[0]
+        if num_trial > max_trial/2:
+            self.rangeL *= 1.02
+            self.rangeM *= 0.98
         if L < M and num_trial > max_trial/2:
             L = M * 1.1
         return timesL, timesM, L, M
@@ -5092,7 +5098,7 @@ def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_a
         trt_tbl_aux2[ll, :, :] = trt_tbl_aux
     trt_tbl_aux = trt_tbl_aux2.reshape(nEval * n_species, nAttr)
     rate_aux = get_unreg_rate_BDNN_3D(trt_tbl_aux, cov_par, hidden_act_f, out_act_f)
-    rate_aux = (rate_aux * norm) ** t_reg / reg_denom
+    rate_aux = norm * (rate_aux ** t_reg / reg_denom)
     rate_aux = rate_aux * baseline
     rate_aux = rate_aux.reshape(nEval, n_species)
     exp_payoffs_ci = 1.0 / np.mean(1.0 / rate_aux, axis = 1)
@@ -5156,7 +5162,7 @@ def k_add_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out
 
 def fastshap_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f, baseline=1.0, norm=1.0):
     ke = KernelExplainer(
-        model = lambda X: ((get_unreg_rate_BDNN_3D(X, cov_par, hidden_act_f, out_act_f) * norm) ** t_reg / reg_denom) * baseline,
+        model = lambda X: (baseline * norm * (get_unreg_rate_BDNN_3D(X, cov_par, hidden_act_f, out_act_f) ** t_reg / reg_denom)),
         background_data = trt_tbl
     )
 #    shap_main = ke.calculate_shap_values(trt_tbl, verbose = False)
