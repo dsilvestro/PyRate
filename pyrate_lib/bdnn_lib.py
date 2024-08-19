@@ -5161,11 +5161,22 @@ def k_add_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out
 
 
 def fastshap_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f, baseline=1.0, norm=1.0):
+#    ke = KernelExplainer(
+#        model = lambda X: (baseline * norm * (get_unreg_rate_BDNN_3D(X, cov_par, hidden_act_f, out_act_f) ** t_reg / reg_denom)),
+#        background_data = trt_tbl
+#    )
+    def lambdaX(X, cov_par, hidden_act_f, out_act_f, t_reg, reg_denom):
+        r = get_unreg_rate_BDNN_3D(X, cov_par, hidden_act_f, out_act_f)
+        r = baseline * norm * (r ** t_reg / reg_denom)
+#        harmonic_mean = 1.0 / np.mean(1.0 / r)
+#        multi = harmonic_mean / r
+#        r *= multi
+        return r
+    
     ke = KernelExplainer(
-        model = lambda X: (baseline * norm * (get_unreg_rate_BDNN_3D(X, cov_par, hidden_act_f, out_act_f) ** t_reg / reg_denom)),
+        model = lambda X: lambdaX(X, cov_par, hidden_act_f, out_act_f, t_reg, reg_denom),
         background_data = trt_tbl
     )
-#    shap_main = ke.calculate_shap_values(trt_tbl, verbose = False)
     strata = np.ceil(trt_tbl.shape[0] / 100.0).astype(int)
     ke.stratify_background_set(strata)
     shap_main = ke.calculate_shap_values(trt_tbl, verbose = False, background_fold_to_use = 0)
@@ -5314,11 +5325,31 @@ def get_species_rates_from_shap(shap, n_species, n_main_eff, mcmc_samples):
     return sr_summary
 
 
+def constrain_positive_rate(n_species, shaps):
+    baseline = shaps[0, :]
+    s = shaps[1:, :]
+    n_features = int(s.shape[0]/n_species)
+    for i in range(n_species):
+        s_idx = np.arange(i * n_features, (i + 1) * n_features)
+        for j in range(shaps.shape[1]):
+            sij = s[s_idx, j]
+            bj = baseline[j]
+            sum_sij = np.abs(np.sum(sij))
+            if (bj - sum_sij) < 0.0:
+                m = bj / sum_sij
+                s[s_idx, j] = sij * m
+    shaps[1:, :] = s
+    return shaps
+
+
 def merge_taxa_shap_and_species_rates(taxa_shap, taxa_names_shap, rates_from_shap, n_species):
     n = taxa_shap.shape[0]
     r = np.zeros((n, 3))
     r[:] = np.nan
     idx = np.arange(1, n, int((n - 1) / n_species))
+    # constrain rates to be positive
+    rates_from_shap[rates_from_shap < 0.0] = 0.0
+    taxa_shap = constrain_positive_rate(n_species, taxa_shap)
     r[idx, :] = rates_from_shap
     merged = np.hstack((taxa_shap, r))
     merged_df = pd.DataFrame(merged, columns = ['shap', 'lwr_shap', 'upr_shap', 'rate', 'rate_lwr', 'rate_upr'])
