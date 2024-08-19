@@ -44,21 +44,32 @@ python ./PyRate.py ./example_files/BDNN_examples/Carnivora/Carnivora_occs.py -BD
 ```
 
 #### Plot speciation and extinction rates through time
-This command will create a PDF file with the marginal rates through time (RTT).
+The `-plotBDNN` command will create a PDF file with the marginal rates through time (RTT).
 ```
 python ./PyRate.py -plotBDNN ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_G_BDS_BDNN_16_8TVc_mcmc.log -b 0.5
 ```
 
 The optional argument `-b 0.5` discards 50% of the MCMC samples as burnin. Additional options to display the RTT for a subset of taxa are [detailed below](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#plotting-marginal-rates-through-time).
 
-![Example rates through time](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_RTT.png)
+![Rates through time](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_RTT.png)
 Rates through time plot for the Carnivora BDNN analysis obtained with the command `-plotBDNN`.
 
 
 #### Display the influence of traits and paleotemperature on rates
+We can create partial dependence plots (PDP) for visualizing the influence of single predictors and all two-way interactions on speciation and extinction rates with the `-plotBDNN_effects` command.
 ```
 python ./PyRate.py -plotBDNN_effects ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_G_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features ./example_files/BDNN_examples/Carnivora/Backscale.txt -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.5
 ```
+
+The optional argument `-plotBDNN_transf_features` rescales z-transformed continous traits and time-series predictor to their original scale. The `-BDNN_groups` is used to display categorical predictors with multiple unordered states, for instance, the family to which each taxon belongs in the same figure. See [Setting up a BDNN dataset](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#setting-up-a-bdnn-dataset) for details on trait encoding.
+
+![Family specific speciation rate](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_family_speciation.png)
+Carnivora families have different speciation rates according to the partial dependence plots.
+
+![Temperature dependent extinction](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_temp_extinction.png)
+Lower temperatures are related to higher extinction rates according to the partial dependence plots.
+
+
 
 #### Obtain predictor importance
 In the last step, we (a) assess if the variation is species-time-specific rates exceeds the expectation under a constant diversification process, and (b) rank the predictors according to their influence on speciation and extinction rates.
@@ -79,7 +90,49 @@ We provide an [example dataset](https://github.com/dsilvestro/PyRate/tree/master
 
 Note that to improve model convergence **continous trait and time-series predictor should be z-transformed** (i.e. subtracting the mean and dividing by the standard deviation). The original mean and standard deviation can be stored in a text file (see [`Backscale.txt`](https://github.com/dsilvestro/PyRate/tree/master/example_files/BDNN_examples/Carnivora/Backscale.txt) file for an example) and used in the plotting function to [display the results on the original scale](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#partial-dependence-plots).
 
+Categorical traits are allowed to be binary (i.e. two states of the trait), unordered, or have multiple states. 
+A binary trait where a taxon can have only one of the two states (e.g. whether a taxon is aquatic) should be 0-1 encoded.
 
+| scientificName | Aquatic |
+| ------------- |:-------------:|
+Orcinus | 1
+Cavia | 0
+
+
+Unordered traits with more than two states should be one-hot encoded. For instance, the taxon's 'family assignment.
+
+| scientificName | Felidae | Musteloidea | Ursidae |
+| ------------- |:-------------:|:-------------:|
+Acinonyx | 1 | 0 | 0
+Actiocyon | 0 | 1 | 0
+Agriotherium | 0 | 0 | 1
+
+
+An unordered trait where a taxon can have more than one state should also be one-hot encoded. An example is the geographic distribution of taxa in two areas.
+
+| scientificName | Eurasia | NAmerica |
+| ------------- |:-------------:|:-------------:|
+Acinonyx | 1 | 0
+Actiocyon | 0 | 1
+Agriotherium | 1 | 1
+
+
+An ordered trait with more than two states should be encoded with integers. If there are many states, it would be best to center them in zero (i.e. subtracting the real-numbered value closest to the median of the states) and add the trait to the `Backscale.txt` for the `-plotBDNN_transf_features` argument with the value in the first row equal to the median and the value in the second row set to 1. For instance, for six taxa with the states 0, 0, 1, 2, 3, 4, we subtract 2 from each state because the median is 1.5.
+
+| scientificName | Ordered_trait |
+| ------------- |:-------------:|
+Taxon_0 | -2
+Taxon_1 | -2
+Taxon_2 | -1
+Taxon_3 | 0
+Taxon_4 | 1
+Taxon_5 | 2
+
+To have labels for the partial dependence plots begining with zero, the file for the `-plotBDNN_transf_features` argument should then include a column like this:
+
+| Ordered_trait |
+2
+1
 
 
 
@@ -121,7 +174,7 @@ python ./PyRate.py -plotBDNN .../pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc
 
 
 ### Partial dependence plots
-We can now generate partial dependence plots to separate the individual effects of each predictor on the rates and the combined effects of each pair of predictors (to assess interactions). This is done using the `-plotBDNN_effects` command to load the `*mcmc.log` file and the `-plotBDNN_transf_features` to load the `Backscale.txt` file (to rescale correctly the traits in the plots). We additionally use the `-BDNN_groups` function to specify which variables belong in the same class (e.g. all families belong to a class here named `taxon`. 
+We can now generate partial dependence plots to separate the individual effects of each predictor on the rates and the combined effects of each pair of predictors (to assess interactions). PDPs marginalize over the remaining predictors, i.e. cancelling out their effect and displaying only the effect attributed to the respective predictor(s). Although net diversification rate is not an inferred model parameter itself, we can display the effect on it by subtracting the extinction PDP from the speciation PDP. This is done using the `-plotBDNN_effects` command to load the `*mcmc.log` file and the `-plotBDNN_transf_features` to load the `Backscale.txt` file (to rescale correctly the traits in the plots). We additionally use the `-BDNN_groups` function to specify which variables belong in the same class (e.g. all families belong to a class here named `taxon`. 
 
 ```
 python PyRate.py -plotBDNN_effects .../pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features .../Backscale.txt -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.1 -resample 100
