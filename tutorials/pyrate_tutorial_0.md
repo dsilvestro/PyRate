@@ -2,7 +2,7 @@
 
 ***
  
-First, make sure **Python (v.3.8 or higher)** is installed on your computer. To install or upgrade Python visit: [python.org](https://www.python.org/downloads/).    
+First, make sure **Python (v.3.10 or higher)** is installed on your computer. To install or upgrade Python visit: [python.org](https://www.python.org/downloads/).    
 You can run PyRate within a virtual environment to make sure all the compatible dependencies are included without affecting your system Python installation following the steps below.
 
 1) **Create a virtual environment** typing in a terminal console (or *command prompt* on Windows): 
@@ -41,5 +41,5 @@ You can check that PyRate can now be run in your virtual environment using:
 python your_path/PyRate-master/PyRate.py -v
 ```
 
-Note: In case the message `Module FastPyRateC was not found.` appears the program will still run but use a slower implemntation for some of the functions. You can follow these [instructions](https://github.com/dsilvestro/PyRate/blob/master/pyrate_lib/fastPyRateC/README.md) to install the fastPyRateC library.  
+Note: In case the message `Module FastPyRateC was not found.` appears the program will still run but use a slower implementation for some of the functions. You can follow these [instructions](https://github.com/dsilvestro/PyRate/blob/master/pyrate_lib/fastPyRateC/README.md) to install the fastPyRateC library.  
 
