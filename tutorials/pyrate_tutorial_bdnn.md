@@ -67,7 +67,7 @@ The optional argument `-plotBDNN_transf_features` rescales z-transformed contino
 Carnivora families have different speciation rates according to the partial dependence plots.
 
 ![Temperature dependent extinction](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_temp_extinction.png)
-Lower temperatures are related to higher extinction rates according to the partial dependence plots.
+Lower temperatures are related to higher extinction rates according to the partial dependence plots. Ticks along the x-axis display observed values of the predictor.
 
 
 
@@ -102,7 +102,7 @@ Cavia | 0
 Unordered traits with more than two states should be one-hot encoded. For instance, the taxon's 'family assignment.
 
 | scientificName | Felidae | Musteloidea | Ursidae |
-| ------------- |:-------------:|:-------------:|
+| ------------- |:-------------:|:-------------:|:-------------:|
 Acinonyx | 1 | 0 | 0
 Actiocyon | 0 | 1 | 0
 Agriotherium | 0 | 0 | 1
