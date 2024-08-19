@@ -120,7 +120,7 @@ Agriotherium | 1 | 1
 An ordered trait with more than two states should be encoded with integers. If there are many states, it would be best to center them in zero (i.e. subtracting the real-numbered value closest to the median of the states) and add the trait to the `Backscale.txt` for the `-plotBDNN_transf_features` argument with the value in the first row equal to the median and the value in the second row set to 1. For instance, for six taxa with the states 0, 0, 1, 2, 3, 4, we subtract 2 from each state because the median is 1.5.
 
 | scientificName | Ordered_trait |
-| ------------- |:-------------:|
+| ------------- |-------------:|
 Taxon_0 | -2
 Taxon_1 | -2
 Taxon_2 | -1
@@ -131,8 +131,9 @@ Taxon_5 | 2
 To have labels for the partial dependence plots begining with zero, the file for the `-plotBDNN_transf_features` argument should then include a column like this:
 
 | Ordered_trait |
-2 |
-1 |
+|:-------------:|
+| 2 |
+| 1 |
 
 
 
