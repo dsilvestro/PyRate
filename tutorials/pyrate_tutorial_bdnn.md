@@ -1,6 +1,18 @@
-<img src="https://github.com/dsilvestro/PyRate/blob/master/pyrate_lib/PyRate_logo1024.png" align="left" width="80">  
+<img src="https://github.com/dsilvestro/PyRate/blob/master/pyrate_lib/PyRate_logo1024.png" align="left" width="80">
 
-# The BDNN model 
+# PyRate Tutorial \#7
+
+***  
+#### Contents
+* [BDNN model](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#the-bdnn-model)
+* [Quick example](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#complete-example-for-the-impatient)
+* [Setting up a BDNN dataset](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#setting-up-a-bdnn-dataset)
+* [Combining replicates](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#combining-bdnn-files-across-replicates)
+* [Return to Index](https://github.com/dsilvestro/PyRate/tree/master/tutorials#pyrate-tutorials---index)
+***
+
+
+# The BDNN model
 
 The birth-death neural-network model modulates speciation and extinction rates per lineage and through time as a function of 
 
@@ -9,26 +21,67 @@ The birth-death neural-network model modulates speciation and extinction rates p
 3. one or more **time-dependent variables** (e.g. paleotemperature)
 4. **phylogenetic relatedness** (e.g. classification into higher taxa or phylogenetic eigenvectors)
 
-As the function is based on a fully connected feed-forward neural network, it is not based on *a priori* assumptions about its shape. For instance, it can account for non-linear and non-monotonic responses of the rates to variation in the predictors.  
+As the function is based on a fully connected feed-forward neural network, it is not based on *a priori* assumptions about its shape. For instance, it can account for non-linear and non-monotonic responses of the rates to variation in the predictors.
 It can also account for any interactions among the predictors. 
 
 The parameters of the BDNN model are estimated jointly with the origination and extinction times of all taxa and the preservation rates. 
 The output can be used to estimate rate variation through time, across species, and to identify the most important predictors of such variation and their individual or combined effects. 
 
 ---
+## Complete example for the impatient
+This is a short example of all steps of the BDNN analysis. This will take you ca. 45 minutes and assumes some familiarity with PyRate. All steps, their optional arguments, and the output files are explained in their respective section below.
 
-### Setting up a BDNN dataset
+#### Move to your PyRate folder
+```
+cd /your/path/to/PyRate-master
+```
+
+Here we have an [example dataset](https://github.com/dsilvestro/PyRate/tree/master/example_files/BDNN_examples/Carnivora) of Carnivora occurrences, their traits, paleotemperature, and a file specifying shifts in sampling rates through time. See the section [Setting up a BDNN dataset](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#setting-up-a-bdnn-dataset) for details.
+
+#### Run a BDNN inference
+```
+python ./PyRate.py ./example_files/BDNN_examples/Carnivora/Carnivora_occs.py -BDNNmodel 1 -trait_file ./example_files/BDNN_examples/Carnivora/Traits.txt -BDNNtimevar ./example_files/BDNN_examples/Carnivora/Paleotemperature.txt -mG -qShift ./example_files/BDNN_examples/Carnivora/Stages.txt -n 200001 -p 20000 -s 5000
+```
+
+#### Plot speciation and extinction rates through time
+This command will create a PDF file with the marginal rates through time (RTT).
+```
+python ./PyRate.py -plotBDNN ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -b 0.5
+```
+
+The optional argument `-b 0.5` discards 50% of the MCMC samples as burnin. Additional options to display the RTT for a subset of taxa are [detailed below](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#plotting-marginal-rates-through-time).
+
+
+#### Display the influence of traits and paleotemperature on rates
+```
+python ./PyRate.py -plotBDNN_effects ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features ./example_files/BDNN_examples/Carnivora/Backscale.txt -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.5
+```
+
+#### Obtain predictor importance
+In the last step, we (a) assess if the variation is species-time-specific rates exceeds the expectation under a constant diversification process, and (b) rank the predictors according to their influence on speciation and extinction rates.
+```
+python ./PyRate.py -BDNN_pred_importance ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features ./example_files/BDNN_examples/Carnivora/Backscale.txt -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.5 -BDNN_nsim_expected_cv 10
+```
+
+
+
+
+---
+## Setting up a BDNN dataset
 The BDNN model requires occurrence data in the [standard PyRate format](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md). 
 It additionally can use species and time specific data. 
 A table with species-specific trait data can be loaded in the analysis using the `-trait_table` command, while a table with time-series predictors can be loaded using the `-BDNNtimevar` command. 
 
-We provide an [example dataset](https://github.com/dsilvestro/PyRate/tree/master/example_files/BDNN_examples/Carnivora) based on [Hauffe et al 2022 MEE](https://doi.org/10.1111/2041-210X.13845). This includes genus level occurrence data of northern hemisphere Cenozoic carnivores, a table with a paleotemperature time series, and a table with lineage-specific traits: log-transformed body mass, taxonomic information (family-level classification), and continent of occurrence (Eurasia and North America). The tables are simple tab-separated text files with a header. 
+We provide an [example dataset](https://github.com/dsilvestro/PyRate/tree/master/example_files/BDNN_examples/Carnivora) based on [Hauffe et al 2022 MEE](https://doi.org/10.1111/2041-210X.13845). This includes genus level occurrence data of northern hemisphere Cenozoic carnivores, a table with a paleotemperature time series, and a table with lineage-specific traits: log-transformed body mass, taxonomic information (family-level classification), and continent of occurrence (Eurasia and North America). The tables are simple tab-separated text files with a header.
 
-Note that the log Body mass and paleotemperature data are z-transformed (and the original mean and standard deviation are stored in the `Backscale.txt` file for plotting). 
+Note that to improve model convergence **continous trait and time-series predictor should be z-transformed** (i.e. subtracting the mean and dividing by the standard deviation). The original mean and standard deviation can be stored in a text file (see [`Backscale.txt`](https://github.com/dsilvestro/PyRate/tree/master/example_files/BDNN_examples/Carnivora/Backscale.txt) file for an example) and used in the plotting function to [display the results on the original scale](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#partial-dependence-plots).
+
+
+
 
 
 ---
-### Running a BDNN analysis
+## Running a BDNN inference
 To run a BDNN analysis we need to provide the occurrence file and use the command `-BDNNmodel 1`. By default the model will only use time as predictor, discretizing time in 1-myr bins. If you want to use different time bins (e.g. of different sizes) you can use the `-fixShift` command to provide a file defining the bins' boundaries.
 
 All [standard commands to define the preservation model](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#defining-the-preservation-model) can be used in combination with the BDNN model.
@@ -37,7 +90,7 @@ Here we will use the `-qShift` command to specify time bins for a time-variable 
 The analysis is launched as follow:
 
 ```
-python PyRate.py .../Carnivora_occs.py -fixShift .../Time_windows.txt -BDNNmodel 1 -BDNNtimevar .../Paleotemperature.txt -qShift .../Stages.txt -mG -A 0 -trait_file .../Traits.txt -s 10 -n 1000
+python ./PyRate.py .../Carnivora_occs.py -fixShift .../Time_windows.txt -BDNNmodel 1 -BDNNtimevar .../Paleotemperature.txt -qShift .../Stages.txt -mG -A 0 -trait_file .../Traits.txt -s 10 -n 1000
 
 ```
 where `-s` and `-n` are used to define sampling frequency and MCMC iterations. **Note** that `...` should be replaced with the absolute path to the files. 
@@ -46,11 +99,11 @@ where `-s` and `-n` are used to define sampling frequency and MCMC iterations. *
 
 ## Output postprocessing
 
-### Plotting the marginal rates through time
+### Plotting marginal rates through time
 The marginal speciation and extinction rates through time inferred by the BDNN model can be plotted using `-plotBDNN`:
 
 ```
-python PyRate.py -plotBDNN .../pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -b 0.1
+python ./PyRate.py -plotBDNN .../pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -b 0.1
 ```
 
 where `-b 0.1` specifies the burnin proportion. 
@@ -60,7 +113,7 @@ The command will generate a PDF file and an R script with the rates-through-time
 It is possible to plot the rates through time for a subset of the taxa, e.g. for a group of taxa sharing the same trait. The grouping needs to be provided in a tab-separated text file by assigning the taxon names for the group. For instance, the [example grouping](https://github.com/dsilvestro/PyRate/tree/master/example_files/BDNN_examples/Carnivora/RTT_groups.csv) specifies the subsets of carnivore that belong to Canidae or Musteloidea, occure in Eurasia, or weighing less than 10 kg.
 
 ```
-python PyRate.py -plotBDNN .../pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -b 0.1 -plotBDNN_groups .../RTT_groups.csv
+python ./PyRate.py -plotBDNN .../pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -b 0.1 -plotBDNN_groups .../RTT_groups.csv
 ```
 
 
@@ -125,7 +178,7 @@ python PyRate.py .../Carnivora_occs.py -fixShift .../Time_windows.txt -BDNNmodel
 
 To combine log files from different replicates into one you can use the command:
 
-`PyRate.py -combBDNN path_to_your_log_files -tag 16_8TVc -b 100`
+`python ./PyRate.py -combBDNN path_to_your_log_files -tag 16_8TVc -b 20`
 
-where `path_to_your_log_files` specifies the directory where the log files are (e.g., the pyrate_mcmc_logs); `-tag 16_8TVc` sets PyRate to combine all files that contain 16_8TVc in the file name; and `-b 100` specifies that the first 100 samples from each file should be excluded as burnin – the appropriate number of burnin samples to be excluded should be determined after inspecting the mcmc.log files, e.g. using Tracer.
+where `path_to_your_log_files` specifies the directory where the log files are (e.g., the pyrate_mcmc_logs); `-tag 16_8TVc` sets PyRate to combine all files that contain 16_8TVc in the file name; and `-b 20` specifies that the first 20 samples from each file should be excluded as burnin – the appropriate number of burnin samples to be excluded should be determined after inspecting the mcmc.log files, e.g. using Tracer.
 
