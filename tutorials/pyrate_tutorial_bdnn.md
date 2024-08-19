@@ -205,6 +205,7 @@ As always in PyRate, the different replicates can be selected with the `-j` argu
 #### Replacing default 1-myr bins
 While origination and extinction times of the taxa are inferred in continuous time, the time effect of the BDNN and time-series are by default binned into 1-myr bins. If you want to use bin sizes you can use the `-fixShift` command to provide a file defining custom bins' boundaries. Custom bins can be useful to e.g. capture the higher temperature variability in the Pleistocene (instead of just taking the means from 0&mdash;1 and 1&mdash;2 with the default 1-myr bins). Moreover, larger bins could be useful for periods with few fossil occurrences and will result in faster BDNN runs. The `-fixShift` file for custom bins should have the same format than the one for the `-qShift` of the preservation model (i.e. no header, just ages). An example is provided in the [Advanced_examples](https://github.com/dsilvestro/PyRate/tree/master/example_files/BDNN_examples/Carnivora/Advanced_examples/Time_windows.txt)
 
+|        |
 |--------|
 | 0.0117 |
 | 0.126 |
