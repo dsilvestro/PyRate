@@ -238,7 +238,7 @@ python ./PyRate.py -plotBDNN ./example_files/BDNN_examples/Carnivora/pyrate_mcmc
 ```
 
 <img src="https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_RTT_Borophagus.png" alt="Rates through time for the genus Borophagus" width="1000">
-Species-specific rates through time plot for the gluttonous eater (_Borophagus_).
+Species-specific rates through time plot for the gluttonous eater (*Borophagus*).
 
 
 
