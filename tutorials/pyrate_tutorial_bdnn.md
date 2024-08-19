@@ -46,21 +46,24 @@ python ./PyRate.py ./example_files/BDNN_examples/Carnivora/Carnivora_occs.py -BD
 #### Plot speciation and extinction rates through time
 This command will create a PDF file with the marginal rates through time (RTT).
 ```
-python ./PyRate.py -plotBDNN ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -b 0.5
+python ./PyRate.py -plotBDNN ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_G_BDS_BDNN_16_8TVc_mcmc.log -b 0.5
 ```
 
 The optional argument `-b 0.5` discards 50% of the MCMC samples as burnin. Additional options to display the RTT for a subset of taxa are [detailed below](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#plotting-marginal-rates-through-time).
 
+![Example rates through time](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_RTT.png)
+Rates through time plot for the Carnivora BDNN analysis obtained with the command `-plotBDNN`.
+
 
 #### Display the influence of traits and paleotemperature on rates
 ```
-python ./PyRate.py -plotBDNN_effects ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features ./example_files/BDNN_examples/Carnivora/Backscale.txt -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.5
+python ./PyRate.py -plotBDNN_effects ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_G_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features ./example_files/BDNN_examples/Carnivora/Backscale.txt -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.5
 ```
 
 #### Obtain predictor importance
 In the last step, we (a) assess if the variation is species-time-specific rates exceeds the expectation under a constant diversification process, and (b) rank the predictors according to their influence on speciation and extinction rates.
 ```
-python ./PyRate.py -BDNN_pred_importance ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features ./example_files/BDNN_examples/Carnivora/Backscale.txt -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.5 -BDNN_nsim_expected_cv 10
+python ./PyRate.py -BDNN_pred_importance ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_G_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features ./example_files/BDNN_examples/Carnivora/Backscale.txt -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.5 -BDNN_nsim_expected_cv 10
 ```
 
 
@@ -165,7 +168,7 @@ No `-trait_file` and `-BDNNtimevar` should be provided.
 
 The following example uses custom tables with humans being present during the past 500,000 years in Eurasia but not in North America, which could influence the extinction rate but not speciation. Additionally, trajectories of paleotemperature are continent specific.
 ```
-python PyRate.py .../Carnivora_occs.py -fixShift .../Time_windows.txt -BDNNmodel 1 -BDNNpath_taxon_time_tables .../load_predictors/speciation .../load_predictors/extinction -qShift .../Stages.txt -mG -A 0  -s 10 -n 1000
+python ./PyRate.py .../Carnivora_occs.py -fixShift .../Time_windows.txt -BDNNmodel 1 -BDNNpath_taxon_time_tables .../load_predictors/speciation .../load_predictors/extinction -qShift .../Stages.txt -mG -A 0  -s 10 -n 1000
 ```
 
 To help settin-up the correct number of custum tables and getting their format right, PyRate allows to export the tables containing traits and environmental predictors from an BDNN analysis. These tables could than be modified using a text editor or spreadsheet software.
@@ -176,9 +179,21 @@ python PyRate.py .../Carnivora_occs.py -fixShift .../Time_windows.txt -BDNNmodel
 
 ### Combining BDNN files across replicates
 
+To account for age uncertainty in fossil occurrences, you should create multiple replicates with randomly sampled ages (see [PyRate tutorial 1](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md)). The BDNN model can be inferred for these replicates independently and their output files can be combined to obtain e.g. a single rate through time plot for all replicates or obtain the predictor importance across replicates.
+
+As always in PyRate, the different replicates can be selected with the `-j` argument. For instance, the Carnivora example dataset containes three replicates and the 2nd can be run with the following line:
+
+```
+python ./PyRate.py ./example_files/BDNN_examples/Carnivora/Carnivora_occs.py -j 2 -BDNNmodel 1 -trait_file ./example_files/BDNN_examples/Carnivora/Traits.txt -BDNNtimevar ./example_files/BDNN_examples/Carnivora/Paleotemperature.txt -mG -qShift ./example_files/BDNN_examples/Carnivora/Stages.txt -n 200001 -p 20000 -s 5000
+```
+
 To combine log files from different replicates into one you can use the command:
 
-`python ./PyRate.py -combBDNN path_to_your_log_files -tag 16_8TVc -b 20`
+```
+python ./PyRate.py -combBDNN ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs -b 20
+```
 
-where `path_to_your_log_files` specifies the directory where the log files are (e.g., the pyrate_mcmc_logs); `-tag 16_8TVc` sets PyRate to combine all files that contain 16_8TVc in the file name; and `-b 20` specifies that the first 20 samples from each file should be excluded as burnin – the appropriate number of burnin samples to be excluded should be determined after inspecting the mcmc.log files, e.g. using Tracer.
+where `path_to_your_log_files` specifies the directory where the log files are (e.g., pyrate_mcmc_logs). 
+This command generates five output files named “combined_[n]_mcmc.log”, "combined_[n]_per_species_rates.log", "combined_[n]_sp_rates.log", "combined_[n]_ex_rates.log", and combined_[n].pkl, where [n] is the number of combined replicates.
+The flag `-b 20` specifies that the first 20 samples from each file should be excluded as burnin – the appropriate number of burnin samples to be excluded should be determined after inspecting the mcmc.log files, e.g. using Tracer. To avoid producing too large combined files you can sub-sample each log file, using the flag `-resample`. If there are different BDNN analyses e.g. with different sets of predictors in the same pyrate_mcmc_logs folder, the respective analyses can be selected with the `-tag` argument. For instance, `-tag taxon_time_tables` instructs PyRate to combine all analyses whose file name contains taxon_time_tables.
 
