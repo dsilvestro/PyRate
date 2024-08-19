@@ -131,8 +131,8 @@ Taxon_5 | 2
 To have labels for the partial dependence plots begining with zero, the file for the `-plotBDNN_transf_features` argument should then include a column like this:
 
 | Ordered_trait |
-2
-1
+2 |
+1 |
 
 
 
