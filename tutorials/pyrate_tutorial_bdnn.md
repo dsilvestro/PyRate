@@ -53,7 +53,6 @@ python ./PyRate.py -plotBDNN ./example_files/BDNN_examples/Carnivora/pyrate_mcmc
 The optional argument `-b 0.5` discards 50% of the MCMC samples as burnin. Additional options to display the RTT for a subset of taxa are [detailed below](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#plotting-marginal-rates-through-time).
 
 <img src="https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_RTT.png" alt="Rates through time" width="1000">
-
 Rates through time plot for the Carnivora BDNN analysis obtained with the command `-plotBDNN`.
 
 
@@ -65,12 +64,10 @@ python ./PyRate.py -plotBDNN_effects ./example_files/BDNN_examples/Carnivora/pyr
 
 The optional argument `-plotBDNN_transf_features` rescales z-transformed continous traits and time-series predictor to their original scale. The `-BDNN_groups` is used to display categorical predictors with multiple unordered states, for instance, the family to which each taxon belongs in the same figure. See [Setting up a BDNN dataset](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#setting-up-a-bdnn-dataset) for details on trait encoding.
 
-![Family specific speciation rate](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_family_speciation.png){width=1000px}
-
+<img src="https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_family_speciation.png" alt="Family specific speciation rate" width="1000">
 Carnivora families have different speciation rates according to the partial dependence plots.
 
-![Temperature dependent extinction](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_temp_extinction.png){width=1000px}
-
+<img src="https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_temp_extinction.png" alt="Temperature dependent extinction" width="1000">
 Lower temperatures are related to higher extinction rates according to the partial dependence plots. Ticks along the x-axis display observed values of the predictor.
 
 
@@ -90,8 +87,17 @@ The `-BDNN_pred_importance` command creates seven files in the folder where the 
 speciation | 0.55 | 0.29
 extinction | 0.82 | 0.34
 
-The files `_sp_predictor_influence.csv` and `_ex_predictor_influence.csv` provide the ranked importance for the predictor variables 
 
+The files `_sp_predictor_influence.csv` and `_ex_predictor_influence.csv` provide the ranked importance for the predictor variables (i.e. the features of the neural network) according to the consensus across three explainable artificial intelligence metrics. The main parts of the table are examplified here for the three most important predictors of extinction:
+
+| feature1 | feature1_state | posterior_probability | shap | delta_lik | rank |
+|:-------- |:-------------- | ---------------------:| ----:| ---------:| ----:|
+taxon | Amphicyonidae_Canidae | 0.9 | 0.17 | -72.6 | 2
+taxon | Amphicyonidae_Felidae | 0.8 | 0.17 | -72.6 | 2
+geography | Eurasia_NAmerica | 0.6 | 0.09 | -68.1 | 3
+temp | none | 1.0 | 0.28 | -215.8 | 1
+
+The column `feature1` lists the predictors, `feature1_state` shows the pairwise comparison for categorical predictors, `posterior_probability` quantifies the consistency of the direction of the predictors effect (e.g. how often in the 10 `-resample`d MCMC samples Amphicyonidae had an higher extinction rate than Canidae), `shap` measures the effect size of the predictor (e.g. the extinction rate of Eurasian and North American carnivores differs by 0.09 units), `delta_lik` is the decrease in model likelihood when permuting the predictor, and finally the `rank` column provides the consensus among the individual importance ranking of these three metrics.
 
 More details on this table, the remaining four output files when obtaining the predictor importance, and optional arguments for the `-BDNN_pred_importance` command are explained [below](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#predictor_importance).
 
