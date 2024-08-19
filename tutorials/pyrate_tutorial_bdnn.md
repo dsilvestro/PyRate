@@ -53,6 +53,7 @@ python ./PyRate.py -plotBDNN ./example_files/BDNN_examples/Carnivora/pyrate_mcmc
 The optional argument `-b 0.5` discards 50% of the MCMC samples as burnin. Additional options to display the RTT for a subset of taxa are [detailed below](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#plotting-marginal-rates-through-time).
 
 ![Rates through time](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_RTT.png){width=1000px}
+
 Rates through time plot for the Carnivora BDNN analysis obtained with the command `-plotBDNN`.
 
 
@@ -65,9 +66,11 @@ python ./PyRate.py -plotBDNN_effects ./example_files/BDNN_examples/Carnivora/pyr
 The optional argument `-plotBDNN_transf_features` rescales z-transformed continous traits and time-series predictor to their original scale. The `-BDNN_groups` is used to display categorical predictors with multiple unordered states, for instance, the family to which each taxon belongs in the same figure. See [Setting up a BDNN dataset](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#setting-up-a-bdnn-dataset) for details on trait encoding.
 
 ![Family specific speciation rate](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_family_speciation.png){width=1000px}
+
 Carnivora families have different speciation rates according to the partial dependence plots.
 
 ![Temperature dependent extinction](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_temp_extinction.png){width=1000px}
+
 Lower temperatures are related to higher extinction rates according to the partial dependence plots. Ticks along the x-axis display observed values of the predictor.
 
 
