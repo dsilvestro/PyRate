@@ -212,6 +212,13 @@ While origination and extinction times of the taxa are inferred in continuous ti
 | 0.781 |
 | 1.8 |
 
+Just include the `-fixShift` argument in the BDNN command:
+```
+python ./PyRate.py ./example_files/BDNN_examples/Carnivora/Carnivora_occs.py -BDNNmodel 1 -BDNNtimevar ./example_files/BDNN_examples/Carnivora/Paleotemperature.txt -trait_file ./example_files/BDNN_examples/Carnivora/Traits.txt -fixShift ./example_files/BDNN_examples/Carnivora/Advanced_examples/Time_windows.txt -qShift ./example_files/BDNN_examples/Carnivora/Stages.txt -mG -out _time_windows -n 20000001 -s 20000 -p 10000
+```
+
+As for other PyRate analyse, the `-out` arguments allows to add a suffix to the output files. We add here __time_windows_ to distinguish it from the previous BDNN runs. Output files of this BDNN model are included in the [Example_output](https://github.com/dsilvestro/PyRate/tree/master/example_files/BDNN_examples/Carnivora/Advanced_examples/Example_output) and can be compared with the other analyses.
+
 ## Output postprocessing
 
 ### Plotting marginal rates through time
@@ -224,11 +231,15 @@ python ./PyRate.py -plotBDNN ./example_files/BDNN_examples/Carnivora/pyrate_mcmc
 where `-b 0.1` specifies the burnin proportion. This uses the `_sp_rates.log` and `_ex_rates.log` files from the `pyrate_mcmc_logs` directory. The command will generate a PDF file and an R script with the rates-through-time plots, which will be saved in the `pyrate_mcmc_logs` directory. The R script file can be edited to customize the plot.
 
 #### Marginal rates through time for a specific group of taxa
-It is possible to plot the rates through time for a subset of the taxa, e.g. for a group of taxa sharing the same trait. The grouping needs to be provided in a tab-separated text file by assigning the taxon names for the group. For instance, the [example grouping](https://github.com/dsilvestro/PyRate/tree/master/example_files/BDNN_examples/Carnivora/RTT_groups.csv) specifies the subsets of carnivore that belonging to the families Amphicyonidae, Canidae or Musteloidea, occurring in Eurasia, weighing less than 10 kg, or just for the gluttonous eater (Borophagus).
+It is possible to plot the rates through time for a subset of the taxa, e.g. for a group of taxa sharing the same trait. The grouping needs to be provided in a tab-separated text file by assigning the taxon names for the group. For instance, the [example grouping](https://github.com/dsilvestro/PyRate/tree/master/example_files/BDNN_examples/Carnivora/RTT_groups.csv) specifies the subsets of carnivore that belonging to the families Amphicyonidae, Canidae or Musteloidea, occurring in Eurasia, weighing less than 10 kg, or just for the gluttonous eater (_Borophagus_).
 
 ```
 python ./PyRate.py -plotBDNN ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_G_BDS_BDNN_16_8TVc_mcmc.log -b 0.1 -plotBDNN_groups ./example_files/BDNN_examples/Carnivora/Advanced_examples/RTT_groups.csv
 ```
+
+<img src="https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_RTT_Borophagus.png" alt="Rates through time for the genus Borophagus" width="1000">
+Species-specific rates through time plot for the gluttonous eater (_Borophagus_).
+
 
 
 ### Partial dependence plots
@@ -260,31 +271,34 @@ This command will generate two tab-separated tables with the estimated importanc
 
 ### Other options
 
-A set of **Hyper-parameters** can be used to define the architecture of the neural network implemented in the BDNN. 
+A set of **Hyper-parameters** can be used to define the architecture of the neural network implemented in the BDNN.
 
-
-`-BDNNnodes 16 8`: defines the number of layers and nodes in each layer (default: two layers of 18 and 8 nodes); 30 20 10 would specify three layers with 30, 20, and 10 nodes.
+`-BDNNnodes 16 8`: Defines the number of layers and nodes in each layer (default: two layers of 18 and 8 nodes); 30 20 10 would specify three layers with 30, 20, and 10 nodes.
 
 `-BDNNoutputfun`: Activation function of the output layer: 0) abs, 1) softPlus, 2) exp, 3) relu 4) sigmoid 5) sigmoid_rate (default=5)
 
 `-BDNNactfun`: Activation function of the hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid (default=0)
 
+`-BDNNreg`: Specifies whether the regularization layer should be omitted by setting it to -1.0. The default value of 1.0 for the truncated exponential prior assigns the highest probability on no effect of the BDNN predictors. Higher positive values increase this weight. By default the same t~reg~ is used for regularizing speciation and extinction rates. This can be made independent by providing two values `-BDNNreg 1.0 1.0`. `-BDNNreg 1.0 -1.0` would turn on regularization for speciation but not extinction.
+
 
 ### Specifying custom predictors
 
-A regular BDNN analysis with traits specified by `-trait_file` and paleoenvironmental variables included with the `-BDNNtimevar` command assumes that species traits do not change over time and all species experience the same environmental conditions over time. It is possible to relax this assumption by subjecting custom build tables to the analysis. For instance, temperature trajectories could differ among geographic range or humans could influence extinction while an effect on speciation is not plausible.
-Such an analysis can be set-up using custom tables, which have the same format as the standard `-trait_file` (i.e., species in rows and traits, including paleoenvironment, in columns). For an analysis that includes an effect of time (i.e., invoked by the default setting `-BDNNtimetrait -1`), one custom table per time-bin is needed. When no boundaries between time-bins are specified with `-fixShift`, this means one table per 1 million years. Otherwise, the number of tables need to equal the number of boundaries. The file name of the custom tables need to reflect the time-bins, for instance, *01.txt* for the most recent one, *02.txt* for the following (older) bin etc.
+A regular BDNN analysis with traits specified by `-trait_file` and paleoenvironmental variables included with the `-BDNNtimevar` command assumes that species traits do not change over time and all species experience the same environmental conditions over time. It is possible to relax this assumption by subjecting custom build tables to the analysis. For instance, temperature trajectories could differ among geographic areas or humans could influence extinction while an effect on speciation is not plausible.
+Such an analysis can be set-up using custom tables, which have a similar format as the standard `-trait_file` (i.e., species in rows and traits, including paleoenvironment, in columns, but no column with taxon names). For an analysis that includes the default effect of time, one custom table per time-bin is needed. When no boundaries between time-bins are specified with `-fixShift` (see [example](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#replacing-default-1-myr-bins)), this means one table per 1 million years. Otherwise, the number of tables need to equal the number of boundaries. The file name of the custom tables need to reflect the time-bins, for instance, *01.txt* for the most recent one, *02.txt* for the following (older) bin etc.
 Custom tables are subjected to the BDNN analysis using the `-BDNNpath_taxon_time_tables` command, which takes the path to a folder containing the custom tables. If a single path is provided, the custom tables are used as predictors for speciation and extinction rates. If two paths are given, the first one is for the predictors of speciation rates and the second for extinction rates.
-No `-trait_file` and `-BDNNtimevar` should be provided.
+No additional `-trait_file` and `-BDNNtimevar` should be invoked.
 
-The following example uses custom tables with humans being present during the past 500,000 years in Eurasia but not in North America, which could influence the extinction rate but not speciation. Additionally, trajectories of paleotemperature are continent specific.
+The following example uses custom tables with humans being present during the past 126,000 years in Eurasia, while humans were present North America mainly from the Holocene on. This spatial-temporal overlap with humans could influence the extinction rate but not speciation. Additionally, trajectories of paleotemperature are continent specific.
 ```
-python ./PyRate.py .../Carnivora_occs.py -fixShift .../Time_windows.txt -BDNNmodel 1 -BDNNpath_taxon_time_tables .../load_predictors/speciation .../load_predictors/extinction -qShift .../Stages.txt -mG -A 0  -s 10 -n 1000
+python ./PyRate.py ./example_files/BDNN_examples/Carnivora/Carnivora_occs.py -BDNNmodel 1 -BDNNpath_taxon_time_tables ./example_files/BDNN_examples/Carnivora/Advanced_examples/load_predictors/speciation ./example_files/BDNN_examples/Carnivora/Advanced_examples/load_predictors/extinction -fixShift ./example_files/BDNN_examples/Carnivora/Advanced_examples/Time_windows.txt -qShift ./example_files/BDNN_examples/Carnivora/Stages.txt -mG -out _taxon_time_tables -n 20000001 -s 20000 -p 10000
 ```
 
-To help settin-up the correct number of custum tables and getting their format right, PyRate allows to export the tables containing traits and environmental predictors from an BDNN analysis. These tables could than be modified using a text editor or spreadsheet software.
+We use the `-out` argument again to add a suffix to the output files. Output files of this BDNN model are called __taxon_time_tables_ and are included in the [Example_output](https://github.com/dsilvestro/PyRate/tree/master/example_files/BDNN_examples/Carnivora/Advanced_examples/Example_output).
+
+To help settin-up the correct number of custum tables and getting their format right, PyRate allows to export the tables containing traits and environmental predictors from an BDNN analysis with the `-BDNNexport_taxon_time_tables` flag. These tables could than be modified using a text editor or spreadsheet software.
 ```
-python PyRate.py .../Carnivora_occs.py -fixShift .../Time_windows.txt -BDNNmodel 1 -BDNNtimevar .../Paleotemperature.txt -qShift .../Stages.txt -mG -A 0 -trait_file .../Traits.txt -BDNNexport_taxon_time_tables
+python ./PyRate.py ./example_files/BDNN_examples/Carnivora/Carnivora_occs.py -BDNNmodel 1 -BDNNtimevar ./example_files/BDNN_examples/Carnivora/Paleotemperature.txt -trait_file ./example_files/BDNN_examples/Carnivora/Traits.txt -fixShift ./example_files/BDNN_examples/Carnivora/Advanced_examples/Time_windows.txt -BDNNexport_taxon_time_tables
 ```
 
 
