@@ -185,7 +185,6 @@ However, the `-plotBDNN_transf_features` is optional and does not change anythin
 <img src="https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_backtransformation.png" alt="Backscaling z-transformation" width="1000">
 Temperature effect on carnivore extinction rate with (right) and without (left) reversing the z-transformation of temperature with the `-plotBDNN_transf_features` argument when creating the effect plot from the same BDNN log file.
 
-
 ---
 ## Running a BDNN inference
 To run a BDNN analysis we need to provide the occurrence file and use the command `-BDNNmodel 1`. By default the BDNN model will only use time as predictor, discretized in 1-myr bins. Additionally, traits should be subjected to the BDNN model using the `-trait_file` argument and time-series of e.g. environmental variables can be added with `-BDNNtimevar`. Time as predictor can be omitted by including the setting `-BDNNtimetrait 0`, but this should be justified.
@@ -219,6 +218,7 @@ python ./PyRate.py ./example_files/BDNN_examples/Carnivora/Carnivora_occs.py -BD
 
 As for other PyRate analyse, the `-out` arguments allows to add a suffix to the output files. We add here __time_windows_ to distinguish it from the previous BDNN runs. Output files of this BDNN model are included in the [Example_output](https://github.com/dsilvestro/PyRate/tree/master/example_files/BDNN_examples/Carnivora/Advanced_examples/Example_output) and can be compared with the other analyses.
 
+---
 ## Output postprocessing
 
 ### Plotting marginal rates through time
@@ -238,37 +238,75 @@ python ./PyRate.py -plotBDNN ./example_files/BDNN_examples/Carnivora/pyrate_mcmc
 ```
 
 <img src="https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_RTT_Borophagus.png" alt="Rates through time for the genus Borophagus" width="1000">
-Species-specific rates through time plot for the gluttonous eater (<i> Borophagus</i>).
+Species-specific rates through time plot for the gluttonous eater (<i>Borophagus</i>).
 
 
-
+---
 ### Partial dependence plots
-We can now generate partial dependence plots to separate the individual effects of each predictor on the rates and the combined effects of each pair of predictors (to assess interactions). PDPs marginalize over the remaining predictors, i.e. cancelling out their effect and displaying only the effect attributed to the respective predictor(s). Although net diversification rate is not an inferred model parameter itself, we can display the effect on it by subtracting the extinction PDP from the speciation PDP. This is done using the `-plotBDNN_effects` command to load the `*mcmc.log` file and the `-plotBDNN_transf_features` to load the `Backscale.txt` file (to rescale correctly the traits in the plots). We additionally use the `-BDNN_groups` function to specify which variables belong in the same class (e.g. all families belong to a class here named `taxon`. 
+We can now generate partial dependence plots to separate the individual effects of each predictor on the rates and the combined effects of each pair of predictors (to assess interactions). PDPs marginalize over the remaining predictors, i.e. cancelling out their effect and displaying only the effect attributed to the respective predictor(s). Although net diversification rate is not an inferred model parameter itself, we can display the effect on it by subtracting the extinction PDP from the speciation PDP. This is done using the `-plotBDNN_effects` command to load the `*mcmc.log` file. We additionally use the `-BDNN_groups` function to specify which variables are one-hot encoded and belong to the same class (e.g. all families belong to a class here named `taxon`).
 
 ```
-python PyRate.py -plotBDNN_effects .../pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features .../Backscale.txt -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.1 -resample 100
+python ./PyRate.py -plotBDNN_effects ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features ./example_files/BDNN_examples/Carnivora/Backscale.txt -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.1 -resample 100
 ```
 
-We additionally specify the burnin fraction and the number of posterior samples considered in the PDP (`-resample`). 
+We additionally specify the burnin fraction and the number of posterior samples considered in the PDP (`-resample`) because the log file may contain thousands of samples. However, 100 should be sufficient.
 
-The command will generate a PDF file and an R script with the partial dependence plots, which will be saved in the `pyrate_mcmc_logs` directory. 
-The R script file can be edited to customize the PDPs. 
- 
+The command will generate a PDF file and an R script with the partial dependence plots, which will be saved in the `pyrate_mcmc_logs` directory. The R script file can be edited to customize the PDPs.
 
+Note that the declaration of the `-BDNN_groups` includes *escaped quotes (i.e. \"). If you are using a Linux or Mac system, the expression can be simplified with single quotes for the outer quotes and double quotes for the trait and its states. 
+```
+-BDNN_groups '{"geography": ["Eurasia", "NAmerica"], "taxon": ["Amphicyonidae", "Canidae", "Felidae", "FeliformiaOther", "Hyaenidae", "Musteloidea", "Ursidae", "Viverridae"]}'
+```
+
+Optional arguments:
+
+* `-b`: Burnin fraction (default 0.1).
+
+* `-resample`: Number of post burnin MCMC samples (using all by default).
+
+* `-plotBDNN_transf_features`: Tab-seperated text file with means and standard deviation to reverse z-transformation of continuous predictors, see [`Backscale.txt`](https://github.com/dsilvestro/PyRate/tree/master/example_files/BDNN_examples/Carnivora/Backscale.txt) file for an example.
+
+* `-BDNN_groups`: String to plot all one-hot encoded states of a trait in the same figure.
+
+* `-thread`: Number of CPU cores to be used for parallel calculation of importance metrics (only available on Linux or Mac systems); e.g. `-thread 2 0` to use two cores.
+
+
+---
 ### Predictor importance
 
 Finally we can calculate the importance of each predictor using a combination of three metrics: 1) the marginal posterior probability of an effect, 2) the effect size of the predictor on the rates (SHAP values), and 3) the effect of the predictor on model fit (feature permutation).
 
-This is done using the `BDNN_pred_importance` command to load the `* mcmc.log` file. The number of permutations and posterior samples can be adjusted using the flags `-BDNN_pred_importance_nperm` and `-resample`, respectively. We use again the `-BDNN_groups` function to specify which variables belong in the same class and to speed up the analysis we can use `-BDNN_pred_importance_only_main` to limit the importance estimation to single predictors (i.e. without testing for combinations of multiple predictors). 
-
+This is done using the `-BDNN_pred_importance` command to load the `* mcmc.log` file. We use again the `-BDNN_groups` function to specify which variables belong in the same class.
 
 ```
-python PyRate.py -BDNN_pred_importance.../pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.1 -resample 1 -BDNN_pred_importance_nperm 10 -BDNN_pred_importance_only_main
+python PyRate.py -BDNN_pred_importance.../pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.1 -resample 10 -BDNN_nsim_expected_cv 7 -BDNN_pred_importance_nperm 23
 ```
 
-This command will generate two tab-separated tables with the estimated importance and ranking of each predictor on speciation and extinction rates. It will also generate a PDF file and an R script with the lineage-specific speciation and extinction rates and an estimation of how they are affected by the predictors' values. 
+Optional arguments:
+
+* `-b`: Burnin fraction (default 0.1).
+
+* `-resample`: Number of post burnin MCMC samples (using all by default).
+
+* `-BDNN_nsim_expected_cv`: Number of constant diversification simulations to obtain the expected variation in species-time specific speciation and extinction rates (default: 100).
+
+* `-BDNN_pred_importance_nperm`: Sets the number of feature permutations (default: 100).
+
+* `-BDNN_pred_importance_interaction`: Add this argument to rank two-way interaction of predictors can be additionally. Depending on the number of predictors, this will be much slower.
+
+* `-BDNN_pred_importance_window_size`: The feature permutations automatically corrects for time bins of different sizes (see [usage of custom bins](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#replacing-default-1-myr-bins)). However, this takes very long if the shortest bin is very small (e.g. the Holocene). The automatic correction can be adjust to something slightly larger e.g. `-BDNN_pred_importance_window_size 0.1`.
+
+* `-BDNN_groups`: String to calculate combined importance for a group of features e.g. for one-hot encoded states of a categorical trait. Works, however, also for groups of continuous traits (but not in combination with `-BDNN_pred_importance_interaction`)
+
+* `-BDNN_mean_shap_per_group`: Use the mean instead of the sum across all states of a `-BDNN_groups` to get the overall importance of the group. Could be more robust when a trait has many states.
+
+* `-thread`: Number of CPU cores to be used for parallel calculation of importance metrics (only available on Linux or Mac systems); e.g. `-thread 2 0` to use two cores.
 
 
+The `-BDNN_pred_importance` command will generate two tab-separated tables with the estimated importance and ranking of each predictor on speciation and extinction rates. It will also generate a PDF file and an R script with the lineage-specific speciation and extinction rates and an estimation of how they are affected by the predictors' values. 
+
+
+---
 ### Other options
 
 A set of **Hyper-parameters** can be used to define the architecture of the neural network implemented in the BDNN.
@@ -282,6 +320,7 @@ A set of **Hyper-parameters** can be used to define the architecture of the neur
 `-BDNNreg`: Specifies whether the regularization layer should be omitted by setting it to -1.0. The default value of 1.0 for the truncated exponential prior assigns the highest probability on no effect of the BDNN predictors. Higher positive values increase this weight. By default the same t~reg~ is used for regularizing speciation and extinction rates. This can be made independent by providing two values `-BDNNreg 1.0 1.0`. `-BDNNreg 1.0 -1.0` would turn on regularization for speciation but not extinction.
 
 
+---
 ### Specifying custom predictors
 
 A regular BDNN analysis with traits specified by `-trait_file` and paleoenvironmental variables included with the `-BDNNtimevar` command assumes that species traits do not change over time and all species experience the same environmental conditions over time. It is possible to relax this assumption by subjecting custom build tables to the analysis. For instance, temperature trajectories could differ among geographic areas or humans could influence extinction while an effect on speciation is not plausible.
@@ -302,6 +341,7 @@ python ./PyRate.py ./example_files/BDNN_examples/Carnivora/Carnivora_occs.py -BD
 ```
 
 
+---
 ### Combining BDNN files across replicates
 
 To account for age uncertainty in fossil occurrences, you should create multiple replicates with randomly sampled ages (see [PyRate tutorial 1](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md)). The BDNN model can be inferred for these replicates independently and their output files can be combined to obtain e.g. a single rate through time plot for all replicates or obtain the predictor importance across replicates.
