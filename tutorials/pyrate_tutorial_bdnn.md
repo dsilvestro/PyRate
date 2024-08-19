@@ -7,6 +7,7 @@
 * [BDNN model](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#the-bdnn-model)
 * [Quick example](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#complete-example-for-the-impatient)
 * [Setting up a BDNN dataset](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#setting-up-a-bdnn-dataset)
+* [Predictor importance](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#predictor_importance)
 * [Combining replicates](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#combining-bdnn-files-across-replicates)
 * [Return to Index](https://github.com/dsilvestro/PyRate/tree/master/tutorials#pyrate-tutorials---index)
 ***
@@ -51,7 +52,7 @@ python ./PyRate.py -plotBDNN ./example_files/BDNN_examples/Carnivora/pyrate_mcmc
 
 The optional argument `-b 0.5` discards 50% of the MCMC samples as burnin. Additional options to display the RTT for a subset of taxa are [detailed below](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#plotting-marginal-rates-through-time).
 
-![Rates through time](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_RTT.png){ width=1000px }
+![Rates through time](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_RTT.png){width=1000px}
 Rates through time plot for the Carnivora BDNN analysis obtained with the command `-plotBDNN`.
 
 
@@ -63,10 +64,10 @@ python ./PyRate.py -plotBDNN_effects ./example_files/BDNN_examples/Carnivora/pyr
 
 The optional argument `-plotBDNN_transf_features` rescales z-transformed continous traits and time-series predictor to their original scale. The `-BDNN_groups` is used to display categorical predictors with multiple unordered states, for instance, the family to which each taxon belongs in the same figure. See [Setting up a BDNN dataset](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#setting-up-a-bdnn-dataset) for details on trait encoding.
 
-![Family specific speciation rate](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_family_speciation.png){ width=1000px }
+![Family specific speciation rate](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_family_speciation.png){width=1000px}
 Carnivora families have different speciation rates according to the partial dependence plots.
 
-![Temperature dependent extinction](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_temp_extinction.png){ width=1000px }
+![Temperature dependent extinction](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_temp_extinction.png){width=1000px}
 Lower temperatures are related to higher extinction rates according to the partial dependence plots. Ticks along the x-axis display observed values of the predictor.
 
 
@@ -77,7 +78,19 @@ In the last step, we (a) assess if the variation is species-time-specific rates 
 python ./PyRate.py -BDNN_pred_importance ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_G_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features ./example_files/BDNN_examples/Carnivora/Backscale.txt -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.5 -BDNN_nsim_expected_cv 10
 ```
 
+We set the optional argument `-BDNN_nsim_expected_cv` to 10 (instead of the default 100) to safe some time for the impatient when getting the expected rate variation.
 
+The `-BDNN_pred_importance` command creates seven files in the folder where the log files are located. The `_coefficient_of_rate_variation.csv` file summarizes the variation in the inferred speciation and extinction rates vary among taxa and compares them with the upper 95% quantile of rate variation under a constant diversification process with the same root age and a similar number of taxa ± 25% as the analysed dataset. An output with higher empirical rate variation than expected permits to dig into which predictors are mainly causing this variation.
+
+| rate | cv_empirical | cv_expected |
+|:---- |:------------:|:-----------:|
+speciation | 0.55 | 0.29
+extinction | 0.82 | 0.34
+
+The files `_sp_predictor_influence.csv` and `_ex_predictor_influence.csv` provide the ranked importance for the predictor variables 
+
+
+More details on this table, the remaining four output files when obtaining the predictor importance, and optional arguments for the `-BDNN_pred_importance` command are explained [below](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#predictor_importance).
 
 
 ---
