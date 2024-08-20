@@ -1,0 +1,37 @@
+
+PyRate build v3.1.3 - 20230825
+
+input: ['/home/ubuntu/Software/PyRate/example_files/BDNN_examples/Carnivora/Carnivora_occs.py'] output: /home/ubuntu/Software/PyRate/example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_G
+
+PyRate was called as follows:
+Namespace(seed=-1, useCPPlib=1, cite=False, input_data=['/home/ubuntu/Software/PyRate/example_files/BDNN_examples/Carnivora/Carnivora_occs.py'], j=1, trait=1, logT=0, N=-1, wd='', out='', singleton=0, frac_sampled_singleton=0, rescale=1, translate=0, d='', clade=-1, trait_file='/home/ubuntu/Software/PyRate/example_files/BDNN_examples/Carnivora/Traits.txt', restore_mcmc='', filter=[inf, 0], filter_taxa='', initDiv=0, PPmodeltest=False, log_marginal_rates=-1, log_sp_q_rates=False, drop_zero=0, drop_internal=False, tree='', sampling=1.0, bdc=False, eqr=False, plot='', plot2='', plot3='', plotRJ='', plotBDNN='', plotBDNN_groups='', plotBDNN_effects='', plotBDNN_transf_features='', BDNN_groups={}, BDNN_interaction='', BDNN_interaction_fix=False, n_prior=100000, plotQ='', grid_plot=0, root_plot=0, min_age_plot=0, tag='', ltt=0, mProb='', BF=[], data_info=False, SE_stats=[], ginput='', combLog='', combLogRJ='', combBDNN='', resample=0, col_tag=[], check_names='', reduceLog='', n=20000001, s=20000, p=1000000, b=0, fast_burnin=0, thread=[0, 0], A=4, use_DA=False, r=1, t=0.03, sw=100, M=10, B=1, T=1.0, S=1000, k=10, a=0.3, dpp_f=500, dpp_hp=2.0, dpp_eK=2.0, dpp_grid=1.5, dpp_nB=0, rj_pr=1, rj_Ga=1.5, rj_Gb=3.0, rj_beta=10, rj_dm=0, rj_bd_shift=0.5, se_gibbs=False, pL=[1.1, 1.1], pM=[1.1, 1.1], pP=[1.5, 1.1], pS=2.5, pC=1, cauchy=[-1, -1], min_dt=1.0, mHPP=False, mL=1, mM=1, mC=False, mCov=0, mG=True, mPoiD=False, mBirth=-1, mDeath=False, mBDI=-1, ncat=4, fixShift='', qShift='/home/ubuntu/Software/PyRate/example_files/BDNN_examples/Carnivora/Stages.txt', fixSE='', ADE=0, discrete=False, twotrait=False, bound=[inf, 0], partialBD=False, edgeShift=[inf, 0], qFilter=1, FBDrange=0, BDNNmodel=1, BDNNnodes=[16, 8], BDNNfadlad=0, BDNNtimetrait=0.043575703721469676, BDNNconstbaseline=1, BDNNoutputfun=1, BDNNactfun=5, BDNNprior=1, BDNNreg=[1.0], BDNNblockmodel=False, BDNNtimevar='/home/ubuntu/Software/PyRate/example_files/BDNN_examples/Carnivora/Paleotemperature.txt', BDNNtimevar_q='', BDNNads=-1.0, BDNNpath_taxon_time_tables=['', ''], BDNNexport_taxon_time_tables=False, BDNNupdate_se_f=[0.6], BDNNupdate_f=[0.1], BDNNdd=False, BDNNpklfile='', BDNN_pred_importance='', BDNN_nsim_expected_cv=100, BDNN_pred_importance_interaction=True, BDNN_pred_importance_window_size=[-1.0], BDNN_pred_importance_nperm=100, BDNN_mean_shap_per_group=False, edge_indicator=False, tT=1.0, nT=5, tQ=[1.2, 1.2], tR=1.2, tS=1.0, fR=0.5, fS=0.7, fQ=0.5, tC=[0.2, 0.2, 0.15], fU=[0.02, 0.18, 0], multiR=1, tHP=[1.2, 1.2])
+
+Using birth-death model with fixed times of rate shift: 22 21 20 19 18 17 16 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1 
+
+Using Time-variable Poisson Process of preservation (TPP) at: 20.44 15.97 13.65 11.63 7.25 5.33 2.58 1.8 
+
+Using BDNN model
+N. free parameters: 345 
+N. parameters: 345
+
+ (16, 13)
+ (8, 16)
+ (1, 9)
+
+
+        Please cite: 
+Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
+Improved estimation of macroevolutionary rates from fossil data using a Bayesian framework. 
+Paleobiology, doi: 10.1017/pab.2019.23.
+
+
+        Feedback and support: pyrate.help@gmail.com
+        OS: Linux 5.15.0-1064-kvm
+        Python version: 3.11.5 (main, Sep 11 2023, 13:23:44) [GCC 11.2.0]
+
+        Numpy version: 1.23.5
+        Scipy version: 1.11.4
+
+        Random seed: 1116 
+Using module FastPyRateC
+        
