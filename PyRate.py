@@ -619,7 +619,7 @@ def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1.): # change rescale to
     wd = "%s" % os.path.dirname(tste_file)
     out_file_name = os.path.splitext(os.path.basename(tste_file))[0]
     out_file="%s/%s" % (wd,out_file_name+"_ltt.txt")
-    ltt_file = open(out_file , "w")
+    ltt_file = open(out_file , "w", newline="")
     ltt_log=csv.writer(ltt_file, delimiter='\t')
 
 
@@ -714,7 +714,7 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
     # create out file
     out_file_name = os.path.splitext(os.path.basename(tste_file))[0]
     out_file="%s/%s" % (wd,out_file_name+"_stats.txt")
-    out_file=open(out_file, "w")
+    out_file=open(out_file, "w", newline="")
 
     out_file.writelines("time\tdiversity\tm_div\tM_div\tmedian_age\tm_age\tM_age\tturnover\tm_turnover\tM_turnover\tlife_exp\tm_life_exp\tM_life_exp\t")
 
@@ -7049,7 +7049,7 @@ if __name__ == '__main__':
 
         o=''.join([o0,o1,o2,version_notes])
         out_sum = "%s/%s_sum.txt" % (path_dir,suff_out)
-        sumfile = open(out_sum , "w")
+        sumfile = open(out_sum , "w", newline="")
         sumfile.writelines(o)
         sumfile.close()
 
@@ -7160,7 +7160,7 @@ if __name__ == '__main__':
             marginal_frames= array([int(fabs(i-int(max_marginal_frame))) for i in range(int(max_marginal_frame)+1)])
             if log_marginal_rates_to_file==1:
                 out_log_marginal = "%s/%s_marginal_rates.log" % (path_dir, suff_out)
-                marginal_file = open(out_log_marginal , "w")
+                marginal_file = open(out_log_marginal , "w", newline="")
                 head="it\t"
                 for i in range(int(max_marginal_frame)+1): head += "l_%s\t" % i #int(fabs(int(max(FA))))
                 for i in range(int(max_marginal_frame)+1): head += "m_%s\t" % i #int(fabs(int(max(FA))))
