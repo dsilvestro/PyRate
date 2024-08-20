@@ -338,7 +338,7 @@ python ./PyRate.py ./example_files/BDNN_examples/Carnivora/Carnivora_occs.py -BD
 We use the `-out` argument again to add a suffix to the output files. Output files of this BDNN model are called __taxon_time_tables_ and are included in the [Example_output](https://github.com/dsilvestro/PyRate/tree/master/example_files/BDNN_examples/Carnivora/Advanced_examples/Example_output).
 
 <img src="https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_humans.png" alt="Partial dependence plot of human effect" width="1000">
-Partial dependence plot of the influence of the human spatial-temporal overlap with Carnivora on their extinction rate. The effect on extinction rate is higher in North America, where this effect was only allowed in the custom BDNN predictors for taxa living until the Holocene. An effect of humans on Eurasian carnivores was permitted during the past 126,000 years. <i>Humans1.0>/i> indicates spatial-temporal overlap.
+Partial dependence plot of the influence of the human spatial-temporal overlap with Carnivora on their extinction rate. The effect on extinction rate is higher in North America, where this effect was only allowed in the custom BDNN predictors for taxa living until the Holocene. An effect of humans on Eurasian carnivores was permitted during the past 126,000 years. <i>Humans1.0</i> indicates spatial-temporal overlap.
 
 
 To help settin-up the correct number of custum tables and getting their format right, PyRate allows to export the tables containing traits and environmental predictors from an BDNN analysis with the `-BDNNexport_taxon_time_tables` flag. These tables could than be modified using a text editor or spreadsheet software.
