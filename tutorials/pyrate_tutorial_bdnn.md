@@ -69,6 +69,8 @@ The optional argument `-plotBDNN_transf_features` rescales z-transformed continu
 <img src="https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_family_speciation.png" alt="Family specific speciation rate" width="1000">
 Carnivora families have different speciation rates according to the partial dependence plots.
 
+&nbsp;
+
 <img src="https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_temp_extinction.png" alt="Temperature dependent extinction" width="1000">
 Lower temperatures are related to higher extinction rates according to the partial dependence plots. Ticks along the x-axis display observed values of the predictor.
 
@@ -340,7 +342,8 @@ We use the `-out` argument again to add a suffix to the output files. Output fil
 <img src="https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_humans.png" alt="Partial dependence plot of human effect" width="1000">
 Partial dependence plot of the influence of the human spatial-temporal overlap with Carnivora on their extinction rate. The effect on extinction rate is higher in North America, where this effect was only allowed in the custom BDNN predictors for taxa living until the Holocene. An effect of humans on Eurasian carnivores was permitted during the past 126,000 years. <i>Humans1.0</i> indicates spatial-temporal overlap.
 
----
+&nbsp;
+
 To help settin-up the correct number of custum tables and getting their format right, PyRate allows to export the tables containing traits and environmental predictors from an BDNN analysis with the `-BDNNexport_taxon_time_tables` flag. These tables could than be modified using a text editor or spreadsheet software.
 ```
 python ./PyRate.py ./example_files/BDNN_examples/Carnivora/Carnivora_occs.py -BDNNmodel 1 -BDNNtimevar ./example_files/BDNN_examples/Carnivora/Paleotemperature.txt -trait_file ./example_files/BDNN_examples/Carnivora/Traits.txt -fixShift ./example_files/BDNN_examples/Carnivora/Advanced_examples/Time_windows.txt -BDNNexport_taxon_time_tables
