@@ -7176,18 +7176,18 @@ if __name__ == '__main__':
             samplingNN_TDI0 = BDNNmodel == 2 and TDI == 0
             if TDI==4 or use_ADE_model != 0 or (BDNNmodel and not samplingNN_TDI0):
                 marginal_sp_rate_file_name = "%s/%s_sp_rates.log" % (path_dir, suff_out)
-                marginal_sp_rate_file = open(marginal_sp_rate_file_name , "w")
+                marginal_sp_rate_file = open(marginal_sp_rate_file_name , "w", newline="")
                 w_marg_sp=csv.writer(marginal_sp_rate_file, delimiter='\t')
                 marginal_sp_rate_file.flush()
                 os.fsync(marginal_sp_rate_file)
                 marginal_ex_rate_file_name = "%s/%s_ex_rates.log" % (path_dir, suff_out)
-                marginal_ex_rate_file = open(marginal_ex_rate_file_name , "w")
+                marginal_ex_rate_file = open(marginal_ex_rate_file_name , "w", newline="")
                 w_marg_ex=csv.writer(marginal_ex_rate_file, delimiter='\t')
                 marginal_ex_rate_file.flush()
                 os.fsync(marginal_ex_rate_file)
             if BDNNmodel in [2, 3]:
                 marginal_q_rate_file_name = "%s/%s_q_rates.log" % (path_dir, suff_out)
-                marginal_q_rate_file = open(marginal_q_rate_file_name , "w")
+                marginal_q_rate_file = open(marginal_q_rate_file_name , "w", newline="")
                 w_marg_q = csv.writer(marginal_q_rate_file, delimiter='\t')
                 marginal_q_rate_file.flush()
                 os.fsync(marginal_q_rate_file)
@@ -7200,7 +7200,7 @@ if __name__ == '__main__':
         # OUTPUT 3 MARGINAL LIKELIHOOD
         elif TDI==1:
             out_log_marginal_lik = "%s/%s_marginal_likelihood.txt" % (path_dir, suff_out)
-            marginal_file = open(out_log_marginal_lik , "w")
+            marginal_file = open(out_log_marginal_lik , "w", newline="")
             marginal_file.writelines(o)
             marginal_frames=0
         else: marginal_frames=0
@@ -7233,7 +7233,7 @@ if __name__ == '__main__':
             head = ["iteration"]
             for i in taxa_names: head.append("%s_lam" % (i))
             for i in taxa_names: head.append("%s_mu" % (i))
-            species_rate_file = open(species_rate_file_name , "w")
+            species_rate_file = open(species_rate_file_name , "w", newline="")
             species_rate_writer=csv.writer(species_rate_file, delimiter='\t')
             species_rate_writer.writerow(head)
             species_rate_file.flush()
@@ -7247,7 +7247,7 @@ if __name__ == '__main__':
             else:
                 head = ["iteration", "alpha"]
                 for i in taxa_names: head.append("%s_rel_q" % (i))
-            sp_q_marg_rate_file = open(sp_q_marg_rate_file_name , "w")
+            sp_q_marg_rate_file = open(sp_q_marg_rate_file_name , "w", newline="")
             sp_q_marg=csv.writer(sp_q_marg_rate_file, delimiter='\t')
             sp_q_marg.writerow(head)
             sp_q_marg_rate_file.flush()
