@@ -320,7 +320,7 @@ Optional arguments:
 
 * `-resample`: Number of post-burnin MCMC samples (using all by default).
 
-* `-BDNN_nsim_expected_cv`: Number of constant diversification simulations to obtain the expected variation in species-time specific speciation and extinction rates (default: 100).
+* `-BDNN_nsim_expected_cv`: Number of constant diversification simulations to obtain the expected variation in species-time specific speciation and extinction rates (default: 100). The postprocessing step of getting the expected rate variation is ommitted when set to 0.
 
 * `-BDNN_pred_importance_nperm`: Sets the number of feature permutations (default: 100).
 
@@ -377,6 +377,14 @@ To help setting-up the correct number of custom tables and get their format righ
 python ./PyRate.py ./example_files/BDNN_examples/Carnivora/Carnivora_occs.py -BDNNmodel 1 -BDNNtimevar ./example_files/BDNN_examples/Carnivora/Paleotemperature.txt -trait_file ./example_files/BDNN_examples/Carnivora/Traits.txt -fixShift ./example_files/BDNN_examples/Carnivora/Advanced_examples/Time_windows.txt -BDNNexport_taxon_time_tables
 ```
 
+---
+### Restoring BDNN analysis
+
+BDNN inferrences may need more MCMC generations than expected to reach the stationarity distribution of the Markov chain and the selected number of generation `-n` might be to small. In this case, you can restore the MCMC chain from the last sample using the `-restore_mcmc` argument.
+
+```
+python ./PyRate.py ./example_files/BDNN_examples/Carnivora/Carnivora_occs.py -restore_mcmc ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_G_BDS_BDNN_16_8TVc_mcmc.log -BDNNmodel 1 -trait_file ./example_files/BDNN_examples/Carnivora/Traits.txt -BDNNtimevar ./example_files/BDNN_examples/Carnivora/Paleotemperature.txt -mG -qShift ./example_files/BDNN_examples/Carnivora/Stages.txt -n 200001 -p 20000 -s 5000
+```
 
 ---
 ### Combining BDNN files across replicates
