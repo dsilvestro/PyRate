@@ -619,7 +619,7 @@ def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1.): # change rescale to
     wd = "%s" % os.path.dirname(tste_file)
     out_file_name = os.path.splitext(os.path.basename(tste_file))[0]
     out_file="%s/%s" % (wd,out_file_name+"_ltt.txt")
-    ltt_file = open(out_file , "w")
+    ltt_file = open(out_file , "w", newline="")
     ltt_log=csv.writer(ltt_file, delimiter='\t')
 
 
@@ -714,7 +714,7 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
     # create out file
     out_file_name = os.path.splitext(os.path.basename(tste_file))[0]
     out_file="%s/%s" % (wd,out_file_name+"_stats.txt")
-    out_file=open(out_file, "w")
+    out_file=open(out_file, "w", newline="")
 
     out_file.writelines("time\tdiversity\tm_div\tM_div\tmedian_age\tm_age\tM_age\tturnover\tm_turnover\tM_turnover\tlife_exp\tm_life_exp\tM_life_exp\t")
 
@@ -7049,7 +7049,7 @@ if __name__ == '__main__':
 
         o=''.join([o0,o1,o2,version_notes])
         out_sum = "%s/%s_sum.txt" % (path_dir,suff_out)
-        sumfile = open(out_sum , "w")
+        sumfile = open(out_sum , "w", newline="")
         sumfile.writelines(o)
         sumfile.close()
 
@@ -7160,7 +7160,7 @@ if __name__ == '__main__':
             marginal_frames= array([int(fabs(i-int(max_marginal_frame))) for i in range(int(max_marginal_frame)+1)])
             if log_marginal_rates_to_file==1:
                 out_log_marginal = "%s/%s_marginal_rates.log" % (path_dir, suff_out)
-                marginal_file = open(out_log_marginal , "w")
+                marginal_file = open(out_log_marginal , "w", newline="")
                 head="it\t"
                 for i in range(int(max_marginal_frame)+1): head += "l_%s\t" % i #int(fabs(int(max(FA))))
                 for i in range(int(max_marginal_frame)+1): head += "m_%s\t" % i #int(fabs(int(max(FA))))
@@ -7176,18 +7176,18 @@ if __name__ == '__main__':
             samplingNN_TDI0 = BDNNmodel == 2 and TDI == 0
             if TDI==4 or use_ADE_model != 0 or (BDNNmodel and not samplingNN_TDI0):
                 marginal_sp_rate_file_name = "%s/%s_sp_rates.log" % (path_dir, suff_out)
-                marginal_sp_rate_file = open(marginal_sp_rate_file_name , "w")
+                marginal_sp_rate_file = open(marginal_sp_rate_file_name , "w", newline="")
                 w_marg_sp=csv.writer(marginal_sp_rate_file, delimiter='\t')
                 marginal_sp_rate_file.flush()
                 os.fsync(marginal_sp_rate_file)
                 marginal_ex_rate_file_name = "%s/%s_ex_rates.log" % (path_dir, suff_out)
-                marginal_ex_rate_file = open(marginal_ex_rate_file_name , "w")
+                marginal_ex_rate_file = open(marginal_ex_rate_file_name , "w", newline="")
                 w_marg_ex=csv.writer(marginal_ex_rate_file, delimiter='\t')
                 marginal_ex_rate_file.flush()
                 os.fsync(marginal_ex_rate_file)
             if BDNNmodel in [2, 3]:
                 marginal_q_rate_file_name = "%s/%s_q_rates.log" % (path_dir, suff_out)
-                marginal_q_rate_file = open(marginal_q_rate_file_name , "w")
+                marginal_q_rate_file = open(marginal_q_rate_file_name , "w", newline="")
                 w_marg_q = csv.writer(marginal_q_rate_file, delimiter='\t')
                 marginal_q_rate_file.flush()
                 os.fsync(marginal_q_rate_file)
@@ -7200,7 +7200,7 @@ if __name__ == '__main__':
         # OUTPUT 3 MARGINAL LIKELIHOOD
         elif TDI==1:
             out_log_marginal_lik = "%s/%s_marginal_likelihood.txt" % (path_dir, suff_out)
-            marginal_file = open(out_log_marginal_lik , "w")
+            marginal_file = open(out_log_marginal_lik , "w", newline="")
             marginal_file.writelines(o)
             marginal_frames=0
         else: marginal_frames=0
@@ -7233,7 +7233,7 @@ if __name__ == '__main__':
             head = ["iteration"]
             for i in taxa_names: head.append("%s_lam" % (i))
             for i in taxa_names: head.append("%s_mu" % (i))
-            species_rate_file = open(species_rate_file_name , "w")
+            species_rate_file = open(species_rate_file_name , "w", newline="")
             species_rate_writer=csv.writer(species_rate_file, delimiter='\t')
             species_rate_writer.writerow(head)
             species_rate_file.flush()
@@ -7247,7 +7247,7 @@ if __name__ == '__main__':
             else:
                 head = ["iteration", "alpha"]
                 for i in taxa_names: head.append("%s_rel_q" % (i))
-            sp_q_marg_rate_file = open(sp_q_marg_rate_file_name , "w")
+            sp_q_marg_rate_file = open(sp_q_marg_rate_file_name , "w", newline="")
             sp_q_marg=csv.writer(sp_q_marg_rate_file, delimiter='\t')
             sp_q_marg.writerow(head)
             sp_q_marg_rate_file.flush()
