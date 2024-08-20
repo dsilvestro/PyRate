@@ -180,7 +180,7 @@ The mean and standard deviation used to perform the z-transformation should be a
 | 1 | 2.20 |
 
 
-However, the `-plotBDNN_transf_features` is optional and does not change anything of the BDNN model inference. Only the effect plot using the `-plotBDNN_effects` command will be more meaningful.
+However, the `-plotBDNN_transf_features` is optional and does not change anything of the BDNN model inference. The effect plot using the `-plotBDNN_effects` command will be more meaningful though.
 
 <img src="https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_backtransformation.png" alt="Backscaling z-transformation" width="1000">
 Temperature effect on carnivore extinction rate with (right) and without (left) reversing the z-transformation of temperature with the `-plotBDNN_transf_features` argument when creating the effect plot from the same BDNN log file.
@@ -225,7 +225,7 @@ As for other PyRate analyse, the `-out` arguments allows to add a suffix to the 
 The marginal speciation and extinction rates through time inferred by the BDNN model can be plotted using `-plotBDNN`:
 
 ```
-python ./PyRate.py -plotBDNN ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_1_occs_G_BDS_BDNN_16_8TVc_mcmc.log -b 0.1
+python ./PyRate.py -plotBDNN ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_G_BDS_BDNN_16_8TVc_mcmc.log -b 0.1
 ```
 
 where `-b 0.1` specifies the burnin proportion. This uses the `_sp_rates.log` and `_ex_rates.log` files from the `pyrate_mcmc_logs` directory. The command will generate a PDF file and an R script with the rates-through-time plots, which will be saved in the `pyrate_mcmc_logs` directory. The R script file can be edited to customize the plot.
@@ -246,7 +246,7 @@ Species-specific rates through time plot for the gluttonous eater (<i>Borophagus
 We can now generate partial dependence plots to separate the individual effects of each predictor on the rates and the combined effects of each pair of predictors (to assess interactions). PDPs marginalize over the remaining predictors, i.e. cancelling out their effect and displaying only the effect attributed to the respective predictor(s). Although net diversification rate is not an inferred model parameter itself, we can display the effect on it by subtracting the extinction PDP from the speciation PDP. This is done using the `-plotBDNN_effects` command to load the `*mcmc.log` file. We additionally use the `-BDNN_groups` function to specify which variables are one-hot encoded and belong to the same class (e.g. all families belong to a class here named `taxon`).
 
 ```
-python ./PyRate.py -plotBDNN_effects ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features ./example_files/BDNN_examples/Carnivora/Backscale.txt -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.1 -resample 100
+python ./PyRate.py -plotBDNN_effects ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_G_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features ./example_files/BDNN_examples/Carnivora/Backscale.txt -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.1 -resample 100
 ```
 
 We additionally specify the burnin fraction and the number of posterior samples considered in the PDP (`-resample`) because the log file may contain thousands of samples. However, 100 should be sufficient.
@@ -279,7 +279,7 @@ Finally we can calculate the importance of each predictor using a combination of
 This is done using the `-BDNN_pred_importance` command to load the `* mcmc.log` file. We use again the `-BDNN_groups` function to specify which variables belong in the same class.
 
 ```
-python PyRate.py -BDNN_pred_importance.../pyrate_mcmc_logs/Carnivora_1_G_BDS_BDNN_16_8TVc_mcmc.log -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.1 -resample 10 -BDNN_nsim_expected_cv 7 -BDNN_pred_importance_nperm 23
+python PyRate.py -BDNN_pred_importance ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_G_BDS_BDNN_16_8TVc_mcmc.log -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.1 -resample 10 -BDNN_nsim_expected_cv 7 -BDNN_pred_importance_nperm 23
 ```
 
 Optional arguments:
