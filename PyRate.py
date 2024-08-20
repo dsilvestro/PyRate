@@ -3690,12 +3690,12 @@ def get_init_values(mcmc_log_file,taxa_names):
         print("Excluded", len(ts_index) - len(ts_index_temp), "taxa")
 
     alpha_pp=1
-    cov_par = 1
+    cov_par = np.zeros(3)
     try:
         q_rates_index = np.array([head.index("alpha"), head.index("q_rate")])
         q_rates = tbl[last_row,q_rates_index]
     except:
-        q_rates_index = [head.index(i) for i in head if "q_" in i]
+        q_rates_index = [head.index(i) for i in head if i.startswith('q_')]
         q_rates = tbl[last_row,q_rates_index]
         try:
             alpha_pp = tbl[last_row,head.index("alpha")]
@@ -5844,7 +5844,7 @@ if __name__ == '__main__':
             print("Getting consensus ranking birth-death")
             sp_feat_importance, sp_main_consrank = bdnn_lib.get_consensus_ranking(sp_pv, sp_shap, sp_featperm)
             ex_feat_importance, ex_main_consrank = bdnn_lib.get_consensus_ranking(ex_pv, ex_shap, ex_featperm)
-            output_wd = os.path.dirname(path_dir_log_files)
+            output_wd = os.path.dirname(os.path.realpath(path_dir_log_files))
             name_file = os.path.basename(path_dir_log_files)
             ex_feat_merged_file = os.path.join(output_wd, name_file + '_ex_predictor_influence.csv')
             ex_feat_importance.to_csv(ex_feat_merged_file, na_rep='NA', index=False)
@@ -5857,7 +5857,7 @@ if __name__ == '__main__':
         if BDNNmodel in [2, 3]:
             print("Getting consensus ranking sampling")
             q_feat_importance, q_main_consrank = bdnn_lib.get_consensus_ranking(q_pv, q_shap, q_featperm)
-            output_wd = os.path.dirname(path_dir_log_files)
+            output_wd = os.path.dirname(os.path.realpath(path_dir_log_files))
             name_file = os.path.basename(path_dir_log_files)
             q_feat_merged_file = os.path.join(output_wd, name_file + '_q_predictor_influence.csv')
             q_feat_importance.to_csv(q_feat_merged_file, na_rep='NA', index=False)
@@ -5893,7 +5893,7 @@ if __name__ == '__main__':
                                                                                       fix_observed=args.BDNN_interaction_fix,
                                                                                       num_processes=args.thread[0],
                                                                                       show_progressbar=True)
-        output_wd = os.path.dirname(path_dir_log_files)
+        output_wd = os.path.dirname(os.path.realpath(path_dir_log_files))
         name_file = '_'.join(names_features)
         sp_trt_tbl_file = os.path.join(output_wd, name_file + '_at_speciation.csv')
         sp_trt_tbl.to_csv(sp_trt_tbl_file, na_rep = 'NA', index = True)

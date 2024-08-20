@@ -352,7 +352,7 @@ def get_bdnn_rtt(f, burn):
         r_q_sum = None
         time_vec_q = None
 
-    output_wd = os.path.dirname(f)
+    output_wd = os.path.dirname(os.path.realpath(f))
     name_file = os.path.basename(f)
     name_file = name_file.replace("_mcmc.log", "")
     r_file = "%s_RTT.r" % name_file
@@ -447,7 +447,7 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn):
     path_dir_log_files = path_dir_log_files.replace("_mcmc.log", "")
     pkl_file = path_dir_log_files + ".pkl" 
     
-    output_wd = os.path.dirname(mcmc_file)
+    output_wd = os.path.dirname(os.path.realpath(mcmc_file))
     name_file = os.path.basename(path_dir_log_files)
     name_file = name_file.replace("_mcmc.log", "")
 
@@ -1910,7 +1910,7 @@ def plot_effects(f,
                  names_features_q,
                  suffix_pdf = "effects"):
     # Plot feature-rate relationship
-    output_wd = os.path.dirname(f)
+    output_wd = os.path.dirname(os.path.realpath(f))
     name_file = os.path.basename(f)
     out = "%s/%s_%s.r" % (output_wd, name_file, suffix_pdf)
     newfile = open(out, "w")
@@ -2117,7 +2117,7 @@ def get_coefficient_rate_variation(path_dir_log_files, burn, combine_discr_featu
     print('    Extinction:', f'{float(cv_rates[1, 1]):.2f}', 'Expected:' + f'{float(cv_rates[1, 2]):.2f}')
     cv_rates = pd.DataFrame(cv_rates, columns = ['rate', 'cv_empirical', 'cv_expected'])
     cv_rates['rate'] = ['speciation', 'extinction']
-    output_wd = os.path.dirname(path_dir_log_files)
+    output_wd = os.path.dirname(os.path.realpath(path_dir_log_files))
     name_file = os.path.basename(path_dir_log_files)
     cv_rates_file = os.path.join(output_wd, name_file + '_coefficient_of_rate_variation.csv')
     cv_rates.to_csv(cv_rates_file, na_rep = 'NA', index = False)
@@ -2739,7 +2739,7 @@ def get_coefficient_sampling_variation(path_dir_log_files, burn, combine_discr_f
     print('    Sampling:', f'{float(cv_rates[0, 1]):.2f}', 'Expected:' + f'{float(cv_rates[0, 2]):.2f}')
     cv_rates = pd.DataFrame(cv_rates, columns = ['rate', 'cv_empirical', 'cv_expected'])
     cv_rates['rate'] = ['sampling']
-    output_wd = os.path.dirname(path_dir_log_files)
+    output_wd = os.path.dirname(os.path.realpath(path_dir_log_files))
     name_file = os.path.basename(path_dir_log_files)
     cv_rates_file = os.path.join(output_wd, name_file + '_coefficient_of_q_rate_variation.csv')
     cv_rates.to_csv(cv_rates_file, na_rep = 'NA', index = False)
