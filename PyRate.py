@@ -5844,7 +5844,7 @@ if __name__ == '__main__':
             print("Getting consensus ranking birth-death")
             sp_feat_importance, sp_main_consrank = bdnn_lib.get_consensus_ranking(sp_pv, sp_shap, sp_featperm)
             ex_feat_importance, ex_main_consrank = bdnn_lib.get_consensus_ranking(ex_pv, ex_shap, ex_featperm)
-            output_wd = os.path.dirname(path_dir_log_files)
+            output_wd = os.path.dirname(os.path.realpath(path_dir_log_files))
             name_file = os.path.basename(path_dir_log_files)
             ex_feat_merged_file = os.path.join(output_wd, name_file + '_ex_predictor_influence.csv')
             ex_feat_importance.to_csv(ex_feat_merged_file, na_rep='NA', index=False)
