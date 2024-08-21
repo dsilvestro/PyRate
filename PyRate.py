@@ -2337,10 +2337,11 @@ def interpolate_constant(x, xp, yp):
     return y[indices]
 
 
-def get_binned_time_variable(timebins, var_file, rescale):
+def get_binned_time_variable(timebins, var_file, rescale, translate):
     names_var = get_names_variable(var_file)
     var = np.loadtxt(var_file, skiprows = 1)
-    times = var[:, 0] * rescale
+    var = var[var[:, 0] >= -translate, :]
+    times = var[:, 0] * rescale + translate
     values = var[:, 1:]
     nbins = len(timebins)
     nvars = values.shape[1]
@@ -2369,6 +2370,10 @@ def get_binned_time_variable(timebins, var_file, rescale):
         in_range_M = (times <= t_max).nonzero()[0]
         in_range_m = (times >= t_min).nonzero()[0]
         values_bin = values[np.intersect1d(in_range_M, in_range_m),:]
+        if values_bin.size == 0:
+            # If there is no value for the bin (i.e. higher bin resolution than time series, take the younger value)
+            values_bin = values[np.max(in_range_M), :]
+            values_bin = values_bin.reshape((1, values_bin.size))
         if np.any(discr_var == False):
             mean_var[i - 1, discr_var == False] = np.mean(values_bin[:, discr_var == False], axis = 0)
         if np.any(discr_var):
@@ -5540,6 +5545,7 @@ if __name__ == '__main__':
             except: 
                 fixed_times_of_shift = np.array([np.loadtxt(args.fixShift)])
             fixed_times_of_shift = fixed_times_of_shift[fixed_times_of_shift > 0]
+            fixed_times_of_shift += args.translate
             f_shift=0
             time_framesL=len(fixed_times_of_shift)+1
             time_framesM=len(fixed_times_of_shift)+1
@@ -5699,7 +5705,9 @@ if __name__ == '__main__':
                 rtt_plot_bds = rtt_plot_bds.RTTplot_Q(path_dir_log_files,args.qShift,burnin=burnin,max_age=root_plot)
             elif plot_type== 6:
                 import pyrate_lib.bdnn_lib as bdnn_lib
-                output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q = bdnn_lib.get_bdnn_rtt(path_dir_log_files, burn = burnin)
+                output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q = bdnn_lib.get_bdnn_rtt(path_dir_log_files,
+                                                                                                                          burn = burnin,
+                                                                                                                          translate=args.translate)
                 bdnn_lib.plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q)
                 if args.plotBDNN_groups != "":
                     bdnn_lib.plot_bdnn_rtt_groups(path_dir_log_files, args.plotBDNN_groups, burn=burnin)
@@ -6018,11 +6026,14 @@ if __name__ == '__main__':
             elif args.translate < 0: # exclude recent taxa after 'translating' records towards zero
                 if max(fossil_complete[i]*args.rescale+args.translate)<=0: singletons_excluded.append(i)
                 else:
-                    have_record.append(i)
-                    fossil_occ_temp = fossil_complete[i]*args.rescale+args.translate
-                    fossil_occ_temp[fossil_occ_temp<0] = 0.0
-                    fossil.append(np.unique(fossil_occ_temp[fossil_occ_temp>=0]))
-                    taxa_included.append(i)
+                    if len(fossil_complete[i]) <= args.singleton and np.random.random() >= args.frac_sampled_singleton:
+                        singletons_excluded.append(i)
+                    else:
+                        have_record.append(i)
+                        fossil_occ_temp = fossil_complete[i]*args.rescale+args.translate
+                        fossil_occ_temp[fossil_occ_temp<0] = 0.0
+                        fossil.append(np.unique(fossil_occ_temp[fossil_occ_temp>=0]))
+                        taxa_included.append(i)
 
 
             elif args.singleton > 0: # min number of occurrences
@@ -6055,7 +6066,7 @@ if __name__ == '__main__':
             taxa_names=list()
             for i in range(len(fossil)): taxa_names.append("taxon_%s" % (i))
 
-        #print singletons_excluded
+#        print('singletons_excluded\n', singletons_excluded)
         taxa_included = np.array(taxa_included)
         taxa_names = np.array(taxa_names)
         taxa_names = taxa_names[taxa_included]
@@ -6174,6 +6185,8 @@ if __name__ == '__main__':
 
     if len(fixed_times_of_shift_bdnn) > 0:
         fixed_times_of_shift_bdnn=fixed_times_of_shift_bdnn[fixed_times_of_shift_bdnn < np.max(FA)]
+#        keep = np.logical_and(fixed_times_of_shift_bdnn < np.max(FA), fixed_times_of_shift_bdnn >= np.min(LO))
+#        fixed_times_of_shift_bdnn = fixed_times_of_shift_bdnn[keep]
 
     if len(fixed_times_of_shift)>0:
         fixed_times_of_shift=fixed_times_of_shift[fixed_times_of_shift<np.max(FA)]
@@ -6593,7 +6606,12 @@ if __name__ == '__main__':
         n_taxa = len(FA)
     
         if len(fixed_times_of_shift_bdnn) > 0:
-            time_vec = np.sort(np.array([np.max(FA), np.min(LO)] + list(fixed_times_of_shift_bdnn)))[::-1]
+            LO_min = np.min(LO)
+            FA_LO = np.max(FA)
+            if LO_min > 0.0:
+                LO_min = np.zeros(1)
+            FA_LO = np.concatenate((FA_LO, LO_min), axis=None)
+            time_vec = np.sort(np.concatenate((FA_LO, fixed_times_of_shift_bdnn)))[::-1]
         else:
             time_vec = np.sort(np.array([np.max(FA), np.min(LO)] + list(fixed_times_of_shift)))[::-1]
         if args.BDNNtimetrait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
@@ -6625,7 +6643,7 @@ if __name__ == '__main__':
                 time_var = None
                 names_time_var = []
                 if bdnn_timevar:
-                     time_var, names_time_var = get_binned_time_variable(time_vec, bdnn_timevar, args.rescale)
+                     time_var, names_time_var = get_binned_time_variable(time_vec, bdnn_timevar, args.rescale, args.translate)
                      add_to_bdnnblock_mask += len(names_time_var)
                 trait_tbl_lm, cov_par_init_lm = init_trait_and_weights(trait_values,
                                                                        time_var,
@@ -6648,7 +6666,7 @@ if __name__ == '__main__':
                 time_var_q = None
                 names_time_var_q = []
                 if bdnn_timevar_q:
-                    time_var_q, names_time_var_q = get_binned_time_variable(q_time_frames_bdnn, bdnn_timevar_q, args.rescale)
+                    time_var_q, names_time_var_q = get_binned_time_variable(q_time_frames_bdnn, bdnn_timevar_q, args.rescale, args.translate)
                 trait_tbl_NN[2], cov_par_init_NN_q = init_sampling_trait_and_weights(trait_values,
                                                                                      time_var_q,
                                                                                      n_BDNN_nodes,
