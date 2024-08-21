@@ -189,6 +189,15 @@ However, the `-plotBDNN_transf_features` is optional and does not change anythin
 <img src="https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_backtransformation.png" alt="Backscaling z-transformation" width="1000">
 Temperature effect on carnivore extinction rate with (right) and without (left) reversing the z-transformation of temperature with the `-plotBDNN_transf_features` argument when creating the effect plot from the same BDNN log file.
 
+Time-series data can be provided in an already binned format. This needs to match the time bins of the neural network, which are by default 1 myr (but see [usage of custom bins](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#replacing-default-1-myr-bins)). 
+
+| Time | Temperature |
+------:| -----------:|
+0.0 | Mean value from 0.0&mdash1.0 Ma
+1.0 | Mean value from 1.0&mdash2.0 Ma
+2.0 | Mean value from 2.0&mdash3.0 Ma
+
+
 ---
 ## Running a BDNN inference
 To run a BDNN analysis we need to provide the occurrence file and use the command `-BDNNmodel 1`. By default the BDNN model will only use time as predictor, discretized in 1-myr bins. Additionally, traits should be subjected to the BDNN model using the `-trait_file` argument and time-series of e.g. environmental variables can be added with `-BDNNtimevar`. Time as a predictor can be omitted by including the setting `-BDNNtimetrait 0`, but this should be justified.
