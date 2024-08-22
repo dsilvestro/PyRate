@@ -267,11 +267,11 @@ def make_t_vec(r_list):
     return time_vec
     
 
-def format_t_vec(t_vec, FA):
+def format_t_vec(t_vec, FA, LA, translate):
     """Format time vector for rates through time plot"""
 #    a = np.abs(np.mean(np.diff(t_vec)))
 #    t_vec = np.concatenate((np.array([t_vec[0] + a]), t_vec, np.zeros(1)))
-    t_vec = np.concatenate((np.array([FA]), t_vec, np.zeros(1)))
+    t_vec = np.concatenate((np.array([FA]), t_vec, np.array([LA]))) - np.array(translate)
     t_vec = np.repeat(t_vec, repeats = 2)
     t_vec = t_vec + np.tile(np.array([0.00001, 0.0]), int(len(t_vec)/2))
     t_vec = t_vec[1:]
@@ -297,9 +297,10 @@ def get_qtt(f_q, burn):
     return r_q, time_vec_q
 
 
-def get_bdnn_rtt(f, burn):
-    _, _, _, post_ts, _, _, _, _, _, _, _, _, _ = bdnn_read_mcmc_file(f, burn, thin=0)
+def get_bdnn_rtt(f, burn, translate=0):
+    _, _, _, post_ts, post_te, _, _, _, _, _, _, _, _ = bdnn_read_mcmc_file(f, burn, thin=0)
     FA = np.max(np.mean(post_ts, axis=0))
+    LA = np.min(np.mean(post_te, axis=0))
     f = f.replace("_mcmc.log", "")
     f_sp = f + "_sp_rates.log"
     f_ex = f + "_ex_rates.log"
@@ -329,7 +330,7 @@ def get_bdnn_rtt(f, burn):
         r_ex = r_ex[:, ::-1]
         n_rates = r_sp.shape[1]
 
-        time_vec = format_t_vec(time_vec, FA)
+        time_vec = format_t_vec(time_vec, FA, LA, translate)
         r_div = r_sp - r_ex
         longevity = 1. / r_ex
         r_sp_sum = summarize_rate(r_sp, n_rates)
@@ -346,7 +347,7 @@ def get_bdnn_rtt(f, burn):
     try:
         r_q, time_vec_q = get_qtt(f_q, burn)
         n_rates = r_q.shape[1]
-        time_vec_q = format_t_vec(time_vec_q, FA)
+        time_vec_q = format_t_vec(time_vec_q, FA, 0, translate)
         r_q_sum = summarize_rate(r_q, n_rates)
     except:
         r_q_sum = None
