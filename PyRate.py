@@ -5738,7 +5738,8 @@ if __name__ == '__main__':
                                   names_features_sp,
                                   names_features_ex,
                                   names_features_q,
-                                  suffix_pdf = "PDP")
+                                  suffix_pdf="PDP",
+                                  translate=args.translate)
 
         else:
             #path_dir_log_files=sort(path_dir_log_files)
@@ -5876,7 +5877,8 @@ if __name__ == '__main__':
                                       sp_taxa_shap, ex_taxa_shap, q_taxa_shap,
                                       sp_main_consrank, ex_main_consrank, q_main_consrank,
                                       combine_discr_features=args.BDNN_groups,
-                                      file_transf_features=args.plotBDNN_transf_features)
+                                      file_transf_features=args.plotBDNN_transf_features,
+                                      translate=args.translate)
         quit()
     elif args.BDNN_interaction != "":
         import pyrate_lib.bdnn_lib as bdnn_lib

@@ -1425,12 +1425,14 @@ def plot_bdnn_discr(rs, r, tr, r_script, names, names_states, rate_type):
     return r_script
 
 
-def plot_bdnn_cont(rs, tr, r_script, names, plot_time, obs, rate_type):
+def plot_bdnn_cont(rs, tr, r_script, names, plot_time, obs, rate_type, translate=0):
     # Continuous
     r_script += "\nylim = c(%s, %s)" % (np.nanmin(rs[:, 1]), np.nanmax(rs[:, 2]))
     r_script += util.print_R_vec("\nxlim", np.array([np.nanmin(tr[:, 0]), np.nanmax(tr[:, 0])]))
     if plot_time:
-        r_script += "\nxlim = xlim[2:1]"
+        r_script += "\nxlim = xlim[2:1] - %s" % translate
+        tr[:, 0] -= translate
+        obs -= translate
     match rate_type:
         case "speciation":
             col = '#6092AF'
@@ -1465,7 +1467,7 @@ def convert_onehot_to_numeric(tr_onehot):
     return tr_states
 
 
-def plot_bdnn_inter_discr_cont(rs, tr, r_script, names, names_states, plot_time, obs, rate_type):
+def plot_bdnn_inter_discr_cont(rs, tr, r_script, names, names_states, plot_time, obs, rate_type, translate=0):
     # binary/ordinal/discrete x continuous
     keep = ~np.isnan(rs[:, 0])
     rs = rs[keep, :]
@@ -1473,7 +1475,9 @@ def plot_bdnn_inter_discr_cont(rs, tr, r_script, names, names_states, plot_time,
     r_script += "\nylim = c(%s, %s)" % (np.min(rs[:, 1]), np.max(rs[:, 2]))
     r_script += util.print_R_vec("\nxlim", np.array([np.min(tr[:, 0]), np.max(tr[:, 0])]))
     if plot_time:
-        r_script += "\nxlim = xlim[2:1]"
+        r_script += "\nxlim = xlim[2:1] - %s" % translate
+        tr[:, 0] -= translate
+        obs[:, 0] -= translate
     r_script += "\nplot(0, 0, type = 'n', xlim = xlim, ylim = ylim, xlab = '%s', ylab = '%s')" % (names[0], rate_type)
     if tr.shape[1] == 2:
         # binary/ordinal
@@ -1524,7 +1528,7 @@ def plot_bdnn_inter_discr_cont(rs, tr, r_script, names, names_states, plot_time,
     return r_script
 
 
-def plot_bdnn_inter_cont_cont(rs, tr, r_script, names, plot_time, obs, rate_type):
+def plot_bdnn_inter_cont_cont(rs, tr, r_script, names, plot_time, obs, rate_type, translate):
     # Interaction of two continuous features
     r_script += "\npar(mar = c(4, 4, 1.5, 5.1))"
     nr = np.sqrt(rs.shape[0])
@@ -1535,8 +1539,10 @@ def plot_bdnn_inter_cont_cont(rs, tr, r_script, names, plot_time, obs, rate_type
         names = [names[1], names[0]]
         obs = obs[:,[1, 0]]
         obs[:, 0] = -1 * obs[:, 0]
+        obs[:, 0] += translate
         tr = tr[:, [1, 0]]
         tr[:, 0] = -1 * tr[:, 0]
+        tr[:, 0] += translate
         r_script += "\nzreord <- rev(zreord)"
     match rate_type:
         case "speciation":
@@ -1638,7 +1644,7 @@ def get_feat_idx(names_features, names, incl_feat):
 
 
 def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, tste, r_script, names_features, backscale_par,
-                           rate_type = 'speciation'):
+                           rate_type='speciation', translate=0):
     r_script += "\npkgs = c('fields', 'vioplot')"
     r_script += "\nnew_pkgs = pkgs[!(pkgs %in% installed.packages()[,'Package'])]"
     r_script += "\nif (length(new_pkgs) > 0) {"
@@ -1687,7 +1693,7 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, tste, r_script,
             names = names_features[incl_features[0]]
             obs = backscale_tbl(bdnn_obj, backscale_par, [names], obs)
             obs = backscale_bdnn_diversity(obs, bdnn_obj, [names])
-            r_script = plot_bdnn_cont(rates_sum_plt, trait_tbl_plt, r_script, names, plot_time, obs, rate_type)
+            r_script = plot_bdnn_cont(rates_sum_plt, trait_tbl_plt, r_script, names, plot_time, obs, rate_type, translate)
         elif np.isin(pt, np.array([6.0, 13.0, 14.0])):
             b = binary_feature[incl_features]
             names_states = np.unique(trait_tbl_plt[:, b]).tolist()
@@ -1699,11 +1705,11 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, tste, r_script,
             obs[:, 0] = backscale_tbl(bdnn_obj, backscale_par, [names[0]], obs[:, 0].reshape((obs.shape[0], 1))).flatten()
             obs[:, 1] = backscale_tbl(bdnn_obj, backscale_par, [names[1]], obs[:, 1].reshape((obs.shape[0], 1))).flatten()
             obs = backscale_bdnn_diversity(obs, bdnn_obj, names)
-            r_script = plot_bdnn_inter_discr_cont(rates_sum_plt, trait_tbl_plt, r_script, names, names_states, plot_time, obs, rate_type)
+            r_script = plot_bdnn_inter_discr_cont(rates_sum_plt, trait_tbl_plt, r_script, names, names_states, plot_time, obs, rate_type, translate)
         elif pt == 7.0:
             obs = backscale_tbl(bdnn_obj, backscale_par, names.tolist(), obs)
             obs = backscale_bdnn_diversity(obs, bdnn_obj, names)
-            r_script = plot_bdnn_inter_cont_cont(rates_sum_plt, trait_tbl_plt, r_script, names, plot_time, obs, rate_type)
+            r_script = plot_bdnn_inter_cont_cont(rates_sum_plt, trait_tbl_plt, r_script, names, plot_time, obs, rate_type, translate)
         elif np.isin(pt, np.array([5.0, 8.0, 9.0, 10.0, 11.00, 12.0])):
             if np.isin(pt, np.array([5.0, 9.0, 12.0])):
                 names = names_features[incl_features]
@@ -1909,7 +1915,8 @@ def plot_effects(f,
                  names_features_sp,
                  names_features_ex,
                  names_features_q,
-                 suffix_pdf = "effects"):
+                 suffix_pdf="effects",
+                 translate=0):
     # Plot feature-rate relationship
     output_wd = os.path.dirname(os.path.realpath(f))
     name_file = os.path.basename(f)
@@ -1922,9 +1929,9 @@ def plot_effects(f,
         r_script = "pdf(file='%s/%s_%s.pdf', width = 7, height = 6, useDingbats = FALSE)\n" % (output_wd, name_file, suffix_pdf)
     if not cond_trait_tbl_sp is None:
         r_script = create_R_files_effects(cond_trait_tbl_sp, sp_rate_cond + 0.0, bdnn_obj, tste, r_script, names_features_sp,
-                                          backscale_par, rate_type = 'speciation')
+                                          backscale_par, rate_type='speciation', translate=translate)
         r_script = create_R_files_effects(cond_trait_tbl_ex, ex_rate_cond + 0.0, bdnn_obj, tste, r_script, names_features_ex,
-                                          backscale_par, rate_type = 'extinction')
+                                          backscale_par, rate_type='extinction', translate=translate)
         feat_to_keep = get_feat_to_keep_for_netdiv(cond_trait_tbl_sp, cond_trait_tbl_ex)
         netdiv_rate_cond, cond_trait_tbl_netdiv = get_rates_cond_trait_tbl_for_netdiv(feat_to_keep,
                                                                                       sp_rate_cond,
@@ -1932,10 +1939,10 @@ def plot_effects(f,
                                                                                       cond_trait_tbl_ex,
                                                                                       cond_trait_tbl_sp)
         r_script = create_R_files_effects(cond_trait_tbl_netdiv, netdiv_rate_cond, bdnn_obj, tste, r_script, names_features_ex,
-                                          backscale_par, rate_type = 'net diversification')
+                                          backscale_par, rate_type='net diversification', translate=translate)
     if not cond_trait_tbl_q is None:
         r_script = create_R_files_effects(cond_trait_tbl_q, q_rate_cond + 0.0, bdnn_obj, tste, r_script, names_features_q,
-                                          backscale_par, rate_type = 'sampling')
+                                          backscale_par, rate_type='sampling', translate=translate)
     r_script += "\nn <- dev.off()"
     newfile.writelines(r_script)
     newfile.close()
@@ -6107,7 +6114,7 @@ def get_rscript_species_shap(r_script, species_names, taxa_shap, consrank, rate_
     return r_script
 
 
-def get_features_for_shap_plot(mcmc_file, pkl_file, burnin, thin, rate_type, combine_discr_features, file_transf_features):
+def get_features_for_shap_plot(mcmc_file, pkl_file, burnin, thin, rate_type, combine_discr_features, file_transf_features, translate=0):
     bdnn_obj, _, _, _, _, ts_post, te_post, _, _, _, _, _, _, _, _ = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
     trait_tbl = get_trt_tbl(bdnn_obj, rate_type)
     names_features = get_names_features(bdnn_obj, rate_type)
@@ -6146,6 +6153,7 @@ def get_features_for_shap_plot(mcmc_file, pkl_file, burnin, thin, rate_type, com
         # Backscale features
         if is_time_trait(bdnn_obj):
             shap_trt_tbl[:, -1] = backscale_bdnn_time(shap_trt_tbl[:, -1], bdnn_obj)
+            shap_trt_tbl[:, -1] -= translate
         if file_transf_features != '':
             names_feat = get_names_features(bdnn_obj, rate_type='speciation')
             backscale_par = read_backscale_file(file_transf_features)
@@ -6223,7 +6231,7 @@ def get_dotplot_rscript_species_shap(r_script, species_names, taxa_shap, consran
 def dotplot_species_shap(mcmc_file, pkl_file, burnin, thin, output_wd, name_file,
                          sp_taxa_shap, ex_taxa_shap, q_taxa_shap,
                          sp_consrank, ex_consrank, q_consrank,
-                         combine_discr_features = '', file_transf_features = ''):
+                         combine_discr_features='', file_transf_features='', translate=0):
     ob = load_pkl(pkl_file)
     species_names = ob.sp_fad_lad["Taxon"]
     suffix_pdf = "contribution_per_species_rates"
@@ -6424,7 +6432,8 @@ def dotplot_species_shap(mcmc_file, pkl_file, burnin, thin, output_wd, name_file
             sp_shap_trt_tbl, sp_names_features, sp_names_features_orig = get_features_for_shap_plot(mcmc_file, pkl_file,
                                                                                                     burnin, thin, 'speciation',
                                                                                                     combine_discr_features,
-                                                                                                    file_transf_features)
+                                                                                                    file_transf_features,
+                                                                                                    translate)
             r_script = get_dotplot_rscript_species_shap(r_script, species_names, sp_taxa_shap, sp_consrank, sp_shap_trt_tbl,
                                                         sp_names_features, sp_names_features_orig, rate_type = 'speciation')
         else:
@@ -6434,7 +6443,8 @@ def dotplot_species_shap(mcmc_file, pkl_file, burnin, thin, output_wd, name_file
             ex_shap_trt_tbl, ex_names_features, ex_names_features_orig = get_features_for_shap_plot(mcmc_file, pkl_file,
                                                                                                     burnin, thin, 'extinction',
                                                                                                     combine_discr_features,
-                                                                                                    file_transf_features)
+                                                                                                    file_transf_features,
+                                                                                                    translate)
             r_script = get_dotplot_rscript_species_shap(r_script, species_names, ex_taxa_shap, ex_consrank, ex_shap_trt_tbl,
                                                         ex_names_features, ex_names_features_orig, rate_type = 'extinction')
         else:
