@@ -149,7 +149,7 @@ TPP explicitly introduces the idea of discrete epochs. Each epoch has its own in
 
 Use this when you think rate heterogeneity is mostly occurring through time, not among lineages.
 
-Firstly, you need to **create a .txt file** (below called epochs_q.txt) **defining your epochs.**
+Firstly, you need to **create a .txt file** (below called epochs_q.txt) **defining your epochs.** Epochs.txt should have **no header, just one column with ages/time bins**
 
 Then, in **Terminal, feed your PyRate input file and your .txt epochs file into PyRate, specifying python and TPP using the command `-qShift`**: `python PyRate.py *_PyRate.py -qShift path/to/epochs_q.txt`
 
