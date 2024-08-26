@@ -619,7 +619,7 @@ def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1.): # change rescale to
     wd = "%s" % os.path.dirname(tste_file)
     out_file_name = os.path.splitext(os.path.basename(tste_file))[0]
     out_file="%s/%s" % (wd,out_file_name+"_ltt.txt")
-    ltt_file = open(out_file , "w")
+    ltt_file = open(out_file , "w", newline="")
     ltt_log=csv.writer(ltt_file, delimiter='\t')
 
 
@@ -714,7 +714,7 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
     # create out file
     out_file_name = os.path.splitext(os.path.basename(tste_file))[0]
     out_file="%s/%s" % (wd,out_file_name+"_stats.txt")
-    out_file=open(out_file, "w")
+    out_file=open(out_file, "w", newline="")
 
     out_file.writelines("time\tdiversity\tm_div\tM_div\tmedian_age\tm_age\tM_age\tturnover\tm_turnover\tM_turnover\tlife_exp\tm_life_exp\tM_life_exp\t")
 
@@ -1170,6 +1170,13 @@ def get_gamma_rates(a):
     m = gdtrix(b,a,YangGammaQuant) # user defined categories
     s=pp_gamma_ncat/sum(m) # multiplier to scale the so that the mean of the discrete distribution is one
     return array(m)*s # SCALED VALUES
+
+# using get_gamma_rates() in bdnn_lib is not working because it cannot access the YangGammaQuant
+def get_gamma_rates_qnn(a, pp_gamma_ncat, YangGammaQuant):
+    b = a
+    m = gdtrix(b, a, YangGammaQuant) # user defined categories
+    s = pp_gamma_ncat / np.sum(m) # multiplier to scale the so that the mean of the discrete distribution is one
+    return np.array(m)*s # SCALED VALUES
 
 def init_ts_te(FA,LO):
     #ts=FA+np.random.exponential(.75, len(FA)) # exponential random starting point
@@ -1853,37 +1860,38 @@ def get_reg_rates(rates, t_reg):
     denom = np.nanmean(r_tmp) / np.nanmean(rates)
     return r_tmp / denom, denom
 
-def get_rate_BDNN_3D(t_reg, x, w, act_f, out_act_f, sampling=False, singleton_mask=None, qbin_ts_te=None):
+
+def get_unreg_rate_BDNN_3D(x, w, act_f, out_act_f):
     tmp = x + 0
     for i in range(len(w)-1):
         tmp = act_f(MatrixMultiplication3D(tmp, w[i]))
-    
     tmp = MatrixMultiplication3D(tmp, w[i+1])
     tmp = np.squeeze(tmp).T
     # output
     rates = out_act_f(tmp)
     rates += small_number
+    
+    return rates
 
+
+def get_reg_rate_BDNN_3D(rates, t_reg, bin_ts_te=None):
     normalize_factor = None
-    if sampling:
-        if rates.ndim == 2:
-            # set rate to NA before ts and after te
-            for i in range(rates.shape[0]):
-                rates[i, :qbin_ts_te[i, 0]] = np.nan
-                rates[i, qbin_ts_te[i, 1]:] = np.nan
-            rates_not_nan = np.isnan(rates) == False
-        else:
-            rates_not_nan = np.repeat(True, rates.shape[-1])
-        rates[np.logical_and(singleton_mask, rates_not_nan)] = np.nan # singletons, they should not impact the regularization
+    if rates.ndim == 2:
+        # set rate to NA before ts and after te
+        for i in range(rates.shape[0]):
+            rates[i, :bin_ts_te[i, 0]] = np.nan
+            rates[i, bin_ts_te[i, 1]:] = np.nan
+    reg_rates, denom = get_reg_rates(rates, t_reg)
+    
+    return reg_rates, denom, normalize_factor
 
+
+def get_rate_BDNN_3D(t_reg, x, w, act_f, out_act_f):
+    rates = get_unreg_rate_BDNN_3D(x, w, act_f, out_act_f)
     reg_rates, denom = get_reg_rates(rates, t_reg)
 
-    if sampling:
-        normalize_factor = 1 / np.mean(reg_rates[np.logical_and(~singleton_mask, rates_not_nan)])
-        reg_rates *= normalize_factor
-        reg_rates[np.logical_and(singleton_mask, rates_not_nan)] = 1.0
+    return reg_rates, denom
 
-    return reg_rates, denom, normalize_factor
 
 def BDNN_likelihood(arg):
     [ts,te,trait_tbl,rate_l,rate_m,cov_par] = arg
@@ -2073,7 +2081,6 @@ def init_trait_and_weights(trait_tbl,time_var_tbl,nodes,bias_node=False,fadlad=0
         
         for i in w_lam:
             print(i.shape)
-        print(trait_tbl_lam.shape)
     elif isinstance(loaded_tbls[0], np.ndarray):
 #        if use_time_as_trait and num_fixed_times_of_shift - 1 > loaded_tbls[0].shape[0]:
 #            sys.exit("Error: Number of taxon-time specific tables must be the same than age of the oldest fossil + 1 or -fixShifts ")
@@ -2178,21 +2185,78 @@ def init_sampling_trait_and_weights(trait_tbl, time_var_tbl, nodes, bias_node=Fa
     return trait_tbl_q, w_q
 
 
-def get_q_rate_BDNN(q, t_reg, x, w, act_f, out_act_f, singleton_mask=None, qbin_ts_te=None):
-    reg_rates, denom, norm_fac = get_rate_BDNN_3D(t_reg, x, w, act_f, out_act_f, True, singleton_mask, qbin_ts_te)
-    if len(q) > 2 or (len(q) == 2 and q[0] != 1.0): # 2nd case is when there is exactly one shift time
+#def get_q_rate_BDNN(q, t_reg, qnn_output, singleton_mask, qbin_ts_te):
+
+#    qnn = qnn_output + 0.0
+#    if qnn.ndim == 2:
+#        # set rate to NA before ts and after te
+#        for i in range(qnn.shape[0]):
+#            qnn[i, :qbin_ts_te[i, 0]] = np.nan
+#            qnn[i, qbin_ts_te[i, 1]:] = np.nan
+#        qnn_not_nan = np.isnan(qnn) == False
+#    else:
+#        qnn_not_nan = np.repeat(True, qnn.shape[-1])
+#    qnn[np.logical_and(singleton_mask, qnn_not_nan)] = np.nan # singletons, they should not impact the regularization
+
+#    reg_qnn, denom = get_reg_rates(qnn, t_reg)
+
+#    # convert to multipliers
+#    normalize_factor = 1 / np.mean(reg_qnn[np.logical_and(~singleton_mask, qnn_not_nan)])
+#    reg_qnn *= normalize_factor
+#    reg_qnn[np.logical_and(singleton_mask, qnn_not_nan)] = 1.0
+
+#    if len(q) > 2 or (len(q) == 2 and q[0] != 1.0): # 2nd case is when there is exactly one shift time
+#        # Several q rates
+#        if reg_qnn.ndim == 1:
+#            # No time-varying trait table, no age-dependent sampling
+#            reg_qnn = reg_qnn[:, np.newaxis] * q
+#        else:
+#            # Time-varying trait table or age-dependent sampling with shift in baseline
+#            reg_qnn = reg_qnn * q[np.newaxis, :]
+#    else:
+#        # Constant baseline sampling
+#        reg_qnn = reg_qnn * q[1] # Two q's because of NHPP, but 1st is always equal to 1
+##    print('reg_qnn\n', reg_qnn)
+#    return reg_qnn, denom, normalize_factor
+
+
+def get_q_multipliers_NN(t_reg, qnn_output, singleton_mask, qbin_ts_te=None):
+    qnn = qnn_output + 0.0
+    if qnn.ndim == 2:
+        # set rate to NA before ts and after te
+        for i in range(qnn.shape[0]):
+            qnn[i, :qbin_ts_te[i, 0]] = np.nan
+            qnn[i, qbin_ts_te[i, 1]:] = np.nan
+        qnn_not_nan = np.isnan(qnn) == False
+    else:
+        qnn_not_nan = np.repeat(True, qnn.shape[-1])
+    qnn[np.logical_and(singleton_mask, qnn_not_nan)] = np.nan # singletons, they should not impact the regularization
+
+    # perform regularization
+    reg_qnn, denom = get_reg_rates(qnn, t_reg)
+
+    # convert to multipliers
+    normalize_factor = 1 / np.mean(reg_qnn[np.logical_and(~singleton_mask, qnn_not_nan)])
+    reg_qnn *= normalize_factor
+    reg_qnn[np.logical_and(singleton_mask, qnn_not_nan)] = 1.0
+
+    return reg_qnn, denom, normalize_factor
+
+
+def get_q_rates_NN(q, q_multipliers, const_q):
+    q_rates_NN = q_multipliers + 0.0
+    if const_q:
+        # Constant baseline sampling
+        q_rates_NN = q_rates_NN * q
+    else:
         # Several q rates
-        if reg_rates.ndim == 1:
+        if q_rates_NN.ndim == 1:
             # No time-varying trait table, no age-dependent sampling
-            reg_rates = reg_rates[:, np.newaxis] * q
+            q_rates_NN = q_rates_NN[:, np.newaxis] * q
         else:
             # Time-varying trait table or age-dependent sampling with shift in baseline
-            reg_rates = reg_rates * q[np.newaxis, :]
-    else:
-        # Constant baseline sampling
-        reg_rates = reg_rates * q[1] # Two q's because of NHPP, but 1st is always equal to 1
-#    print('reg_rates\n', reg_rates)
-    return reg_rates, denom, norm_fac
+            q_rates_NN = q_rates_NN * q[np.newaxis, :]
+    return q_rates_NN
 
 
 def get_highres_repeats(args_qShift, new_bs, FA):
@@ -2273,10 +2337,11 @@ def interpolate_constant(x, xp, yp):
     return y[indices]
 
 
-def get_binned_time_variable(timebins, var_file, rescale):
+def get_binned_time_variable(timebins, var_file, rescale, translate):
     names_var = get_names_variable(var_file)
     var = np.loadtxt(var_file, skiprows = 1)
-    times = var[:, 0] * rescale
+    var = var[var[:, 0] >= -translate, :]
+    times = var[:, 0] * rescale + translate
     values = var[:, 1:]
     nbins = len(timebins)
     nvars = values.shape[1]
@@ -2305,6 +2370,10 @@ def get_binned_time_variable(timebins, var_file, rescale):
         in_range_M = (times <= t_max).nonzero()[0]
         in_range_m = (times >= t_min).nonzero()[0]
         values_bin = values[np.intersect1d(in_range_M, in_range_m),:]
+        if values_bin.size == 0:
+            # If there is no value for the bin (i.e. higher bin resolution than time series, take the younger value)
+            values_bin = values[np.max(in_range_M), :]
+            values_bin = values_bin.reshape((1, values_bin.size))
         if np.any(discr_var == False):
             mean_var[i - 1, discr_var == False] = np.mean(values_bin[:, discr_var == False], axis = 0)
         if np.any(discr_var):
@@ -2392,6 +2461,7 @@ def precompute_fossil_features(arg_q_shift, arg_bdnn_timevar, bdnn_ads):
     occs_single_bin = None
     if arg_q_shift == "" and arg_bdnn_timevar == "" and bdnn_ads < 0.0:
         # Constant baseline q
+        constant_q = True
         argsHPP = 1
         TPP_model = 0
         occs_sp = np.zeros(len(fossil))
@@ -2403,6 +2473,7 @@ def precompute_fossil_features(arg_q_shift, arg_bdnn_timevar, bdnn_ads):
         use_HPP_NN_lik = False
     else:
         # Shifts in baseline q, time-dependent features, and/or age-dependent sampling
+        constant_q = False
         argsHPP = 0
         TPP_model = 1
         try:
@@ -2421,7 +2492,8 @@ def precompute_fossil_features(arg_q_shift, arg_bdnn_timevar, bdnn_ads):
         if (arg_q_shift == "" and bdnn_ads >= 0.0) or (arg_q_shift == "" and arg_bdnn_timevar != ""):
             argsHPP = 1
             TPP_model = 0
-    return argsHPP, occs_sp, log_factorial_occs, duration_q_bins, occs_single_bin, q_bins, use_HPP_NN_lik, TPP_model
+            constant_q = True
+    return argsHPP, occs_sp, log_factorial_occs, duration_q_bins, occs_single_bin, q_bins, use_HPP_NN_lik, TPP_model, constant_q
 
 
 # Preservation likelihood for neural network
@@ -2464,20 +2536,64 @@ def make_singleton_mask(occs_sp, timevar_q="", ads=-1.0):
 
 
 def HPP_NN_lik(arg):
-    [ts, te, q_rates, k, log_factorial_occs, time_frames, duration_q_bins, single_bin] = arg
+    [ts, te, q, alpha, q_multipliers, const_q, k, log_factorial_occs, time_frames, duration_q_bins, single_bin, singletons, argsG, gamma_ncat, YangGammaQuant] = arg
     # calc time lived in each time frame
     d = get_time_in_q_bins(ts, te, time_frames, duration_q_bins, single_bin)
-    qtl = -q_rates * d
-    lik = np.nansum(qtl + np.log(q_rates) * k, axis=1) - np.log(1 - np.exp(np.nansum(qtl, axis=1))) - log_factorial_occs
-    return lik
+    if argsG == 0:
+        if const_q:
+            q = q[1]
+        q_rates = get_q_rates_NN(q, q_multipliers, const_q)
+        qtl = -q_rates * d
+        lik = np.nansum(qtl + np.log(q_rates) * k, axis=1) - np.log(1 - np.exp(np.nansum(qtl, axis=1))) - log_factorial_occs
+    else:
+        n_bins_q = len(q)
+        n_taxa_q = len(ts)
+        if const_q:
+            # For a single constant q, alpha is the 1st element of the q array (but not for the TPP model where all q's are the rates)
+            alpha = q[0]
+            q = q[1]
+            n_bins_q = q_multipliers.shape[-1]
+        q_rates = np.zeros((gamma_ncat, n_taxa_q, n_bins_q))
+        lik_vec = np.zeros((gamma_ncat, n_taxa_q))
+        YangGamma = get_gamma_rates_qnn(alpha, gamma_ncat, YangGammaQuant)
+        for i in range(gamma_ncat):
+            q_rates[i, :, :] = get_q_rates_NN(YangGamma[i] * q, q_multipliers, const_q)
+        q_rates[:, singletons, :] = q
+        qtl = -q_rates * d
+        lik_vec = np.nansum(qtl + np.log(q_rates) * k[np.newaxis, :, :], axis=2) - np.log(1 - np.exp(np.nansum(qtl, axis=2))) - log_factorial_occs
+        lik_max = np.max(lik_vec, axis=0)
+        lik_vec2 = lik_vec - lik_max
+        lik = np.log(np.sum(np.exp(lik_vec2), axis=0) / gamma_ncat) + lik_max
+        # Get relative weight of the gamma categories
+        lik_vec_exp = np.exp(lik_vec2)
+        weight_per_taxon = lik_vec_exp / np.sum(lik_vec_exp, axis=0)
+        q_rates = np.sum(q_rates * weight_per_taxon[:, :, np.newaxis], axis=0)
+    return lik, q_rates
 
 
 def HOMPP_NN_lik(arg):
-    [ts, te, q_rates, k, log_factorial_occs] = arg
+    [ts, te, q, q_multipliers, const_q, k, log_factorial_occs, singletons, argsG, gamma_ncat, YangGammaQuant] = arg
     br_length = ts - te
-    qtl = -q_rates * br_length
-    lik = qtl + np.log(q_rates) * k - log_factorial_occs - np.log(1 - np.exp(qtl))
-    return lik
+    if argsG == 0:
+        q_rates = get_q_rates_NN(q[1], q_multipliers, const_q)
+        qtl = -q_rates * br_length
+        lik = qtl + np.log(q_rates) * k - log_factorial_occs - np.log(1 - np.exp(qtl))
+    else:
+        n_taxa_q = len(ts)
+        q_rates = np.zeros((gamma_ncat, n_taxa_q))
+        YangGamma = get_gamma_rates_qnn(q[0], gamma_ncat, YangGammaQuant)
+        for i in range(gamma_ncat):
+            q_rates[i, :] = get_q_rates_NN(YangGamma[i] * q[1], q_multipliers, const_q)
+        q_rates[:, singletons] = q[1]
+        qtl = -q_rates * br_length
+        lik_vec = qtl + np.log(q_rates) * k - log_factorial_occs - np.log(1 - np.exp(qtl))
+        lik_max = np.max(lik_vec, axis=0)
+        lik_vec2 = lik_vec - lik_max
+        lik = np.log(np.sum(np.exp(lik_vec2), axis=0) / gamma_ncat) + lik_max
+        lik_vec_exp = np.exp(lik_vec)
+        weight_per_taxon = lik_vec_exp / np.sum(lik_vec_exp, axis=0)
+        q_rates = np.sum(q_rates * weight_per_taxon, axis=0)
+    return lik, q_rates
 
 
 def harmonic_mean_q_per_sp(q, d):
@@ -2512,9 +2628,9 @@ def harmonic_mean_q_through_time(ts, te, time_frames, q_rates):
     return qtt
 
 
-def get_qbin_ts_te(ts, te, time_frames):
-    qbin_ts_te = np.stack([np.digitize(ts, time_frames[1:]), np.digitize(te, time_frames[1:]) + 1], axis=1)
-    return qbin_ts_te
+def get_bin_ts_te(ts, te, time_frames):
+    bin_ts_te = np.stack([np.digitize(ts, time_frames[1:]), np.digitize(te, time_frames[1:]) + 1], axis=1)
+    return bin_ts_te
 
 
 def add_taxon_age(ts, te, q_time_frames, trt_tbl, tsA=None, teA=None):
@@ -3579,12 +3695,12 @@ def get_init_values(mcmc_log_file,taxa_names):
         print("Excluded", len(ts_index) - len(ts_index_temp), "taxa")
 
     alpha_pp=1
-    cov_par = 1
+    cov_par = np.zeros(3)
     try:
         q_rates_index = np.array([head.index("alpha"), head.index("q_rate")])
         q_rates = tbl[last_row,q_rates_index]
     except:
-        q_rates_index = [head.index(i) for i in head if "q_" in i]
+        q_rates_index = [head.index(i) for i in head if i.startswith('q_')]
         q_rates = tbl[last_row,q_rates_index]
         try:
             alpha_pp = tbl[last_row,head.index("alpha")]
@@ -3734,8 +3850,8 @@ def MCMC(all_arg):
                 LA = np.ones(len(timesLA)-1)
                 MA = np.ones(len(timesMA)-1)
             
-            bdnn_lam_ratesA, denom_lamA, _ = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[0], cov_parA[0], hidden_act_f, out_act_f)
-            bdnn_mu_ratesA, denom_muA, _ = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[1], cov_parA[1], hidden_act_f, out_act_f)
+            bdnn_lam_ratesA, denom_lamA = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[0], cov_parA[0], hidden_act_f, out_act_f)
+            bdnn_mu_ratesA, denom_muA = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[1], cov_parA[1], hidden_act_f, out_act_f)
             if use_time_as_trait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
                 bin_size_lam_mu = np.tile(np.abs(np.diff(timesLA)), n_taxa).reshape((n_taxa, len(timesLA) - 1))
                 i_events_spA, i_events_exA, n_SA = get_events_ns(tsA, teA, timesLA, bin_size_lam_mu)
@@ -3757,19 +3873,26 @@ def MCMC(all_arg):
             if TPP_model == 1:
                 if len(q_ratesA) != time_framesQ:
                     q_ratesA=np.zeros(time_framesQ)+mean(q_ratesA)
+        timevar_qnn = False
         if BDNNmodel in [2, 3]:
             cov_parA = cov_par_init_NN
-            if argsHPP == 1:
-                q_ratesA[0] = 1.0
             q_rates_tmp = q_ratesA
             if bdnn_ads >= 0.0:
                 trait_tbl_NN[2] = add_taxon_age(tsA, teA, q_time_frames_bdnn, trait_tbl_NN[2])
                 if bdnn_ads > 0.0 and argsHPP == 0:
                     q_rates_tmp = q_ratesA[highres_q_repeats]
             qbin_ts_te = None
-            if trait_tbl_NN[2].ndim == 3:
-                qbin_ts_te = get_qbin_ts_te(tsA, teA, q_time_frames_bdnn)
-            bdnn_q_ratesA, denom_qA, norm_facA = get_q_rate_BDNN(q_rates_tmp, cov_parA[5], trait_tbl_NN[2], cov_parA[2], hidden_act_f, out_act_f_q, singleton_mask, qbin_ts_te)
+            bdnn_q_ratesA = np.zeros(n_taxa)
+            if occs_sp.ndim == 2:
+                qbin_ts_te = get_bin_ts_te(tsA, teA, q_time_frames_bdnn)
+                timevar_qnn = True
+                bdnn_q_ratesA = np.zeros((n_taxa, len(q_time_frames_bdnn) - 1))
+            # singleton index to calculate preservation likelihood
+            singleton_lik = copy_lib.deepcopy(singleton_mask)
+            if singleton_lik.ndim == 2:
+                singleton_lik = singleton_lik[:, 0].reshape(-1)
+            qnn_output_unregA = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_parA[2], hidden_act_f, out_act_f_q)
+            q_multiA, denom_qA, norm_facA = get_q_multipliers_NN(cov_parA[5], qnn_output_unregA, singleton_mask, qbin_ts_te)
             bdnn_prior_qA = np.sum([np.sum(prior_normal(cov_parA[2][i], prior_bdnn_w_q_sd[i])) for i in range(len(cov_parA[2]))])
             if prior_lam_t_reg[0] > 0:
                 bdnn_prior_qA += np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_parA[5]
@@ -3866,10 +3989,12 @@ def MCMC(all_arg):
         cov_par=np.zeros(3)
         if BDNNmodel in [2, 3]:
             cov_par = copy_lib.deepcopy(cov_parA)
-            bdnn_prior_q = bdnn_prior_qA
+            bdnn_prior_q = bdnn_prior_qA + 0.0
+            q_multi = q_multiA + 0.0
+            qnn_output_unreg = qnn_output_unregA + 0.0
             bdnn_q_rates = bdnn_q_ratesA
             denom_q = denom_qA + 0.0
-            norm_fac = norm_facA
+            norm_fac = norm_facA + 0.0
         if BDNNmodel in [1, 3]:
             cov_par = copy_lib.deepcopy(cov_parA)
             bdnn_prior_cov_par = bdnn_prior_cov_parA + 0.0
@@ -3898,6 +4023,7 @@ def MCMC(all_arg):
         ts_te_updated = 0
         cov_lam_updated = 0
         cov_mu_updated = 0
+        cov_q_updated = 0
 
         if rr<f_update_se: # ts/te
             ts_te_updated = 1
@@ -3944,8 +4070,6 @@ def MCMC(all_arg):
                 if BDNNmodel in [2, 3]:
                     if bdnn_ads >= 0.0:
                         trait_tbl_NN[2] = add_taxon_age(ts, te, q_time_frames_bdnn, trait_tbl_NN[2], tsA, teA)
-                    if trait_tbl_NN[2].ndim == 3:
-                        qbin_ts_te = get_qbin_ts_te(ts, te, q_time_frames_bdnn)
 
             tot_L=np.sum(ts-te)
         
@@ -4021,8 +4145,8 @@ def MCMC(all_arg):
                 if prior_lam_t_reg[1] > 0 and independ_reg:
                     cov_par[4] = update_parameter(cov_parA[4], 0, 1, d=0.05, f=1)
                     bdnn_prior_cov_par[3] = np.log(prior_lam_t_reg[1]) - prior_lam_t_reg[1] * cov_par[4]
-                bdnn_lam_rates, denom_lam, _ = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f)
-                bdnn_mu_rates, denom_mu, _ = get_rate_BDNN_3D(cov_par[4], trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f)
+                bdnn_lam_rates, denom_lam = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f)
+                bdnn_mu_rates, denom_mu = get_rate_BDNN_3D(cov_par[4], trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f)
 #                # do not update all at once - why is the BD_lik lower?
 #                rr_cov_lam_mu = np.random.random()
 #                if rr_cov_lam_mu < cov_par_update_f[0] and prior_lam_t_reg[0] > 0:
@@ -4057,17 +4181,19 @@ def MCMC(all_arg):
 #                            cov_par[1][i_layer] *= BDNN_MASK_mu[i_layer]
 #                # Recalculate bdnn rates when we updated cov_par
 #                if cov_lam_updated:
-#                    bdnn_lam_rates, denom_lam, _ = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f)
+#                    bdnn_lam_rates, denom_lam = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f)
 #                if cov_mu_updated:
-#                    bdnn_mu_rates, denom_mu, _ = get_rate_BDNN_3D(cov_par[4], trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f)
+#                    bdnn_mu_rates, denom_mu = get_rate_BDNN_3D(cov_par[4], trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f)
 
             if BDNNmodel in [2, 3] and rr_bdnn >= 0.0:
+                cov_q_updated = 1
                 if prior_lam_t_reg[0] > 0 and np.random.random() < 0.1:
                     cov_par[5] = update_parameter(cov_parA[5], 0, 1, d=0.05, f=1)
                 else:
                     rnd_layer = np.random.randint(0, len(cov_parA[2]))
                     # update layers q rate
                     cov_par[2][rnd_layer] = update_parameter_normal_vec(cov_parA[2][rnd_layer], d=0.05, f=bdnn_update_f[rnd_layer])
+#                    qnn_output_unreg = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_par[2], hidden_act_f, out_act_f_q)
 
 
             if not BDNNmodel:
@@ -4102,7 +4228,7 @@ def MCMC(all_arg):
         if fix_SE == 0 and FBDrange==0:
             ind1=list(range(0,len(fossil)))
             ind2=[]
-            if it>0 and rr<f_update_se and bdnn_ads < 0.0: # recalculate likelihood only for ts, te that were updated
+            if it>0 and rr<f_update_se and not timevar_qnn: # recalculate likelihood only for ts, te that were updated
                 ind1=((ts-te != tsA-teA).nonzero()[0]).tolist()
                 ind2=(ts-te == tsA-teA).nonzero()[0]
             lik_fossil=zeros(len(fossil))
@@ -4122,15 +4248,6 @@ def MCMC(all_arg):
                     args=list(z[ind1])
 
                 if hasFoundPyRateC:
-#                    if BDNNmodel in [2, 3]:
-#                        if TPP_model == 1:
-#                           # This uses the median for gamma rates
-#                            YangGamma = [1]
-#                            if argsG :
-#                                YangGamma=get_gamma_rates(alpha_pp_gamma)
-#                            lik_fossil = np.array(PyRateC_HPP_vec_lik(ind1, ts, te, q_time_frames_bdnn, bdnn_q_rates.T.reshape(-1), YangGamma))
-#                        else:
-#                            lik_fossil = np.array(PyRateC_HOMPP_lik(ind1, ts, te, bdnn_q_rates.flatten(), YangGamma, cov_par[2], M[len(M)-1]))
                     if TPP_model == 1:
                         # This uses the median for gamma rates
                         YangGamma = [1]
@@ -4195,17 +4312,29 @@ def MCMC(all_arg):
                                 q_rates_tmp = q_rates
                                 if bdnn_ads > 0.0 and argsHPP == 0:
                                     q_rates_tmp = q_rates[highres_q_repeats]
-                                bdnn_q_rates, denom_q, norm_fac = get_q_rate_BDNN(q_rates_tmp, cov_par[5], trait_tbl_NN[2], cov_par[2], hidden_act_f, out_act_f_q, singleton_mask, qbin_ts_te)
+                                if timevar_qnn:
+                                    qbin_ts_te = get_bin_ts_te(ts, te, q_time_frames_bdnn)
+                                qnn_output_unreg = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_par[2], hidden_act_f, out_act_f_q)
+                                q_multi, denom_q, norm_fac = get_q_multipliers_NN(cov_par[5], qnn_output_unreg, singleton_mask, qbin_ts_te)
                                 bdnn_prior_q = np.sum([np.sum(prior_normal(cov_par[2][i], prior_bdnn_w_q_sd[i])) for i in range(len(cov_par[2]))])
                                 if prior_lam_t_reg[0] > 0:
                                     bdnn_prior_q += np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_par[5]
 
-                            if use_HPP_NN_lik: #TPP_model == 1: #  or 
-                                lik_fossil[ind1] = HPP_NN_lik([ts[ind1], te[ind1], bdnn_q_rates[ind1, :],
-                                                               occs_sp[ind1, :], log_factorial_occs[ind1],
-                                                               q_time_frames_bdnn, duration_q_bins[ind1, :], occs_single_bin[ind1]])
+                            if use_HPP_NN_lik:
+                                lik_fossil[ind1], bdnn_q_rates[ind1, :] = HPP_NN_lik([ts[ind1], te[ind1],
+                                                                                      q_rates_tmp, alpha_pp_gamma,
+                                                                                      q_multi[ind1], const_q,
+                                                                                      occs_sp[ind1, :], log_factorial_occs[ind1],
+                                                                                      q_time_frames_bdnn, duration_q_bins[ind1, :],
+                                                                                      occs_single_bin[ind1], singleton_lik[ind1],
+                                                                                      argsG, pp_gamma_ncat, YangGammaQuant])
                             else:
-                                lik_fossil[ind1] = HOMPP_NN_lik([ts[ind1], te[ind1], bdnn_q_rates[ind1], occs_sp[ind1], log_factorial_occs[ind1]])
+                                lik_fossil[ind1], bdnn_q_rates[ind1] = HOMPP_NN_lik([ts[ind1], te[ind1],
+                                                                                     q_rates_tmp,
+                                                                                     q_multi[ind1], const_q,
+                                                                                     occs_sp[ind1], log_factorial_occs[ind1],
+                                                                                     singleton_lik[ind1],
+                                                                                     argsG, pp_gamma_ncat, YangGammaQuant])
                         else:
                             for j in range(len(ind1)):
                                 i=ind1[j] # which species' lik
@@ -4227,7 +4356,6 @@ def MCMC(all_arg):
 
             if it>0:
                 lik_fossil[ind2] = lik_fossilA[ind2]
-#                lik_fossil_tmp[ind2] = lik_fossilA[ind2]
 
         # FBD range likelihood
         elif FBDrange:
@@ -4589,13 +4717,9 @@ def MCMC(all_arg):
                 if BDNNmodel in [1, 3]:
                     prior +=  np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i], mu=mu_empirical_prior[0][i])) for i in range(len(cov_par[0]))])
                     prior +=  np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i], mu=mu_empirical_prior[1][i])) for i in range(len(cov_par[1]))])
-#                if BDNNmodel in [2, 3]:
-#                    prior +=  np.sum([np.sum(prior_normal(cov_par[2][i],prior_bdnn_w_q_sd[i], mu=mu_empirical_prior[1][i])) for i in range(len(cov_par[1]))])
             else:
                 if BDNNmodel in [1, 3]:
                     prior += np.sum(bdnn_prior_cov_par)
-#                if BDNNmodel in [2, 3]:
-#                    prior += bdnn_prior_cov_par2_q
 
         # exponential prior on root age
         maxFA = np.max(FA)
@@ -4700,6 +4824,8 @@ def MCMC(all_arg):
                         i_events_exA = i_events_ex
                         n_SA = n_S
                 if BDNNmodel in [2, 3]:
+                    q_multiA = q_multi + 0.0
+                    qnn_output_unregA = qnn_output_unreg + 0.0
                     bdnn_q_ratesA = bdnn_q_rates
                     denom_qA = denom_q
                     norm_facA = norm_fac
@@ -4726,8 +4852,8 @@ def MCMC(all_arg):
                 if BDNNmodel in [2, 3]:
                     if bdnn_ads >= 0.0 and ts_te_updated == 1:
                         trait_tbl_NN[2] = add_taxon_age(tsA, teA, q_time_frames_bdnn, trait_tbl_NN[2], ts, te)
-                    if trait_tbl_NN[2].ndim == 3 and ts_te_updated == 1:
-                        qbin_ts_te = get_qbin_ts_te(tsA, teA, q_time_frames_bdnn)
+#                    if trait_tbl_NN[2].ndim == 3 and ts_te_updated == 1:
+#                        qbin_ts_te = get_bin_ts_te(tsA, teA, q_time_frames_bdnn)
 
         if it % print_freq ==0 or it==burnin:
             try: l=[round(y, 2) for y in [PostA, likA, priorA, SA]]
@@ -5232,7 +5358,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNpklfile', type=str, help='Load BDNN pickle file', default="", metavar="")
     p.add_argument('-BDNN_pred_importance', metavar='<input file>', type = str, help = "Predictor importance in BDNN: provide path for 'mcmc.log' file (e.g. .../pyrate_mcmc_logs/example_BDS_BDNN_16_8Tc_mcmc.log)", default = "")
     p.add_argument('-BDNN_nsim_expected_cv', type=int, help='Number of simulations to get expected coefficient of rate variation', default=100, metavar=100)
-    p.add_argument('-BDNN_pred_importance_only_main', help='Obtain only importance of main effects and not of interactions', action='store_false', default=True)
+    p.add_argument('-BDNN_pred_importance_interaction', help='Obtain importance for two-way interactions in addition to the main effects', action='store_false', default=True)
     p.add_argument('-BDNN_pred_importance_window_size', type=float, help='Resample to time windows of a given size. Same value for birth-death and sampling or two different values.', default=[-1.0], metavar=[-1.0], nargs='+')
     p.add_argument('-BDNN_pred_importance_nperm', type=int, help='Number of permutation for BDNN predictor importance', default=100, metavar=100)
     p.add_argument('-BDNN_mean_shap_per_group', help='Calculating shap value for BDNN_groups using the mean importance across all grouped predictors', action='store_true', default=False)
@@ -5290,6 +5416,7 @@ if __name__ == '__main__':
     time_framesM=args.mM          # no. (starting) time frames (mu)
     constrain_time_frames=args.mC # True/False
     pp_gamma_ncat=args.ncat              # args.ncat
+    YangGammaQuant = None
     if args.mG:             # number of gamma categories
         argsG = 1
         YangGammaQuant=(np.linspace(0,1,pp_gamma_ncat+1)-np.linspace(0,1,pp_gamma_ncat+1)[1]/2)[1:]
@@ -5308,6 +5435,9 @@ if __name__ == '__main__':
     ############################ MCMC SETTINGS ############################
     # GENERAL SETTINGS
     TDI=args.A                  # 0: parameter estimation, 1: thermodynamic integration, 2: BD-MCMC
+    BDNNmodel = args.BDNNmodel
+    if BDNNmodel in [1, 3]:
+        TDI = 0
     if constrain_time_frames == 1 or args.fixShift != "":
         if TDI in [2,4]:
             # print("\nConstrained shift times (-mC,-fixShift) cannot be used with BD/RJ MCMC alorithms. Using standard MCMC instead.\n")
@@ -5404,7 +5534,6 @@ if __name__ == '__main__':
     if model_cov==3: f_cov_par= [.5 ,1  ,0 ]
     if model_cov==4: f_cov_par= [0  ,0  ,1 ]
     if model_cov==5: f_cov_par= [.33,.66,1 ]
-    BDNNmodel = args.BDNNmodel
 
     if covar_prior_fixed==0: est_COVAR_prior = 1
     else: est_COVAR_prior = 0
@@ -5416,6 +5545,7 @@ if __name__ == '__main__':
             except: 
                 fixed_times_of_shift = np.array([np.loadtxt(args.fixShift)])
             fixed_times_of_shift = fixed_times_of_shift[fixed_times_of_shift > 0]
+            fixed_times_of_shift += args.translate
             f_shift=0
             time_framesL=len(fixed_times_of_shift)+1
             time_framesM=len(fixed_times_of_shift)+1
@@ -5575,7 +5705,9 @@ if __name__ == '__main__':
                 rtt_plot_bds = rtt_plot_bds.RTTplot_Q(path_dir_log_files,args.qShift,burnin=burnin,max_age=root_plot)
             elif plot_type== 6:
                 import pyrate_lib.bdnn_lib as bdnn_lib
-                output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q = bdnn_lib.get_bdnn_rtt(path_dir_log_files, burn = burnin)
+                output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q = bdnn_lib.get_bdnn_rtt(path_dir_log_files,
+                                                                                                                          burn = burnin,
+                                                                                                                          translate=args.translate)
                 bdnn_lib.plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q)
                 if args.plotBDNN_groups != "":
                     bdnn_lib.plot_bdnn_rtt_groups(path_dir_log_files, args.plotBDNN_groups, burn=burnin)
@@ -5606,7 +5738,8 @@ if __name__ == '__main__':
                                   names_features_sp,
                                   names_features_ex,
                                   names_features_q,
-                                  suffix_pdf = "PDP")
+                                  suffix_pdf="PDP",
+                                  translate=args.translate)
 
         else:
             #path_dir_log_files=sort(path_dir_log_files)
@@ -5640,7 +5773,7 @@ if __name__ == '__main__':
         path_dir_log_files = args.BDNN_pred_importance.replace("_mcmc.log", "")
         pkl_file = path_dir_log_files + ".pkl"
         mcmc_file = path_dir_log_files + "_mcmc.log"
-        do_inter_imp = args.BDNN_pred_importance_only_main
+        do_inter_imp = args.BDNN_pred_importance_interaction is False
         BDNNmodel = bdnn_lib.get_bdnn_model(pkl_file)
         sp_taxa_shap, ex_taxa_shap, q_taxa_shap = None, None, None
         sp_main_consrank, ex_main_consrank, q_main_consrank = None, None, None
@@ -5720,7 +5853,7 @@ if __name__ == '__main__':
             print("Getting consensus ranking birth-death")
             sp_feat_importance, sp_main_consrank = bdnn_lib.get_consensus_ranking(sp_pv, sp_shap, sp_featperm)
             ex_feat_importance, ex_main_consrank = bdnn_lib.get_consensus_ranking(ex_pv, ex_shap, ex_featperm)
-            output_wd = os.path.dirname(path_dir_log_files)
+            output_wd = os.path.dirname(os.path.realpath(path_dir_log_files))
             name_file = os.path.basename(path_dir_log_files)
             ex_feat_merged_file = os.path.join(output_wd, name_file + '_ex_predictor_influence.csv')
             ex_feat_importance.to_csv(ex_feat_merged_file, na_rep='NA', index=False)
@@ -5733,7 +5866,7 @@ if __name__ == '__main__':
         if BDNNmodel in [2, 3]:
             print("Getting consensus ranking sampling")
             q_feat_importance, q_main_consrank = bdnn_lib.get_consensus_ranking(q_pv, q_shap, q_featperm)
-            output_wd = os.path.dirname(path_dir_log_files)
+            output_wd = os.path.dirname(os.path.realpath(path_dir_log_files))
             name_file = os.path.basename(path_dir_log_files)
             q_feat_merged_file = os.path.join(output_wd, name_file + '_q_predictor_influence.csv')
             q_feat_importance.to_csv(q_feat_merged_file, na_rep='NA', index=False)
@@ -5744,14 +5877,15 @@ if __name__ == '__main__':
                                       sp_taxa_shap, ex_taxa_shap, q_taxa_shap,
                                       sp_main_consrank, ex_main_consrank, q_main_consrank,
                                       combine_discr_features=args.BDNN_groups,
-                                      file_transf_features=args.plotBDNN_transf_features)
+                                      file_transf_features=args.plotBDNN_transf_features,
+                                      translate=args.translate)
         quit()
     elif args.BDNN_interaction != "":
         import pyrate_lib.bdnn_lib as bdnn_lib
         path_dir_log_files = args.BDNN_interaction.replace("_mcmc.log", "")
         pkl_file = path_dir_log_files + ".pkl"
         mcmc_file = path_dir_log_files + "_mcmc.log"
-        bdnn_obj, w_sp, w_ex, _, sp_fad_lad, ts_post, te_post, t_reg_lam, t_reg_mu, _, reg_denom_lam, reg_denom_mu, _, _ = bdnn_lib.bdnn_parse_results(mcmc_file, pkl_file, burnin, args.resample)
+        bdnn_obj, w_sp, w_ex, _, sp_fad_lad, ts_post, te_post, t_reg_lam, t_reg_mu, _, reg_denom_lam, reg_denom_mu, _, _, _ = bdnn_lib.bdnn_parse_results(mcmc_file, pkl_file, burnin, args.resample)
         backscale_par = bdnn_lib.read_backscale_file(args.plotBDNN_transf_features)
         sp_inter, sp_trt_tbl, names_features = bdnn_lib.get_pdp_rate_free_combination(bdnn_obj, sp_fad_lad, ts_post, te_post,
                                                                                       w_sp, t_reg_lam, reg_denom_lam,
@@ -5769,7 +5903,7 @@ if __name__ == '__main__':
                                                                                       fix_observed=args.BDNN_interaction_fix,
                                                                                       num_processes=args.thread[0],
                                                                                       show_progressbar=True)
-        output_wd = os.path.dirname(path_dir_log_files)
+        output_wd = os.path.dirname(os.path.realpath(path_dir_log_files))
         name_file = '_'.join(names_features)
         sp_trt_tbl_file = os.path.join(output_wd, name_file + '_at_speciation.csv')
         sp_trt_tbl.to_csv(sp_trt_tbl_file, na_rep = 'NA', index = True)
@@ -5894,11 +6028,14 @@ if __name__ == '__main__':
             elif args.translate < 0: # exclude recent taxa after 'translating' records towards zero
                 if max(fossil_complete[i]*args.rescale+args.translate)<=0: singletons_excluded.append(i)
                 else:
-                    have_record.append(i)
-                    fossil_occ_temp = fossil_complete[i]*args.rescale+args.translate
-                    fossil_occ_temp[fossil_occ_temp<0] = 0.0
-                    fossil.append(np.unique(fossil_occ_temp[fossil_occ_temp>=0]))
-                    taxa_included.append(i)
+                    if len(fossil_complete[i]) <= args.singleton and np.random.random() >= args.frac_sampled_singleton:
+                        singletons_excluded.append(i)
+                    else:
+                        have_record.append(i)
+                        fossil_occ_temp = fossil_complete[i]*args.rescale+args.translate
+                        fossil_occ_temp[fossil_occ_temp<0] = 0.0
+                        fossil.append(np.unique(fossil_occ_temp[fossil_occ_temp>=0]))
+                        taxa_included.append(i)
 
 
             elif args.singleton > 0: # min number of occurrences
@@ -5931,7 +6068,7 @@ if __name__ == '__main__':
             taxa_names=list()
             for i in range(len(fossil)): taxa_names.append("taxon_%s" % (i))
 
-        #print singletons_excluded
+#        print('singletons_excluded\n', singletons_excluded)
         taxa_included = np.array(taxa_included)
         taxa_names = np.array(taxa_names)
         taxa_names = taxa_names[taxa_included]
@@ -6050,6 +6187,8 @@ if __name__ == '__main__':
 
     if len(fixed_times_of_shift_bdnn) > 0:
         fixed_times_of_shift_bdnn=fixed_times_of_shift_bdnn[fixed_times_of_shift_bdnn < np.max(FA)]
+#        keep = np.logical_and(fixed_times_of_shift_bdnn < np.max(FA), fixed_times_of_shift_bdnn >= np.min(LO))
+#        fixed_times_of_shift_bdnn = fixed_times_of_shift_bdnn[keep]
 
     if len(fixed_times_of_shift)>0:
         fixed_times_of_shift=fixed_times_of_shift[fixed_times_of_shift<np.max(FA)]
@@ -6365,7 +6504,7 @@ if __name__ == '__main__':
         highres_q_repeats = None
         if bdnn_ads >= 0.0:
             highres_q_repeats, times_q_shift = get_highres_repeats(args.qShift, bdnn_ads, np.max(FA))
-        argsHPP, occs_sp, log_factorial_occs, duration_q_bins, occs_single_bin, q_time_frames_bdnn, use_HPP_NN_lik, TPP_model = precompute_fossil_features(args.qShift, bdnn_timevar_q, bdnn_ads)
+        argsHPP, occs_sp, log_factorial_occs, duration_q_bins, occs_single_bin, q_time_frames_bdnn, use_HPP_NN_lik, TPP_model, const_q = precompute_fossil_features(args.qShift, bdnn_timevar_q, bdnn_ads)
         singleton_mask = make_singleton_mask(occs_sp, bdnn_timevar_q, bdnn_ads)
 
 
@@ -6469,7 +6608,12 @@ if __name__ == '__main__':
         n_taxa = len(FA)
     
         if len(fixed_times_of_shift_bdnn) > 0:
-            time_vec = np.sort(np.array([np.max(FA), np.min(LO)] + list(fixed_times_of_shift_bdnn)))[::-1]
+            LO_min = np.min(LO)
+            FA_LO = np.max(FA)
+            if LO_min > 0.0:
+                LO_min = np.zeros(1)
+            FA_LO = np.concatenate((FA_LO, LO_min), axis=None)
+            time_vec = np.sort(np.concatenate((FA_LO, fixed_times_of_shift_bdnn)))[::-1]
         else:
             time_vec = np.sort(np.array([np.max(FA), np.min(LO)] + list(fixed_times_of_shift)))[::-1]
         if args.BDNNtimetrait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
@@ -6501,7 +6645,7 @@ if __name__ == '__main__':
                 time_var = None
                 names_time_var = []
                 if bdnn_timevar:
-                     time_var, names_time_var = get_binned_time_variable(time_vec, bdnn_timevar, args.rescale)
+                     time_var, names_time_var = get_binned_time_variable(time_vec, bdnn_timevar, args.rescale, args.translate)
                      add_to_bdnnblock_mask += len(names_time_var)
                 trait_tbl_lm, cov_par_init_lm = init_trait_and_weights(trait_values,
                                                                        time_var,
@@ -6521,13 +6665,10 @@ if __name__ == '__main__':
             if BDNNmodel in [2, 3]:
                 hasFoundPyRateC = 0
                 CPPlib = ""
-                if argsG == 1:
-                    argsG = 0
-                    print("Gamma heterogeneity not available for trait dependent preservation rate")
                 time_var_q = None
                 names_time_var_q = []
                 if bdnn_timevar_q:
-                    time_var_q, names_time_var_q = get_binned_time_variable(q_time_frames_bdnn, bdnn_timevar_q, args.rescale)
+                    time_var_q, names_time_var_q = get_binned_time_variable(q_time_frames_bdnn, bdnn_timevar_q, args.rescale, args.translate)
                 trait_tbl_NN[2], cov_par_init_NN_q = init_sampling_trait_and_weights(trait_values,
                                                                                      time_var_q,
                                                                                      n_BDNN_nodes,
@@ -6851,7 +6992,8 @@ if __name__ == '__main__':
                 'log_factorial_occs': log_factorial_occs,
                 'singleton_mask': singleton_mask,
                 'occs_sp': occs_sp,
-                'pert_prior': pert_prior
+                'pert_prior': pert_prior,
+                'pp_gamma_ncat': pp_gamma_ncat
             })
             if use_HPP_NN_lik == 1:
                 bdnn_dict.update({
@@ -6927,7 +7069,7 @@ if __name__ == '__main__':
 
         o=''.join([o0,o1,o2,version_notes])
         out_sum = "%s/%s_sum.txt" % (path_dir,suff_out)
-        sumfile = open(out_sum , "w")
+        sumfile = open(out_sum , "w", newline="")
         sumfile.writelines(o)
         sumfile.close()
 
@@ -7038,7 +7180,7 @@ if __name__ == '__main__':
             marginal_frames= array([int(fabs(i-int(max_marginal_frame))) for i in range(int(max_marginal_frame)+1)])
             if log_marginal_rates_to_file==1:
                 out_log_marginal = "%s/%s_marginal_rates.log" % (path_dir, suff_out)
-                marginal_file = open(out_log_marginal , "w")
+                marginal_file = open(out_log_marginal , "w", newline="")
                 head="it\t"
                 for i in range(int(max_marginal_frame)+1): head += "l_%s\t" % i #int(fabs(int(max(FA))))
                 for i in range(int(max_marginal_frame)+1): head += "m_%s\t" % i #int(fabs(int(max(FA))))
@@ -7054,18 +7196,18 @@ if __name__ == '__main__':
             samplingNN_TDI0 = BDNNmodel == 2 and TDI == 0
             if TDI==4 or use_ADE_model != 0 or (BDNNmodel and not samplingNN_TDI0):
                 marginal_sp_rate_file_name = "%s/%s_sp_rates.log" % (path_dir, suff_out)
-                marginal_sp_rate_file = open(marginal_sp_rate_file_name , "w")
+                marginal_sp_rate_file = open(marginal_sp_rate_file_name , "w", newline="")
                 w_marg_sp=csv.writer(marginal_sp_rate_file, delimiter='\t')
                 marginal_sp_rate_file.flush()
                 os.fsync(marginal_sp_rate_file)
                 marginal_ex_rate_file_name = "%s/%s_ex_rates.log" % (path_dir, suff_out)
-                marginal_ex_rate_file = open(marginal_ex_rate_file_name , "w")
+                marginal_ex_rate_file = open(marginal_ex_rate_file_name , "w", newline="")
                 w_marg_ex=csv.writer(marginal_ex_rate_file, delimiter='\t')
                 marginal_ex_rate_file.flush()
                 os.fsync(marginal_ex_rate_file)
             if BDNNmodel in [2, 3]:
                 marginal_q_rate_file_name = "%s/%s_q_rates.log" % (path_dir, suff_out)
-                marginal_q_rate_file = open(marginal_q_rate_file_name , "w")
+                marginal_q_rate_file = open(marginal_q_rate_file_name , "w", newline="")
                 w_marg_q = csv.writer(marginal_q_rate_file, delimiter='\t')
                 marginal_q_rate_file.flush()
                 os.fsync(marginal_q_rate_file)
@@ -7078,7 +7220,7 @@ if __name__ == '__main__':
         # OUTPUT 3 MARGINAL LIKELIHOOD
         elif TDI==1:
             out_log_marginal_lik = "%s/%s_marginal_likelihood.txt" % (path_dir, suff_out)
-            marginal_file = open(out_log_marginal_lik , "w")
+            marginal_file = open(out_log_marginal_lik , "w", newline="")
             marginal_file.writelines(o)
             marginal_frames=0
         else: marginal_frames=0
@@ -7111,7 +7253,7 @@ if __name__ == '__main__':
             head = ["iteration"]
             for i in taxa_names: head.append("%s_lam" % (i))
             for i in taxa_names: head.append("%s_mu" % (i))
-            species_rate_file = open(species_rate_file_name , "w")
+            species_rate_file = open(species_rate_file_name , "w", newline="")
             species_rate_writer=csv.writer(species_rate_file, delimiter='\t')
             species_rate_writer.writerow(head)
             species_rate_file.flush()
@@ -7125,7 +7267,7 @@ if __name__ == '__main__':
             else:
                 head = ["iteration", "alpha"]
                 for i in taxa_names: head.append("%s_rel_q" % (i))
-            sp_q_marg_rate_file = open(sp_q_marg_rate_file_name , "w")
+            sp_q_marg_rate_file = open(sp_q_marg_rate_file_name , "w", newline="")
             sp_q_marg=csv.writer(sp_q_marg_rate_file, delimiter='\t')
             sp_q_marg.writerow(head)
             sp_q_marg_rate_file.flush()
