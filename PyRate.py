@@ -4066,7 +4066,7 @@ def MCMC(all_arg):
                     bdnn_binned_div = np.repeat(bdnn_binned_div, n_taxa).reshape((len(bdnn_binned_div), n_taxa))
                     trait_tbl_NN[0][ :, :, div_idx_trt_tbl] = bdnn_binned_div
                     trait_tbl_NN[1][ :, :, div_idx_trt_tbl] = bdnn_binned_div
-    #                trait_tbl_NN = add_diversity(trait_tbl_NN, ts, te, timesLA, time_vec, bdnn_rescale_div, n_taxa) # Why we miss the trait table?
+#                    trait_tbl_NN = add_diversity(trait_tbl_NN, ts, te, timesLA, time_vec, bdnn_rescale_div, n_taxa) # Why we miss the trait table?
                 if BDNNmodel in [2, 3]:
                     if bdnn_ads >= 0.0:
                         trait_tbl_NN[2] = add_taxon_age(ts, te, q_time_frames_bdnn, trait_tbl_NN[2], tsA, teA)
@@ -5710,7 +5710,7 @@ if __name__ == '__main__':
                                                                                                                           translate=args.translate)
                 bdnn_lib.plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q)
                 if args.plotBDNN_groups != "":
-                    bdnn_lib.plot_bdnn_rtt_groups(path_dir_log_files, args.plotBDNN_groups, burn=burnin)
+                    bdnn_lib.plot_bdnn_rtt_groups(path_dir_log_files, args.plotBDNN_groups, burn=burnin, translate=args.translate)
 
         elif plot_type == 7:
             import pyrate_lib.bdnn_lib as bdnn_lib

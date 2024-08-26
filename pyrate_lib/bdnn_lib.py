@@ -269,10 +269,8 @@ def make_t_vec(r_list):
     return time_vec
     
 
-def format_t_vec(t_vec, FA, LA, translate):
+def format_t_vec(t_vec, FA, LA=0.0, translate=0.0):
     """Format time vector for rates through time plot"""
-#    a = np.abs(np.mean(np.diff(t_vec)))
-#    t_vec = np.concatenate((np.array([t_vec[0] + a]), t_vec, np.zeros(1)))
     t_vec = np.concatenate((np.array([FA]), t_vec, np.array([LA]))) - np.array(translate)
     t_vec = np.repeat(t_vec, repeats = 2)
     t_vec = t_vec + np.tile(np.array([0.00001, 0.0]), int(len(t_vec)/2))
@@ -349,7 +347,7 @@ def get_bdnn_rtt(f, burn, translate=0):
     try:
         r_q, time_vec_q = get_qtt(f_q, burn)
         n_rates = r_q.shape[1]
-        time_vec_q = format_t_vec(time_vec_q, FA, 0, translate)
+        time_vec_q = format_t_vec(time_vec_q, FA, LA, translate)
         r_q_sum = summarize_rate(r_q, n_rates)
     except:
         r_q_sum = None
@@ -365,7 +363,7 @@ def get_bdnn_rtt(f, burn, translate=0):
 
 
 
-def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum, time_vec_q):
+def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum, time_vec_q, xlim=None):
     out = "%s/%s" % (output_wd, r_file)
     newfile = open(out, "w")
     n_rows = 0
@@ -399,7 +397,10 @@ def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, lo
         r_script += util.print_R_vec('\nlong_mean', long_sum[:, 0])
         r_script += util.print_R_vec('\nlong_lwr', long_sum[:, 1])
         r_script += util.print_R_vec('\nlong_upr', long_sum[:, 2])
-        r_script += "\nxlim = c(%s, %s)" % (np.max(time_vec), np.min(time_vec))
+        if xlim is None:
+            r_script += "\nxlim = c(%s, %s)" % (np.max(time_vec), np.min(time_vec))
+        else:
+            r_script += "\nxlim = c(%s, %s)" % (xlim[0], xlim[1])
         r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_sp_sum), np.nanmax(r_sp_sum))
         r_script += "\nnot_NA = !is.na(sp_mean)"
         r_script += "\nplot(time_vec[not_NA], sp_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Speciation rate')"
@@ -444,7 +445,7 @@ def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, lo
     os.system(cmd)
 
 
-def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn):
+def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn, translate=0.0):
     """Make RTT plots for the groups of species defined in the tab-delimited group_path file"""
     mcmc_file = path_dir_log_files
     path_dir_log_files = path_dir_log_files.replace("_mcmc.log", "")
@@ -497,11 +498,18 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn):
 
         # Get marginal rates through time for the specified group of taxa
         FA = np.max(np.mean(ts, axis=0))
-        time_vec = format_t_vec(times_of_shift[1:-1], FA)
+        
+        time_vec = format_t_vec(times_of_shift[1:-1], FA, 0.0, translate)
         for g in range(len(group_names)):
+            FA = np.max(np.mean(ts, axis=0))
+            LO = np.min(np.mean(te, axis=0))
             gs = group_species_idx[g]
             r_sp = np.zeros((num_it, num_bins))
             r_ex = np.zeros((num_it, num_bins))
+            FA_gs = np.max(np.mean(ts[:, gs], axis=0))
+            LO_gs = np.min(np.mean(te[:, gs], axis=0))
+            if FA_gs < FA and FA_gs > times_of_shift[1]:
+                time_vec = format_t_vec(times_of_shift[1:-1], FA_gs, 0.0, translate)
             for i in range(num_it):
                 for j in range(num_bins):
                     lam_tmp = lam_it[i, gs, j]
@@ -511,7 +519,10 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn):
                         warnings.simplefilter('ignore', category = RuntimeWarning)
                         r_sp[i, j] = 1 / np.mean(1 / lam_tmp[indx])
                         r_ex[i, j] = 1 / np.mean(1 / mu_tmp[indx])
-            
+            r_sp[:, times_of_shift[1:] >= FA_gs] = np.nan
+            r_sp[:, times_of_shift[:-1] <= LO_gs] = np.nan
+            r_ex[:, times_of_shift[1:] >= FA_gs] = np.nan
+            r_ex[:, times_of_shift[:-1] <= LO_gs] = np.nan
             r_div = r_sp - r_ex
             longevity = 1. / r_ex
             sptt = summarize_rate(r_sp, num_bins)
@@ -523,17 +534,17 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn):
             r_file = "%s_%s_RTT.r" % (name_file, group_names[g])
             pdf_file = "%s_%s_RTT.pdf" % (name_file, group_names[g])
 
-#            sptt_file = output_wd + "/" + "%s_%s_LamTT.txt" % (name_file, group_names[g])
-#            sptt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), sptt)), columns = ['time', 'mean', 'lwr', 'upr'])
-#            sptt2.to_csv(sptt_file, na_rep = 'NA', index = False)
-#            extt_file = output_wd + "/" + "%s_%s_MuTT.txt" % (name_file, group_names[g])
-#            extt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), extt)), columns = ['time', 'mean', 'lwr', 'upr'])
-#            extt2.to_csv(extt_file, na_rep = 'NA', index = False)
-#            divtt_file = output_wd + "/" + "%s_%s_DivTT.txt" % (name_file, group_names[g])
-#            divtt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), divtt)), columns = ['time', 'mean', 'lwr', 'upr'])
-#            divtt2.to_csv(divtt_file, na_rep = 'NA', index = False)
-
-            plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q)
+    #            sptt_file = output_wd + "/" + "%s_%s_LamTT.txt" % (name_file, group_names[g])
+    #            sptt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), sptt)), columns = ['time', 'mean', 'lwr', 'upr'])
+    #            sptt2.to_csv(sptt_file, na_rep = 'NA', index = False)
+    #            extt_file = output_wd + "/" + "%s_%s_MuTT.txt" % (name_file, group_names[g])
+    #            extt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), extt)), columns = ['time', 'mean', 'lwr', 'upr'])
+    #            extt2.to_csv(extt_file, na_rep = 'NA', index = False)
+    #            divtt_file = output_wd + "/" + "%s_%s_DivTT.txt" % (name_file, group_names[g])
+    #            divtt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), divtt)), columns = ['time', 'mean', 'lwr', 'upr'])
+    #            divtt2.to_csv(divtt_file, na_rep = 'NA', index = False)
+            xlim = [FA, LO]
+            plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q, xlim)
     except:
         pass
     # Add sampling through time
