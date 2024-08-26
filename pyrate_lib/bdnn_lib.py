@@ -148,6 +148,8 @@ def combine_pkl(path_to_files, tag):
         }
         if 'prior_t_reg' in pkl_list[0].bdnn_settings.keys():
             bdnn_dict.update({'prior_t_reg': pkl_list[0].bdnn_settings['prior_t_reg']})
+        if 'independent_t_reg' in pkl_list[0].bdnn_settings.keys():
+            bdnn_dict.update({'independent_t_reg': pkl_list[0].bdnn_settings['independent_t_reg']})
         bdnn_dict.update({'prior_cov': pkl_list[0].bdnn_settings['prior_cov']})
 
         num_replicates = len(pkl_list)
@@ -2357,7 +2359,11 @@ class BdnnTester():
         t_reg = np.ones(2)
         if self.prior_t_reg[0] > 0.0:
             t_regA[0] = 0.5
+            if not self.independ_reg:
+                t_regA[1] = 0.5
+        if self.prior_t_reg[1] > 0.0 and self.independ_reg:
             t_regA[1] = 0.5
+
         postA = self.get_bd_lik(w_lamA, w_muA, t_regA) + self.get_prior(w_lamA, w_muA, t_regA)
         
         # run mcmc
