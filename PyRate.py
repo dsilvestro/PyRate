@@ -6619,7 +6619,6 @@ if __name__ == '__main__':
         if args.BDNNtimetrait or bdnn_timevar or bdnn_dd or bdnn_loaded_tbls_timevar:
             if args.BDNNtimetrait == -1:
                 BDNNtimetrait_rescaler = 1 / np.max(time_vec)
-                args.BDNNtimetrait = BDNNtimetrait_rescaler
             else:
                 BDNNtimetrait_rescaler = args.BDNNtimetrait
             rescaled_time = time_vec * BDNNtimetrait_rescaler
