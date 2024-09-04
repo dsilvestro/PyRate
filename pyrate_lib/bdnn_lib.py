@@ -49,7 +49,9 @@ from PyRate import get_bin_ts_te
 #from PyRate import get_q_rate_BDNN
 from PyRate import get_unreg_rate_BDNN_3D
 from PyRate import get_q_multipliers_NN
+from PyRate import make_missing_bins
 from PyRate import harmonic_mean_q_per_sp
+from PyRate import harmonic_mean_q_through_time
 from PyRate import prior_gamma
 from PyRate import add_taxon_age
 
@@ -148,6 +150,8 @@ def combine_pkl(path_to_files, tag):
         }
         if 'prior_t_reg' in pkl_list[0].bdnn_settings.keys():
             bdnn_dict.update({'prior_t_reg': pkl_list[0].bdnn_settings['prior_t_reg']})
+        if 'independent_t_reg' in pkl_list[0].bdnn_settings.keys():
+            bdnn_dict.update({'independent_t_reg': pkl_list[0].bdnn_settings['independent_t_reg']})
         bdnn_dict.update({'prior_cov': pkl_list[0].bdnn_settings['prior_cov']})
 
         num_replicates = len(pkl_list)
@@ -267,10 +271,8 @@ def make_t_vec(r_list):
     return time_vec
     
 
-def format_t_vec(t_vec, FA, LA, translate):
+def format_t_vec(t_vec, FA, LA=0.0, translate=0.0):
     """Format time vector for rates through time plot"""
-#    a = np.abs(np.mean(np.diff(t_vec)))
-#    t_vec = np.concatenate((np.array([t_vec[0] + a]), t_vec, np.zeros(1)))
     t_vec = np.concatenate((np.array([FA]), t_vec, np.array([LA]))) - np.array(translate)
     t_vec = np.repeat(t_vec, repeats = 2)
     t_vec = t_vec + np.tile(np.array([0.00001, 0.0]), int(len(t_vec)/2))
@@ -347,7 +349,7 @@ def get_bdnn_rtt(f, burn, translate=0):
     try:
         r_q, time_vec_q = get_qtt(f_q, burn)
         n_rates = r_q.shape[1]
-        time_vec_q = format_t_vec(time_vec_q, FA, 0, translate)
+        time_vec_q = format_t_vec(time_vec_q, FA, LA, translate)
         r_q_sum = summarize_rate(r_q, n_rates)
     except:
         r_q_sum = None
@@ -363,7 +365,7 @@ def get_bdnn_rtt(f, burn, translate=0):
 
 
 
-def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum, time_vec_q):
+def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum, time_vec_q, xlim=None):
     out = "%s/%s" % (output_wd, r_file)
     newfile = open(out, "w")
     n_rows = 0
@@ -397,7 +399,10 @@ def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, lo
         r_script += util.print_R_vec('\nlong_mean', long_sum[:, 0])
         r_script += util.print_R_vec('\nlong_lwr', long_sum[:, 1])
         r_script += util.print_R_vec('\nlong_upr', long_sum[:, 2])
-        r_script += "\nxlim = c(%s, %s)" % (np.max(time_vec), np.min(time_vec))
+        if xlim is None:
+            r_script += "\nxlim = c(%s, %s)" % (np.max(time_vec), np.min(time_vec))
+        else:
+            r_script += "\nxlim = c(%s, %s)" % (xlim[0], xlim[1])
         r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_sp_sum), np.nanmax(r_sp_sum))
         r_script += "\nnot_NA = !is.na(sp_mean)"
         r_script += "\nplot(time_vec[not_NA], sp_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Speciation rate')"
@@ -442,7 +447,7 @@ def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, lo
     os.system(cmd)
 
 
-def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn):
+def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn, translate=0.0):
     """Make RTT plots for the groups of species defined in the tab-delimited group_path file"""
     mcmc_file = path_dir_log_files
     path_dir_log_files = path_dir_log_files.replace("_mcmc.log", "")
@@ -452,7 +457,13 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn):
     name_file = os.path.basename(path_dir_log_files)
     name_file = name_file.replace("_mcmc.log", "")
 
-    bdnn_obj, w_sp, w_ex, _, sp_fad_lad, ts, te, t_reg_lam, t_reg_mu, _, reg_denom_lam, reg_denom_mu, _, _, _ = bdnn_parse_results(mcmc_file, pkl_file, burn)
+    bdnn_obj, w_sp, w_ex, w_q, sp_fad_lad, ts, te, t_reg_lam, t_reg_mu, t_reg_q, reg_denom_lam, reg_denom_mu, reg_denom_q, norm_q, alpha = bdnn_parse_results(mcmc_file, pkl_file, burn)
+    do_diversification = False
+    do_sampling = False
+    if not w_sp is None:
+        do_diversification = True
+    if not w_q is None:
+        do_sampling = True
     species_names = bdnn_obj.sp_fad_lad["Taxon"].to_numpy()
     group_file = pd.read_csv(groups_path, delimiter = '\t')
     group_names = group_file.columns.tolist()
@@ -461,10 +472,9 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn):
         species_in_group = group_file[gn].dropna().to_numpy()
         group_species_idx.append(np.where(np.in1d(species_names, species_in_group))[0])
     
-    try:
-        # Diversification
+    if do_diversification:
         times_of_shift = get_bdnn_time(bdnn_obj, ts)
-        num_bins = len(times_of_shift) - 1
+        num_bins = len(times_of_shift) - 1 # What if there are no bins because we did not use time as predictor?
         hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
         out_act_f = bdnn_obj.bdnn_settings['out_act_f']
         trait_tbl = bdnn_obj.trait_tbls
@@ -474,7 +484,7 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn):
         div_idx_trt_tbl = -1
         if is_time_trait(bdnn_obj):
             div_idx_trt_tbl = -2
-        n_taxa = trait_tbl[0].shape[1]
+        n_taxa = trait_tbl[0].shape[-2]
         num_it = ts.shape[0]
         lam_it = np.zeros((num_it, n_taxa, num_bins))
         mu_it = lam_it + 0.0
@@ -493,48 +503,164 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn):
             mu = get_rate_BDNN_3D_noreg(trait_tbl[1], w_ex[i], hidden_act_f, out_act_f)
             mu_it[i, :, :] = mu ** t_reg_mu[i] / reg_denom_mu[i]
 
+    if do_sampling:
+        hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
+        out_act_f_q = bdnn_obj.bdnn_settings['out_act_f_q']
+        gamma_ncat = bdnn_obj.bdnn_settings['pp_gamma_ncat']
+        trt_tbl = bdnn_obj.trait_tbls[2]
+        feature_is_time_variable = is_time_variable_feature(trt_tbl)
+        occs_sp = np.copy(bdnn_obj.bdnn_settings['occs_sp'])
+        log_factorial_occs = np.copy(bdnn_obj.bdnn_settings['log_factorial_occs'])
+        q = get_baseline_q(mcmc_file, burn, 0, mean_across_shifts=False)
+        age_dependent_sampling = 'highres_q_repeats' in bdnn_obj.bdnn_settings.keys()
+        const_q = q.shape[1] == 1
+        names_features = get_names_features(bdnn_obj, rate_type='sampling')
+        
+        argsG = 0
+        YangGammaQuant = None
+        if not (np.all(alpha == 1)):
+            argsG = 1
+            YangGammaQuant = (np.linspace(0, 1, gamma_ncat + 1) - np.linspace(0, 1, gamma_ncat + 1)[1] / 2)[1:]
+
+        FA = np.max(np.mean(ts, axis=0))
+        LO = 0.0
+        q_bins, _ = make_missing_bins(FA)
+        use_HPP_NN_lik = False
+        num_q_bins = 1
+
+        if 'q_time_frames' in bdnn_obj.bdnn_settings.keys():
+            duration_q_bins = np.copy(bdnn_obj.bdnn_settings['duration_q_bins'])
+            occs_single_bin = np.copy(bdnn_obj.bdnn_settings['occs_single_bin'])
+            q_bins = np.copy(bdnn_obj.bdnn_settings['q_time_frames'])
+            use_HPP_NN_lik = True
+            num_q_bins = len(q_bins) - 1
+
+        if age_dependent_sampling:
+            q = q[:, bdnn_obj.bdnn_settings['highres_q_repeats'].astype(int)]
+
+        sm_mask = ''
+        if np.any(feature_is_time_variable) or age_dependent_sampling:
+            sm_mask = 'make_3D'
+        singleton_mask = make_singleton_mask(occs_sp, sm_mask)
+        singleton_lik = copy_lib.deepcopy(singleton_mask)
+        if singleton_lik.ndim == 2:
+            singleton_lik = singleton_lik[:, 0].reshape(-1)
+
+        qbin_ts_te = None
+        n_taxa = trt_tbl.shape[-2]
+        num_it = ts.shape[0]
+        q_it = np.zeros((num_it, n_taxa, num_q_bins))
+        for i in range(num_it):
+            trt_tbl_a = np.copy(trt_tbl)
+            if "taxon_age" in names_features:
+                trt_tbl_a = add_taxon_age(ts[i, :], te[i, :], q_bins, trt_tbl_a)
+            if trt_tbl_a.ndim == 3:
+                qbin_ts_te = get_bin_ts_te(ts[i, :], te[i, :], q_bins)
+            qnn_output_unreg = get_unreg_rate_BDNN_3D(trt_tbl_a, w_q[i], hidden_act_f, out_act_f_q)
+            q_multi = get_q_multipliers_NN_dereg(t_reg_q[i], reg_denom_q[i], norm_q[i], qnn_output_unreg, singleton_mask, qbin_ts_te)
+
+            if use_HPP_NN_lik:
+                not_na = ~np.isnan(q[i, :]) # remove empty q bins resulting from combing replicates with different number of bins, try this with combin
+                q_i = q[i, not_na]
+                occs_sp_i = occs_sp + 0.0
+                q_bins_i = q_bins + 0.0
+                duration_q_bins_i = duration_q_bins + 0.0
+                if not const_q:
+                    occs_sp_i = occs_sp_i[:, not_na]
+                    not_na_q_bins = np.concatenate((not_na[::-1], np.array([True])), axis=None) # Check if we need the reversal of not_na
+                    q_bins_i = q_bins_i[not_na_q_bins]
+                    duration_q_bins_i = duration_q_bins_i[:, not_na[::-1]]
+                else:
+                    q_i = [alpha[i], q_i[0]]
+                _, bdnn_q_rates = HPP_NN_lik([ts[i, :], te[i, :],
+                                              q_i, alpha[i],
+                                              q_multi, const_q,
+                                              occs_sp_i, log_factorial_occs,
+                                              q_bins_i, duration_q_bins_i,
+                                              occs_single_bin, singleton_lik,
+                                              argsG, gamma_ncat, YangGammaQuant])
+            else:
+                q_rates_tmp = [alpha[i], q[i]]
+                _, bdnn_q_rates = HOMPP_NN_lik([ts[i, :], te[i, :],
+                                                q_rates_tmp,
+                                                q_multi, const_q,
+                                                occs_sp, log_factorial_occs,
+                                                singleton_lik,
+                                                argsG, gamma_ncat, YangGammaQuant])
+                bdnn_q_rates = bdnn_q_rates.reshape((n_taxa, 1))
+            q_it[i, :, :] = bdnn_q_rates
+
         # Get marginal rates through time for the specified group of taxa
         FA = np.max(np.mean(ts, axis=0))
-        time_vec = format_t_vec(times_of_shift[1:-1], FA)
+        LO = np.min(np.mean(te, axis=0))
         for g in range(len(group_names)):
             gs = group_species_idx[g]
-            r_sp = np.zeros((num_it, num_bins))
-            r_ex = np.zeros((num_it, num_bins))
-            for i in range(num_it):
-                for j in range(num_bins):
-                    lam_tmp = lam_it[i, gs, j]
-                    mu_tmp = mu_it[i, gs, j]
-                    indx = get_sp_indx_in_timeframe(ts[i, gs], te[i, gs], up = times_of_shift[j], lo = times_of_shift[j + 1])
-                    with warnings.catch_warnings():
-                        warnings.simplefilter('ignore', category = RuntimeWarning)
-                        r_sp[i, j] = 1 / np.mean(1 / lam_tmp[indx])
-                        r_ex[i, j] = 1 / np.mean(1 / mu_tmp[indx])
-            
-            r_div = r_sp - r_ex
-            longevity = 1. / r_ex
-            sptt = summarize_rate(r_sp, num_bins)
-            extt = summarize_rate(r_ex, num_bins)
-            divtt = summarize_rate(r_div, num_bins)
-            longtt = summarize_rate(longevity, num_bins)
+            sptt = None
+            extt = None
+            divtt = None
+            longtt = None
+            time_vec = None
             qtt = None
             time_vec_q = None
             r_file = "%s_%s_RTT.r" % (name_file, group_names[g])
             pdf_file = "%s_%s_RTT.pdf" % (name_file, group_names[g])
 
-#            sptt_file = output_wd + "/" + "%s_%s_LamTT.txt" % (name_file, group_names[g])
-#            sptt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), sptt)), columns = ['time', 'mean', 'lwr', 'upr'])
-#            sptt2.to_csv(sptt_file, na_rep = 'NA', index = False)
-#            extt_file = output_wd + "/" + "%s_%s_MuTT.txt" % (name_file, group_names[g])
-#            extt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), extt)), columns = ['time', 'mean', 'lwr', 'upr'])
-#            extt2.to_csv(extt_file, na_rep = 'NA', index = False)
-#            divtt_file = output_wd + "/" + "%s_%s_DivTT.txt" % (name_file, group_names[g])
-#            divtt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), divtt)), columns = ['time', 'mean', 'lwr', 'upr'])
-#            divtt2.to_csv(divtt_file, na_rep = 'NA', index = False)
+            if do_diversification:
+                time_vec = format_t_vec(times_of_shift[1:-1], FA, 0.0, translate)
+                r_sp = np.zeros((num_it, num_bins))
+                r_ex = np.zeros((num_it, num_bins))
+                FA_gs = np.max(np.mean(ts[:, gs], axis=0))
+                LO_gs = np.min(np.mean(te[:, gs], axis=0))
+                if FA_gs < FA and FA_gs > times_of_shift[1]:
+                    time_vec = format_t_vec(times_of_shift[1:-1], FA_gs, 0.0, translate)
+                for i in range(num_it):
+                    for j in range(num_bins):
+                        lam_tmp = lam_it[i, gs, j]
+                        mu_tmp = mu_it[i, gs, j]
+                        indx = get_sp_indx_in_timeframe(ts[i, gs], te[i, gs], up = times_of_shift[j], lo = times_of_shift[j + 1])
+                        with warnings.catch_warnings():
+                            warnings.simplefilter('ignore', category = RuntimeWarning)
+                            r_sp[i, j] = 1 / np.mean(1 / lam_tmp[indx])
+                            r_ex[i, j] = 1 / np.mean(1 / mu_tmp[indx])
+                r_sp[:, times_of_shift[1:] >= FA_gs] = np.nan
+                r_sp[:, times_of_shift[:-1] <= LO_gs] = np.nan
+                r_ex[:, times_of_shift[1:] >= FA_gs] = np.nan
+                r_ex[:, times_of_shift[:-1] <= LO_gs] = np.nan
+                r_div = r_sp - r_ex
+                longevity = 1. / r_ex
+                sptt = summarize_rate(r_sp, num_bins)
+                extt = summarize_rate(r_ex, num_bins)
+                divtt = summarize_rate(r_div, num_bins)
+                longtt = summarize_rate(longevity, num_bins)
+#                sptt_file = output_wd + "/" + "%s_%s_LamTT.txt" % (name_file, group_names[g])
+#                sptt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), sptt)), columns = ['time', 'mean', 'lwr', 'upr'])
+#                sptt2.to_csv(sptt_file, na_rep = 'NA', index = False)
+#                extt_file = output_wd + "/" + "%s_%s_MuTT.txt" % (name_file, group_names[g])
+#                extt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), extt)), columns = ['time', 'mean', 'lwr', 'upr'])
+#                extt2.to_csv(extt_file, na_rep = 'NA', index = False)
+#                divtt_file = output_wd + "/" + "%s_%s_DivTT.txt" % (name_file, group_names[g])
+#                divtt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), divtt)), columns = ['time', 'mean', 'lwr', 'upr'])
+#                divtt2.to_csv(divtt_file, na_rep = 'NA', index = False)
 
-            plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q)
-    except:
-        pass
-    # Add sampling through time
+            if do_sampling:
+                num_q_bins = len(q_bins) - 1
+                r_q = np.zeros((num_it, num_q_bins))
+                FA_gs = np.max(np.mean(ts[:, gs], axis=0))
+                LO_gs = np.min(np.mean(te[:, gs], axis=0))
+                for i in range(num_it):
+                    q_rate = q_it[i, gs, :]
+                    if q_it.shape[2] == 1:
+                        q_rate = q_it[i, gs, :].reshape(-1)
+                    with warnings.catch_warnings():
+                        warnings.simplefilter('ignore', category = RuntimeWarning)
+                        r_q[i, :] = harmonic_mean_q_through_time(ts[i, gs], te[i, gs], q_bins, q_rate)
+                time_vec_q = format_t_vec(q_bins[1:-1], FA, LO, translate)
+                r_q[:, q_bins[1:] >= FA_gs] = np.nan
+                r_q[:, q_bins[:-1] <= LO_gs] = np.nan
+                qtt = summarize_rate(r_q, num_q_bins)
+
+            xlim = [FA, LO]
+            plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q, xlim)
 
 
 def apply_thin(w, thin):
@@ -2357,7 +2483,11 @@ class BdnnTester():
         t_reg = np.ones(2)
         if self.prior_t_reg[0] > 0.0:
             t_regA[0] = 0.5
+            if not self.independ_reg:
+                t_regA[1] = 0.5
+        if self.prior_t_reg[1] > 0.0 and self.independ_reg:
             t_regA[1] = 0.5
+
         postA = self.get_bd_lik(w_lamA, w_muA, t_regA) + self.get_prior(w_lamA, w_muA, t_regA)
         
         # run mcmc
@@ -4119,7 +4249,7 @@ def get_q_multipliers_NN_dereg(t_reg, reg_denom, n, qnn_output, singleton_mask, 
     else:
         qnn_not_nan = np.repeat(True, qnn.shape[-1])
     # reverse regularization
-    qnn = (qnn * n) ** (t_reg / reg_denom)
+    qnn = n * qnn ** t_reg / reg_denom
     qnn[np.logical_and(singleton_mask, qnn_not_nan)] = 1.0
     return qnn
 
@@ -4135,11 +4265,13 @@ def perm_mcmc_sample_q_i(arg):
     qnn_output_unreg = get_unreg_rate_BDNN_3D(trt_tbl, w_q_i, hidden_act_f, out_act_f)
     q_multi = get_q_multipliers_NN_dereg(t_reg_q_i, reg_denom_q_i, n, qnn_output_unreg, sm, qb_se)
     if use_HPP_NN_lik:
+        if const_q:
+            q = [q[0], q[0]]
         orig_fossil_lik, _ = HPP_NN_lik([ts_i, te_i, q, alpha, q_multi, const_q,
                                          occs_sp, log_factorial_occs, q_time_frames, duration_q_bins, occs_single_bin,
                                          sl, argsG, gamma_ncat, YangGammaQuant])
     else:
-        q = np.array([alpha[0], q[0]])
+        q = np.array([alpha, q[0]])
         orig_fossil_lik, _ = HOMPP_NN_lik([ts_i, te_i, q, q_multi, const_q,
                                            occs_sp, log_factorial_occs,
                                            sl, argsG, gamma_ncat, YangGammaQuant])
@@ -4149,17 +4281,22 @@ def perm_mcmc_sample_q_i(arg):
     rngint = np.random.default_rng()
     seeds = rngint.integers(low=0, high=1e10, size=n_features)
     trt_tbls = [trt_tbl, trt_tbl]
+
+    use_high_res = False
     for j in range(n_perm_traits):
         perm_feature_idx_j = perm_feature_idx[j]
         for k in range(n_perm):
-            trt_tbls_perm = copy_lib.deepcopy(trt_tbls)
+            trt_tbls_perm_lowres = copy_lib.deepcopy(trt_tbls)
+            trt_tbls_perm = None
             for l in range(len(perm_feature_idx_j)):
                 feat_idx = perm_feature_idx_j[l]
                 if feat_idx is not None:
                     seed = seeds[feat_idx] + k
                     if feat_idx.size > 1:
                         seed = seed[0]
-                    trt_tbls_perm, _ = permute_trt_tbl(feat_idx, feature_is_time_variable, ts_i, trt_tbl_lowres=trt_tbls_perm, trt_tbl=trt_tbls_perm, seed=seed)
+                    trt_tbls_perm = permute_trt_tbl(feat_idx, feature_is_time_variable, use_high_res, trt_tbls_perm_lowres, 
+                                                    trt_tbl_highres=None, trt_tbl_already_permuted=trt_tbls_perm, seed=seed)
+
             qnn_output_unreg = get_unreg_rate_BDNN_3D(trt_tbls_perm[0], w_q_i, hidden_act_f, out_act_f)
             q_multi = get_q_multipliers_NN_dereg(t_reg_q_i, reg_denom_q_i, n, qnn_output_unreg, sm, qb_se)
             if use_HPP_NN_lik:
