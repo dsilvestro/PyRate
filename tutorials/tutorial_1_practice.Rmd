@@ -187,7 +187,7 @@ The model will output different preservation rates for each interval. These are 
 
 -   and P(B\|A) the likelihood of observing the data (fossil occurrences)
 
-In any anaysis with time bins, be careful that changes in diversification may be due to the change in preservation rate, not true biological signals
+In any analysis with time bins, be careful that changes in diversification may be due to the change in preservation rate, not true biological signals
 
 ```{python}
 # Variable to indicate whether TPP model is being used. == 1 means yes
