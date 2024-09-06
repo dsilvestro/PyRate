@@ -5996,6 +5996,7 @@ if __name__ == '__main__':
 
         if args.filter_taxa != "":
             list_included_taxa = [line.rstrip() for line in open(args.filter_taxa)]
+            taxa_names_temp = input_data_module.get_taxa_names()
             print("Included taxa:")
         
         if args.drop_zero > 0:
@@ -6029,17 +6030,30 @@ if __name__ == '__main__':
                     fossil.append(fossil_complete[i]*args.rescale+args.translate)
                     taxa_included.append(i)
 
-            elif args.translate < 0: # exclude recent taxa after 'translating' records towards zero
-                if max(fossil_complete[i]*args.rescale+args.translate)<=0: singletons_excluded.append(i)
+            elif args.translate < 0:
+                # exclude recent taxa after 'translating' records towards zero
+                if max(fossil_complete[i]*args.rescale+args.translate)<=0:
+                    singletons_excluded.append(i)
                 else:
                     if len(fossil_complete[i]) <= args.singleton and np.random.random() >= args.frac_sampled_singleton:
                         singletons_excluded.append(i)
                     else:
-                        have_record.append(i)
-                        fossil_occ_temp = fossil_complete[i]*args.rescale+args.translate
-                        fossil_occ_temp[fossil_occ_temp<0] = 0.0
-                        fossil.append(np.unique(fossil_occ_temp[fossil_occ_temp>=0]))
-                        taxa_included.append(i)
+                        if args.filter_taxa != "": # keep only taxa within list
+                            if taxa_names_temp[i] in list_included_taxa:
+                                have_record.append(i)
+                                fossil_occ_temp = fossil_complete[i]*args.rescale+args.translate
+                                fossil_occ_temp[fossil_occ_temp<0] = 0.0
+                                fossil.append(np.unique(fossil_occ_temp[fossil_occ_temp>=0]))
+                                taxa_included.append(i)
+                                print(taxa_names_temp[i])
+                            else:
+                                singletons_excluded.append(i)
+                        else:
+                            have_record.append(i)
+                            fossil_occ_temp = fossil_complete[i]*args.rescale+args.translate
+                            fossil_occ_temp[fossil_occ_temp<0] = 0.0
+                            fossil.append(np.unique(fossil_occ_temp[fossil_occ_temp>=0]))
+                            taxa_included.append(i)
 
 
             elif args.singleton > 0: # min number of occurrences
@@ -6050,7 +6064,6 @@ if __name__ == '__main__':
                     fossil.append(fossil_complete[i]*args.rescale+args.translate)
                     taxa_included.append(i)
             elif args.filter_taxa != "": # keep only taxa within list
-                taxa_names_temp=input_data_module.get_taxa_names()
                 if taxa_names_temp[i] in list_included_taxa:
                     have_record.append(i) # some (extant) species may have trait value but no fossil record
                     fossil.append(fossil_complete[i]*args.rescale+args.translate)
