@@ -4308,33 +4308,37 @@ def MCMC(all_arg):
                 else:
                     if num_processes_ts==0:
                         if BDNNmodel in [2, 3]:
-                            if not updated_lam_mu:
-                                q_rates_tmp = q_rates
-                                if bdnn_ads > 0.0 and argsHPP == 0:
-                                    q_rates_tmp = q_rates[highres_q_repeats]
-                                if timevar_qnn:
-                                    qbin_ts_te = get_bin_ts_te(ts, te, q_time_frames_bdnn)
-                                qnn_output_unreg = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_par[2], hidden_act_f, out_act_f_q)
-                                q_multi, denom_q, norm_fac = get_q_multipliers_NN(cov_par[5], qnn_output_unreg, singleton_mask, qbin_ts_te)
-                                bdnn_prior_q = np.sum([np.sum(prior_normal(cov_par[2][i], prior_bdnn_w_q_sd[i])) for i in range(len(cov_par[2]))])
-                                if prior_lam_t_reg[0] > 0:
-                                    bdnn_prior_q += np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_par[5]
-
-                            if use_HPP_NN_lik:
-                                lik_fossil[ind1], bdnn_q_rates[ind1, :] = HPP_NN_lik([ts[ind1], te[ind1],
-                                                                                      q_rates_tmp, alpha_pp_gamma,
-                                                                                      q_multi[ind1], const_q,
-                                                                                      occs_sp[ind1, :], log_factorial_occs[ind1],
-                                                                                      q_time_frames_bdnn, duration_q_bins[ind1, :],
-                                                                                      occs_single_bin[ind1], singleton_lik[ind1],
-                                                                                      argsG, pp_gamma_ncat, YangGammaQuant])
+                            if rr == 1.5:
+                                # RJMCMC move for lam/mu
+                                lik_fossil = lik_fossilA + 0.0
                             else:
-                                lik_fossil[ind1], bdnn_q_rates[ind1] = HOMPP_NN_lik([ts[ind1], te[ind1],
-                                                                                     q_rates_tmp,
-                                                                                     q_multi[ind1], const_q,
-                                                                                     occs_sp[ind1], log_factorial_occs[ind1],
-                                                                                     singleton_lik[ind1],
-                                                                                     argsG, pp_gamma_ncat, YangGammaQuant])
+                                if not updated_lam_mu:
+                                    q_rates_tmp = q_rates
+                                    if bdnn_ads > 0.0 and argsHPP == 0:
+                                        q_rates_tmp = q_rates[highres_q_repeats]
+                                    if timevar_qnn:
+                                        qbin_ts_te = get_bin_ts_te(ts, te, q_time_frames_bdnn)
+                                    qnn_output_unreg = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_par[2], hidden_act_f, out_act_f_q)
+                                    q_multi, denom_q, norm_fac = get_q_multipliers_NN(cov_par[5], qnn_output_unreg, singleton_mask, qbin_ts_te)
+                                    bdnn_prior_q = np.sum([np.sum(prior_normal(cov_par[2][i], prior_bdnn_w_q_sd[i])) for i in range(len(cov_par[2]))])
+                                    if prior_lam_t_reg[0] > 0:
+                                        bdnn_prior_q += np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_par[5]
+
+                                if use_HPP_NN_lik:
+                                    lik_fossil[ind1], bdnn_q_rates[ind1, :] = HPP_NN_lik([ts[ind1], te[ind1],
+                                                                                          q_rates_tmp, alpha_pp_gamma,
+                                                                                          q_multi[ind1], const_q,
+                                                                                          occs_sp[ind1, :], log_factorial_occs[ind1],
+                                                                                          q_time_frames_bdnn, duration_q_bins[ind1, :],
+                                                                                          occs_single_bin[ind1], singleton_lik[ind1],
+                                                                                          argsG, pp_gamma_ncat, YangGammaQuant])
+                                else:
+                                    lik_fossil[ind1], bdnn_q_rates[ind1] = HOMPP_NN_lik([ts[ind1], te[ind1],
+                                                                                         q_rates_tmp,
+                                                                                         q_multi[ind1], const_q,
+                                                                                         occs_sp[ind1], log_factorial_occs[ind1],
+                                                                                         singleton_lik[ind1],
+                                                                                         argsG, pp_gamma_ncat, YangGammaQuant])
                         else:
                             for j in range(len(ind1)):
                                 i=ind1[j] # which species' lik
@@ -4823,7 +4827,7 @@ def MCMC(all_arg):
                         i_events_spA = i_events_sp
                         i_events_exA = i_events_ex
                         n_SA = n_S
-                if BDNNmodel in [2, 3]:
+                if BDNNmodel in [2, 3] and rr < 1.5:
                     q_multiA = q_multi + 0.0
                     qnn_output_unregA = qnn_output_unreg + 0.0
                     bdnn_q_ratesA = bdnn_q_rates
@@ -5992,6 +5996,7 @@ if __name__ == '__main__':
 
         if args.filter_taxa != "":
             list_included_taxa = [line.rstrip() for line in open(args.filter_taxa)]
+            taxa_names_temp = input_data_module.get_taxa_names()
             print("Included taxa:")
         
         if args.drop_zero > 0:
@@ -6025,17 +6030,30 @@ if __name__ == '__main__':
                     fossil.append(fossil_complete[i]*args.rescale+args.translate)
                     taxa_included.append(i)
 
-            elif args.translate < 0: # exclude recent taxa after 'translating' records towards zero
-                if max(fossil_complete[i]*args.rescale+args.translate)<=0: singletons_excluded.append(i)
+            elif args.translate < 0:
+                # exclude recent taxa after 'translating' records towards zero
+                if max(fossil_complete[i]*args.rescale+args.translate)<=0:
+                    singletons_excluded.append(i)
                 else:
                     if len(fossil_complete[i]) <= args.singleton and np.random.random() >= args.frac_sampled_singleton:
                         singletons_excluded.append(i)
                     else:
-                        have_record.append(i)
-                        fossil_occ_temp = fossil_complete[i]*args.rescale+args.translate
-                        fossil_occ_temp[fossil_occ_temp<0] = 0.0
-                        fossil.append(np.unique(fossil_occ_temp[fossil_occ_temp>=0]))
-                        taxa_included.append(i)
+                        if args.filter_taxa != "": # keep only taxa within list
+                            if taxa_names_temp[i] in list_included_taxa:
+                                have_record.append(i)
+                                fossil_occ_temp = fossil_complete[i]*args.rescale+args.translate
+                                fossil_occ_temp[fossil_occ_temp<0] = 0.0
+                                fossil.append(np.unique(fossil_occ_temp[fossil_occ_temp>=0]))
+                                taxa_included.append(i)
+                                print(taxa_names_temp[i])
+                            else:
+                                singletons_excluded.append(i)
+                        else:
+                            have_record.append(i)
+                            fossil_occ_temp = fossil_complete[i]*args.rescale+args.translate
+                            fossil_occ_temp[fossil_occ_temp<0] = 0.0
+                            fossil.append(np.unique(fossil_occ_temp[fossil_occ_temp>=0]))
+                            taxa_included.append(i)
 
 
             elif args.singleton > 0: # min number of occurrences
@@ -6046,7 +6064,6 @@ if __name__ == '__main__':
                     fossil.append(fossil_complete[i]*args.rescale+args.translate)
                     taxa_included.append(i)
             elif args.filter_taxa != "": # keep only taxa within list
-                taxa_names_temp=input_data_module.get_taxa_names()
                 if taxa_names_temp[i] in list_included_taxa:
                     have_record.append(i) # some (extant) species may have trait value but no fossil record
                     fossil.append(fossil_complete[i]*args.rescale+args.translate)
