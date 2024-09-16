@@ -141,7 +141,7 @@ def RTTplot_Q(f,q_shift_file,burnin=0,max_age=0):
         print("removed heated chains:",np.shape(t))
     
     head= list(head)
-    q_ind = [head.index(s) for s in head if "q_" in s and s.split("q_")[1] not in ['TS', 'TE']]
+    q_ind = [i for i in range(len(head)) if head[i].startswith("q_") and head[i].split("q_")[1] not in ["TS", "TE"]]
     root_ind  = head.index("root_age")
     death_ind = head.index("death_age")
     min_root_age = np.min(t[:,root_ind])
