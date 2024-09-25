@@ -40,7 +40,7 @@ def r_plot_code(res,wd,name_file,alpha=0.5,plot_title="RTT plot"):
 
 
 def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
-    wd = "%s" % os.path.dirname(f)
+    wd = "%s" % os.path.dirname(os.path.realpath(f))
     name_file=os.path.splitext(os.path.basename(f))[0]
     t=np.loadtxt(f, skiprows=np.maximum(1,int(burnin)))
     head = np.array(next(open(f)).split()) # should be faster
@@ -126,7 +126,7 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 #RTTplot_high_res(f,grid_cell_size,burnin,max_age)
 
 def RTTplot_Q(f,q_shift_file,burnin=0,max_age=0):
-    wd = "%s" % os.path.dirname(f)
+    wd = "%s" % os.path.dirname(os.path.realpath(f)) # What is "%s" doing here?
     name_file=os.path.splitext(os.path.basename(f))[0]
     t=np.loadtxt(f, skiprows=np.maximum(1,int(burnin)))
     head = np.array(next(open(f)).split()) # should be faster
