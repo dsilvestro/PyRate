@@ -133,7 +133,7 @@ Constr_matrix=make_constraint_matrix(n_clades, constr)
 l0A,m0A=init_BD(n_clades),init_BD(n_clades)
 
 out_file_name="%s_%s_m%s_MCDD%s%s.log" % (dataset,args.j,constr,clade_name,beta_value)
-logfile = open(out_file_name , "w") 
+logfile = open(out_file_name , "w", newline="")
 wlog=csv.writer(logfile, delimiter='\t')
 
 lik_head=""
