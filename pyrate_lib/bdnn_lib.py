@@ -252,7 +252,8 @@ def summarize_rate(r, n_rates):
             r_sum[i, 1:] = np.nan
     use_mean = np.isnan(r_sum[:, 1]) & ~np.isnan(r_sum[:, 0])
     if np.any(use_mean):
-        r_sum[use_mean, 1:] = r_sum[use_mean, 0]
+        r_sum[use_mean, 1] = r_sum[use_mean, 0]
+        r_sum[use_mean, 2] = r_sum[use_mean, 0]
     r_sum = np.repeat(r_sum, repeats = 2, axis = 0)
     return r_sum
 
@@ -447,7 +448,9 @@ def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, lo
     os.system(cmd)
 
 
-def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn, translate=0.0):
+def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn, translate=0.0,
+                         remove_qshifts=False, remove_alpha=False, mask_features=[]):
+                         # remove_qshifts=True, remove_alpha=True, mask_features=[18, 14, 17, 15, 16, 0,1,2,3,4,5,6,7,8,9,10,11,12,13]
     """Make RTT plots for the groups of species defined in the tab-delimited group_path file"""
     mcmc_file = path_dir_log_files
     path_dir_log_files = path_dir_log_files.replace("_mcmc.log", "")
@@ -512,12 +515,18 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn, translate=0.0):
         occs_sp = np.copy(bdnn_obj.bdnn_settings['occs_sp'])
         log_factorial_occs = np.copy(bdnn_obj.bdnn_settings['log_factorial_occs'])
         q = get_baseline_q(mcmc_file, burn, 0, mean_across_shifts=False)
+        q_mean = get_baseline_q(mcmc_file, burn, 0, mean_across_shifts=True).reshape(-1)
         age_dependent_sampling = 'highres_q_repeats' in bdnn_obj.bdnn_settings.keys()
         const_q = q.shape[1] == 1
         names_features = get_names_features(bdnn_obj, rate_type='sampling')
         
         argsG = 0
         YangGammaQuant = None
+
+        # GSA2024, remove sampling heterogeneity
+        if remove_alpha:
+            alpha[:] = 1.0
+
         if not (np.all(alpha == 1)):
             argsG = 1
             YangGammaQuant = (np.linspace(0, 1, gamma_ncat + 1) - np.linspace(0, 1, gamma_ncat + 1)[1] / 2)[1:]
@@ -550,14 +559,44 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn, translate=0.0):
         n_taxa = trt_tbl.shape[-2]
         num_it = ts.shape[0]
         q_it = np.zeros((num_it, n_taxa, num_q_bins))
+        q_mean_per_taxon = np.zeros((num_it, n_taxa)) # Mean sampling rate when considering heterogeneity across taxa
+        
+        # GSA2024, remove q shifts
+        if remove_qshifts:
+            q = np.repeat(q_mean, q.shape[1]).reshape(q.shape)
+        
+        # Remove feature effect (bad, hard coded apporach for GSA2024)
+        q_mask = np.ones(w_q[0][0].shape) # 1st layer with all inputs
+        # systematic 0,1,2,3,4,5,6,7,8,9,10,11,12,13
+        # motility 14
+        # distribution 15, 16
+        # size 17
+        # marine sediment 18
+        # taxon age 19
+        q_mask[:, mask_features] = 0.0
+        
+        
+        
         for i in range(num_it):
             trt_tbl_a = np.copy(trt_tbl)
             if "taxon_age" in names_features:
                 trt_tbl_a = add_taxon_age(ts[i, :], te[i, :], q_bins, trt_tbl_a)
             if trt_tbl_a.ndim == 3:
                 qbin_ts_te = get_bin_ts_te(ts[i, :], te[i, :], q_bins)
+            
+            # Remove feature effect: multiply w_q[i] with q_mask
+            w_q[i][0] *= q_mask
+            
             qnn_output_unreg = get_unreg_rate_BDNN_3D(trt_tbl_a, w_q[i], hidden_act_f, out_act_f_q)
-            q_multi = get_q_multipliers_NN_dereg(t_reg_q[i], reg_denom_q[i], norm_q[i], qnn_output_unreg, singleton_mask, qbin_ts_te)
+            
+            # Remove feature effect: If mask is all zero, set all q_multi to 1. Otherwise we would try some division by zero in the regularization
+            if np.sum(q_mask) == 0.0:
+                qnn_output_unreg[:] = 1.0
+            
+            if len(mask_features) == 0:
+                q_multi = get_q_multipliers_NN_dereg(t_reg_q[i], reg_denom_q[i], norm_q[i], qnn_output_unreg, singleton_mask, qbin_ts_te)
+            else:
+                q_multi, _, _ = get_q_multipliers_NN(t_reg_q[i], qnn_output_unreg, singleton_mask, qbin_ts_te)
 
             if use_HPP_NN_lik:
                 not_na = ~np.isnan(q[i, :]) # remove empty q bins resulting from combing replicates with different number of bins, try this with combin
@@ -572,23 +611,32 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn, translate=0.0):
                     duration_q_bins_i = duration_q_bins_i[:, not_na[::-1]]
                 else:
                     q_i = [alpha[i], q_i[0]]
-                _, bdnn_q_rates = HPP_NN_lik([ts[i, :], te[i, :],
-                                              q_i, alpha[i],
-                                              q_multi, const_q,
-                                              occs_sp_i, log_factorial_occs,
-                                              q_bins_i, duration_q_bins_i,
-                                              occs_single_bin, singleton_lik,
-                                              argsG, gamma_ncat, YangGammaQuant])
+                _, bdnn_q_rates, q_hetero = HPP_NN_lik([ts[i, :], te[i, :],
+                                                        q_i, alpha[i],
+                                                        q_multi, const_q,
+                                                        occs_sp_i, log_factorial_occs,
+                                                        q_bins_i, duration_q_bins_i,
+                                                        occs_single_bin, singleton_lik,
+                                                        argsG, gamma_ncat, YangGammaQuant])
+                if argsG:
+                    q_mean_per_taxon[i, :] = q_mean[i] * np.sum(YangGammaQuant[:, np.newaxis] * q_hetero, axis=0)
             else:
                 q_rates_tmp = [alpha[i], q[i]]
-                _, bdnn_q_rates = HOMPP_NN_lik([ts[i, :], te[i, :],
-                                                q_rates_tmp,
-                                                q_multi, const_q,
-                                                occs_sp, log_factorial_occs,
-                                                singleton_lik,
-                                                argsG, gamma_ncat, YangGammaQuant])
+                _, bdnn_q_rates, q_hetero = HOMPP_NN_lik([ts[i, :], te[i, :],
+                                                          q_rates_tmp,
+                                                          q_multi, const_q,
+                                                          occs_sp, log_factorial_occs,
+                                                          singleton_lik,
+                                                          argsG, gamma_ncat, YangGammaQuant])
                 bdnn_q_rates = bdnn_q_rates.reshape((n_taxa, 1))
+                if argsG:
+                    q_mean_per_taxon[i, :] = q_mean[i] * np.sum(YangGammaQuant * q_hetero[:, np.newaxis], axis=0) # Check if this line is working!
             q_it[i, :, :] = bdnn_q_rates
+
+        if argsG:
+            q_mean_per_taxon_df = pd.DataFrame(q_mean_per_taxon, columns=species_names.tolist())
+            q_mean_file = output_wd + "/" + "%s_mean_q_per_taxon.txt" % name_file
+            q_mean_per_taxon_df.to_csv(q_mean_file, na_rep = 'NA', index = False)
 
         # Get marginal rates through time for the specified group of taxa
         FA = np.max(np.mean(ts, axis=0))
@@ -1769,15 +1817,213 @@ def get_feat_idx(names_features, names, incl_feat):
     return f1_idx, f2_idx
 
 
+def define_R_image_plot(r_script):
+    # R package field will be archivied because it depends on the sp package, which will be unsupported in October 2024
+    # Fork image.plot function
+    r_script += "\nimagePlotInfo <- function (..., breaks = NULL, nlevel) {"
+    r_script += "\n  temp <- list(...)"
+    r_script += "\n  xlim <- NA"
+    r_script += "\n  ylim <- NA"
+    r_script += "\n  zlim <- NA"
+    r_script += "\n  poly.grid <- FALSE"
+    r_script += "\n  if (is.list(temp[[1]])) {"
+    r_script += "\n    xlim <- range(temp[[1]]$x, na.rm = TRUE)"
+    r_script += "\n    ylim <- range(temp[[1]]$y, na.rm = TRUE)"
+    r_script += "\n    zlim <- range(temp[[1]]$z, na.rm = TRUE)"
+    r_script += "\n    if (is.matrix(temp[[1]]$x) & is.matrix(temp[[1]]$y) & is.matrix(temp[[1]]$z)) {"
+    r_script += "\n      poly.grid <- TRUE"
+    r_script += "\n    }"
+    r_script += "\n  }"
+    r_script += "\n  if (length(temp) >= 3) {"
+    r_script += "\n    if (is.matrix(temp[[1]]) & is.matrix(temp[[2]]) & is.matrix(temp[[3]])) {"
+    r_script += "\n      poly.grid <- TRUE"
+    r_script += "\n    }"
+    r_script += "\n  }"
+    r_script += "\n  if (is.matrix(temp[[1]]) & !poly.grid) {"
+    r_script += "\n    xlim <- c(0, 1)"
+    r_script += "\n    ylim <- c(0, 1)"
+    r_script += "\n    zlim <- range(temp[[1]], na.rm = TRUE)"
+    r_script += "\n  }"
+    r_script += "\n  if (length(temp) >= 3) {"
+    r_script += "\n    if (is.matrix(temp[[3]])) {"
+    r_script += "\n      xlim <- range(temp[[1]], na.rm = TRUE)"
+    r_script += "\n      ylim <- range(temp[[2]], na.rm = TRUE)"
+    r_script += "\n      zlim <- range(temp[[3]], na.rm = TRUE)"
+    r_script += "\n    }"
+    r_script += "\n  }"
+    r_script += "\n  if (!is.na(zlim[1])) {"
+    r_script += "\n    if (abs(zlim[1] - zlim[2]) <= 1e-14) {"
+    r_script += "\n      if (zlim[1] == 0) {"
+    r_script += "\n        zlim[1] <- -1e-08"
+    r_script += "\n        zlim[2] <- 1e-08"
+    r_script += "\n      }"
+    r_script += "\n      else {"
+    r_script += "\n        delta <- 0.01 * abs(zlim[1])"
+    r_script += "\n        zlim[1] <- zlim[1] - delta"
+    r_script += "\n        zlim[2] <- zlim[2] + delta"
+    r_script += "\n      }"
+    r_script += "\n    }"
+    r_script += "\n  }"
+    r_script += "\n  if (is.matrix(temp$x) & is.matrix(temp$y) & is.matrix(temp$z)) {"
+    r_script += "\n    poly.grid <- TRUE"
+    r_script += "\n  }"
+    r_script += "\n  xthere <- match('x', names(temp))"
+    r_script += "\n  ythere <- match('y', names(temp))"
+    r_script += "\n  zthere <- match('z', names(temp))"
+    r_script += "\n  if (!is.na(zthere)) "
+    r_script += "\n    zlim <- range(temp$z, na.rm = TRUE)"
+    r_script += "\n  if (!is.na(xthere)) "
+    r_script += "\n    xlim <- range(temp$x, na.rm = TRUE)"
+    r_script += "\n  if (!is.na(ythere)) "
+    r_script += "\n    ylim <- range(temp$y, na.rm = TRUE)"
+    r_script += "\n  if (!is.null(temp$zlim))"
+    r_script += "\n    zlim <- temp$zlim"
+    r_script += "\n  if (!is.null(temp$xlim))"
+    r_script += "\n    xlim <- temp$xlim"
+    r_script += "\n  if (!is.null(temp$ylim))"
+    r_script += "\n    ylim <- temp$ylim"
+    r_script += "\n  if (is.null(breaks)) {"
+    r_script += "\n    midpoints <- seq(zlim[1], zlim[2], , nlevel)"
+    r_script += "\n    delta <- (midpoints[2] - midpoints[1])/2"
+    r_script += "\n    breaks <- c(midpoints[1] - delta, midpoints + delta)"
+    r_script += "\n  }"
+    r_script += "\n  list(xlim = xlim, ylim = ylim, zlim = zlim, poly.grid = poly.grid, breaks = breaks)"
+    r_script += "\n}"
+    
+    r_script += "\nimageplot.setup <- function (x, add = FALSE,"
+    r_script += "\n                             legend.shrink = 0.9, legend.width = 1,"
+    r_script += "\n                             horizontal = FALSE, legend.mar = NULL,"
+    r_script += "\n                             bigplot = NULL, smallplot = NULL, ...) {"
+    r_script += "\n  old.par <- par(no.readonly = TRUE)"
+    r_script += "\n  if (is.null(smallplot))"
+    r_script += "\n    stick <- TRUE"
+    r_script += "\n  else stick <- FALSE"
+    r_script += "\n  if (is.null(legend.mar)) {"
+    r_script += "\n    legend.mar <- ifelse(horizontal, 3.1, 5.1)"
+    r_script += "\n  }"
+    r_script += "\n  char.size <- ifelse(horizontal, par()$cin[2]/par()$din[2],"
+    r_script += "\n                      par()$cin[1]/par()$din[1])"
+    r_script += "\n  offset <- char.size * ifelse(horizontal, par()$mar[1], par()$mar[4])"
+    r_script += "\n  legend.width <- char.size * legend.width"
+    r_script += "\n  legend.mar <- legend.mar * char.size"
+    r_script += "\n  if (is.null(smallplot)) {"
+    r_script += "\n    smallplot <- old.par$plt"
+    r_script += "\n    if (horizontal) {"
+    r_script += "\n      smallplot[3] <- legend.mar"
+    r_script += "\n      smallplot[4] <- legend.width + smallplot[3]"
+    r_script += "\n      pr <- (smallplot[2] - smallplot[1]) * ((1 - legend.shrink)/2)"
+    r_script += "\n      smallplot[1] <- smallplot[1] + pr"
+    r_script += "\n      smallplot[2] <- smallplot[2] - pr"
+    r_script += "\n    }"
+    r_script += "\n    else {"
+    r_script += "\n      smallplot[2] <- 1 - legend.mar"
+    r_script += "\n      smallplot[1] <- smallplot[2] - legend.width"
+    r_script += "\n      pr <- (smallplot[4] - smallplot[3]) * ((1 - legend.shrink)/2)"
+    r_script += "\n      smallplot[4] <- smallplot[4] - pr"
+    r_script += "\n      smallplot[3] <- smallplot[3] + pr"
+    r_script += "\n    }"
+    r_script += "\n  }"
+    r_script += "\n  if (is.null(bigplot)) {"
+    r_script += "\n    bigplot <- old.par$plt"
+    r_script += "\n    if (!horizontal) {"
+    r_script += "\n      bigplot[2] <- min(bigplot[2], smallplot[1] - offset)"
+    r_script += "\n    }"
+    r_script += "\n    else {"
+    r_script += "\n      bottom.space <- old.par$mar[1] * char.size"
+    r_script += "\n      bigplot[3] <- smallplot[4] + offset"
+    r_script += "\n    }"
+    r_script += "\n  }"
+    r_script += "\n  if (stick && !horizontal) {"
+    r_script += "\n    dp <- smallplot[2] - smallplot[1]"
+    r_script += "\n    smallplot[1] <- min(bigplot[2] + offset, smallplot[1])"
+    r_script += "\n    smallplot[2] <- smallplot[1] + dp"
+    r_script += "\n  }"
+    r_script += "\n  return(list(smallplot = smallplot, bigplot = bigplot))"
+    r_script += "\n}"
+    
+    r_script += "\nimage.plot <- function(..., add = FALSE, breaks = NULL, nlevel = 64, col = NULL,"
+    r_script += "\n                       legend.shrink = 0.9, legend.width = 1.2,"
+    r_script += "\n                       legend.mar = 5.1, legend.lab = NULL,"
+    r_script += "\n                       legend.line = 2, graphics.reset = FALSE, bigplot = NULL,"
+    r_script += "\n                       smallplot = NULL, legend.only = FALSE,"
+    r_script += "\n                       axis.args = NULL, legend.args = NULL, legend.cex = 1, midpoint = FALSE,"
+    r_script += "\n                       border = NA, lwd = 1) {"
+    r_script += "\n  old.par <- par(no.readonly = TRUE)"
+    r_script += "\n  nlevel <- length(col)"
+    r_script += "\n  info <- imagePlotInfo(..., breaks = breaks, nlevel = nlevel)"
+    r_script += "\n  breaks <- info$breaks"
+    r_script += "\n  if (add) {"
+    r_script += "\n    big.plot <- old.par$plt"
+    r_script += "\n  }"
+    r_script += "\n  temp <- imageplot.setup(add = add,"
+    r_script += "\n                          legend.shrink = legend.shrink,"
+    r_script += "\n                          legend.width = legend.width,"
+    r_script += "\n                          legend.mar = legend.mar,"
+    r_script += "\n                          horizontal = FALSE,"
+    r_script += "\n                          bigplot = bigplot,"
+    r_script += "\n                          smallplot = smallplot)"
+    r_script += "\n  smallplot <- temp$smallplot"
+    r_script += "\n  bigplot <- temp$bigplot"
+    r_script += "\n  if (!legend.only) {"
+    r_script += "\n    if (!add) {"
+    r_script += "\n      par(plt = bigplot)"
+    r_script += "\n    }"
+    r_script += "\n    if (!info$poly.grid) {"
+    r_script += "\n      image(..., breaks = breaks, add = add, col = col)"
+    r_script += "\n    }"
+    r_script += "\n    else {"
+    r_script += "\n      poly.image(..., add = add, breaks = breaks, col = col,"
+    r_script += "\n                 midpoint = midpoint, border = border, lwd.poly = lwd)"
+    r_script += "\n    }"
+    r_script += "\n    big.par <- par(no.readonly = TRUE)"
+    r_script += "\n  }"
+    r_script += "\n  if ((smallplot[2] < smallplot[1]) | (smallplot[4] < smallplot[3])) {"
+    r_script += "\n    par(old.par)"
+    r_script += "\n    stop('plot region too small to add legend\n')"
+    r_script += "\n  }"
+    r_script += "\n  ix <- 1:2"
+    r_script += "\n  iy <- breaks"
+    r_script += "\n  nBreaks <- length(breaks)"
+    r_script += "\n  midpoints <- (breaks[1:(nBreaks - 1)] + breaks[2:nBreaks])/2"
+    r_script += "\n  iz <- matrix(midpoints, nrow = 1, ncol = length(midpoints))"
+    r_script += "\n  par(new = TRUE, pty = 'm', plt = smallplot, err = -1)"
+    r_script += "\n  image(ix, iy, iz, xaxt = 'n', yaxt = 'n', xlab = "","
+    r_script += "\n        ylab = "", col = col, breaks = breaks)"
+    r_script += "\n  axis.args <- c(list(side = 4, mgp = c(3, 1, 0), las = 2), axis.args)"
+    r_script += "\n  do.call('axis', axis.args)"
+    r_script += "\n  if (!is.null(legend.lab)) {"
+    r_script += "\n    legend.args <- list(text = legend.lab, side = 4,"
+    r_script += "\n                        line = legend.line, cex = legend.cex)"
+    r_script += "\n  }"
+    r_script += "\n  if (!is.null(legend.args)) {"
+    r_script += "\n    do.call(mtext, legend.args)"
+    r_script += "\n  }"
+    r_script += "\n  mfg.save <- par()$mfg"
+    r_script += "\n  if (graphics.reset | add) {"
+    r_script += "\n    par(old.par)"
+    r_script += "\n    par(mfg = mfg.save, new = FALSE)"
+    r_script += "\n    invisible()"
+    r_script += "\n  }"
+    r_script += "\n  else {"
+    r_script += "\n    par(big.par)"
+    r_script += "\n    par(plt = big.par$plt, xpd = FALSE)"
+    r_script += "\n    par(mfg = mfg.save, new = FALSE)"
+    r_script += "\n    invisible()"
+    r_script += "\n  }"
+    r_script += "\n}"
+    return r_script
+
+
 def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, tste, r_script, names_features, backscale_par,
                            rate_type='speciation', translate=0):
-    r_script += "\npkgs = c('fields', 'vioplot')"
+    r_script += "\npkgs = c('vioplot')"
     r_script += "\nnew_pkgs = pkgs[!(pkgs %in% installed.packages()[,'Package'])]"
     r_script += "\nif (length(new_pkgs) > 0) {"
     r_script += "\n    install.packages(new_pkgs, repos = 'https://cran.rstudio.com/')"
     r_script += "\n}"
-    r_script += "\nsuppressPackageStartupMessages(library(fields))"
     r_script += "\nsuppressPackageStartupMessages(library(vioplot))"
+    # Substitute plotting function from archieved R package fields
+    r_script = define_R_image_plot(r_script)
     r_script += "\npar(las = 1, mar = c(4, 4, 1.5, 0.5))"
     plot_idx = np.unique(cond_trait_tbl[:, -3])
     n_plots = len(plot_idx)
@@ -1940,7 +2186,7 @@ def downsample_q_times(q_time_frames, highres_q_repeats):
 
 def get_baseline_q(mcmc_file, burn, thin, mean_across_shifts=True):
     m = pd.read_csv(mcmc_file, delimiter = '\t')
-    q_indx = np.array([i for i in range(len(m.columns)) if m.columns[i].startswith('q_')])
+    q_indx = np.array([i for i in range(len(m.columns)) if m.columns[i].startswith("q_") and m.columns[i].split("q_")[1] not in ["TS", "TE"]])
     alpha_idx = [i for i in range(len(m.columns)) if m.columns[i] == "alpha"]
     q_indx = q_indx[q_indx < alpha_idx]
     np_m = m.to_numpy().astype(float)
@@ -2639,14 +2885,14 @@ class BdnnTesterSampling():
     def get_fossil_lik(self, q, multi, alpha_pp_gamma):
         if self.use_HPP_NN_lik:
             # Could be even faster because this term does not change: get_time_in_q_bins(ts, te, time_frames, duration_q_bins, single_bin)
-            fossil_lik, q_rates_sp = HPP_NN_lik([self.ts, self.te, q, alpha_pp_gamma, multi, self.const_q,
-                                                 self.occs_sp, self.log_factorial_occs,
-                                                 self.time_frames, self.duration_q_bins, self.occs_single_bin,
-                                                 self.singleton_mask, self.argsG, self.pp_gamma_ncat, self.YangGammaQuant])
+            fossil_lik, q_rates_sp, _ = HPP_NN_lik([self.ts, self.te, q, alpha_pp_gamma, multi, self.const_q,
+                                                    self.occs_sp, self.log_factorial_occs,
+                                                    self.time_frames, self.duration_q_bins, self.occs_single_bin,
+                                                    self.singleton_mask, self.argsG, self.pp_gamma_ncat, self.YangGammaQuant])
         else:
-            fossil_lik, q_rates_sp = HOMPP_NN_lik([self.ts, self.te, q, multi, self.const_q,
-                                                   self.occs_sp, self.log_factorial_occs,
-                                                   self.singleton_mask, self.argsG, self.pp_gamma_ncat, self.YangGammaQuant])
+            fossil_lik, q_rates_sp, _ = HOMPP_NN_lik([self.ts, self.te, q, multi, self.const_q,
+                                                      self.occs_sp, self.log_factorial_occs,
+                                                      self.singleton_mask, self.argsG, self.pp_gamma_ncat, self.YangGammaQuant])
         fossil_lik = np.sum(fossil_lik)
         return fossil_lik, q_rates_sp
 
@@ -4277,14 +4523,14 @@ def perm_mcmc_sample_q_i(arg):
     if use_HPP_NN_lik:
         if const_q:
             q = [q[0], q[0]]
-        orig_fossil_lik, _ = HPP_NN_lik([ts_i, te_i, q, alpha, q_multi, const_q,
-                                         occs_sp, log_factorial_occs, q_time_frames, duration_q_bins, occs_single_bin,
-                                         sl, argsG, gamma_ncat, YangGammaQuant])
+        orig_fossil_lik, _, _ = HPP_NN_lik([ts_i, te_i, q, alpha, q_multi, const_q,
+                                            occs_sp, log_factorial_occs, q_time_frames, duration_q_bins, occs_single_bin,
+                                            sl, argsG, gamma_ncat, YangGammaQuant])
     else:
         q = np.array([alpha, q[0]])
-        orig_fossil_lik, _ = HOMPP_NN_lik([ts_i, te_i, q, q_multi, const_q,
-                                           occs_sp, log_factorial_occs,
-                                           sl, argsG, gamma_ncat, YangGammaQuant])
+        orig_fossil_lik, _, _ = HOMPP_NN_lik([ts_i, te_i, q, q_multi, const_q,
+                                              occs_sp, log_factorial_occs,
+                                              sl, argsG, gamma_ncat, YangGammaQuant])
     orig_fossil_lik = np.sum(orig_fossil_lik)
 
     q_lik_j = np.zeros((n_perm, n_perm_traits))
@@ -4310,13 +4556,13 @@ def perm_mcmc_sample_q_i(arg):
             qnn_output_unreg = get_unreg_rate_BDNN_3D(trt_tbls_perm[0], w_q_i, hidden_act_f, out_act_f)
             q_multi = get_q_multipliers_NN_dereg(t_reg_q_i, reg_denom_q_i, n, qnn_output_unreg, sm, qb_se)
             if use_HPP_NN_lik:
-                perm_fossil_lik, _ = HPP_NN_lik([ts_i, te_i, q, alpha, q_multi, const_q,
-                                                 occs_sp, log_factorial_occs, q_time_frames, duration_q_bins, occs_single_bin,
-                                                 sl, argsG, gamma_ncat, YangGammaQuant])
+                perm_fossil_lik, _, _ = HPP_NN_lik([ts_i, te_i, q, alpha, q_multi, const_q,
+                                                    occs_sp, log_factorial_occs, q_time_frames, duration_q_bins, occs_single_bin,
+                                                    sl, argsG, gamma_ncat, YangGammaQuant])
             else:
-                perm_fossil_lik, _ = HOMPP_NN_lik([ts_i, te_i, q, q_multi, const_q,
-                                                   occs_sp, log_factorial_occs,
-                                                   sl, argsG, gamma_ncat, YangGammaQuant])
+                perm_fossil_lik, _, _ = HOMPP_NN_lik([ts_i, te_i, q, q_multi, const_q,
+                                                      occs_sp, log_factorial_occs,
+                                                      sl, argsG, gamma_ncat, YangGammaQuant])
             q_lik_j[k, j] = np.sum(perm_fossil_lik)
     q_delta_lik = q_lik_j - orig_fossil_lik
     return q_delta_lik
