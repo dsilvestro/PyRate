@@ -339,7 +339,7 @@ else:
     print(dataset,args.j,model_name,out_tag)
     dataset_name = dataset.replace(".txt", "")
     out_file_name="%s_%s_%s_%sMBD.log" % (dataset_name,args.j,model_name,out_tag)
-    logfile = open(out_file_name , "w") 
+    logfile = open(out_file_name , "w", newline="")
     wlog=csv.writer(logfile, delimiter='\t')
 
     lik_head=""
@@ -417,7 +417,7 @@ if max_T != -1 or min_T != -1:
 ########################## PLOT RTT ##############################
 if plot_RTT: # NEW FUNCTION 2
     out="%s/%s_RTT.r" % (wd,name_file)
-    newfile = open(out, "w") 
+    newfile = open(out, "w")
     if model_name == "exp": model_type = "Exponential"
     else: model_type = "Linear"
         
