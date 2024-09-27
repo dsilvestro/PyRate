@@ -76,6 +76,9 @@ version_details="PyRate %s; OS: %s %s; Python version: %s; Numpy version: %s; Sc
 
 ### numpy print options ###
 np.set_printoptions(suppress= 1, precision=3) # prints floats, no scientific notation
+numpy_major_version = int(np.__version__[0])
+if numpy_major_version > 1:
+    np.set_printoptions(legacy='1.25') # avoid printing data type ine.g. BDNN when using numpy >= 2.0
 
 original_stderr = sys.stderr
 NO_WARN = original_stderr #open('pyrate_warnings.log', 'w')
@@ -2545,6 +2548,7 @@ def HPP_NN_lik(arg):
         q_rates = get_q_rates_NN(q, q_multipliers, const_q)
         qtl = -q_rates * d
         lik = np.nansum(qtl + np.log(q_rates) * k, axis=1) - np.log(1 - np.exp(np.nansum(qtl, axis=1))) - log_factorial_occs
+        weight_per_taxon = 1
     else:
         n_bins_q = len(q)
         n_taxa_q = len(ts)
@@ -2568,7 +2572,7 @@ def HPP_NN_lik(arg):
         lik_vec_exp = np.exp(lik_vec2)
         weight_per_taxon = lik_vec_exp / np.sum(lik_vec_exp, axis=0)
         q_rates = np.sum(q_rates * weight_per_taxon[:, :, np.newaxis], axis=0)
-    return lik, q_rates
+    return lik, q_rates, weight_per_taxon
 
 
 def HOMPP_NN_lik(arg):
@@ -2578,6 +2582,7 @@ def HOMPP_NN_lik(arg):
         q_rates = get_q_rates_NN(q[1], q_multipliers, const_q)
         qtl = -q_rates * br_length
         lik = qtl + np.log(q_rates) * k - log_factorial_occs - np.log(1 - np.exp(qtl))
+        weight_per_taxon = 1
     else:
         n_taxa_q = len(ts)
         q_rates = np.zeros((gamma_ncat, n_taxa_q))
@@ -2593,7 +2598,7 @@ def HOMPP_NN_lik(arg):
         lik_vec_exp = np.exp(lik_vec)
         weight_per_taxon = lik_vec_exp / np.sum(lik_vec_exp, axis=0)
         q_rates = np.sum(q_rates * weight_per_taxon, axis=0)
-    return lik, q_rates
+    return lik, q_rates, weight_per_taxon
 
 
 def harmonic_mean_q_per_sp(q, d):
@@ -4325,20 +4330,20 @@ def MCMC(all_arg):
                                         bdnn_prior_q += np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_par[5]
 
                                 if use_HPP_NN_lik:
-                                    lik_fossil[ind1], bdnn_q_rates[ind1, :] = HPP_NN_lik([ts[ind1], te[ind1],
-                                                                                          q_rates_tmp, alpha_pp_gamma,
-                                                                                          q_multi[ind1], const_q,
-                                                                                          occs_sp[ind1, :], log_factorial_occs[ind1],
-                                                                                          q_time_frames_bdnn, duration_q_bins[ind1, :],
-                                                                                          occs_single_bin[ind1], singleton_lik[ind1],
-                                                                                          argsG, pp_gamma_ncat, YangGammaQuant])
+                                    lik_fossil[ind1], bdnn_q_rates[ind1, :], _ = HPP_NN_lik([ts[ind1], te[ind1],
+                                                                                             q_rates_tmp, alpha_pp_gamma,
+                                                                                             q_multi[ind1], const_q,
+                                                                                             occs_sp[ind1, :], log_factorial_occs[ind1],
+                                                                                             q_time_frames_bdnn, duration_q_bins[ind1, :],
+                                                                                             occs_single_bin[ind1], singleton_lik[ind1],
+                                                                                             argsG, pp_gamma_ncat, YangGammaQuant])
                                 else:
-                                    lik_fossil[ind1], bdnn_q_rates[ind1] = HOMPP_NN_lik([ts[ind1], te[ind1],
-                                                                                         q_rates_tmp,
-                                                                                         q_multi[ind1], const_q,
-                                                                                         occs_sp[ind1], log_factorial_occs[ind1],
-                                                                                         singleton_lik[ind1],
-                                                                                         argsG, pp_gamma_ncat, YangGammaQuant])
+                                    lik_fossil[ind1], bdnn_q_rates[ind1], _ = HOMPP_NN_lik([ts[ind1], te[ind1],
+                                                                                            q_rates_tmp,
+                                                                                            q_multi[ind1], const_q,
+                                                                                            occs_sp[ind1], log_factorial_occs[ind1],
+                                                                                            singleton_lik[ind1],
+                                                                                            argsG, pp_gamma_ncat, YangGammaQuant])
                         else:
                             for j in range(len(ind1)):
                                 i=ind1[j] # which species' lik
