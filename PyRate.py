@@ -895,7 +895,7 @@ def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type="", keep
                     t_file = np.insert(t_file,q_ind[0],mean_q,axis=1)
                 elif len(q_ind) < max_q_shifts:
                     missing_q = np.full((t_file.shape[0], max_q_shifts - len(q_ind)), np.nan)
-                    idx = np.max(q_ind) + 1
+                    idx = np.min(q_ind)
                     t_file = np.c_[t_file[:, :idx], missing_q, t_file[:, idx:]]
 
             shape_f=shape(t_file)
