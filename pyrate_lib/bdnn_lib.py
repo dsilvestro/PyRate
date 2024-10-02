@@ -1889,7 +1889,7 @@ def define_R_image_plot(r_script):
     r_script += "\n  }"
     r_script += "\n  list(xlim = xlim, ylim = ylim, zlim = zlim, poly.grid = poly.grid, breaks = breaks)"
     r_script += "\n}"
-    
+    r_script += "\n"
     r_script += "\nimageplot.setup <- function (x, add = FALSE,"
     r_script += "\n                             legend.shrink = 0.9, legend.width = 1,"
     r_script += "\n                             horizontal = FALSE, legend.mar = NULL,"
@@ -1940,14 +1940,14 @@ def define_R_image_plot(r_script):
     r_script += "\n  }"
     r_script += "\n  return(list(smallplot = smallplot, bigplot = bigplot))"
     r_script += "\n}"
-    
+    r_script += "\n"
     r_script += "\nimage.plot <- function(..., add = FALSE, breaks = NULL, nlevel = 64, col = NULL,"
     r_script += "\n                       legend.shrink = 0.9, legend.width = 1.2,"
     r_script += "\n                       legend.mar = 5.1, legend.lab = NULL,"
     r_script += "\n                       legend.line = 2, graphics.reset = FALSE, bigplot = NULL,"
     r_script += "\n                       smallplot = NULL, legend.only = FALSE,"
-    r_script += "\n                       axis.args = NULL, legend.args = NULL, legend.cex = 1, midpoint = FALSE,"
-    r_script += "\n                       border = NA, lwd = 1) {"
+    r_script += "\n                       axis.args = NULL, legend.args = NULL, legend.cex = 1,"
+    r_script += "\n                       midpoint = FALSE, border = NA, lwd = 1) {"
     r_script += "\n  old.par <- par(no.readonly = TRUE)"
     r_script += "\n  nlevel <- length(col)"
     r_script += "\n  info <- imagePlotInfo(..., breaks = breaks, nlevel = nlevel)"
@@ -1965,16 +1965,7 @@ def define_R_image_plot(r_script):
     r_script += "\n  smallplot <- temp$smallplot"
     r_script += "\n  bigplot <- temp$bigplot"
     r_script += "\n  if (!legend.only) {"
-    r_script += "\n    if (!add) {"
-    r_script += "\n      par(plt = bigplot)"
-    r_script += "\n    }"
-    r_script += "\n    if (!info$poly.grid) {"
-    r_script += "\n      image(..., breaks = breaks, add = add, col = col)"
-    r_script += "\n    }"
-    r_script += "\n    else {"
-    r_script += "\n      poly.image(..., add = add, breaks = breaks, col = col,"
-    r_script += "\n                 midpoint = midpoint, border = border, lwd.poly = lwd)"
-    r_script += "\n    }"
+    r_script += "\n    image(..., breaks = breaks, add = add, col = col)"
     r_script += "\n    big.par <- par(no.readonly = TRUE)"
     r_script += "\n  }"
     r_script += "\n  if ((smallplot[2] < smallplot[1]) | (smallplot[4] < smallplot[3])) {"
@@ -1987,8 +1978,8 @@ def define_R_image_plot(r_script):
     r_script += "\n  midpoints <- (breaks[1:(nBreaks - 1)] + breaks[2:nBreaks])/2"
     r_script += "\n  iz <- matrix(midpoints, nrow = 1, ncol = length(midpoints))"
     r_script += "\n  par(new = TRUE, pty = 'm', plt = smallplot, err = -1)"
-    r_script += "\n  image(ix, iy, iz, xaxt = 'n', yaxt = 'n', xlab = "","
-    r_script += "\n        ylab = "", col = col, breaks = breaks)"
+    r_script += "\n  image(ix, iy, iz, xaxt = 'n', yaxt = 'n', xlab = '',"
+    r_script += "\n        ylab = '', col = col, breaks = breaks)"
     r_script += "\n  axis.args <- c(list(side = 4, mgp = c(3, 1, 0), las = 2), axis.args)"
     r_script += "\n  do.call('axis', axis.args)"
     r_script += "\n  if (!is.null(legend.lab)) {"
@@ -2011,6 +2002,7 @@ def define_R_image_plot(r_script):
     r_script += "\n    invisible()"
     r_script += "\n  }"
     r_script += "\n}"
+    r_script += "\n"
     return r_script
 
 
@@ -3234,12 +3226,52 @@ def sim_fossil_occurrences(ts, te, q, shift_time_q, alpha=None):
 
 # Credible differences
 ######################
+def get_fold_change(d1, d2):
+    small_number = 1e-3
+    small_threshold = 0.025 # 5%
+    # avoid dividing by small number when getting the ratio d2 / d1
+#    d1_small = np.logical_and(d1 < small_number, d1 > -small_number)
+#    d2_small = np.logical_and(d2 < small_number, d2 > -small_number)
+#    d1[d1_small] = small_number * np.sign(d1[d1_small])
+#    d2[d2_small] = small_number * np.sign(d2[d2_small])
+#    print('d1 before\n', d1)
+#    print('d2\n', d2)
+    d1_thresh = small_threshold * np.abs(d1)
+    d2_thresh = small_threshold * np.abs(d2)
+    d1_small = np.logical_and(d1 < d2_thresh, d1 > -d2_thresh)
+    d2_small = np.logical_and(d2 < d1_thresh, d2 > -d1_thresh)
+#    print('d1_small\n', d1_small)
+    d1[d1_small] = small_threshold * np.abs(d2[d1_small]) * np.sign(d1[d1_small])
+    d2[d2_small] = small_threshold * np.abs(d1[d2_small]) * np.sign(d2[d2_small])
+#    print('d1 after\n', d1)
+    
+    offset = np.zeros(len(d2))
+    d1_neg = d1 < 0.0
+    d2_neg = d2 < 0.0
+    # add -d2 if d2 is negative and d1 positive
+    d2_offset_idx = np.logical_and(~d1_neg, d2_neg)
+    offset[d2_offset_idx] = d2[d2_offset_idx] + small_threshold * np.abs(d2[d2_offset_idx])#small_number
+    # add -d1 if d1 is negative and d2 positive
+    d1_offset_idx = np.logical_and(d1_neg, ~d2_neg)
+    offset[d1_offset_idx] = -d1[d1_offset_idx] + small_threshold * np.abs(d1[d1_offset_idx])#small_number
+    
+    # Fold change of d2 in respect to d1
+    # e.g. 
+    # 2: d2 is double of d1
+    # -2: d2 is half of d1
+    fc = np.abs((d2 + offset) / (d1 + offset)) * np.sign(d2 - d1)
+    fc = fc**np.sign(fc)
+#    print('fc\n', fc)
+    return fc
+
+
 def get_prob_1_bin_trait(cond_rates_eff):
     d1 = cond_rates_eff[0, :]
     d2 = cond_rates_eff[1, :]
     prob = get_prob(d1, d2, len(d1))
-    mag = d1 / d2
-    mean_mag = np.mean(mag)
+#    mag = d1 / d2
+    mag = get_fold_change(d1, d2)
+    mean_mag = np.median(mag)
     mag_HPD = np.array([np.nan, np.nan])
     if np.sum(~np.isnan(mag)) > 2:
         mag_HPD = util.calcHPD(mag[~np.isnan(mag)], .95)
@@ -3254,8 +3286,9 @@ def get_prob_1_con_trait(cond_rates_eff):
     d = d.flatten()
     n = np.sum(d > 0.0)
     prob = n / len(d)
-    mag = d1 / d2
-    mean_mag = np.mean(mag)
+#    mag = d1 / d2
+    mag = get_fold_change(d1, d2)
+    mean_mag = np.median(mag)
     mag_HPD = np.array([np.nan, np.nan])
     if np.sum(~np.isnan(mag)) > 2:
         mag_HPD = util.calcHPD(mag[~np.isnan(mag)], .95)
@@ -3283,10 +3316,8 @@ def get_prob_inter_bin_con_trait(rates_eff, state0):
         d1 = diff_state[idx_largest_diff, :]
         d2 = diff_state[idx_smallest_diff, :]
         prob = get_prob(d1, d2, len(d1))
-#        m1 = np.abs(cond_rates_state0[idx_largest_diff, :] - cond_rates_state0[idx_smallest_diff, :])
-#        m2 = np.abs(cond_rates_state1[idx_largest_diff, :] - cond_rates_state1[idx_smallest_diff, :])
-#        mag = m1 / m2
-        mag = np.abs(diff_state[idx_largest_diff, :]) / np.abs(diff_state[idx_smallest_diff, :])
+#        mag = np.abs(diff_state[idx_largest_diff, :]) / np.abs(diff_state[idx_smallest_diff, :])
+        mag = get_fold_change(diff_state[idx_largest_diff, :], diff_state[idx_smallest_diff, :])
         mean_mag = np.nanmedian(mag)
         if np.sum(~np.isnan(mag)) > 2:
             mag_HPD = util.calcHPD(mag[~np.isnan(mag)], .95)
@@ -3469,17 +3500,17 @@ def get_prob_inter_2_con_trait(cond_rates_eff, trait_tbl_eff, incl_features, con
     rates_single_feat = rates_feat0
     if prob_feat1 > prob_feat0:
         rates_single_feat = rates_feat1
-    mag_single_feat = rates_single_feat[0, :] / rates_single_feat[1, :]
+    mag_single_feat = get_fold_change(rates_single_feat[0, :], rates_single_feat[1, :])#rates_single_feat[0, :] / rates_single_feat[1, :]
     d1 = cond_rates_eff[idx_min_rate, :]
     d2 = cond_rates_eff[idx_max_rate, :]
     #prob = get_prob(d1, d2, niter_mcmc)
-    mag = d1 / d2
-    mean_mag = np.mean(mag)
+    mag = get_fold_change(d1, d2)#d1 / d2
+    mean_mag = np.median(mag)
     mag_HPD = np.array([np.nan, np.nan])
     if np.sum(~np.isnan(mag)) > 2:
         mag_HPD = util.calcHPD(mag[~np.isnan(mag)], .95)
     # Magnitude interaction greater than for the more important feature of both?
-    if np.mean(mag) > 1:
+    if np.mean(mag) > 0:
         prob = np.sum(mag > mag_single_feat) / niter_mcmc
     else:
         prob = np.sum(mag < mag_single_feat) / niter_mcmc
@@ -3585,7 +3616,7 @@ def get_prob_effects(cond_trait_tbl, cond_rates, bdnn_obj, names_features, rate_
             prob_effects = pd.concat([prob_effects, prob], ignore_index = True)
     prob_effects.columns = ['feature1', 'feature2', 'feature1_state', 'feature2_state',
                             'posterior_probability',
-                            'magnitude_effect', 'magnitude_lwr_CI', 'magnitude_upr_CI']
+                            'fold_change', 'fold_change_lwr_CI', 'fold_change_upr_CI']
     prob_effects = prob_effects[~prob_effects.duplicated(['feature1', 'feature2', 'feature1_state', 'feature2_state'])] # Feature groups with multiple continuous features are appearing several times. MAybe only when they are not in adjecent columns? Remove this.
     return prob_effects
 
@@ -6189,7 +6220,7 @@ def quickcons(X):
 def highest_pvalue_from_interaction(p):
     unique_features = p[['feature1', 'feature2']].drop_duplicates(ignore_index = True)
     num_unique_features = len(unique_features)
-    columns = ['posterior_probability', 'magnitude_effect', 'magnitude_lwr_CI', 'magnitude_upr_CI']
+    columns = ['posterior_probability', 'fold_change', 'fold_change_lwr_CI', 'fold_change_upr_CI']
     highest_p = pd.DataFrame(columns = columns)
     for i in range(num_unique_features):
         p_tmp = p[(p['feature1'] == unique_features.loc[i, 'feature1']) &
