@@ -3227,33 +3227,24 @@ def sim_fossil_occurrences(ts, te, q, shift_time_q, alpha=None):
 # Credible differences
 ######################
 def get_fold_change(d1, d2):
-    small_number = 1e-3
-    small_threshold = 0.025 # 5%
+    small_threshold = 0.025 # d1 being 2.5% of abs(d2) or vice versa
     # avoid dividing by small number when getting the ratio d2 / d1
-#    d1_small = np.logical_and(d1 < small_number, d1 > -small_number)
-#    d2_small = np.logical_and(d2 < small_number, d2 > -small_number)
-#    d1[d1_small] = small_number * np.sign(d1[d1_small])
-#    d2[d2_small] = small_number * np.sign(d2[d2_small])
-#    print('d1 before\n', d1)
-#    print('d2\n', d2)
     d1_thresh = small_threshold * np.abs(d1)
     d2_thresh = small_threshold * np.abs(d2)
     d1_small = np.logical_and(d1 < d2_thresh, d1 > -d2_thresh)
     d2_small = np.logical_and(d2 < d1_thresh, d2 > -d1_thresh)
-#    print('d1_small\n', d1_small)
     d1[d1_small] = small_threshold * np.abs(d2[d1_small]) * np.sign(d1[d1_small])
     d2[d2_small] = small_threshold * np.abs(d1[d2_small]) * np.sign(d2[d2_small])
-#    print('d1 after\n', d1)
     
     offset = np.zeros(len(d2))
     d1_neg = d1 < 0.0
     d2_neg = d2 < 0.0
     # add -d2 if d2 is negative and d1 positive
     d2_offset_idx = np.logical_and(~d1_neg, d2_neg)
-    offset[d2_offset_idx] = d2[d2_offset_idx] + small_threshold * np.abs(d2[d2_offset_idx])#small_number
+    offset[d2_offset_idx] = d2[d2_offset_idx] + small_threshold * np.abs(d2[d2_offset_idx])
     # add -d1 if d1 is negative and d2 positive
     d1_offset_idx = np.logical_and(d1_neg, ~d2_neg)
-    offset[d1_offset_idx] = -d1[d1_offset_idx] + small_threshold * np.abs(d1[d1_offset_idx])#small_number
+    offset[d1_offset_idx] = -d1[d1_offset_idx] + small_threshold * np.abs(d1[d1_offset_idx])
     
     # Fold change of d2 in respect to d1
     # e.g. 
@@ -3261,7 +3252,6 @@ def get_fold_change(d1, d2):
     # -2: d2 is half of d1
     fc = np.abs((d2 + offset) / (d1 + offset)) * np.sign(d2 - d1)
     fc = fc**np.sign(fc)
-#    print('fc\n', fc)
     return fc
 
 
@@ -3269,7 +3259,6 @@ def get_prob_1_bin_trait(cond_rates_eff):
     d1 = cond_rates_eff[0, :]
     d2 = cond_rates_eff[1, :]
     prob = get_prob(d1, d2, len(d1))
-#    mag = d1 / d2
     mag = get_fold_change(d1, d2)
     mean_mag = np.median(mag)
     mag_HPD = np.array([np.nan, np.nan])
@@ -3286,7 +3275,6 @@ def get_prob_1_con_trait(cond_rates_eff):
     d = d.flatten()
     n = np.sum(d > 0.0)
     prob = n / len(d)
-#    mag = d1 / d2
     mag = get_fold_change(d1, d2)
     mean_mag = np.median(mag)
     mag_HPD = np.array([np.nan, np.nan])
@@ -3316,7 +3304,6 @@ def get_prob_inter_bin_con_trait(rates_eff, state0):
         d1 = diff_state[idx_largest_diff, :]
         d2 = diff_state[idx_smallest_diff, :]
         prob = get_prob(d1, d2, len(d1))
-#        mag = np.abs(diff_state[idx_largest_diff, :]) / np.abs(diff_state[idx_smallest_diff, :])
         mag = get_fold_change(diff_state[idx_largest_diff, :], diff_state[idx_smallest_diff, :])
         mean_mag = np.nanmedian(mag)
         if np.sum(~np.isnan(mag)) > 2:
@@ -3503,8 +3490,7 @@ def get_prob_inter_2_con_trait(cond_rates_eff, trait_tbl_eff, incl_features, con
     mag_single_feat = get_fold_change(rates_single_feat[0, :], rates_single_feat[1, :])#rates_single_feat[0, :] / rates_single_feat[1, :]
     d1 = cond_rates_eff[idx_min_rate, :]
     d2 = cond_rates_eff[idx_max_rate, :]
-    #prob = get_prob(d1, d2, niter_mcmc)
-    mag = get_fold_change(d1, d2)#d1 / d2
+    mag = get_fold_change(d1, d2)
     mean_mag = np.median(mag)
     mag_HPD = np.array([np.nan, np.nan])
     if np.sum(~np.isnan(mag)) > 2:
