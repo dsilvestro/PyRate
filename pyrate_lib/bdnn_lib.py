@@ -102,9 +102,8 @@ def load_trait_tbl(path):
     sp_time_variable_pred = is_time_variable_feature(sp_pred_tbls)[0,:]
     ex_time_variable_pred = is_time_variable_feature(ex_pred_tbls)[0,:]
     time_variable_pred = np.any(np.concatenate((sp_time_variable_pred, ex_time_variable_pred), axis = None))
-    invariant_pred = [get_idx_feature_without_variance(sp_pred_tbls), get_idx_feature_without_variance(ex_pred_tbls)]
     # Should we check if all colnames are in the same order?
-    return loaded_trait_tbls, colnames, time_variable_pred, invariant_pred
+    return loaded_trait_tbls, colnames, time_variable_pred
 
 
 def export_trait_tbl(trait_tbls, names_features, output_wd):
