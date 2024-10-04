@@ -188,7 +188,7 @@ However, the `-plotBDNN_transf_features` is optional and does not change anythin
 
 <img src="https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_backtransformation.png" alt="Backscaling z-transformation" width="1000">
 Temperature effect on carnivore extinction rate with (right) and without (left) reversing the z-transformation of temperature with the `-plotBDNN_transf_features` argument when creating the effect plot from the same BDNN log file.
-
+  
 
 You can use different time-series for speciation and extinction by providing the paths to two text files using `-BDNNtimevar`. These files should have the same column names though. For instance, the emergance of humans could influence extinction rates but not on speciation rates.
 
