@@ -102,9 +102,8 @@ def load_trait_tbl(path):
     sp_time_variable_pred = is_time_variable_feature(sp_pred_tbls)[0,:]
     ex_time_variable_pred = is_time_variable_feature(ex_pred_tbls)[0,:]
     time_variable_pred = np.any(np.concatenate((sp_time_variable_pred, ex_time_variable_pred), axis = None))
-    invariant_pred = [get_idx_feature_without_variance(sp_pred_tbls), get_idx_feature_without_variance(ex_pred_tbls)]
     # Should we check if all colnames are in the same order?
-    return loaded_trait_tbls, colnames, time_variable_pred, invariant_pred
+    return loaded_trait_tbls, colnames, time_variable_pred
 
 
 def export_trait_tbl(trait_tbls, names_features, output_wd):
@@ -638,77 +637,77 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn, translate=0.0,
             q_mean_file = output_wd + "/" + "%s_mean_q_per_taxon.txt" % name_file
             q_mean_per_taxon_df.to_csv(q_mean_file, na_rep = 'NA', index = False)
 
-        # Get marginal rates through time for the specified group of taxa
-        FA = np.max(np.mean(ts, axis=0))
-        LO = np.min(np.mean(te, axis=0))
-        for g in range(len(group_names)):
-            gs = group_species_idx[g]
-            sptt = None
-            extt = None
-            divtt = None
-            longtt = None
-            time_vec = None
-            qtt = None
-            time_vec_q = None
-            r_file = "%s_%s_RTT.r" % (name_file, group_names[g])
-            pdf_file = "%s_%s_RTT.pdf" % (name_file, group_names[g])
+    # Get marginal rates through time for the specified group of taxa
+    FA = np.max(np.mean(ts, axis=0))
+    LO = np.min(np.mean(te, axis=0))
+    for g in range(len(group_names)):
+        gs = group_species_idx[g]
+        sptt = None
+        extt = None
+        divtt = None
+        longtt = None
+        time_vec = None
+        qtt = None
+        time_vec_q = None
+        r_file = "%s_%s_RTT.r" % (name_file, group_names[g])
+        pdf_file = "%s_%s_RTT.pdf" % (name_file, group_names[g])
 
-            if do_diversification:
-                time_vec = format_t_vec(times_of_shift[1:-1], FA, 0.0, translate)
-                r_sp = np.zeros((num_it, num_bins))
-                r_ex = np.zeros((num_it, num_bins))
-                FA_gs = np.max(np.mean(ts[:, gs], axis=0))
-                LO_gs = np.min(np.mean(te[:, gs], axis=0))
-                if FA_gs < FA and FA_gs > times_of_shift[1]:
-                    time_vec = format_t_vec(times_of_shift[1:-1], FA_gs, 0.0, translate)
-                for i in range(num_it):
-                    for j in range(num_bins):
-                        lam_tmp = lam_it[i, gs, j]
-                        mu_tmp = mu_it[i, gs, j]
-                        indx = get_sp_indx_in_timeframe(ts[i, gs], te[i, gs], up = times_of_shift[j], lo = times_of_shift[j + 1])
-                        with warnings.catch_warnings():
-                            warnings.simplefilter('ignore', category = RuntimeWarning)
-                            r_sp[i, j] = 1 / np.mean(1 / lam_tmp[indx])
-                            r_ex[i, j] = 1 / np.mean(1 / mu_tmp[indx])
-                r_sp[:, times_of_shift[1:] >= FA_gs] = np.nan
-                r_sp[:, times_of_shift[:-1] <= LO_gs] = np.nan
-                r_ex[:, times_of_shift[1:] >= FA_gs] = np.nan
-                r_ex[:, times_of_shift[:-1] <= LO_gs] = np.nan
-                r_div = r_sp - r_ex
-                longevity = 1. / r_ex
-                sptt = summarize_rate(r_sp, num_bins)
-                extt = summarize_rate(r_ex, num_bins)
-                divtt = summarize_rate(r_div, num_bins)
-                longtt = summarize_rate(longevity, num_bins)
-#                sptt_file = output_wd + "/" + "%s_%s_LamTT.txt" % (name_file, group_names[g])
-#                sptt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), sptt)), columns = ['time', 'mean', 'lwr', 'upr'])
-#                sptt2.to_csv(sptt_file, na_rep = 'NA', index = False)
-#                extt_file = output_wd + "/" + "%s_%s_MuTT.txt" % (name_file, group_names[g])
-#                extt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), extt)), columns = ['time', 'mean', 'lwr', 'upr'])
-#                extt2.to_csv(extt_file, na_rep = 'NA', index = False)
-#                divtt_file = output_wd + "/" + "%s_%s_DivTT.txt" % (name_file, group_names[g])
-#                divtt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), divtt)), columns = ['time', 'mean', 'lwr', 'upr'])
-#                divtt2.to_csv(divtt_file, na_rep = 'NA', index = False)
-
-            if do_sampling:
-                num_q_bins = len(q_bins) - 1
-                r_q = np.zeros((num_it, num_q_bins))
-                FA_gs = np.max(np.mean(ts[:, gs], axis=0))
-                LO_gs = np.min(np.mean(te[:, gs], axis=0))
-                for i in range(num_it):
-                    q_rate = q_it[i, gs, :]
-                    if q_it.shape[2] == 1:
-                        q_rate = q_it[i, gs, :].reshape(-1)
+        if do_diversification:
+            time_vec = format_t_vec(times_of_shift[1:-1], FA, 0.0, translate)
+            r_sp = np.zeros((num_it, num_bins))
+            r_ex = np.zeros((num_it, num_bins))
+            FA_gs = np.max(np.mean(ts[:, gs], axis=0))
+            LO_gs = np.min(np.mean(te[:, gs], axis=0))
+            if FA_gs < FA and FA_gs > times_of_shift[1]:
+                time_vec = format_t_vec(times_of_shift[1:-1], FA_gs, 0.0, translate)
+            for i in range(num_it):
+                for j in range(num_bins):
+                    lam_tmp = lam_it[i, gs, j]
+                    mu_tmp = mu_it[i, gs, j]
+                    indx = get_sp_indx_in_timeframe(ts[i, gs], te[i, gs], up = times_of_shift[j], lo = times_of_shift[j + 1])
                     with warnings.catch_warnings():
                         warnings.simplefilter('ignore', category = RuntimeWarning)
-                        r_q[i, :] = harmonic_mean_q_through_time(ts[i, gs], te[i, gs], q_bins, q_rate)
-                time_vec_q = format_t_vec(q_bins[1:-1], FA, LO, translate)
-                r_q[:, q_bins[1:] >= FA_gs] = np.nan
-                r_q[:, q_bins[:-1] <= LO_gs] = np.nan
-                qtt = summarize_rate(r_q, num_q_bins)
+                        r_sp[i, j] = 1 / np.mean(1 / lam_tmp[indx])
+                        r_ex[i, j] = 1 / np.mean(1 / mu_tmp[indx])
+            r_sp[:, times_of_shift[1:] >= FA_gs] = np.nan
+            r_sp[:, times_of_shift[:-1] <= LO_gs] = np.nan
+            r_ex[:, times_of_shift[1:] >= FA_gs] = np.nan
+            r_ex[:, times_of_shift[:-1] <= LO_gs] = np.nan
+            r_div = r_sp - r_ex
+            longevity = 1. / r_ex
+            sptt = summarize_rate(r_sp, num_bins)
+            extt = summarize_rate(r_ex, num_bins)
+            divtt = summarize_rate(r_div, num_bins)
+            longtt = summarize_rate(longevity, num_bins)
+#            sptt_file = output_wd + "/" + "%s_%s_LamTT.txt" % (name_file, group_names[g])
+#            sptt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), sptt)), columns = ['time', 'mean', 'lwr', 'upr'])
+#            sptt2.to_csv(sptt_file, na_rep = 'NA', index = False)
+#            extt_file = output_wd + "/" + "%s_%s_MuTT.txt" % (name_file, group_names[g])
+#            extt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), extt)), columns = ['time', 'mean', 'lwr', 'upr'])
+#            extt2.to_csv(extt_file, na_rep = 'NA', index = False)
+#            divtt_file = output_wd + "/" + "%s_%s_DivTT.txt" % (name_file, group_names[g])
+#            divtt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), divtt)), columns = ['time', 'mean', 'lwr', 'upr'])
+#            divtt2.to_csv(divtt_file, na_rep = 'NA', index = False)
 
-            xlim = [FA, LO]
-            plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q, xlim)
+        if do_sampling:
+            num_q_bins = len(q_bins) - 1
+            r_q = np.zeros((num_it, num_q_bins))
+            FA_gs = np.max(np.mean(ts[:, gs], axis=0))
+            LO_gs = np.min(np.mean(te[:, gs], axis=0))
+            for i in range(num_it):
+                q_rate = q_it[i, gs, :]
+                if q_it.shape[2] == 1:
+                    q_rate = q_it[i, gs, :].reshape(-1)
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore', category = RuntimeWarning)
+                    r_q[i, :] = harmonic_mean_q_through_time(ts[i, gs], te[i, gs], q_bins, q_rate)
+            time_vec_q = format_t_vec(q_bins[1:-1], FA, LO, translate)
+            r_q[:, q_bins[1:] >= FA_gs] = np.nan
+            r_q[:, q_bins[:-1] <= LO_gs] = np.nan
+            qtt = summarize_rate(r_q, num_q_bins)
+
+        xlim = [FA, LO]
+        plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q, xlim)
 
 
 def apply_thin(w, thin):
@@ -1889,7 +1888,7 @@ def define_R_image_plot(r_script):
     r_script += "\n  }"
     r_script += "\n  list(xlim = xlim, ylim = ylim, zlim = zlim, poly.grid = poly.grid, breaks = breaks)"
     r_script += "\n}"
-    
+    r_script += "\n"
     r_script += "\nimageplot.setup <- function (x, add = FALSE,"
     r_script += "\n                             legend.shrink = 0.9, legend.width = 1,"
     r_script += "\n                             horizontal = FALSE, legend.mar = NULL,"
@@ -1940,14 +1939,14 @@ def define_R_image_plot(r_script):
     r_script += "\n  }"
     r_script += "\n  return(list(smallplot = smallplot, bigplot = bigplot))"
     r_script += "\n}"
-    
+    r_script += "\n"
     r_script += "\nimage.plot <- function(..., add = FALSE, breaks = NULL, nlevel = 64, col = NULL,"
     r_script += "\n                       legend.shrink = 0.9, legend.width = 1.2,"
     r_script += "\n                       legend.mar = 5.1, legend.lab = NULL,"
     r_script += "\n                       legend.line = 2, graphics.reset = FALSE, bigplot = NULL,"
     r_script += "\n                       smallplot = NULL, legend.only = FALSE,"
-    r_script += "\n                       axis.args = NULL, legend.args = NULL, legend.cex = 1, midpoint = FALSE,"
-    r_script += "\n                       border = NA, lwd = 1) {"
+    r_script += "\n                       axis.args = NULL, legend.args = NULL, legend.cex = 1,"
+    r_script += "\n                       midpoint = FALSE, border = NA, lwd = 1) {"
     r_script += "\n  old.par <- par(no.readonly = TRUE)"
     r_script += "\n  nlevel <- length(col)"
     r_script += "\n  info <- imagePlotInfo(..., breaks = breaks, nlevel = nlevel)"
@@ -1965,16 +1964,7 @@ def define_R_image_plot(r_script):
     r_script += "\n  smallplot <- temp$smallplot"
     r_script += "\n  bigplot <- temp$bigplot"
     r_script += "\n  if (!legend.only) {"
-    r_script += "\n    if (!add) {"
-    r_script += "\n      par(plt = bigplot)"
-    r_script += "\n    }"
-    r_script += "\n    if (!info$poly.grid) {"
-    r_script += "\n      image(..., breaks = breaks, add = add, col = col)"
-    r_script += "\n    }"
-    r_script += "\n    else {"
-    r_script += "\n      poly.image(..., add = add, breaks = breaks, col = col,"
-    r_script += "\n                 midpoint = midpoint, border = border, lwd.poly = lwd)"
-    r_script += "\n    }"
+    r_script += "\n    image(..., breaks = breaks, add = add, col = col)"
     r_script += "\n    big.par <- par(no.readonly = TRUE)"
     r_script += "\n  }"
     r_script += "\n  if ((smallplot[2] < smallplot[1]) | (smallplot[4] < smallplot[3])) {"
@@ -1987,8 +1977,8 @@ def define_R_image_plot(r_script):
     r_script += "\n  midpoints <- (breaks[1:(nBreaks - 1)] + breaks[2:nBreaks])/2"
     r_script += "\n  iz <- matrix(midpoints, nrow = 1, ncol = length(midpoints))"
     r_script += "\n  par(new = TRUE, pty = 'm', plt = smallplot, err = -1)"
-    r_script += "\n  image(ix, iy, iz, xaxt = 'n', yaxt = 'n', xlab = "","
-    r_script += "\n        ylab = "", col = col, breaks = breaks)"
+    r_script += "\n  image(ix, iy, iz, xaxt = 'n', yaxt = 'n', xlab = '',"
+    r_script += "\n        ylab = '', col = col, breaks = breaks)"
     r_script += "\n  axis.args <- c(list(side = 4, mgp = c(3, 1, 0), las = 2), axis.args)"
     r_script += "\n  do.call('axis', axis.args)"
     r_script += "\n  if (!is.null(legend.lab)) {"
@@ -2011,6 +2001,7 @@ def define_R_image_plot(r_script):
     r_script += "\n    invisible()"
     r_script += "\n  }"
     r_script += "\n}"
+    r_script += "\n"
     return r_script
 
 
@@ -3234,12 +3225,41 @@ def sim_fossil_occurrences(ts, te, q, shift_time_q, alpha=None):
 
 # Credible differences
 ######################
+def get_fold_change(d1, d2):
+    small_threshold = 0.025 # d1 being 2.5% of abs(d2) or vice versa
+    # avoid dividing by small number when getting the ratio d2 / d1
+    d1_thresh = small_threshold * np.abs(d1)
+    d2_thresh = small_threshold * np.abs(d2)
+    d1_small = np.logical_and(d1 < d2_thresh, d1 > -d2_thresh)
+    d2_small = np.logical_and(d2 < d1_thresh, d2 > -d1_thresh)
+    d1[d1_small] = small_threshold * np.abs(d2[d1_small]) * np.sign(d1[d1_small])
+    d2[d2_small] = small_threshold * np.abs(d1[d2_small]) * np.sign(d2[d2_small])
+    
+    offset = np.zeros(len(d2))
+    d1_neg = d1 < 0.0
+    d2_neg = d2 < 0.0
+    # add -d2 if d2 is negative and d1 positive
+    d2_offset_idx = np.logical_and(~d1_neg, d2_neg)
+    offset[d2_offset_idx] = d2[d2_offset_idx] + small_threshold * np.abs(d2[d2_offset_idx])
+    # add -d1 if d1 is negative and d2 positive
+    d1_offset_idx = np.logical_and(d1_neg, ~d2_neg)
+    offset[d1_offset_idx] = -d1[d1_offset_idx] + small_threshold * np.abs(d1[d1_offset_idx])
+    
+    # Fold change of d2 in respect to d1
+    # e.g. 
+    # 2: d2 is double of d1
+    # -2: d2 is half of d1
+    fc = np.abs((d2 + offset) / (d1 + offset)) * np.sign(d2 - d1)
+    fc = fc**np.sign(fc)
+    return fc
+
+
 def get_prob_1_bin_trait(cond_rates_eff):
     d1 = cond_rates_eff[0, :]
     d2 = cond_rates_eff[1, :]
     prob = get_prob(d1, d2, len(d1))
-    mag = d1 / d2
-    mean_mag = np.mean(mag)
+    mag = get_fold_change(d1, d2)
+    mean_mag = np.median(mag)
     mag_HPD = np.array([np.nan, np.nan])
     if np.sum(~np.isnan(mag)) > 2:
         mag_HPD = util.calcHPD(mag[~np.isnan(mag)], .95)
@@ -3254,8 +3274,8 @@ def get_prob_1_con_trait(cond_rates_eff):
     d = d.flatten()
     n = np.sum(d > 0.0)
     prob = n / len(d)
-    mag = d1 / d2
-    mean_mag = np.mean(mag)
+    mag = get_fold_change(d1, d2)
+    mean_mag = np.median(mag)
     mag_HPD = np.array([np.nan, np.nan])
     if np.sum(~np.isnan(mag)) > 2:
         mag_HPD = util.calcHPD(mag[~np.isnan(mag)], .95)
@@ -3283,10 +3303,7 @@ def get_prob_inter_bin_con_trait(rates_eff, state0):
         d1 = diff_state[idx_largest_diff, :]
         d2 = diff_state[idx_smallest_diff, :]
         prob = get_prob(d1, d2, len(d1))
-#        m1 = np.abs(cond_rates_state0[idx_largest_diff, :] - cond_rates_state0[idx_smallest_diff, :])
-#        m2 = np.abs(cond_rates_state1[idx_largest_diff, :] - cond_rates_state1[idx_smallest_diff, :])
-#        mag = m1 / m2
-        mag = np.abs(diff_state[idx_largest_diff, :]) / np.abs(diff_state[idx_smallest_diff, :])
+        mag = get_fold_change(diff_state[idx_largest_diff, :], diff_state[idx_smallest_diff, :])
         mean_mag = np.nanmedian(mag)
         if np.sum(~np.isnan(mag)) > 2:
             mag_HPD = util.calcHPD(mag[~np.isnan(mag)], .95)
@@ -3469,17 +3486,16 @@ def get_prob_inter_2_con_trait(cond_rates_eff, trait_tbl_eff, incl_features, con
     rates_single_feat = rates_feat0
     if prob_feat1 > prob_feat0:
         rates_single_feat = rates_feat1
-    mag_single_feat = rates_single_feat[0, :] / rates_single_feat[1, :]
+    mag_single_feat = get_fold_change(rates_single_feat[0, :], rates_single_feat[1, :])#rates_single_feat[0, :] / rates_single_feat[1, :]
     d1 = cond_rates_eff[idx_min_rate, :]
     d2 = cond_rates_eff[idx_max_rate, :]
-    #prob = get_prob(d1, d2, niter_mcmc)
-    mag = d1 / d2
-    mean_mag = np.mean(mag)
+    mag = get_fold_change(d1, d2)
+    mean_mag = np.median(mag)
     mag_HPD = np.array([np.nan, np.nan])
     if np.sum(~np.isnan(mag)) > 2:
         mag_HPD = util.calcHPD(mag[~np.isnan(mag)], .95)
     # Magnitude interaction greater than for the more important feature of both?
-    if np.mean(mag) > 1:
+    if np.mean(mag) > 0:
         prob = np.sum(mag > mag_single_feat) / niter_mcmc
     else:
         prob = np.sum(mag < mag_single_feat) / niter_mcmc
@@ -3585,7 +3601,7 @@ def get_prob_effects(cond_trait_tbl, cond_rates, bdnn_obj, names_features, rate_
             prob_effects = pd.concat([prob_effects, prob], ignore_index = True)
     prob_effects.columns = ['feature1', 'feature2', 'feature1_state', 'feature2_state',
                             'posterior_probability',
-                            'magnitude_effect', 'magnitude_lwr_CI', 'magnitude_upr_CI']
+                            'fold_change', 'fold_change_lwr_CI', 'fold_change_upr_CI']
     prob_effects = prob_effects[~prob_effects.duplicated(['feature1', 'feature2', 'feature1_state', 'feature2_state'])] # Feature groups with multiple continuous features are appearing several times. MAybe only when they are not in adjecent columns? Remove this.
     return prob_effects
 
@@ -6189,7 +6205,7 @@ def quickcons(X):
 def highest_pvalue_from_interaction(p):
     unique_features = p[['feature1', 'feature2']].drop_duplicates(ignore_index = True)
     num_unique_features = len(unique_features)
-    columns = ['posterior_probability', 'magnitude_effect', 'magnitude_lwr_CI', 'magnitude_upr_CI']
+    columns = ['posterior_probability', 'fold_change', 'fold_change_lwr_CI', 'fold_change_upr_CI']
     highest_p = pd.DataFrame(columns = columns)
     for i in range(num_unique_features):
         p_tmp = p[(p['feature1'] == unique_features.loc[i, 'feature1']) &

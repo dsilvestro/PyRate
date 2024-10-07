@@ -189,13 +189,22 @@ However, the `-plotBDNN_transf_features` is optional and does not change anythin
 <img src="https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/BDNN/Carnivora_BDNN_backtransformation.png" alt="Backscaling z-transformation" width="1000">
 Temperature effect on carnivore extinction rate with (right) and without (left) reversing the z-transformation of temperature with the `-plotBDNN_transf_features` argument when creating the effect plot from the same BDNN log file.
 
-Time-series data can be provided in an already binned format. This needs to match the time bins of the neural network, which are by default 1 myr (but see [usage of custom bins](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#replacing-default-1-myr-bins)). 
+<br/><br/>
+
+You can use different time-series for speciation and extinction by providing the paths to two text files using `-BDNNtimevar`. These files should have the same column names though. For instance, the emergance of humans could influence extinction rates but not on speciation rates.
+
+```
+python ./PyRate.py ./example_files/BDNN_examples/Carnivora/Carnivora_occs.py -BDNNmodel 1 -trait_file ./example_files/BDNN_examples/Carnivora/Traits.txt -BDNNtimevar ./example_files/BDNN_examples/Carnivora/Advanced_examples/Paleotemperature_nohumans.txt ./example_files/BDNN_examples/Carnivora/Advanced_examples/Paleotemperature_humans.txt -fixShift ./example_files/BDNN_examples/Carnivora/Advanced_examples/Time_windows.txt -mG -qShift ./example_files/BDNN_examples/Carnivora/Stages.txt -out _different_timevar -n 200001 -p 20000 -s 5000
+```
+
+
+Time-series data can be provided in an already binned format. This needs to match the time bins of the neural network, which are by default 1 myr (but see [usage of custom bins](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#replacing-default-1-myr-bins)).
 
 | Time | Temperature |
 ------:| -----------:|
-0.0 | Mean value from 0.0&mdash1.0 Ma
-1.0 | Mean value from 1.0&mdash2.0 Ma
-2.0 | Mean value from 2.0&mdash3.0 Ma
+0.0 | Mean value from 0.0-1.0 Ma
+1.0 | Mean value from 1.0-2.0 Ma
+2.0 | Mean value from 2.0-3.0 Ma
 
 
 ---
