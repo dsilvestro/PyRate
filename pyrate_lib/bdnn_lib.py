@@ -637,77 +637,77 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn, translate=0.0,
             q_mean_file = output_wd + "/" + "%s_mean_q_per_taxon.txt" % name_file
             q_mean_per_taxon_df.to_csv(q_mean_file, na_rep = 'NA', index = False)
 
-        # Get marginal rates through time for the specified group of taxa
-        FA = np.max(np.mean(ts, axis=0))
-        LO = np.min(np.mean(te, axis=0))
-        for g in range(len(group_names)):
-            gs = group_species_idx[g]
-            sptt = None
-            extt = None
-            divtt = None
-            longtt = None
-            time_vec = None
-            qtt = None
-            time_vec_q = None
-            r_file = "%s_%s_RTT.r" % (name_file, group_names[g])
-            pdf_file = "%s_%s_RTT.pdf" % (name_file, group_names[g])
+    # Get marginal rates through time for the specified group of taxa
+    FA = np.max(np.mean(ts, axis=0))
+    LO = np.min(np.mean(te, axis=0))
+    for g in range(len(group_names)):
+        gs = group_species_idx[g]
+        sptt = None
+        extt = None
+        divtt = None
+        longtt = None
+        time_vec = None
+        qtt = None
+        time_vec_q = None
+        r_file = "%s_%s_RTT.r" % (name_file, group_names[g])
+        pdf_file = "%s_%s_RTT.pdf" % (name_file, group_names[g])
 
-            if do_diversification:
-                time_vec = format_t_vec(times_of_shift[1:-1], FA, 0.0, translate)
-                r_sp = np.zeros((num_it, num_bins))
-                r_ex = np.zeros((num_it, num_bins))
-                FA_gs = np.max(np.mean(ts[:, gs], axis=0))
-                LO_gs = np.min(np.mean(te[:, gs], axis=0))
-                if FA_gs < FA and FA_gs > times_of_shift[1]:
-                    time_vec = format_t_vec(times_of_shift[1:-1], FA_gs, 0.0, translate)
-                for i in range(num_it):
-                    for j in range(num_bins):
-                        lam_tmp = lam_it[i, gs, j]
-                        mu_tmp = mu_it[i, gs, j]
-                        indx = get_sp_indx_in_timeframe(ts[i, gs], te[i, gs], up = times_of_shift[j], lo = times_of_shift[j + 1])
-                        with warnings.catch_warnings():
-                            warnings.simplefilter('ignore', category = RuntimeWarning)
-                            r_sp[i, j] = 1 / np.mean(1 / lam_tmp[indx])
-                            r_ex[i, j] = 1 / np.mean(1 / mu_tmp[indx])
-                r_sp[:, times_of_shift[1:] >= FA_gs] = np.nan
-                r_sp[:, times_of_shift[:-1] <= LO_gs] = np.nan
-                r_ex[:, times_of_shift[1:] >= FA_gs] = np.nan
-                r_ex[:, times_of_shift[:-1] <= LO_gs] = np.nan
-                r_div = r_sp - r_ex
-                longevity = 1. / r_ex
-                sptt = summarize_rate(r_sp, num_bins)
-                extt = summarize_rate(r_ex, num_bins)
-                divtt = summarize_rate(r_div, num_bins)
-                longtt = summarize_rate(longevity, num_bins)
-#                sptt_file = output_wd + "/" + "%s_%s_LamTT.txt" % (name_file, group_names[g])
-#                sptt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), sptt)), columns = ['time', 'mean', 'lwr', 'upr'])
-#                sptt2.to_csv(sptt_file, na_rep = 'NA', index = False)
-#                extt_file = output_wd + "/" + "%s_%s_MuTT.txt" % (name_file, group_names[g])
-#                extt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), extt)), columns = ['time', 'mean', 'lwr', 'upr'])
-#                extt2.to_csv(extt_file, na_rep = 'NA', index = False)
-#                divtt_file = output_wd + "/" + "%s_%s_DivTT.txt" % (name_file, group_names[g])
-#                divtt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), divtt)), columns = ['time', 'mean', 'lwr', 'upr'])
-#                divtt2.to_csv(divtt_file, na_rep = 'NA', index = False)
-
-            if do_sampling:
-                num_q_bins = len(q_bins) - 1
-                r_q = np.zeros((num_it, num_q_bins))
-                FA_gs = np.max(np.mean(ts[:, gs], axis=0))
-                LO_gs = np.min(np.mean(te[:, gs], axis=0))
-                for i in range(num_it):
-                    q_rate = q_it[i, gs, :]
-                    if q_it.shape[2] == 1:
-                        q_rate = q_it[i, gs, :].reshape(-1)
+        if do_diversification:
+            time_vec = format_t_vec(times_of_shift[1:-1], FA, 0.0, translate)
+            r_sp = np.zeros((num_it, num_bins))
+            r_ex = np.zeros((num_it, num_bins))
+            FA_gs = np.max(np.mean(ts[:, gs], axis=0))
+            LO_gs = np.min(np.mean(te[:, gs], axis=0))
+            if FA_gs < FA and FA_gs > times_of_shift[1]:
+                time_vec = format_t_vec(times_of_shift[1:-1], FA_gs, 0.0, translate)
+            for i in range(num_it):
+                for j in range(num_bins):
+                    lam_tmp = lam_it[i, gs, j]
+                    mu_tmp = mu_it[i, gs, j]
+                    indx = get_sp_indx_in_timeframe(ts[i, gs], te[i, gs], up = times_of_shift[j], lo = times_of_shift[j + 1])
                     with warnings.catch_warnings():
                         warnings.simplefilter('ignore', category = RuntimeWarning)
-                        r_q[i, :] = harmonic_mean_q_through_time(ts[i, gs], te[i, gs], q_bins, q_rate)
-                time_vec_q = format_t_vec(q_bins[1:-1], FA, LO, translate)
-                r_q[:, q_bins[1:] >= FA_gs] = np.nan
-                r_q[:, q_bins[:-1] <= LO_gs] = np.nan
-                qtt = summarize_rate(r_q, num_q_bins)
+                        r_sp[i, j] = 1 / np.mean(1 / lam_tmp[indx])
+                        r_ex[i, j] = 1 / np.mean(1 / mu_tmp[indx])
+            r_sp[:, times_of_shift[1:] >= FA_gs] = np.nan
+            r_sp[:, times_of_shift[:-1] <= LO_gs] = np.nan
+            r_ex[:, times_of_shift[1:] >= FA_gs] = np.nan
+            r_ex[:, times_of_shift[:-1] <= LO_gs] = np.nan
+            r_div = r_sp - r_ex
+            longevity = 1. / r_ex
+            sptt = summarize_rate(r_sp, num_bins)
+            extt = summarize_rate(r_ex, num_bins)
+            divtt = summarize_rate(r_div, num_bins)
+            longtt = summarize_rate(longevity, num_bins)
+#            sptt_file = output_wd + "/" + "%s_%s_LamTT.txt" % (name_file, group_names[g])
+#            sptt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), sptt)), columns = ['time', 'mean', 'lwr', 'upr'])
+#            sptt2.to_csv(sptt_file, na_rep = 'NA', index = False)
+#            extt_file = output_wd + "/" + "%s_%s_MuTT.txt" % (name_file, group_names[g])
+#            extt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), extt)), columns = ['time', 'mean', 'lwr', 'upr'])
+#            extt2.to_csv(extt_file, na_rep = 'NA', index = False)
+#            divtt_file = output_wd + "/" + "%s_%s_DivTT.txt" % (name_file, group_names[g])
+#            divtt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), divtt)), columns = ['time', 'mean', 'lwr', 'upr'])
+#            divtt2.to_csv(divtt_file, na_rep = 'NA', index = False)
 
-            xlim = [FA, LO]
-            plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q, xlim)
+        if do_sampling:
+            num_q_bins = len(q_bins) - 1
+            r_q = np.zeros((num_it, num_q_bins))
+            FA_gs = np.max(np.mean(ts[:, gs], axis=0))
+            LO_gs = np.min(np.mean(te[:, gs], axis=0))
+            for i in range(num_it):
+                q_rate = q_it[i, gs, :]
+                if q_it.shape[2] == 1:
+                    q_rate = q_it[i, gs, :].reshape(-1)
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore', category = RuntimeWarning)
+                    r_q[i, :] = harmonic_mean_q_through_time(ts[i, gs], te[i, gs], q_bins, q_rate)
+            time_vec_q = format_t_vec(q_bins[1:-1], FA, LO, translate)
+            r_q[:, q_bins[1:] >= FA_gs] = np.nan
+            r_q[:, q_bins[:-1] <= LO_gs] = np.nan
+            qtt = summarize_rate(r_q, num_q_bins)
+
+        xlim = [FA, LO]
+        plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q, xlim)
 
 
 def apply_thin(w, thin):
