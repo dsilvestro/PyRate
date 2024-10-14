@@ -188,23 +188,11 @@ def precompute_Pt(delta_t, w_list, vl_list, vl_inv_list, nTaxa, traits, cat):
     return Pt
 
 
-#def get_eigen_list(Q_list):
-#    L=len(Q_list)
-#    w_list,vl_list,vl_inv_list = [],[],[]
-#    for Q in Q_list:
-#        w, vl = scipy.linalg.eig(Q,left=True, right=False) # w = eigenvalues; vl = eigenvectors
-#        vl_inv = np.linalg.inv(vl)
-#        w_list.append(w)
-#        vl_list.append(vl)
-#        vl_inv_list.append(vl_inv)
-#    return w_list,vl_list,vl_inv_list
-
-
 def get_eigen_list(QT_array):
     # Requires 3D array with transposed Q matrices along axis 0!
     w, vl = np.linalg.eig(QT_array)
-    vl = vl[:,:,[1,2,3,0]] * [-1,1,-1,1]
-    w = w[:,[1,2,3,0]]
+    vl = vl[:, :, [1, 2, 3, 0]] * [-1,1,-1,1]
+    w = w[:, [1, 2, 3, 0]]
     vl_inv = np.linalg.inv(vl)
     return w, vl, vl_inv
 
