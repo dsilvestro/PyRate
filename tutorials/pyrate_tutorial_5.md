@@ -132,7 +132,7 @@ Launch PyRateDES by opening a Terminal window and browsing to the PyRate directo
 
 The following code produces the DES input files (see Example 1 for the explanation of the arguments).
 
-`python ./PyRateDES.py -fossil .../example_files/DES_examples/DES_input_data/foss.txt -recent .../example_files/DES_examples/DES_input_data/pres.txt -wd .../example_files/DES_examples -filename Example2 -bin_size 2 -rep 5`
+`python ./PyRateDES.py -fossil ./example_files/DES_examples/DES_input_data/foss.txt -recent ./example_files/DES_examples/DES_input_data/pres.txt -wd ./example_files/DES_examples -filename Example2 -bin_size 2 -rep 5`
 
 <br>
 
@@ -172,23 +172,31 @@ To launch PyRateDES open a Terminal window and browse to the PyRate directory
 
 `cd /path/to/PyRate`
 
-The following command executes a DES analysis with dispersal, extinction and sampling rates that are constant through time but differ between both areas. The `-TdD` and `-TdE` commands specify time-dependent dispersal and extinction rates, respectively.
+The following command executes a DES analysis with dispersal, extinction and sampling rates that are constant through time but differ between both areas.
 
-`python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE`
+```
+python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt
+```
 
-The output file will be named *Carnivora_1_0_TdD_TdE.log* and is saved where the input data was (here: .../example_files/DES_examples/Carnivora). The optional `-out`argument allows to add a user-defined name to the output.
+The output file will be named *Carnivora_1_0.log* and is saved where the input data was (here: ./example_files/DES_examples/Carnivora). The optional `-out`argument allows to add a user-defined name to the output.
 
 The default settings specify Bayesian inference. We can (and in the cases of more complex models with time-variable rates we should) change the number of MCMC iterations and the sampling frequency. By default PyRateDES will run 100,000 iterations and sample and print the parameters every 100 iterations. Depending on the size of the data set you may have to increase the number iterations to reach convergence (in which case it might be a good idea to sample the chain less frequently to reduce the size of the output files). This is done using the commands `-n`, `-s`, and `-p`:
 
-`python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -n 500000 -s 1000 -p 10000`
+```
+python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -n 500000 -s 1000 -p 10000
+```
 
 The same DES model can be fitted with Maximum likelihood by setting the algorithm to `-A 3` instead of using the default `-A 0`. This is typically faster than Bayesian inference but does not quantify the uncertainty of the model parameters.
 
-`python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -A 3`
+```
+python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -A 3
+```
 
 We can obtain the mean and 95% credible interval of all model parameters of a Bayesian analysis by summarizing its output:
 
-`python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -sum ./example_files/DES_examples/Carnivora/Carnivora_1_0_TdD_TdE.log`
+```
+python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -sum ./example_files/DES_examples/Carnivora/Carnivora_1_0.log
+```
 
 <br>
 
@@ -196,15 +204,19 @@ We can obtain the mean and 95% credible interval of all model parameters of a Ba
 
 You can include differences in preservation rates across taxa. The command `-mG` specifies a model where the mean sampling rate across all taxa equals q and the heterogeneity is given by a discretized Gamma distribution with *n* categories. The default of four categories (`-ncat 4`) is usually sufficient to account for heterogeneity across lineages and a higher number increases computation time. Incorporating sampling heterogeneity improves the rate estimation. Sampling heterogeneity is computationally inexpensive to infer as it only adds a single free parameter to the model and should therefore be always included in DES models.
 
-`python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -mG`
+```
+python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -mG
+```
 
 <br>
 
 ### Time variable model with rate shifts (Skyline model)
 
-Dispersal, extinction, and preservation rates are allowed to shift at discrete moments in time, which are specified with the `-qtimes` argument. These shifts could be e.g. chronostratigraphic stages or series.
+Dispersal, extinction, and preservation rates are allowed to shift at discrete moments in time, which are specified with the `-qtimes` argument. These shifts could be e.g. chronostratigraphic stages or series. The arguments `-TdD`and `-TdE` should be added to allow dispersal and extinction rates to vary with through time.
 
-`python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -mG -qtimes 20.43 15.97 13.65 11.63 7.25 5.33 2.58 -n 1000001 -s 1000 -p 1000`
+```
+python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -mG -qtimes 20.43 15.97 13.65 11.63 7.25 5.33 2.58 -n 1000001 -s 1000 -p 1000
+```
 
 There are several optional constraints on dispersal, extinction, and preservation rates possible.
 
@@ -215,7 +227,7 @@ There are several optional constraints on dispersal, extinction, and preservatio
 
 ### Covariate dependent dispersal and extinction models
 
-PyRateDES2.py includes an upgraded version of the original DES model which allows more flexibility in time-variable dispersal and extinction models. You can use a time variable predictor (e.g. sea level or temperature) and model dispersal and/or extinction as a function of the predictor. The predictors should be tab-separated text files located in a seperate directory. See the file [sealevel.txt](https://github.com/dsilvestro/PyRate/blob/master//example_files/DES_examples/Carnivora/covariate_dispersal/sealevel.txt) in the example files. 
+PyRateDES.py includes an upgraded version of the original DES model which allows more flexibility in time-variable dispersal and extinction models. You can use a time variable predictor (e.g. sea level or temperature) and model dispersal and/or extinction as a function of the predictor. The predictors should be tab-separated text files located in a seperate directory. See the file [sealevel.txt](https://github.com/dsilvestro/PyRate/blob/master//example_files/DES_examples/Carnivora/covariate_dispersal/sealevel.txt) in the example files. 
 
 | age | sealevel |
 | --- |:--------:|
@@ -225,13 +237,22 @@ PyRateDES2.py includes an upgraded version of the original DES model which allow
 0.006 | -51.636
 0.010 | -114.181
 
-You can use the same or different predictors for dispersal and extinction. For instance, you can test sea level as a predictor of dispersal and a climate proxy as a predictor for extinction. Several covariates could influence dispersal and/or extinction rates and should be located in the same directory. The arguments `-TdD`and `-TdE` should be omitted when covariate effects are inferred.
+You can use the same or different predictors for dispersal and extinction. For instance, you can test sea level as a predictor of dispersal and a climate proxy as a predictor for extinction. Several covariates could influence dispersal and/or extinction rates and should be located in the same directory.
 
-`python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -varD ./example_files/DES_examples/Carnivora/covariate_dispersal -varE ./example_files/DES_examples/Carnivora/covariate_extinction`
+```
+python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -varD ./example_files/DES_examples/Carnivora/covariate_dispersal -varE ./example_files/DES_examples/Carnivora/covariate_extinction
+```
+
+Moreover, area-specific covariates can be used, for instance, different temperature time-series for area 1 and 2. For this we need to provide two path for `-varD` (or `-varE`). The path to the first folder are the time-series for area 1 and the second path for area 2.
+
+```
+python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -varE ./example_files/DES_examples/Carnivora/covariate_eurasia ./example_files/DES_examples/Carnivora/covariate_northamerica
+```
+
 
 By default, all covariates are scaled to the range [0,1]. This behavior can be changed with the argument `-r`.
 
-Covariate dependent models can be combined with `-qtimes` to allow sampling rates to vary over time and `-mG` to model heterogeneity in sampling acroos taxa. 
+Covariate dependent models can be combined with `-qtimes` to allow sampling rates to vary over time, `-TdD` and `-TdE` to allow shifts in baseline rates, and `-mG` to model heterogeneity in sampling across taxa. 
 
 Moreover, several constraints on the covariate effect are possible:
 
@@ -244,7 +265,9 @@ Moreover, several constraints on the covariate effect are possible:
 
 Dispersal rate into an area could decline with the increase in diversity of the respective area and extinction rate may increase with the area's diversity. PyRateDES2.py allows to quantify and test these effects with the arguments `-DivdD`for diversity-dependent dispersal and `-DivdE`for diversity-dependent extinction.
 
-`python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -DivdD -DivdE`
+```
+python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -DivdD -DivdE
+```
 
 A different effect of diversity on extinction is that immigrating taxa drive resident taxa to extinction (e.g. invasion). This effect can be included in the DES model with the argument `-DdE`. Diversity dependent models can be combined with `-qtimes` and `-mG`.
 
@@ -269,7 +292,9 @@ Aelurocyon | 1.731
 
 The DES anaylsis can be launched with the following command:
 
-`python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -traitD ./example_files/DES_examples/Carnivora/Body_mass_1.txt`
+```
+python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -traitD ./example_files/DES_examples/Carnivora/Body_mass_1.txt
+```
 
 * `-traitD` and `-traitE` specifies the continuous traits influencing dispersal and extinction, respectively.
 
@@ -277,7 +302,9 @@ The DES anaylsis can be launched with the following command:
 
 Trait-dependent dispersal and extinction rates can be combined with an environmental influence on these rates and categorical traits (as well as different preservation models `-qtimes` and `-mG`). 
 
-`python ./PyRateDES.py -d .../example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -varE .../example_files/DES_examples/Carnivora/covariate_extinction -traitD .../example_files/DES_examples/Carnivora/Body_mass_1.txt`
+```
+python ./PyRateDES.py -d .../example_files/DES_examples/Carnivora/Carnivora_1.txt ./example_files/DES_examples/Carnivora/covariate_extinction -traitD .../example_files/DES_examples/Carnivora/Body_mass_1.txt
+```
 
 Categorical traits (e.g. higher taxonomy like family) needs to be numerical coded. See the file [FamilyGenera.txt](https://github.com/dsilvestro/PyRate/blob/master//example_files/DES_examples/Carnivora/FamilyGenera.txt) in the example files. Additional column can be used to reflect the hierarchical taxonomy of the taxon.
 
@@ -289,7 +316,9 @@ Adcrocuta | 8
 Adilophontes | 2
 Aelurocyon | 10
 
-`python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -catD ./example_files/DES_examples/Carnivora/FamilyGenera.txt`
+```
+python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -catD ./example_files/DES_examples/Carnivora/FamilyGenera.txt
+```
 
 * `-catD` and `-catE` specifies the categorical traits influencing dispersal and extinction, respectively.
 <br>
@@ -300,13 +329,17 @@ Aelurocyon | 10
 
 The **mcmc.log** file can be used to obtain the mean and credible interval of the model parameters where the flag `-b` specifies the burnin (default 0; e.g. 1000 for the first 1000 MCMC generations).
 
-`python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -sum ./example_files/DES_examples/Carnivora/Carnivora_1_0_TdD_TdE.log -b 1000`
+```
+python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -sum ./example_files/DES_examples/Carnivora/Carnivora_1_0.log -b 1000
+```
 
 ### Plotting model output
 
 With the help of the **marginal_rates.log** file we can plot the trajectory of the area-specific dispersal and extinction rates through time.
 
-`python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -qtimes 2.58 5.33 7.25 11.63 13.65 15.97 20.43 -mG -plot ./example_files/DES_examples/Carnivora/Carnivora_1_0_q_2.58_5.33_7.25_11.63_13.65_15.97_20.43_TdD_TdE_marginal_rates.log -b 200 -plotCI 0.75 0.95`
+```
+python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -qtimes 2.58 5.33 7.25 11.63 13.65 15.97 20.43 -mG -plot ./example_files/DES_examples/Carnivora/Carnivora_1_0_q_2.58_5.33_7.25_11.63_13.65_15.97_20.43_TdD_TdE_marginal_rates.log -b 200 -plotCI 0.75 0.95
+```
 
 ![Example rate shifts through time](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/DES_rate_shifts_through_time.png)
 
@@ -316,12 +349,16 @@ This will generate an R script and a PDF file with the rates-through-time plots.
 
 This model could be inferred with:
 
-`python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -qtimes 2.58 5.33 7.25 11.63 13.65 15.97 20.43 -mG -n 1000001 -s 1000 -p 1000`
+```
+python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -TdE -qtimes 2.58 5.33 7.25 11.63 13.65 15.97 20.43 -mG -n 1000001 -s 1000 -p 1000
+```
 
 
 The effect of environmental covariates, diversity, and traits can also be plotted:
 
-`python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -traitD ./example_files/DES_examples/Carnivora/Body_mass_1.txt -catD ./example_files/DES_examples/Carnivora/FamilyGenera.txt -varE ./example_files/DES_examples/Carnivora/covariate_extinction -qtimes 2.58 5.33 7.25 11.63 13.65 15.97 20.43 -mG -plot ./example_files/DES_examples/Carnivora/Carnivora_1_0_q_2.58_5.33_7.25_11.63_13.65_15.97_20.43_TdD_Eexp_constr_0_1_TraitD_CatD_G.log -b 200`
+```
+python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -traitD ./example_files/DES_examples/Carnivora/Body_mass_1.txt -catD ./example_files/DES_examples/Carnivora/FamilyGenera.txt -varE ./example_files/DES_examples/Carnivora/covariate_extinction -qtimes 2.58 5.33 7.25 11.63 13.65 15.97 20.43 -mG -plot ./example_files/DES_examples/Carnivora/Carnivora_1_0_q_2.58_5.33_7.25_11.63_13.65_15.97_20.43_TdD_Eexp_constr_0_1_TraitD_CatD_G.log -b 200
+```
 
 ![Example body-mass dispersal relationship](https://github.com/dsilvestro/PyRate/blob/master/example_files/plots/DES_bodymass_dispersal.png)
 
@@ -333,5 +370,7 @@ These plots show that the impact of paleotemperature on extinction rate is stron
 
 The model can be run with:
 
-`python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -constr 1 2 -traitD ./example_files/DES_examples/Carnivora/Body_mass_1.txt -catD ./example_files/DES_examples/Carnivora/FamilyGenera.txt -varE ./example_files/DES_examples/Carnivora/covariate_extinction -qtimes 2.58 5.33 7.25 11.63 13.65 15.97 20.43 -mG -n 1000001 -s 1000 -p 1000`
+```
+python ./PyRateDES.py -d ./example_files/DES_examples/Carnivora/Carnivora_1.txt -TdD -constr 1 2 -traitD ./example_files/DES_examples/Carnivora/Body_mass_1.txt -catD ./example_files/DES_examples/Carnivora/FamilyGenera.txt -varE ./example_files/DES_examples/Carnivora/covariate_extinction -qtimes 2.58 5.33 7.25 11.63 13.65 15.97 20.43 -mG -n 1000001 -s 1000 -p 1000
+```
 

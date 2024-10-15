@@ -161,13 +161,13 @@ def shape_r_vec_indexes_for_fastlik(rl, argsG, gamma_ncat):
     nbins = len(rl[0])
     if argsG:
         for i in range(len_rl):
-            r_vec_ind = np.array(rl[i]).flatten().reshape((nbins, 8)) # Rows: Time, cols: r_indices replicated by gamma categories
+            r_vec_ind = np.array(rl[i]).ravel().reshape((nbins, 8)) # Rows: Time, cols: r_indices replicated by gamma categories
             r_vec_ind = np.tile(r_vec_ind, gamma_ncat)
-            r_vec_ind = r_vec_ind.flatten() + np.repeat(np.arange(0, 4 * nbins * gamma_ncat, 4), 8)
+            r_vec_ind = r_vec_ind.ravel() + np.repeat(np.arange(0, 4 * nbins * gamma_ncat, 4), 8)
             new_rl.append(r_vec_ind)
     else:
         for i in range(len_rl):
-            r_vec_ind = np.array(rl[i]).flatten() + np.repeat(np.arange(0, 4 * nbins, 4), 8)
+            r_vec_ind = np.array(rl[i]).ravel() + np.repeat(np.arange(0, 4 * nbins, 4), 8)
             new_rl.append(r_vec_ind)
     return new_rl
 
@@ -239,7 +239,7 @@ def calc_likelihood_mQ_eigen_precompute(args):
     len_rec = len(recursive)
     nbins = len(sign_list)
     rho_gamma = r_vec[0].ndim > 1
-    m = r_vec.flatten()[r_vec_indexes]
+    m = r_vec.ravel()[r_vec_indexes]
     if rho_gamma:
         gamma_ncat = r_vec[0].shape[0]
         m = m.reshape((nbins, gamma_ncat, 4, 2))
