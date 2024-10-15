@@ -190,9 +190,9 @@ def calcHPD(data, level) :
 
 def check_burnin(b,I):
     #print b, I
-    if b<1: burnin=int(b*I)
+    if b<1:burnin=int(b*I)
     else: burnin=int(b)
-    if burnin>=(I-10):
+    if burnin>=(I-10) and b > 0:
         print("Warning: burnin too high! Excluding 10% instead.")
         burnin=int(0.1*I)
     return burnin
@@ -823,16 +823,25 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
 
 
 ########################## COMBINE LOG FILES ##############################
-def comb_rj_rates(infile, files,tag, resample, rate_type):
+def read_rates_log(f, burnin):
+    f_temp = open(f, 'r')
+    x_temp = [line for line in f_temp.readlines()]
+    num_it = len(x_temp)
+    b = check_burnin(burnin, num_it)
+    f_temp = open(f, 'r')
+    x_temp = [line for line in f_temp.readlines()]
+    x_temp = x_temp[b:]
+    x_temp = np.array(x_temp)
+    return x_temp
+
+
+def comb_rj_rates(infile, files, burnin, tag, resample, rate_type):
     j=0
     for f in files:
-        f_temp = open(f,'r')
-        x_temp = [line for line in f_temp.readlines()]
-        x_temp = x_temp[np.maximum(1,int(burnin)):]
-        x_temp =array(x_temp)
+        x_temp = read_rates_log(f, burnin)
         if 2>1: #try:
             if resample>0:
-                r_ind= np.sort(np.random.randint(0,len(x_temp),resample))
+                r_ind = np.sort(np.random.randint(0,len(x_temp),resample))
                 x_temp = x_temp[r_ind]
             if j==0:
                 comb = x_temp
@@ -866,7 +875,9 @@ def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type="", keep
         if 2>1: #try:
             file_name =  os.path.splitext(os.path.basename(f))[0]
             print(file_name, end=' ')
-            t_file=np.loadtxt(f, skiprows=np.maximum(1,int(burnin)))
+            num_it = np.loadtxt(f, skiprows=1).shape[0]
+            b = check_burnin(burnin, num_it)
+            t_file=np.loadtxt(f, skiprows=b + 1)
             shape_f=shape(t_file)
             print(shape_f)
             #t_file = t[burnin:shape_f[0],:]#).astype(str)
@@ -989,18 +1000,16 @@ def comb_log_files_smart(path_to_files,burnin=0,tag="",resample=0,col_tag=[], ke
     print("found", len(files), "log files...\n")
     if len(files)==0: quit()
     j=0
-    burnin = int(burnin)
 
     # RJ rates files
     files_temp = [f for f in files if "_sp_rates.log" in os.path.basename(f)]
     if len(files_temp)>1:
         print("processing %s *_sp_rates.log files" % (len(files_temp)))
-        comb_rj_rates(infile, files_temp,tag, resample, rate_type="sp_rates")
-
+        comb_rj_rates(infile, files_temp, burnin, tag, resample, rate_type="sp_rates")
     files_temp = [f for f in files if "_ex_rates.log" in os.path.basename(f)]
     if len(files_temp)>1:
         print("processing %s *_ex_rates.log files" % (len(files_temp)))
-        comb_rj_rates(infile, files_temp,tag, resample, rate_type="ex_rates")
+        comb_rj_rates(infile, files_temp, burnin, tag, resample, rate_type="ex_rates")
 
     # MCMC files
     files_temp = [f for f in files if "_mcmc.log" in os.path.basename(f)]
@@ -1020,7 +1029,7 @@ def comb_log_files_smart(path_to_files,burnin=0,tag="",resample=0,col_tag=[], ke
     files_temp = [f for f in files if "_q_rates.log" in os.path.basename(f) and not "_species_q_rates.log" in os.path.basename(f)]
     if len(files_temp)>1:
         print("processing %s *_q_rates.log files" % (len(files_temp)))
-        comb_rj_rates(infile, files_temp,tag, resample, rate_type="q_rates")
+        comb_rj_rates(infile, files_temp, burnin, tag, resample, rate_type="q_rates")
     files_temp = [f for f in files if "_species_q_rates.log" in os.path.basename(f)]
     if len(files_temp)>1:
         print("processing %s *_species_q_rates.log files" % (len(files_temp)))
@@ -1037,15 +1046,9 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
     if len(files)==0: quit()
     j=0
 
-
-    burnin = int(burnin)
-
     if "_sp_rates.log" in os.path.basename(files[0]) or "_ex_rates.log" in os.path.basename(files[0]):
         for f in files:
-            f_temp = open(f,'r')
-            x_temp = [line for line in f_temp.readlines()]
-            x_temp = x_temp[np.maximum(1,int(burnin)):]
-            x_temp =array(x_temp)
+            x_temp = read_rates_log(f, burnin)
             try:
                 if resample>0:
                     r_ind= np.sort(np.random.randint(0,len(x_temp),resample))
@@ -1078,7 +1081,9 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
         try:
             file_name =  os.path.splitext(os.path.basename(f))[0]
             print(file_name, end=' ')
-            t_file=np.loadtxt(f, skiprows=np.maximum(1,int(burnin)))
+            num_it = np.loadtxt(f, skiprows=1).shape[0]
+            b = check_burnin(burnin, num_it)
+            t_file=np.loadtxt(f, skiprows=b + 1)
             shape_f=shape(t_file)
             print(shape_f)
             #t_file = t[burnin:shape_f[0],:]#).astype(str)

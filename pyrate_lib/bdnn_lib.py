@@ -4067,18 +4067,12 @@ def get_rate_BDNN_3D_noreg(x, w, act_f, out_act_f, sampling=False, singleton_mas
     return rates
 
 
-def get_bdnn_lik(bdnn_obj, bdnn_time, i_events_sp, i_events_ex, n_S, w, t_reg, reg_denom, trait_tbl_NN, rate_type):
+def get_bdnn_lik(bdnn_obj, bdnn_time, i_events, n_S, w, t_reg, reg_denom, trait_tbl_NN):
     hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
     out_act_f = bdnn_obj.bdnn_settings['out_act_f']
-    trait_tbl_idx = 0
-    if rate_type == 'm':
-        trait_tbl_idx = 1
-    r = get_rate_BDNN_3D_noreg(trait_tbl_NN[trait_tbl_idx], w, hidden_act_f, out_act_f)
+    r = get_rate_BDNN_3D_noreg(trait_tbl_NN, w, hidden_act_f, out_act_f)
     r = r ** t_reg / reg_denom
-    if rate_type == 'l':
-        args = [ i_events_sp, n_S, r ]
-    else:
-        args = [ i_events_ex, n_S, r ]
+    args = [i_events, n_S, r]
     bdnn_lik = BDNN_fast_partial_lik(args)
     return np.sum(bdnn_lik)
 
@@ -4230,13 +4224,13 @@ def perm_mcmc_sample_i(arg):
         trt_tbls[1][:, :, div_idx_trt_tbl] = bdnn_binned_div
     # Original bd liks
     orig_birth_lik = get_bdnn_lik(bdnn_obj,
-                                  bdnn_time, i_events_sp, i_events_ex, n_S,
+                                  bdnn_time, i_events_sp, n_S,
                                   post_w_sp_i, t_reg_lam_i, reg_denom_lam_i,
-                                  trt_tbls, rate_type='l')
+                                  trt_tbls[0])
     orig_death_lik = get_bdnn_lik(bdnn_obj,
-                                  bdnn_time, i_events_sp, i_events_ex, n_S,
+                                  bdnn_time, i_events_ex, n_S,
                                   post_w_ex_i, t_reg_mu_i, reg_denom_mu_i,
-                                  trt_tbls, rate_type='m')
+                                  trt_tbls[1])
     sp_lik_j = np.zeros((n_perm, n_perm_traits))
     ex_lik_j = np.zeros((n_perm, n_perm_traits))
     rngint = np.random.default_rng()
@@ -4260,22 +4254,22 @@ def perm_mcmc_sample_i(arg):
                 # Use high temporal resolution (obtained with set_temporal_resolution) for time-variable features but not for traits.
                 # This makes the calculation faster.
                 sp_lik_j[k, j] = get_bdnn_lik(bdnn_obj,
-                                              bdnn_time_highres, i_events_sp_highres, i_events_ex_highres, n_S_highres,
+                                              bdnn_time_highres, i_events_sp_highres, n_S_highres,
                                               post_w_sp_i, t_reg_lam_i, reg_denom_lam_i,
-                                              trt_tbls_perm, rate_type='l')
+                                              trt_tbls_perm[0])
                 ex_lik_j[k, j] = get_bdnn_lik(bdnn_obj,
-                                              bdnn_time_highres, i_events_sp_highres, i_events_ex_highres, n_S_highres,
+                                              bdnn_time_highres, i_events_ex_highres, n_S_highres,
                                               post_w_ex_i, t_reg_mu_i, reg_denom_mu_i,
-                                              trt_tbls_perm, rate_type='m')
+                                              trt_tbls_perm[1])
             else:
                 sp_lik_j[k, j] = get_bdnn_lik(bdnn_obj,
-                                              bdnn_time, i_events_sp, i_events_ex, n_S,
+                                              bdnn_time, i_events_sp, n_S,
                                               post_w_sp_i, t_reg_lam_i, reg_denom_lam_i,
-                                              trt_tbls_perm, rate_type='l')
+                                              trt_tbls_perm[0])
                 ex_lik_j[k, j] = get_bdnn_lik(bdnn_obj,
-                                              bdnn_time, i_events_sp, i_events_ex, n_S,
+                                              bdnn_time, i_events_ex, n_S,
                                               post_w_ex_i, t_reg_mu_i, reg_denom_mu_i,
-                                              trt_tbls_perm, rate_type='m')
+                                              trt_tbls_perm[1])
     species_sp_delta_lik = sp_lik_j - orig_birth_lik
     species_ex_delta_lik = ex_lik_j - orig_death_lik
     return np.hstack((species_sp_delta_lik, species_ex_delta_lik))
@@ -4432,15 +4426,18 @@ def feature_permutation(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm = 10, 
     feature_is_time_variable = (sp_feature_is_time_variable + ex_feature_is_time_variable) > 0
     perm_traits, perm_feature_idx = create_perm_comb(bdnn_obj, do_inter_imp, combine_discr_features)
     n_perm_traits = len(perm_traits)
-    args = []
+
     bdnn_time = np.array([np.max(post_ts), 0.0])
     bdnn_time_highres = None
     i_events_sp_highres, i_events_ex_highres, n_S_highres = None, None, None
     trt_tbls_highres_trimmed = None
+    if trt_tbls[0].ndim == 3:
+        bdnn_time = get_bdnn_time(fixed_times_of_shift, np.max(post_ts))
+        bdnn_time_highres = get_bdnn_time(fixed_times_of_shift_highres, np.max(post_ts))
+
+    args = []
     for i in range(n_mcmc):
         if trt_tbls[0].ndim == 3:
-            bdnn_time = get_bdnn_time(fixed_times_of_shift, post_ts[i, :])
-            bdnn_time_highres = get_bdnn_time(fixed_times_of_shift_highres, post_ts[i, :])
             bin_size = np.tile(np.abs(np.diff(bdnn_time_highres)), n_taxa).reshape((n_taxa, len(bdnn_time_highres) - 1))
             i_events_sp_highres, i_events_ex_highres, n_S_highres = get_events_ns(post_ts[i, :], post_te[i, :], bdnn_time_highres, bin_size)
             trt_tbls_highres_trimmed = trim_trt_tbls_to_match_event(trt_tbls_highres, i_events_sp_highres)
