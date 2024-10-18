@@ -585,7 +585,7 @@ def get_lik_input(dis_vec, ext_vec, repeats_de, repeats_d, repeats_e,
         dis_vec = dis_vec[repeats_d, :]
         ext_vec = ext_vec[repeats_e, :]
     
-    Q_list, marginal_rates = make_Q_Covar4VDdE(dis_vec, ext_vec,
+    Q_list, marginal_rates = make_Q_Covar4VDdE(dis_vec, ext_vec, repeats_d, repeats_e,
                                                time_var_d1, time_var_d2, time_var_e1, time_var_e2,
                                                diversity_d1, diversity_d2, diversity_e1, diversity_e2, dis_into_1, dis_into_2,
                                                covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE,
@@ -1483,17 +1483,17 @@ def lik_opt(x, grad):
         dis_into_1 = np.ones(len(time_series) - 1)
         dis_into_2 = np.ones(len(time_series) - 1)
     
-    Q_list, marginal_rates_temp, w_list, vl_list, vl_inv_list, Pt = get_lik_input(dis_vec, ext_vec,
-                                                                                  repeats_de, repeats_d, repeats_e,
-                                                                                  time_var_d1, time_var_d2, time_var_e1, time_var_e2,
-                                                                                  diversity_d1, diversity_d2, diversity_e1, diversity_e2,
-                                                                                  dis_into_1, dis_into_2,
-                                                                                  covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE,
-                                                                                  transf_d, transf_e,
-                                                                                  offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
-                                                                                  traits, trait_parD, traitD, trait_parE, traitE,
-                                                                                  cat, cat_parD, catD, catE, cat_parE,
-                                                                                  use_Pade_approx)
+    Q_list, _, w_list, vl_list, vl_inv_list, Pt = get_lik_input(dis_vec, ext_vec,
+                                                                repeats_de, repeats_d, repeats_e,
+                                                                time_var_d1, time_var_d2, time_var_e1, time_var_e2,
+                                                                diversity_d1, diversity_d2, diversity_e1, diversity_e2,
+                                                                dis_into_1, dis_into_2,
+                                                                covar_par, covar_parD, covar_parE, x0_logisticD, x0_logisticE,
+                                                                transf_d, transf_e,
+                                                                offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
+                                                                traits, trait_parD, traitD, trait_parE, traitE,
+                                                                cat, cat_parD, catD, catE, cat_parE,
+                                                                use_Pade_approx)
     lik, weight_per_taxon = lik_DES(Q_list, w_list, vl_list, vl_inv_list, Pt,
                                     r_vec, bin_size,
                                     rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, recursive_LIST, Q_index, Q_index_temp,
@@ -3772,7 +3772,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 #                                                             time_var_e2, time_var_e1two,time_var_e2two,covar_par,
 #                                                             x0_logistic, transf_d, transf_e=1)
 #    else:
-    if dis_ext_updated or it ==0 or args.A == 3:
+    if dis_ext_updated or it == 0 or args.A == 3:
         # Only needed when we updated dispersal and extinction rates
         Q_list, marginal_rates, w_list, vl_list, vl_inv_list, Pt = get_lik_input(dis_vec, ext_vec,
                                                                                  repeats_de, repeats_d, repeats_e,

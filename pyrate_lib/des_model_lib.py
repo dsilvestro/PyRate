@@ -155,76 +155,76 @@ def get_dispersal_rate_through_time(dv_list,time_var_d1,time_var_d2,covar_par=np
 
 
 
-def make_Q_Covar4VDdE(dv_list, ev_list,
+def make_Q_Covar4VDdE(dv_list, ev_list, rep_d, rep_e,
                       time_var_d1, time_var_d2, time_var_e1, time_var_e2,
                       diversity_d1, diversity_d2, diversity_e1, diversity_e2, dis_into_1, dis_into_2,
                       covar_par=np.zeros(4), covar_parD=np.zeros(4), covar_parE=np.zeros(4),
                       x0_logisticD=np.zeros(4), x0_logisticE=np.zeros(4),
                       transf_d=0, transf_e=0,
                       offset_dis_div1=0, offset_dis_div2=0, offset_ext_div1=0, offset_ext_div2=0):
-    #print("transf", transf_d, transf_e)
     if transf_d == 1: # exponential
         idx1 = np.arange(0, len(covar_parD), 2, dtype=int)
         idx2 = np.arange(1, len(covar_parD), 2, dtype=int)
-        transf_d = np.array([dv_list[0][0] * np.exp(np.sum(covar_parD[idx1] * time_var_d1, axis=1)),
-                             dv_list[0][1] * np.exp(np.sum(covar_parD[idx2] * time_var_d2, axis=1))]).T
+        d12 = dv_list[0][0] * np.exp(np.sum(covar_parD[idx1] * time_var_d1, axis=1))
+        d21 = dv_list[0][1] * np.exp(np.sum(covar_parD[idx2] * time_var_d2, axis=1))
     elif transf_d == 2: # logistic
-        transf_d12 = transform_rate_logistic(dv_list[0][0], [covar_parD[0], x0_logisticD[0]], time_var_d1)
-        transf_d21 = transform_rate_logistic(dv_list[0][1], [covar_parD[1], x0_logisticD[1]], time_var_d2)
-        transf_d = np.array([transf_d12,transf_d21]).T
+        d12 = transform_rate_logistic(dv_list[0][0], [covar_parD[0], x0_logisticD[0]], time_var_d1)
+        d21 = transform_rate_logistic(dv_list[0][1], [covar_parD[1], x0_logisticD[1]], time_var_d2)
     elif transf_d == 4: # linear diversity dependence
-        transf_d = np.array([(dv_list[0][0]/(1. - (offset_dis_div1/covar_par[0]))) * (1. - (diversity_d1/covar_par[0])),
-                             (dv_list[0][1]/(1. - (offset_dis_div2/covar_par[1]))) * (1. - (diversity_d2/covar_par[1]))]).T
-        transf_d[transf_d <= 0] = 1e-5
-        transf_d[np.isnan(transf_d)] = 1e-5
+        d12 = (dv_list[0][0] / (1. - (offset_dis_div1 / covar_par[0]))) * (1. - (diversity_d1 / covar_par[0]))
+        d21 = (dv_list[0][1] / (1. - (offset_dis_div2 / covar_par[1]))) * (1. - (diversity_d2 / covar_par[1]))
+        d12[transf_d12 <= 0] = 1e-5
+        d12[np.isnan(transf_d12)] = 1e-5
+        d21[transf_d21 <= 0] = 1e-5
+        d21[np.isnan(transf_d21)] = 1e-5
     elif transf_d == 5: # Combination of environment and diversity dependent dispersal
-        idx1 = np.arange(0, len(covar_parD), 2, dtype = int)
-        idx2 = np.arange(1, len(covar_parD), 2, dtype = int)
-        env_d12 = dv_list[0][0] * np.exp(np.sum(covar_parD[idx1] * time_var_d1, axis = 1))
-        env_d21 = dv_list[0][1] * np.exp(np.sum(covar_parD[idx2] * time_var_d2, axis = 1))
-        transf_d = np.array([(env_d12 / (1. - (offset_dis_div1/covar_par[0]))) * (1. - (diversity_d1/covar_par[0])),
-                             (env_d21 / (1. - (offset_dis_div2/covar_par[1]))) * (1. - (diversity_d2/covar_par[1]))]).T
-        transf_d[transf_d <= 0] = 1e-5
-        transf_d[np.isnan(transf_d)] = 1e-5
+        idx1 = np.arange(0, len(covar_parD), 2, dtype=int)
+        idx2 = np.arange(1, len(covar_parD), 2, dtype=int)
+        env_d12 = dv_list[0][0] * np.exp(np.sum(covar_parD[idx1] * time_var_d1, axis=1))
+        env_d21 = dv_list[0][1] * np.exp(np.sum(covar_parD[idx2] * time_var_d2, axis=1))
+        d12 = (env_d12 / (1. - (offset_dis_div1/covar_par[0]))) * (1. - (diversity_d1/covar_par[0]))
+        d21 = (env_d21 / (1. - (offset_dis_div2/covar_par[1]))) * (1. - (diversity_d2/covar_par[1]))
+        d12[d12 <= 0] = 1e-5
+        d12[np.isnan(d12)] = 1e-5
+        d21[transf_d21 <= 0] = 1e-5
+        d21[np.isnan(d21)] = 1e-5
     elif transf_d == 8: # exponential environmental dependence with rate shifts
-        idx1 = np.arange(0, len(covar_parD), 2, dtype = int)
-        idx2 = np.arange(1, len(covar_parD), 2, dtype = int)
-        l = len(dv_list)
-        transf_d = np.zeros(2 * l).reshape((l, 2))
-        for i in range(l):
-            transf_d[i, :] = np.array([dv_list[i][0] * np.exp(np.sum(covar_parD[idx1] * time_var_d1[i, :], axis=None)),
-                                       dv_list[i][1] * np.exp(np.sum(covar_parD[idx2] * time_var_d2[i, :], axis=None))]).T
+        idx1 = np.arange(0, len(covar_parD), 2, dtype=int)
+        idx2 = np.arange(1, len(covar_parD), 2, dtype=int)
+        d12 = dv_list[:, 0] * np.exp(np.sum(covar_parD[idx1] * time_var_d1, axis=None))
+        d21 = dv_list[:, 1] * np.exp(np.sum(covar_parD[idx2] * time_var_d2, axis=None))
     else: # time-dependent-dispersal
-        transf_d = dv_list
+        d12 = dv_list[:, 0]
+        d21 = dv_list[:, 1]
     if transf_e == 1: # exponential
-        idx1 = np.arange(0, len(covar_parE), 2, dtype = int)
-        idx2 = np.arange(1, len(covar_parE), 2, dtype = int)
-        transf_e = np.array([ev_list[0][0] * np.exp(np.sum(covar_parE[idx1]*time_var_e1, axis=1)),
-                             ev_list[0][1] * np.exp(np.sum(covar_parE[idx2]*time_var_e2, axis=1))]).T
+        idx1 = np.arange(0, len(covar_parE), 2, dtype=int)
+        idx2 = np.arange(1, len(covar_parE), 2, dtype=int)
+        e1 = ev_list[0][0] * np.exp(np.sum(covar_parE[idx1] * time_var_e1, axis=1))
+        e2 = ev_list[0][1] * np.exp(np.sum(covar_parE[idx2] * time_var_e2, axis=1))
     elif transf_e == 2: # logistic
-        transf_e1  = transform_rate_logistic(ev_list[0][0], [covar_parE[0], x0_logisticE[0]], time_var_e1)
-        transf_e2  = transform_rate_logistic(ev_list[0][1], [covar_parE[1], x0_logisticE[1]], time_var_e2)
-        transf_e = np.array([transf_e1 ,transf_e2 ]).T
+        e1 = transform_rate_logistic(ev_list[0][0], [covar_parE[0], x0_logisticE[0]], time_var_e1)
+        e2 = transform_rate_logistic(ev_list[0][1], [covar_parE[1], x0_logisticE[1]], time_var_e2)
     elif transf_e == 3: # linear dependence on dispersal fraction
-        transf_e = np.array([ev_list[0][0] + (covar_par[2]*dis_into_1),
-                             ev_list[0][1] +(covar_par[3]*dis_into_2)]).T
-        transf_e[transf_e < 0.0] = 0.0
+        e1 = ev_list[0][0] + covar_par[2] * dis_into_1
+        e2 = ev_list[0][1] + covar_par[3] * dis_into_2
+        e1[e1 < 0.0]  = 1e-5
+        e2[e2 < 0.0]  = 1e-5
     elif transf_e == 4: # linear diversity dependence
-        base_e1 = ev_list[0][0] * (1. - (offset_ext_div1/covar_par[2]))
-        base_e2 = ev_list[0][1] * (1. - (offset_ext_div2/covar_par[3]))
+        base_e1 = ev_list[0][0] * (1. - (offset_ext_div1 / covar_par[2]))
+        base_e2 = ev_list[0][1] * (1. - (offset_ext_div2 / covar_par[3]))
         denom_e1 = 1. - diversity_e1 / covar_par[2]
         denom_e2 = 1. - diversity_e2 / covar_par[3]
         denom_e1[denom_e1 == 0.0] = 1e-5 # Diversity equals K
         denom_e2[denom_e2 == 0.0] = 1e-5
-        transf_e = np.array([base_e1 / denom_e1, base_e2 / denom_e2]).T
-#        print('transf_e before\n', transf_e)
+        e1 = base_e1 / denom_e1
+        e2 = base_e2 / denom_e2
         # Replace negative and infinite extinction rate when observed diversity is >= K by max extinction
         rep_e1 = base_e1 / (1. - ((covar_par[2] - 1e-5) / covar_par[2]))
         rep_e2 = base_e2 / (1. - ((covar_par[3] - 1e-5) / covar_par[3]))
-        transf_e[transf_e[:, 0] < 0, 0] = rep_e1
-        transf_e[np.isfinite(transf_e[:, 0]) == False, 0] = rep_e1
-        transf_e[transf_e[:, 1] < 0, 1] = rep_e2
-        transf_e[np.isfinite(transf_e[:, 1]) == False, 1] = rep_e2
+        e1[e1 < 0.0] = rep_e1
+        e1[np.isfinite(e1)] = rep_e1
+        e2[e2 < 0.0] = rep_e2
+        e2[np.isfinite(e2)] = rep_e2
     elif transf_e == 5: # Combination of environment and diversity dependent extinction
         idx1 = np.arange(0, len(covar_parE), 2, dtype = int)
         idx2 = np.arange(1, len(covar_parE), 2, dtype = int)
@@ -236,74 +236,59 @@ def make_Q_Covar4VDdE(dv_list, ev_list,
         denom_e2[denom_e2 == 0.0] = 1e-5
         transf_e = np.array([env_e1 / denom_e1, env_e2 / denom_e2]).T
         # Replace negative and infinite extinction rate when observed diversity is >= K by max extinction
-        rep_e1 = env_e1 / (1. - ((covar_par[2] - 1e-5)/covar_par[2]))
-        rep_e2 = env_e2 / (1. - ((covar_par[3] - 1e-5)/covar_par[3]))
-        idx_smaller0 = transf_e[:, 0] < 0
-        transf_e[idx_smaller0, 0] = rep_e1[idx_smaller0]
-        idx_na = np.isfinite(transf_e[:,0]) == False
-        transf_e[idx_na, 0] = rep_e1[idx_na]
-        idx_smaller0 = transf_e[:, 1] < 0
-        transf_e[idx_smaller0, 1] = rep_e2[idx_smaller0]
-        idx_na = np.isfinite(transf_e[:,1]) == False
-        transf_e[idx_na, 1] = rep_e2[idx_na]
+        rep_e1 = env_e1 / (1. - ((covar_par[2] - 1e-5) / covar_par[2]))
+        rep_e2 = env_e2 / (1. - ((covar_par[3] - 1e-5) / covar_par[3]))
+        idx_smaller0 = e1 < 0
+        e1[idx_smaller0] = rep_e1[idx_smaller0]
+        idx_na = np.isfinite(e1) == False
+        e1[idx_na] = rep_e1[idx_na]
+        idx_smaller0 = e2 < 0
+        e2[idx_smaller0] = rep_e2[idx_smaller0]
+        idx_na = np.isfinite(e2) == False
+        e2[idx_na] = rep_e2[idx_na]
     elif transf_e == 6: # linear dependence on environment
-        idx1 = np.arange(0, len(covar_parE), 2, dtype = int)
-        idx2 = np.arange(1, len(covar_parE), 2, dtype = int)
-        transf_e = np.array([ev_list[0][0] + np.sum(covar_parE[idx1]*time_var_e1, axis = 1),
-                             ev_list[0][1] + np.sum(covar_parE[idx2]*time_var_e2, axis = 1)]).T
-        transf_e[transf_e < 0.0] = 0.0
+        idx1 = np.arange(0, len(covar_parE), 2, dtype=int)
+        idx2 = np.arange(1, len(covar_parE), 2, dtype=int)
+        e1 = ev_list[0][0] + np.sum(covar_parE[idx1] * time_var_e1, axis=1)
+        e2 = ev_list[0][1] + np.sum(covar_parE[idx2] * time_var_e2, axis=1)
+        e1[e1 < 0.0]  = 1e-5
+        e2[e2 < 0.0]  = 1e-5
     elif transf_e == 7: # Combination of environment and dispersal dependent extinction
-        idx1 = np.arange(0, len(covar_parE), 2, dtype = int)
-        idx2 = np.arange(1, len(covar_parE), 2, dtype = int)
+        idx1 = np.arange(0, len(covar_parE), 2, dtype=int)
+        idx2 = np.arange(1, len(covar_parE), 2, dtype=int)
         env_e1 = ev_list[0][0] * np.exp(np.sum(covar_parE[idx1]*time_var_e1, axis = 1))
         env_e2 = ev_list[0][1] * np.exp(np.sum(covar_parE[idx2]*time_var_e2, axis = 1))
-        transf_e = np.array([env_e1 + (covar_par[2]*dis_into_1), env_e2 +(covar_par[3]*dis_into_2)]).T
-        transf_e[transf_e < 0.0] = 0.0
+        e1 = env_e1 + covar_par[2] * dis_into_1
+        e2 = env_e2 + covar_par[3] * dis_into_2
+        e1[e1 < 0.0]  = 1e-5
+        e2[e2 < 0.0]  = 1e-5
     elif transf_e == 8: # exponential environmental dependence with rate shifts
-        idx1 = np.arange(0, len(covar_parE), 2, dtype = int)
-        idx2 = np.arange(1, len(covar_parE), 2, dtype = int)
-        l = len(ev_list)
-        transf_e = np.zeros(2 * l).reshape((l, 2))
-        for i in range(l):
-            transf_e[i, :] = np.array([ev_list[i][0] * np.exp(np.sum(covar_parE[idx1]*time_var_e1[i, :], axis = None)),
-                                       ev_list[i][1] * np.exp(np.sum(covar_parE[idx2]*time_var_e2[i, :], axis = None))]).T
+        idx1 = np.arange(0, len(covar_parE), 2, dtype=int)
+        idx2 = np.arange(1, len(covar_parE), 2, dtype=int)
+        e1 = ev_list[:, 0] * np.exp(np.sum(covar_parE[idx1] * time_var_e1, axis=None))
+        e2 = ev_list[:, 1] * np.exp(np.sum(covar_parE[idx2] * time_var_e2, axis=None))
     else:
-        transf_e = ev_list
-#    Q_list=[]
-#    for i in range(len(transf_d)):
-#        D=0
-#        [d1,d2] = transf_d[i] # d1 A->B; d2 B->A;
-#        [e1,e2] = transf_e[i]
-#        Q= np.array([
-#            [D, 0, 0, 0 ],
-#            # [D, d1, d2, 0 ],
-#            [e1,D, 0, d1],
-#            [e2,0, D, d2],
-#            [0 ,e2,e1,D ]
-#        ])
-#        # fill diagonal values
-#        np.fill_diagonal(Q, -np.sum(Q,axis=1))
-#        Q_list.append(Q)
-#    return Q_list, [transf_d,transf_e]
-    # Transposed Q matrix for numpy.linalg.eig instead of scipy.lin.alg 
-    # this breaks pade=1!
-    #         FROM
-    #      O  A  A AB
-    #   O [-,e1,e2, 0]
-    #T  A [0, -, 0,e2]
-    #O  B [0, 0, -,e1]
-    #  AB [0,d1,d2, 0]
-    QT_array = np.zeros((max(transf_d.shape[0], transf_e.shape[0]), 4, 4))
-    QT_array[:, 3, 1] = transf_d[:, 0]
-    QT_array[:, 3, 2] = transf_d[:, 1]
-    QT_array[:, 0, 1] = transf_e[:, 0]
-    QT_array[:, 2, 3] = transf_e[:, 0]
-    QT_array[:, 0, 2] = transf_e[:, 1]
-    QT_array[:, 1, 3] = transf_e[:, 1]
+        e1 = ev_list[:, 0]
+        e2 = ev_list[:, 1]
+
+    QT_array = np.zeros((max(len(d12), len(e1)), 4, 4))
+    QT_array[:, 3, 1] = d12
+    QT_array[:, 3, 2] = d21
+    QT_array[:, 0, 1] = e1
+    QT_array[:, 2, 3] = e1
+    QT_array[:, 0, 2] = e2
+    QT_array[:, 1, 3] = e2
 #    col_sum = -np.einsum('ijk->ik', QT_array) # Colsum per slice
 #    s0,s1,s2 = QT_array.shape
 #    QT_array.reshape(s0,-1)[:,::s2+1] = col_sum
-    return QT_array, [transf_d, transf_e]
+    
+    d_rates = np.array([d12, d21]).T
+    e_rates = np.array([e1, e2]).T
+    if transf_d == 0:
+        d_rates = d_rates[rep_e, :]
+    if transf_e == 0:
+        e_rates = e_rates[rep_d, :]
+    return QT_array, [d_rates, e_rates]
 
 
 def make_Q_Covar4VDdEDOUBLE(dv_list, ev_list, time_var_d1, time_var_d2, time_var_e1, time_var_e2, time_var_e1two, time_var_e2two,
