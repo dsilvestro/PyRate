@@ -173,8 +173,8 @@ def div_traitcat_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2, covar_mu
     div1 = div[pres1_idx]
     div2 = div[pres2_idx]
     div3 = div[pres3_idx]
-    div13 = sum(div1) + sum(div3)
-    div23 = sum(div1) + sum(div3)
+    div13 = np.sum(div1) + np.sum(div3)
+    div23 = np.sum(div1) + np.sum(div3)
     lim_d1 = np.maximum(0.0, 1.0 - div13/k_d1) # Limit dispersal into area 1
     lim_d2 = np.maximum(0.0, 1.0 - div23/k_d2) # Limit dispersal into area 2
     dS = np.zeros(5 * nTaxa)
@@ -183,8 +183,9 @@ def div_traitcat_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2, covar_mu
         d12 = d12 * cont_modi
         d21 = d21 * cont_modi
     if argscatD: # Cat trait dis
-        d12 = d12 * np.sum(cat_parD[catD], axis=1)
-        d21 = d21 * np.sum(cat_parD[catD], axis=1)
+        m = np.sum(np.exp(cat_parD[catD]), axis=1)
+        d12 = d12 * m
+        d21 = d21 * m
     dS[gainA_idx] = d21 * div[pres2_idx] * lim_d1 # Gain area 1
     dS[gainB_idx] = d12 * div[pres1_idx] * lim_d2 # Gain area 2
     if argstraitE: # Cont trait
@@ -192,8 +193,9 @@ def div_traitcat_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2, covar_mu
         mu1 = mu1 * cont_modi
         mu2 = mu2 * cont_modi
     if argscatE: # Cat trait
-        mu1 = mu1 * np.sum(cat_parE[catE], axis=1)
-        mu2 = mu2 * np.sum(cat_parE[catE], axis=1)
+        m = np.sum(np.exp(cat_parE[catE]), axis=1)
+        mu1 = mu1 * m
+        mu2 = mu2 * m
     if do_DdE: # Dispersal induced extinction
         mu1 = mu1 + covar_mu1 * dS[gainA_idx] / (div13 + 1.)
         mu2 = mu2 + covar_mu2 * dS[gainB_idx] / (div23 + 1.)
@@ -228,13 +230,89 @@ def dis_dep_ext_dt(div, t, d12, d21, mu1, mu2, k_d1, k_d2, covar_mu1, covar_mu2)
 #div_int = odeint(div_dep_ext_dt, np.array([1., 1., 0., 0., 0.]), [0, 1], args = (0.2, 0.2, 0.1, 0.1, np.inf, np.inf, 0.2, 0.2))
 #div_int
 
-def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec, 
-                    transf_d, transf_e, #do_DivdD, do_DivdE, do_varD, do_varE, do_DdE,
+
+def rates_at_t(i, transf_d, transf_e, dis_rate_vec, ext_rate_vec,
+               covar_parD, idx_covar_parD1, idx_covar_parD2,
+               covar_parE, idx_covar_parE1, idx_covar_parE2,
+               covar_par, offset_dis_div1, offset_dis_div2):
+    k_d1 = np.inf
+    k_d2 = np.inf
+    if transf_d == 0: # Skyline or constant dispersal
+        idx = i - 1
+        if dis_rate_vec.shape[0] == 1:
+            idx = 0
+        d12 = dis_rate_vec[idx, 0]
+        d21 = dis_rate_vec[idx, 1]
+    elif transf_d == 1: # Environmental-dependent dispersal
+        # dispersal from area 1 to area 2 depends on environment in area 2 (i.e. time_varD[1, :, :])
+        d12 = dis_rate_vec[0, 0] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[1, i - 1, :]))
+        d21 = dis_rate_vec[0, 1] * np.exp(np.sum(covar_parD[idx_covar_parD2] * time_varD[0, i - 1, :]))
+    elif transf_d == 4: # Linear diversity-dependence
+        k_d1 = covar_par[0]
+        k_d2 = covar_par[1]
+        d12 = dis_rate_vec[0, 0] / (1. - offset_dis_div2 / k_d1)
+        d21 = dis_rate_vec[0, 1] / (1. - offset_dis_div1 / k_d2)
+    elif transf_d == 5: # Combination of environment and diversity dependent dispersal
+        env_d12 = dis_rate_vec[0, 0] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[1, i - 1, :]))
+        env_d21 = dis_rate_vec[0, 1] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[0, i - 1, :]))
+        k_d1 = covar_par[0]
+        k_d2 = covar_par[1]
+        d12 = env_d12 / (1. - offset_dis_div2 / k_d1)
+        d21 = env_d21 / (1. - offset_dis_div1 / k_d2)
+    elif transf_d == 8: # Skyline + environmental-dependent dispersal
+        idx = i - 1
+        d12 = dis_rate_vec[idx, 0] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[1, i - 1, :]))
+        d21 = dis_rate_vec[idx, 1] * np.exp(np.sum(covar_parD[idx_covar_parD2] * time_varD[0, i - 1, :]))
+
+    k_e1 = np.inf
+    k_e2 = np.inf
+    covar_mu1 = None
+    covar_mu2 = None
+    if transf_e == 0: # Skyline or constant extinction
+        idx = i - 1
+        if ext_rate_vec.shape[0] == 1:
+            idx = 0
+        e1 = ext_rate_vec[idx, 0]
+        e2 = ext_rate_vec[idx, 1]
+    elif transf_e == 1: # Environmental-dependent extinction
+        e1 = ext_rate_vec[0, 0] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[0, i - 1, :]))
+        e2 = ext_rate_vec[0, 1] * np.exp(np.sum(covar_parE[idx_covar_parE2] * time_varE[1, i - 1, :]))
+    elif transf_e == 3: # Linear dependence on dispersal fraction
+        e1 = ext_rate_vec[0, 0]
+        e2 = ext_rate_vec[0, 1]
+        covar_mu1 = covar_par[2]
+        covar_mu2 = covar_par[3]
+    if transf_e == 4: # Linear diversity dependence
+        k_e1 = covar_par[2]
+        k_e2 = covar_par[3]
+        e1 = ext_rate_vec[0, 0] * (1. - offset_ext_div1 / k_e1)
+        e2 = ext_rate_vec[0, 1] * (1. - offset_ext_div2 / k_e2)
+        e1[np.isfinite(e1) == False] = 1e-5
+        e2[np.isfinite(e2) == False] = 1e-5
+    elif transf_e == 5: # Combination of environment and diversity dependent extinction
+        env_e1 = ext_rate_vec[0, 0] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[0, i - 1, :]))
+        env_e2 = ext_rate_vec[0, 1] * np.exp(np.sum(covar_parE[idx_covar_parE2] * time_varE[1, i - 1, :]))
+        k_e1 = covar_par[2]
+        k_e2 = covar_par[3]
+        e1 = env_e1 * (1. - offset_dis_div2 / k_e1)
+        e2 = env_e2 * (1. - offset_dis_div1 / k_e2)
+    elif transf_e == 8: # Skyline + environmental-dependent extinction
+        idx = i - 1
+        e1 = ext_rate_vec[idx, 0] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[0, i - 1, :]))
+        e2 = ext_rate_vec[idx, 1] * np.exp(np.sum(covar_parE[idx_covar_parE2] * time_varE[1, i - 1, :]))
+        ext_rate_vec_i = ext_rate_vec[i - 1, :]
+
+    return d12, d21, e1, e2, k_d1, k_d2, k_e1, k_e2, covar_mu1, covar_mu2
+
+
+def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
+                    transf_d, transf_e,
                     argsG, r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size, Q_index, Q_index_first_occ, weight_per_taxon,
                     covar_par, covar_parD, covar_parE, offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
                     time_series, len_time_series, bin_first_occ, first_area, time_varD, time_varE, data_temp,
                     trait_parD, traitD, trait_parE, traitE,
-                    cat_parD, catD, cat_parE, catE, argstraitD, argstraitE, argscatD, argscatE, argslogdistr):
+                    cat_parD, catD, cat_parE, catE, argstraitD, argstraitE, argscatD, argscatE, argslogdistr,
+                    pres1_idx, pres2_idx, pres3_idx, gainA_idx, gainB_idx):
     if argsG:
         YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
         sa = np.zeros((pp_gamma_ncat, nTaxa))
@@ -256,14 +334,14 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
     sa[first_area == 3.] = 0. # No false absence if taxon is observed in 3
     sb[first_area == 3.] = 0. # No false absence if taxon is observed in 3
     # Add artificial bin before start of the time series
-    # padded_time = time_series[0] + time_series[0] - time_series[1]
-    time_series_pad = time_series#np.concatenate((padded_time, time_series[0:-1]), axis = None)
-    time_varD_pad = time_varD#np.concatenate((time_varD[0], time_varD[0:-1]), axis = None)
-    time_varE_pad = time_varE#np.concatenate((time_varE[0], time_varD[0:-1]), axis = None)
-    idx_covar_parD1 = np.arange(0, len(covar_parD), 2, dtype = int)
-    idx_covar_parD2 = np.arange(1, len(covar_parD), 2, dtype = int)
-    idx_covar_parE1 = np.arange(0, len(covar_parE), 2, dtype = int)
-    idx_covar_parE2 = np.arange(1, len(covar_parE), 2, dtype = int)
+    time_series_pad = time_series
+    time_varD_pad = time_varD
+    time_varE_pad = time_varE
+    idx_covar_parD1 = np.arange(0, len(covar_parD), 2, dtype=int)
+    idx_covar_parD2 = np.arange(1, len(covar_parD), 2, dtype=int)
+    idx_covar_parE1 = np.arange(0, len(covar_parE), 2, dtype=int)
+    idx_covar_parE2 = np.arange(1, len(covar_parE), 2, dtype=int)
+
     if (traits is False and cat is False) and argslogdistr is False:
         div_1 = np.zeros(len_time_series)
         div_2 = np.zeros(len_time_series)
@@ -272,75 +350,16 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
         gain_2 = np.zeros(len_time_series)
         pres = np.ones((len_time_series, 3 * nTaxa))
         for i in range(1, len_time_series):
-            k_d1 = np.inf
-            k_d2 = np.inf
-            if transf_d == 0: # Skyline or constant dispersal
-                idx = i - 1
-                if dis_rate_vec.shape[0] == 1:
-                    idx = 0
-                dis_rate_vec_i = dis_rate_vec[idx, :]
-            elif transf_d == 1: # Environmental-dependent dispersal
-                dis_rate_vec_i = dis_rate_vec[0, :]
-                # dispersal from area 1 to area 2 depends on environment in area 2 (i.e. time_varD[1, :, :])
-                dis_rate_vec_i = np.array([dis_rate_vec_i[0] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[1, i - 1, :])),
-                                           dis_rate_vec_i[1] * np.exp(np.sum(covar_parD[idx_covar_parD2] * time_varD[0, i - 1, :]))])
-            elif transf_d == 4: # Linear diversity-dependence
-                dis_rate_vec_i = dis_rate_vec[0, :]
-                k_d1 = covar_par[0]
-                k_d2 = covar_par[1]
-                dis_rate_vec_i = dis_rate_vec_i / (1.- [offset_dis_div2, offset_dis_div1]/covar_par[0:2])
-            elif transf_d == 5: # Combination of environment and diversity dependent dispersal
-                dis_rate_vec_i = dis_rate_vec[0, :]
-                env_d12 = dis_rate_vec_i[0] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[1, i - 1, :]))
-                env_d21 = dis_rate_vec_i[1] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[0, i - 1, :]))
-                k_d1 = covar_par[0]
-                k_d2 = covar_par[1]
-                dis_rate_vec_i = np.array([env_d12 / (1. - offset_dis_div2/covar_par[0]),
-                                           env_d21 / (1. - offset_dis_div1/covar_par[1])])
-            elif transf_d == 8: # Skyline + environmental-dependent dispersal
-                dis_rate_vec_i = dis_rate_vec[i - 1, :]
-                dis_rate_vec_i = np.array([dis_rate_vec_i[0] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[1, i - 1, :])),
-                                           dis_rate_vec_i[1] * np.exp(np.sum(covar_parD[idx_covar_parD2] * time_varD[0, i - 1, :]))])
+            d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2, covar_mu1, covar_mu2 = rates_at_t(i, transf_d, transf_e,
+                                                                                          dis_rate_vec, ext_rate_vec,
+                                                                                          covar_parD,
+                                                                                          idx_covar_parD1, idx_covar_parD2,
+                                                                                          covar_parE,
+                                                                                          idx_covar_parE1, idx_covar_parE2,
+                                                                                          covar_par,
+                                                                                          offset_dis_div1, offset_dis_div2)
 
-            k_e1 = np.inf
-            k_e2 = np.inf
-            if transf_e == 0: # Skyline or constant extinction
-                idx = i - 1
-                if ext_rate_vec.shape[0] == 1:
-                    idx = 0
-                ext_rate_vec_i = ext_rate_vec[idx, :]
-            elif transf_e == 1: # Environmental-dependent extinction
-                ext_rate_vec_i = ext_rate_vec[0, :]
-                ext_rate_vec_i = np.array([ext_rate_vec_i[0] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[0, i - 1, :])),
-                                           ext_rate_vec_i[1] * np.exp(np.sum(covar_parE[idx_covar_parE2] * time_varE[1, i - 1, :]))])
-            elif transf_e == 3: # Linear dependence on dispersal fraction
-                ext_rate_vec_i = ext_rate_vec[0, :]
-                covar_mu1 = covar_par[2]
-                covar_mu2 = covar_par[3]
-            if transf_e == 4: # Linear diversity dependence
-                ext_rate_vec_i = ext_rate_vec[0, :]
-                k_e1 = covar_par[2]
-                k_e2 = covar_par[3]
-                ext_rate_vec_i = ext_rate_vec_i * (1 - ([offset_ext_div1, offset_ext_div2]/covar_par[2:4]))
-                ext_rate_vec_i[np.isfinite(ext_rate_vec_i) == False] = 1e-5 # nan for data_in_area
-            elif transf_e == 5: # Combination of environment and diversity dependent extinction
-                ext_rate_vec_i = ext_rate_vec[0, :]
-                env_e1 = ext_rate_vec_i[0] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[0, i - 1, :]))
-                env_e2 = ext_rate_vec_i[1] * np.exp(np.sum(covar_parE[idx_covar_parE2] * time_varE[1, i - 1, :]))
-                k_e1 = covar_par[2]
-                k_e2 = covar_par[3]
-                ext_rate_vec_i = np.array([env_e1 * (1. - offset_dis_div2/covar_par[2]),
-                                           env_e2 * (1. - offset_dis_div1/covar_par[3])])
-            elif transf_e == 8: # Skyline + environmental-dependent extinction
-                ext_rate_vec_i = ext_rate_vec[i - 1, :]
-                ext_rate_vec_i = np.array([ext_rate_vec_i[0] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[0, i - 1, :])),
-                                           ext_rate_vec_i[1] * np.exp(np.sum(covar_parE[idx_covar_parE2] * time_varE[1, i - 1, :]))])
-
-            d12 = dis_rate_vec_i[0]
-            d21 = dis_rate_vec_i[1]
-            mu1 = ext_rate_vec_i[0]
-            mu2 = ext_rate_vec_i[1]
-
+            # Preservation stuff
             occ_i = bin_first_occ == i # Only taxa occuring at that time for the first time
             sa_i = sa[occ_i]
             sb_i = sb[occ_i]
@@ -369,55 +388,16 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
             gain_2[i] = div_int[1,4]
     else: # Traits and categorical
         pres = np.zeros((len_time_series, 5 * nTaxa)) # time x probability of taxa presence - all presences could be case for a 3D array
-        pres1_idx = np.arange(0, 5 * nTaxa, 5)
-        pres2_idx = pres1_idx + 1
-        pres3_idx = pres1_idx + 2
-        gainA_idx = pres1_idx + 3
-        gainB_idx = pres1_idx + 4
         for i in range(1, len_time_series):
-            k_d1 = np.inf
-            k_d2 = np.inf
-            if do_varD:
-                dis_rate_vec_i = dis_rate_vec[0,:]
-                dis_rate_vec_i = np.array([dis_rate_vec_i[0] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[1, i - 1, :])),
-                                           dis_rate_vec_i[1] * np.exp(np.sum(covar_parD[idx_covar_parD1] * time_varD[0, i - 1, :]))])
-            if do_DivdD:
-                if do_varD is False:
-                    dis_rate_vec_i = dis_rate_vec[0,:]
-                k_d1 = covar_par[0]
-                k_d2 = covar_par[1]
-                dis_rate_vec_i = dis_rate_vec_i / (1.- [offset_dis_div2, offset_dis_div1]/covar_par[0:2])
-            if do_DivdD is False and do_varD is False:
-                dis_rate_vec_i = dis_rate_vec[i - 1,:]
+            d12, d21, mu1, mu2, k_d1, k_d2, k_e1, k_e2, covar_mu1, covar_mu2 = rates_at_t(i, transf_d, transf_e,
+                                                                                          dis_rate_vec, ext_rate_vec,
+                                                                                          covar_parD,
+                                                                                          idx_covar_parD1, idx_covar_parD2,
+                                                                                          covar_parE,
+                                                                                          idx_covar_parE1, idx_covar_parE2,
+                                                                                          covar_par,
+                                                                                          offset_dis_div1, offset_dis_div2)
 
-            k_e1 = np.inf
-            k_e2 = np.inf
-            covar_mu1 = 0.
-            covar_mu2 = 0.
-            if do_varE:
-                ext_rate_vec_i = ext_rate_vec[0,:]
-                ext_rate_vec_i = np.array([ext_rate_vec_i[0] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[0, i - 1, :])),
-                                           ext_rate_vec_i[1] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[1, i - 1, :]))])
-            if do_DivdE: # Only exponential temp dependent estinction
-                if do_varE is False:
-                    ext_rate_vec_i = ext_rate_vec[0,:]
-                k_e1 = covar_par[2]
-                k_e2 = covar_par[3]
-                ext_rate_vec_i = ext_rate_vec_i * (1 - ([offset_ext_div1, offset_ext_div2]/covar_par[2:4]))
-                ext_rate_vec_i[np.isfinite(ext_rate_vec_i) == False] = 1e-5 # nan for data_in_area
-            if do_DdE:
-                if do_varE is False:
-                    ext_rate_vec_i = ext_rate_vec[0,:]
-                ext_rate_vec_i = ext_rate_vec[0,:]
-                covar_mu1 = covar_par[2]
-                covar_mu2 = covar_par[3]
-            if do_varE is False and do_DivdE is False and do_DdE is False:
-                ext_rate_vec_i = ext_rate_vec[i - 1, ]
-
-            d12 = dis_rate_vec_i[0]
-            d21 = dis_rate_vec_i[1]
-            mu1 = ext_rate_vec_i[0]
-            mu2 = ext_rate_vec_i[1]
             # Preservation stuff
             occ_i = bin_first_occ == i # Only taxa occuring at that time for the first time
             new_1 = np.zeros(nTaxa)
@@ -442,7 +422,7 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
                            cat_parD, catD, cat_parE, catE,
                            do_DdE, argstraitD, argstraitE, argscatD, argscatE,
                            pres1_idx, pres2_idx, pres3_idx, gainA_idx, gainB_idx, nTaxa)
-            div_int = odeint(div_traitcat_dt, div_t, dt, args = div_dt_args, mxstep=100)
+            div_int = odeint(div_traitcat_dt, div_t, dt, args=div_dt_args, mxstep=100)
             
             pres[i, pres1_idx] = div_int[1, pres1_idx] + new_1
             pres[i, pres2_idx] = div_int[1, pres2_idx] + new_2
@@ -460,7 +440,6 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
         pres[-1, pres1_idx[np.isin(data_temp[:, -1], 1)]] = 1
         pres[-1, pres2_idx[np.isin(data_temp[:, -1], 2)]] = 1
         pres[-1, pres3_idx[np.isin(data_temp[:, -1], 3)]] = 1
-        pres = pres[:, np.sort(np.concatenate((pres1_idx, pres2_idx, pres3_idx)))]
         
     div_13 = div_1 + div_3
     div_23 = div_2 + div_3
@@ -543,10 +522,22 @@ def get_num_dispersals(dis_rate_vec, r_vec):
     return numD12, numD21
 
 
-def get_marginal_traitrate(baserate, nTaxa, pres, traits, cont_trait, cont_trait_par, cat, cat_trait, cat_trait_par, repeats):
-    pres3D = pres.reshape(pres.shape[0], nTaxa, 3)
-    abun_taxa = np.sum(pres3D, axis=2)
-    abun_taxa = abun_taxa / np.sum(abun_taxa, axis=1).reshape(-1, 1)
+def get_marginal_traitrate(baserate, nTaxa, pres,
+                           traits, cont_trait, cont_trait_par,
+                           cat, cat_trait, cat_trait_par,
+                           pres1_idx, pres2_idx, pres3_idx,
+                           rate_type='extinction'):
+    pres1 = pres[:, pres1_idx] # exclusively area 1
+    pres2 = pres[:, pres2_idx] # exclusively area 2
+    if rate_type == 'extinction':
+        pres1 += pres[:, pres3_idx]
+        pres2 += pres[:, pres3_idx]
+    div1 = np.sum(pres1, axis=1)
+    div2 = np.sum(pres2, axis=1)
+    div1[div1 == 0.0] = 1e-5
+    div2[div2 == 0.0] = 1e-5
+    weight1 = pres1 / div1[:, np.newaxis]
+    weight2 = pres2 / div2[:, np.newaxis]
     baserate1 = baserate[:, 0][::-1].reshape(-1, 1)
     baserate2 = baserate[:, 1][::-1].reshape(-1, 1)
     if traits:
@@ -556,15 +547,43 @@ def get_marginal_traitrate(baserate, nTaxa, pres, traits, cont_trait, cont_trait
         baserate1 = rate_taxa1
         baserate2 = rate_taxa2
     if cat:
-        cat_modi = np.sum(np.exp(cat_trait_par[cat_trait]), axis=1)
+        cat_modi = np.sum(np.exp(cat_trait_par[cat_trait]), axis=1) # One value per taxon
         rate_taxa1 = baserate1 * cat_modi
         rate_taxa2 = baserate2 * cat_modi
-    rate_taxa1 = rate_taxa1[repeats, :] * abun_taxa
-    rate_taxa2 = rate_taxa2[repeats, :] * abun_taxa
+    rate_taxa1 = rate_taxa1 * weight1
+    rate_taxa2 = rate_taxa2 * weight2
     rate1 = np.sum(rate_taxa1, axis=1)
     rate2 = np.sum(rate_taxa2, axis=1)
     margrate = np.array([rate1, rate2])
-    return(margrate)
+    return margrate
+
+
+#def get_marginal_traitrate(baserate, nTaxa, pres, traits, cont_trait, cont_trait_par, cat, cat_trait, cat_trait_par, rate_type='dispersal'):
+#    pres3D = pres.reshape(pres.shape[0], nTaxa, 3)
+##    abun_taxa = np.sum(pres3D, axis=2)
+##    abun_taxa = abun_taxa / np.sum(abun_taxa, axis=1).reshape(-1, 1)
+#    if rate_type == 'dispersal':
+#        
+#    baserate1 = baserate[:, 0][::-1].reshape(-1, 1)
+#    baserate2 = baserate[:, 1][::-1].reshape(-1, 1)
+#    print('baserate', baserate1.shape)
+#    if traits:
+#        cont_modi = np.exp(np.sum(cont_trait_par * cont_trait, axis=1))
+#        rate_taxa1 = baserate1 * cont_modi
+#        rate_taxa2 = baserate2 * cont_modi
+#        baserate1 = rate_taxa1
+#        baserate2 = rate_taxa2
+#    if cat:
+#        cat_modi = np.sum(np.exp(cat_trait_par[cat_trait]), axis=1)
+#        print('cat_modi', cat_modi.shape)
+#        rate_taxa1 = baserate1 * cat_modi
+#        rate_taxa2 = baserate2 * cat_modi
+#    rate_taxa1 = rate_taxa1 * abun_taxa
+#    rate_taxa2 = rate_taxa2 * abun_taxa
+#    rate1 = np.sum(rate_taxa1, axis=1)
+#    rate2 = np.sum(rate_taxa2, axis=1)
+#    margrate = np.array([rate1, rate2])
+#    return margrate
 
 
 def get_lik_input(dis_vec, ext_vec, repeats_de, repeats_d, repeats_e,
@@ -1470,7 +1489,8 @@ def lik_opt(x, grad):
                                                                           time_varD, time_varE, data_temp,
                                                                           trait_parD, traitD, trait_parE, traitE,
                                                                           cat_parD, catD, cat_parE, catE,
-                                                                          argstraitD, argstraitE, argscatD, argscatE, argslogdistr)
+                                                                          argstraitD, argstraitE, argscatD, argscatE, argslogdistr,
+                                                                          pres1_idx, pres2_idx, pres3_idx, gainA_idx, gainB_idx)
         diversity_d2 = approx_d1 # Limits dispersal into 1
         diversity_d1 = approx_d2 # Limits dispersal into 2
         diversity_e1 = approx_d1
@@ -2861,12 +2881,12 @@ NOTE that Q_list[0] = root age, Q_list[n] = most recent
 """
 
 # INIT PARAMETERS
-dis_rate_vec = np.random.uniform(0.1, 0.2, nareas * 1).reshape(1, nareas)
+dis_rate_vec = np.random.uniform(0.1, 0.2, nareas).reshape(1, nareas)
 if TdD:
-    dis_rate_vec = np.random.uniform(0.05, 0.15, nareas*n_Q_times).reshape(n_Q_times, nareas)
-ext_rate_vec = np.random.uniform(0.01, 0.05, nareas * 1).reshape(1, nareas)
+    dis_rate_vec = np.random.uniform(0.05, 0.15, nareas * n_Q_times).reshape(n_Q_times, nareas)
+ext_rate_vec = np.random.uniform(0.01, 0.05, nareas).reshape(1, nareas)
 if TdE:
-    ext_rate_vec = np.random.uniform(0.01, 0.05, nareas*n_Q_times).reshape(n_Q_times, nareas)
+    ext_rate_vec = np.random.uniform(0.01, 0.05, nareas * n_Q_times).reshape(n_Q_times, nareas)
 if equal_d:
     dis_rate_vec[:, 1] = dis_rate_vec[:, 0]
     print('dis_rate_vec', dis_rate_vec)
@@ -3142,6 +3162,14 @@ catD_not_baseline = np.isin(np.arange(0, len(unique_catD)), catD_baseline) == Fa
 catE_not_baseline = np.isin(np.arange(0, len(unique_catE)), catE_baseline) == False
 hp_catD_A = np.ones(len(num_catD))
 hp_catE_A = np.ones(len(num_catE))
+
+# objects for getting diversity curves via differential equations
+pres1_idx = np.arange(0, 5 * nTaxa, 5)
+pres2_idx = pres1_idx + 1
+pres3_idx = pres1_idx + 2
+gainA_idx = pres1_idx + 3
+gainB_idx = pres1_idx + 4
+
 
 # Trait effect on sampling rates
 traitS = np.ones((len(taxa_input), 1))
@@ -3751,7 +3779,8 @@ for it in range(n_generations * len(scal_fac_TI)):
                                                                              time_varD, time_varE, data_temp,
                                                                              trait_parD, traitD, trait_parE, traitE,
                                                                              cat_parD, catD, cat_parE, catE,
-                                                                             argstraitD, argstraitE, argscatD, argscatE, argslogdistr)
+                                                                             argstraitD, argstraitE, argscatD, argscatE, argslogdistr,
+                                                                             pres1_idx, pres2_idx, pres3_idx, gainA_idx, gainB_idx)
         diversity_d2 = approx_d1 # Limits dispersal into 1
         diversity_d1 = approx_d2 # Limits dispersal into 2
         diversity_e1 = approx_d1
@@ -4121,11 +4150,13 @@ for it in range(n_generations * len(scal_fac_TI)):
         temp_marginal_e2  = list(marginal_rates_A[1][:, 1][::-1])
         if traits or cat:
             marginal_disrate = get_marginal_traitrate(marginal_rates_A[0], nTaxa, pres,
-                                                      traits, traitD, trait_parD_A, cat, catD, cat_parD_A, repeats_d)
+                                                      traits, traitD, trait_parD_A, cat, catD, cat_parD_A,
+                                                      pres1_idx, pres2_idx, pres3_idx, rate_type='dispersal')
             temp_marginal_d12 = list(marginal_disrate[0, :])
             temp_marginal_d21 = list(marginal_disrate[1, :])
             marginal_extrate = get_marginal_traitrate(marginal_rates_A[1], nTaxa, pres,
-                                                      traits, traitE, trait_parE_A, cat, catE, cat_parE_A, repeats_e)
+                                                      traits, traitE, trait_parE_A, cat, catE, cat_parE_A,
+                                                      pres1_idx, pres2_idx, pres3_idx, rate_type='extinction')
             temp_marginal_e1 = list(marginal_extrate[0, :])
             temp_marginal_e2 = list(marginal_extrate[1, :])
         log_state = [it] + temp_marginal_d12 + temp_marginal_d21 + temp_marginal_e1 + temp_marginal_e2
@@ -4133,7 +4164,7 @@ for it in range(n_generations * len(scal_fac_TI)):
         ratesfile.flush()
         os.fsync(ratesfile)
 
-    if (args.log_distr or args.log_div or args.log_dis) and log_to_file == 1:
+    if (argslogdistr or args.log_div or args.log_dis) and log_to_file == 1:
         approx_d1, approx_d2, dis_into_2, dis_into_1, pres = approx_div_traj(nTaxa,
                                                                              dis_rate_vec_A[repeats_d, :], ext_rate_vec_A[repeats_e, :],
                                                                              transf_d, transf_e, argsG,
@@ -4148,9 +4179,11 @@ for it in range(n_generations * len(scal_fac_TI)):
                                                                              time_varD, time_varE, data_temp,
                                                                              trait_parD_A, traitD, trait_parE_A, traitE,
                                                                              cat_parD_A, catD, cat_parE_A, catE,
-                                                                             argstraitD, argstraitE, argscatD, argscatE, argslogdistr)
+                                                                             argstraitD, argstraitE, argscatD, argscatE, argslogdistr,
+                                                                             pres1_idx, pres2_idx, pres3_idx, gainA_idx, gainB_idx)
     # Log predicted presence
-    if args.log_distr and log_to_file == 1:
+    if argslogdistr and log_to_file == 1:
+        pres = pres[:, np.sort(np.concatenate((pres1_idx, pres2_idx, pres3_idx)))]
         pres = np.round(pres, 3) # Round to reduce file size
         pres = np.transpose(pres)
         log_state = [it] + list(pres[:, ::-1].reshape(-1))
