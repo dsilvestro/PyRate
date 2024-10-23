@@ -173,10 +173,10 @@ def make_Q_Covar4VDdE(dv_list, ev_list, rep_d, rep_e,
     elif transf_d == 4: # linear diversity dependence
         d12 = (dv_list[0][0] / (1. - (offset_dis_div1 / covar_par[0]))) * (1. - (diversity_d1 / covar_par[0]))
         d21 = (dv_list[0][1] / (1. - (offset_dis_div2 / covar_par[1]))) * (1. - (diversity_d2 / covar_par[1]))
-        d12[transf_d12 <= 0] = 1e-5
-        d12[np.isnan(transf_d12)] = 1e-5
-        d21[transf_d21 <= 0] = 1e-5
-        d21[np.isnan(transf_d21)] = 1e-5
+        d12[d12 <= 0] = 1e-5
+        d12[np.isnan(d12)] = 1e-5
+        d21[d21 <= 0] = 1e-5
+        d21[np.isnan(d21)] = 1e-5
     elif transf_d == 5: # Combination of environment and diversity dependent dispersal
         idx1 = np.arange(0, len(covar_parD), 2, dtype=int)
         idx2 = np.arange(1, len(covar_parD), 2, dtype=int)
@@ -186,7 +186,7 @@ def make_Q_Covar4VDdE(dv_list, ev_list, rep_d, rep_e,
         d21 = (env_d21 / (1. - (offset_dis_div2/covar_par[1]))) * (1. - (diversity_d2/covar_par[1]))
         d12[d12 <= 0] = 1e-5
         d12[np.isnan(d12)] = 1e-5
-        d21[transf_d21 <= 0] = 1e-5
+        d21[d21 <= 0] = 1e-5
         d21[np.isnan(d21)] = 1e-5
     elif transf_d == 8: # exponential environmental dependence with rate shifts
         idx1 = np.arange(0, len(covar_parD), 2, dtype=int)

@@ -287,8 +287,10 @@ def rates_at_t(i, transf_d, transf_e, dis_rate_vec, ext_rate_vec,
         k_e2 = covar_par[3]
         e1 = ext_rate_vec[0, 0] * (1. - offset_ext_div1 / k_e1)
         e2 = ext_rate_vec[0, 1] * (1. - offset_ext_div2 / k_e2)
-        e1[np.isfinite(e1) == False] = 1e-5
-        e2[np.isfinite(e2) == False] = 1e-5
+        if not np.isfinite(e1):
+            e1 = 1e-5
+        if not np.isfinite(e2):
+            e2 = 1e-5
     elif transf_e == 5: # Combination of environment and diversity dependent extinction
         env_e1 = ext_rate_vec[0, 0] * np.exp(np.sum(covar_parE[idx_covar_parE1] * time_varE[0, i - 1, :]))
         env_e2 = ext_rate_vec[0, 1] * np.exp(np.sum(covar_parE[idx_covar_parE2] * time_varE[1, i - 1, :]))
@@ -558,34 +560,6 @@ def get_marginal_traitrate(baserate, nTaxa, pres,
     return margrate
 
 
-#def get_marginal_traitrate(baserate, nTaxa, pres, traits, cont_trait, cont_trait_par, cat, cat_trait, cat_trait_par, rate_type='dispersal'):
-#    pres3D = pres.reshape(pres.shape[0], nTaxa, 3)
-##    abun_taxa = np.sum(pres3D, axis=2)
-##    abun_taxa = abun_taxa / np.sum(abun_taxa, axis=1).reshape(-1, 1)
-#    if rate_type == 'dispersal':
-#        
-#    baserate1 = baserate[:, 0][::-1].reshape(-1, 1)
-#    baserate2 = baserate[:, 1][::-1].reshape(-1, 1)
-#    print('baserate', baserate1.shape)
-#    if traits:
-#        cont_modi = np.exp(np.sum(cont_trait_par * cont_trait, axis=1))
-#        rate_taxa1 = baserate1 * cont_modi
-#        rate_taxa2 = baserate2 * cont_modi
-#        baserate1 = rate_taxa1
-#        baserate2 = rate_taxa2
-#    if cat:
-#        cat_modi = np.sum(np.exp(cat_trait_par[cat_trait]), axis=1)
-#        print('cat_modi', cat_modi.shape)
-#        rate_taxa1 = baserate1 * cat_modi
-#        rate_taxa2 = baserate2 * cat_modi
-#    rate_taxa1 = rate_taxa1 * abun_taxa
-#    rate_taxa2 = rate_taxa2 * abun_taxa
-#    rate1 = np.sum(rate_taxa1, axis=1)
-#    rate2 = np.sum(rate_taxa2, axis=1)
-#    margrate = np.array([rate1, rate2])
-#    return margrate
-
-
 def get_lik_input(dis_vec, ext_vec, repeats_de, repeats_d, repeats_e,
                   time_var_d1, time_var_d2, time_var_e1, time_var_e2,
                   diversity_d1, diversity_d2, diversity_e1, diversity_e2, dis_into_1, dis_into_2,
@@ -716,7 +690,7 @@ def lik_DES(Q_list, w_list, vl_list, vl_inv_list, Pt,
                 lik_tmp = lik_DES_taxon([l, w_list, vl_list, vl_inv_list, Q_list, Q_index_temp, delta_t,
                                          r_vec2, rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, recursive_LIST, Q_index,
                                          traits, cat, Pt, use_Pade_approx])
-                lik += math.log(lik_tmp) # faster than numpy log for scalars
+                lik += np.log(lik_tmp)
         else:
             liktmp = np.zeros((pp_gamma_ncat, nTaxa)) # row: ncat column: species
             YangGamma = get_gamma_rates(alpha, YangGammaQuant, pp_gamma_ncat)
@@ -3566,23 +3540,41 @@ if argstraitE != "" or argscatE != "":
         len_r += 1
 
 # initial values
-dis_rate_vec_A = dis_rate_vec
-ext_rate_vec_A = ext_rate_vec
-
-Q_list_A = np.zeros(1)
-marginal_rates_A = np.zeros(1)
-w_list_A = np.zeros(1)
-vl_list_A = np.zeros(1)
-vl_inv_list_A = np.zeros(1)
-Pt_A = np.zeros(1)
-r_vec_A = r_vec
-alphaA = alpha
+dis_rate_vec_A = dis_rate_vec + 0.0
+ext_rate_vec_A = ext_rate_vec + 0.0
+r_vec_A = r_vec + 0.0
+alpha_A = alpha + 0.0
 weight_per_taxon_A = np.zeros(1)
-dis_into_2_A, dis_into_1_A = np.zeros(1), np.zeros(1)
-diversity_d2_A = np.zeros(1)
-diversity_d1_A = np.zeros(1)
-approx_d1_A = np.zeros(1)
-approx_d2_A = np.zeros(1)
+approx_d1_A, approx_d2_A, dis_into_1_A, dis_into_2_A, pres = approx_div_traj(nTaxa, dis_rate_vec_A[repeats_d, :], ext_rate_vec_A[repeats_e, :],
+                                                                             transf_d, transf_e, argsG,
+                                                                             r_vec_A, alpha_A, YangGammaQuant, pp_gamma_ncat, bin_size,
+                                                                             Q_index, Q_index_first_occ, weight_per_taxon,
+                                                                             covar_par_A, covar_parD_A, covar_parE_A,
+                                                                             offset_dis_div1, offset_dis_div2,
+                                                                             offset_ext_div1, offset_ext_div2,
+                                                                             time_series, len_time_series, bin_first_occ, first_area,
+                                                                             time_varD, time_varE, data_temp,
+                                                                             trait_parD_A, traitD, trait_parE_A, traitE,
+                                                                             cat_parD_A, catD, cat_parE_A, catE,
+                                                                             argstraitD, argstraitE, argscatD, argscatE, argslogdistr,
+                                                                             pres1_idx, pres2_idx, pres3_idx, gainA_idx, gainB_idx)
+diversity_d2_A = approx_d1_A # Limits dispersal into 1
+diversity_d1_A = approx_d2_A # Limits dispersal into 2
+diversity_e1_A = approx_d1_A
+diversity_e2_A = approx_d2_A
+Q_list_A, marginal_rates_A, w_list_A, vl_list_A, vl_inv_list_A, Pt_A = get_lik_input(dis_rate_vec_A, ext_rate_vec_A,
+                                                                                     repeats_de, repeats_d, repeats_e,
+                                                                                     time_var_d1, time_var_d2, time_var_e1, time_var_e2,
+                                                                                     diversity_d1_A, diversity_d2_A, diversity_e1_A, diversity_e2_A,
+                                                                                     dis_into_1_A, dis_into_2_A,
+                                                                                     covar_par_A, covar_parD_A, covar_parE_A, x0_logisticD_A, x0_logisticE_A,
+                                                                                     transf_d, transf_e,
+                                                                                     offset_dis_div1, offset_dis_div2, offset_ext_div1, offset_ext_div2,
+                                                                                     traits, trait_parD_A, traitD, trait_parE_A, traitE,
+                                                                                     cat, cat_parD_A, catD, catE, cat_parE_A,
+                                                                                     use_Pade_approx)
+
+
 likA = -inf
 priorA = -inf
 
@@ -3600,7 +3592,7 @@ for it in range(n_generations * len(scal_fac_TI)):
     vl_inv_list = vl_inv_list_A + 0.
     Pt = Pt_A + 0.
     r_vec = r_vec_A + 0.
-    alpha = alphaA + 0.
+    alpha = alpha_A + 0.
     weight_per_taxon = weight_per_taxon_A + 0.
     covar_par = covar_par_A + 0.
     covar_parD = covar_parD_A + 0.
@@ -3691,7 +3683,7 @@ for it in range(n_generations * len(scal_fac_TI)):
 
     elif r[0] <= update_freq[2]: # SAMPLING RATES
         if argsG and r[1] < .2:
-            alpha, hasting_alpha = update_multiplier_proposal(alphaA, d=1.1)
+            alpha, hasting_alpha = update_multiplier_proposal(alpha_A, d=1.1)
         elif do_traitS and r[1] < .4:
             trait_parS = update_parameter_uni_2d_freq(trait_parS_A, d=0.1*scale_proposal_a_q, f=f_traitS, m=m_a_s, M=M_a_s)
         else:
@@ -3814,6 +3806,7 @@ for it in range(n_generations * len(scal_fac_TI)):
                                                                                  traits, trait_parD, traitD, trait_parE, traitE,
                                                                                  cat, cat_parD, catD, catE, cat_parE,
                                                                                  use_Pade_approx)
+
     lik, weight_per_taxon = lik_DES(Q_list, w_list, vl_list, vl_inv_list, Pt,
                                     r_vec, bin_size,
                                     rho_at_present_LIST, r_vec_indexes_LIST, sign_list_LIST, recursive_LIST, Q_index, Q_index_temp,
@@ -3958,7 +3951,7 @@ for it in range(n_generations * len(scal_fac_TI)):
         vl_inv_list_A = vl_inv_list
         Pt_A = Pt
         r_vec_A = r_vec
-        alphaA = alpha
+        alpha_A = alpha
         weight_per_taxon_A = weight_per_taxon
         likA = lik
         priorA = prior
@@ -4002,7 +3995,7 @@ for it in range(n_generations * len(scal_fac_TI)):
         print("\td:", dis_rate_vec_A.reshape(-1))
         print("\te:", ext_rate_vec_A.reshape(-1))
         print("\tq:", q_rates)
-        print("\talpha:", alphaA)
+        print("\talpha:", alpha_A)
         print("\tK/phi:", covar_par_A)
         print("\ta dispersal:", covar_parD_A)
         print("\ta extinction:", covar_parE_A)
@@ -4021,7 +4014,7 @@ for it in range(n_generations * len(scal_fac_TI)):
             ML_ext_rate_vec = ext_rate_vec_A+0.
             ML_covar_par    = covar_par_A   +0.
             ML_r_vec        = r_vec_A       +0.
-            ML_alpha        = alphaA        +0.
+            ML_alpha        = alpha_A       +0.
             ml_it = 0
         else:
             ml_it += 1
@@ -4032,7 +4025,7 @@ for it in range(n_generations * len(scal_fac_TI)):
             ext_rate_vec_A = ML_ext_rate_vec
             covar_par_A    = ML_covar_par
             r_vec_A        = ML_r_vec
-            alphaA         = ML_alpha
+            alpha_A        = ML_alpha
             #if ml_it==100:
             print(scale_proposal, "changed to:",)
             scale_proposal = 0.1
@@ -4168,7 +4161,7 @@ for it in range(n_generations * len(scal_fac_TI)):
         approx_d1, approx_d2, dis_into_2, dis_into_1, pres = approx_div_traj(nTaxa,
                                                                              dis_rate_vec_A[repeats_d, :], ext_rate_vec_A[repeats_e, :],
                                                                              transf_d, transf_e, argsG,
-                                                                             r_vec_A, alphaA,
+                                                                             r_vec_A, alpha_A,
                                                                              YangGammaQuant, pp_gamma_ncat, bin_size,
                                                                              Q_index, Q_index_first_occ,
                                                                              weight_per_taxon_A,
@@ -4192,7 +4185,7 @@ for it in range(n_generations * len(scal_fac_TI)):
         os.fsync(distrfile)
     # Log species specific sampling rates
     if args.log_sp_q_rates and log_to_file == 1:
-        YangGamma = get_gamma_rates(alphaA, YangGammaQuant, pp_gamma_ncat)
+        YangGamma = get_gamma_rates(alpha_A, YangGammaQuant, pp_gamma_ncat)
         spq = np.sum(YangGamma * weight_per_taxon.T, axis=1)
         log_state = [it] + list(spq)
         spqlog.writerow(log_state)
