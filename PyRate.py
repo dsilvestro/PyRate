@@ -1946,7 +1946,9 @@ def BDNN_partial_lik(arg):
 
 def BDNN_fast_partial_lik(arg):
     [i_events, n_S, r] = arg
-    lik = np.sum(np.nan_to_num(np.log(r * i_events)) + -r * n_S, axis=1)
+    r_i_events = r * i_events
+    r_i_events[np.isfinite(r_i_events)] = np.log(r_i_events[np.isfinite(r_i_events)])
+    lik = np.sum(np.nan_to_num(r_i_events) + -r * n_S, axis=1)
     return lik
 
 
@@ -2365,6 +2367,10 @@ def get_binned_time_variable(timebins, var_file, rescale, translate):
         va = np.unique(values[:, i])
         n_va = len(va)
         discr_var[i] = np.all(np.isin(va, np.arange(n_va)))
+    # If there are no values for the recent, we add the most recent value (i.e. constant environment)
+    if (times[0] > timebins[-1]) and translate >= 0.0:
+        times = np.concatenate((np.zeros(1), times), axis=None)
+        values = np.concatenate((values[0, :].reshape((1, -1)), values), axis=0)
     # Interpolation if temporal resolution of var_file is lower than time bins
     if nbins > values.shape[0]:
         times_comb = np.sort(np.concatenate((timebins, times), axis = None))
@@ -2378,7 +2384,7 @@ def get_binned_time_variable(timebins, var_file, rescale, translate):
         del(times)
         values = values_comb
         times = times_comb
-    for i in range(1,nbins):
+    for i in range(1, nbins):
         t_max = timebins[i-1]
         t_min = timebins[i]
         in_range_M = (times <= t_max).nonzero()[0]
