@@ -396,7 +396,7 @@ python ./PyRate.py ./example_files/BDNN_examples/Carnivora/Carnivora_occs.py -BD
 ```
 
 ---
-### Restoring BDNN analysis
+### Re-starting a BDNN analysis
 
 BDNN inferrences may need more MCMC generations than expected to reach the stationarity distribution of the Markov chain and the selected number of generation `-n` might be to small. In this case, you can restore the MCMC chain from the last sample using the `-restore_mcmc` argument.
 
