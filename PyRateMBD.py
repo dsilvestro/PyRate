@@ -439,6 +439,9 @@ if plot_RTT: # NEW FUNCTION 2
     for i in range(-1, n_clades):
         marginal_L = list()
         marginal_M = list()
+        marginal_L_avg = []
+        marginal_M_avg = []
+        
         Gl_temp,Gm_temp=[], []
         for j in range(len(baseline_L_list)): # loop over MCMC samples
             baseline_L = baseline_L_list[j]
@@ -450,7 +453,7 @@ if plot_RTT: # NEW FUNCTION 2
             GarrayA[fixed_focal_clade,0,:] += Gl_focal_clade/scale_factor 
             GarrayA[fixed_focal_clade,1,:] += Gm_focal_clade/scale_factor 
     
-            if i==-1:
+            if i==-1:                
                 G_temp = GarrayA+0
                 #if j==0: print GarrayA[fixed_focal_clade,0,:] 
             else:
@@ -460,6 +463,8 @@ if plot_RTT: # NEW FUNCTION 2
                 Gm_temp.append(G_temp[fixed_focal_clade,1,i])
                 #if j==0: print G_temp[fixed_focal_clade,0,:] 
                     
+            marginal_L_avg.append(trasfRate_general(baseline_L, GarrayA[fixed_focal_clade,0,:],Dtraj))
+            marginal_M_avg.append(trasfRate_general(baseline_M, GarrayA[fixed_focal_clade,1,:],Dtraj))
     
             marginal_L.append(trasfRate_general(baseline_L, G_temp[fixed_focal_clade,0,:],Dtraj))
             marginal_M.append(trasfRate_general(baseline_M, G_temp[fixed_focal_clade,1,:],Dtraj))
@@ -472,6 +477,23 @@ if plot_RTT: # NEW FUNCTION 2
         
         marginal_L = np.array(marginal_L)
         marginal_M = np.array(marginal_M)
+        
+        marginal_L_avg = np.array(marginal_L_avg)
+        marginal_M_avg = np.array(marginal_M_avg)
+        dt = np.abs(np.diff(all_events))
+        dt_rel = dt / np.sum(dt)
+        
+        mean_L_across_reps = np.mean(marginal_L_avg[:, 1:], axis=0) # shape: time
+        mean_M_across_reps = np.mean(marginal_M_avg[:, 1:], axis=0) # shape: time
+        
+        w_mean_L = np.average(mean_L_across_reps, weights= dt_rel)
+        w_mean_M = np.average(mean_M_across_reps, weights= dt_rel)
+        
+
+        if i > -1:            
+            marginal_L = marginal_L / np.mean(marginal_L) * w_mean_L
+            marginal_M = marginal_M / np.mean(marginal_M) * w_mean_M
+
         #print np.shape(marginal_L)
 
         l_vec= np.zeros(np.shape(marginal_L)[1])
