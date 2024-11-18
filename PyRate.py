@@ -1961,7 +1961,9 @@ def get_events_ns(ts, te, times, bin_size):
     ind_ts = np.digitize(ts, times[1:])
     ind_te = np.digitize(te, times[1:])
     i_events_sp[ind, ind_ts] = 1.0
-    i_events_ex[ind, ind_te] = 1.0
+    # extinction events only for extinct taxa
+    is_extinct = te.nonzero()
+    i_events_ex[ind[is_extinct], ind_te[is_extinct]] = 1.0
 
     n_S = bin_size + 0.0
     for i in range(num_taxa):
@@ -1987,7 +1989,8 @@ def update_events_ns(ts, te, times, bin_size, events_sp, events_ex, n_S, ind_upd
     ind_ts = np.digitize(ts, times[1:])
     ind_te = np.digitize(te, times[1:])
     i_events_sp[ind_update, ind_ts] = 1.0
-    i_events_ex[ind_update, ind_te] = 1.0
+    is_extinct = te.nonzero()
+    i_events_ex[ind_update[is_extinct], ind_te[is_extinct]] = 1.0
 
     n_S_up = bin_size[ind_update, :]
     num_taxa = len(ind_update)
@@ -4515,6 +4518,8 @@ def MCMC(all_arg):
                     # print(args[0][4], args[0][6], args[0][-1])
                     # parameters of each partial likelihood and prior (m)
                     if BDNNmodel in [1, 3]:
+#                        print('i_events_ex\n', i_events_ex)
+#                        print('n_S\n', n_S)
                         args.append([i_events_ex[ind_bdnn_lik, :], n_S[ind_bdnn_lik, :], bdnn_mu_rates[ind_bdnn_lik, :]])
                     else:
                         for temp_m in range(len(timesM)-1):
