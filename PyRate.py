@@ -1961,6 +1961,7 @@ def get_events_ns(ts, te, times, bin_size):
     ind_ts = np.digitize(ts, times[1:])
     ind_te = np.digitize(te, times[1:])
     i_events_sp[ind, ind_ts] = 1.0
+    # extinction events only for extinct taxa
     is_extinct = te.nonzero()
     i_events_ex[ind[is_extinct], ind_te[is_extinct]] = 1.0
 
