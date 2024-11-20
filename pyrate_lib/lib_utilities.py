@@ -157,9 +157,9 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True, n_sampl
     
                 if platform.system() == "Windows" or platform.system() == "Microsoft":
                     wd_forward = os.path.abspath(wd).replace('\\', '/')
-                    r_script= "\n\npdf(file='%s/%s_LTT.pdf',width=0.6*20, height=0.6*10)\n" % (wd_forward,name_file)
+                    r_script= "\ntry({\npdf(file='%s/%s_LTT.pdf',width=0.6*20, height=0.6*10)\n" % (wd_forward,name_file)
                 else: 
-                    r_script= "\n\npdf(file='%s/%s_LTT.pdf',width=0.6*20, height=0.6*10)\n" % (wd,name_file)
+                    r_script= "\ntry({\npdf(file='%s/%s_LTT.pdf',width=0.6*20, height=0.6*10)\n" % (wd,name_file)
     
                 R_ts = print_R_vec("ts",ts)
                 R_te = print_R_vec("te",te)
@@ -171,17 +171,25 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True, n_sampl
                 r_script += """
                 par(mfrow=c(1,2))
                 L = length(ts)
+
+                # First plot
                 plot(ts, 1:L , xlim=c(-max(ts)-1,0), pch=20, type="n", main=title,xlab="Time (Ma)",ylab="Lineages")
                 for (i in 1:L){segments(x0=-te[i],y0=i,x1=-ts[i],y1=i)}    
+
+                # Second plot
                 t = -time_events
                 plot(div_traj ~ t,type="s", main = "Diversity trajectory",xlab="Time (Ma)",ylab="Number of lineages",xlim=c(-max(ts)-1,0))
                 abline(v=c(65,200,251,367,445),lty=2,col="gray")
+
+                # Explicitly close the PDF device
+                dev.off()
+                })
                 """
                 
                 r_file.writelines(r_script)
                 r_file.close()
-                print("\nAn LTT plot was saved as: %sLTT.pdf" % (name_file))
-                print("\nThe R script with the source for the LTT plot was saved as: %sLTT.r\n(in %s)" % (name_file, wd))
+                print("\nAn LTT plot was saved as: %s_LTT.pdf" % (name_file))
+                print("\nThe R script with the source for the LTT plot was saved as: %s_LTT.r\n(in %s)" % (name_file, wd))
                 if platform.system() == "Windows" or platform.system() == "Microsoft":
                     cmd="cd %s & Rscript %s_LTT.r" % (wd,name_file)
                 else: 
