@@ -2362,6 +2362,12 @@ def get_binned_time_variable(timebins, var_file, rescale, translate):
     var = var[var[:, 0] >= -translate, :]
     times = var[:, 0] * rescale + translate
     values = var[:, 1:]
+    
+    # reorder var_file to ensure that the most recent is the first row
+    reorder = np.argsort(times)
+    times = times[reorder]
+    values = values[reorder, :]
+    
     nbins = len(timebins)
     nvars = values.shape[1]
     mean_var = np.zeros((nbins - 1, nvars))
@@ -2371,7 +2377,7 @@ def get_binned_time_variable(timebins, var_file, rescale, translate):
         n_va = len(va)
         discr_var[i] = np.all(np.isin(va, np.arange(n_va)))
     # If there are no values for the recent, we add the most recent value (i.e. constant environment)
-    if (times[0] > timebins[-1]) and translate >= 0.0:
+    if (times[0] > timebins[-1]):
         times = np.concatenate((np.zeros(1), times), axis=None)
         values = np.concatenate((values[0, :].reshape((1, -1)), values), axis=0)
     # Interpolation if temporal resolution of var_file is lower than time bins
@@ -3953,10 +3959,7 @@ def MCMC(all_arg):
         SA=np.sum(tsA-teA)
 
     # start threads
-    not_using_BDNN_likelihood = True
-    if (BDNNmodel in [1, 3] and TDI == 0 and fix_Shift == 0):
-        not_using_BDNN_likelihood = False
-    if num_processes>0 and not_using_BDNN_likelihood: pool_lik = multiprocessing.Pool(num_processes) # likelihood
+    if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
     if frac1>=0 and num_processes_ts>0: pool_ts = multiprocessing.Pool(num_processes_ts) # update ts, te
     tmp, marginal_lik, lik_tmp=0, zeros(len(temperatures)), 0
 
@@ -4377,7 +4380,6 @@ def MCMC(all_arg):
                                     else:
                                         lik_fossil[i] = NHPP_lik(args[j])
                     else:
-                        if BDNNmodel in [2, 3]: sys.exit("Neural-network model model can only run on a single processor")
                         if TPP_model == 1: sys.exit("TPP_model model can only run on a single processor")
                         if argsHPP == 1 or  frac1==0: lik_fossil[ind1] = array(pool_ts.map(HOMPP_lik, args))
                         elif argsG == 1: lik_fossil[ind1] = array(pool_ts.map(NHPPgamma, args))
@@ -5482,6 +5484,8 @@ if __name__ == '__main__':
     burnin=args.b
     num_processes = args.thread[0]    # BDlik
     num_processes_ts = args.thread[1] # NHPPlik
+    if BDNNmodel and num_processes > 0:
+        print(sys.exit("Neural-network model model can only run on a single processor"))
     if num_processes+num_processes_ts==0: use_seq_lik = 1
     if use_seq_lik == 1: num_processes,num_processes_ts=0,0
     min_allowed_t=args.min_dt
