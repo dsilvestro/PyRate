@@ -157,9 +157,9 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True, n_sampl
     
                 if platform.system() == "Windows" or platform.system() == "Microsoft":
                     wd_forward = os.path.abspath(wd).replace('\\', '/')
-                    r_script= "\ntry({\npdf(file='%s/%s_LTT.pdf',width=0.6*20, height=0.6*10)\n" % (wd_forward,name_file)
+                    r_script= "\n\npdf(file='%s/%s_LTT.pdf',width=0.6*20, height=0.6*10)\n" % (wd_forward,name_file)
                 else: 
-                    r_script= "\ntry({\npdf(file='%s/%s_LTT.pdf',width=0.6*20, height=0.6*10)\n" % (wd,name_file)
+                    r_script= "\n\npdf(file='%s/%s_LTT.pdf',width=0.6*20, height=0.6*10)\n" % (wd,name_file)
     
                 R_ts = print_R_vec("ts",ts)
                 R_te = print_R_vec("te",te)
@@ -183,7 +183,6 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True, n_sampl
 
                 # Explicitly close the PDF device
                 dev.off()
-                })
                 """
                 
                 r_file.writelines(r_script)
