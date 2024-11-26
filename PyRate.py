@@ -931,9 +931,9 @@ def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type="", keep
                         head_temp = head_temp[q_not_ind]
                         q_names = np.array(["q_" + str(i) for i in range(max_q_shifts)])
                         head_temp = np.insert(head_temp, q_ind[0], q_names)
-                    tbl_header=""
-                    for i in head_temp: tbl_header = tbl_header + i  + "\t"
-                    tbl_header+="\n"
+                tbl_header=""
+                for i in head_temp: tbl_header = tbl_header + i  + "\t"
+                tbl_header+="\n"
                 comb = t_file
             else:
                 comb = np.concatenate((comb,t_file),axis=0)
