@@ -2735,12 +2735,12 @@ class BdnnTester():
             rnd_layer = self._rng.integers(0, len(w_lamA))
             # update layers B rate
             w_lam[rnd_layer] = update_parameter_normal_vec(w_lamA[rnd_layer],
-                                                            d=0.05,
-                                                            f=self.bdnn_update_f[rnd_layer] )
+                                                           d=0.05,
+                                                           f=self.bdnn_update_f[rnd_layer] )
             # update layers D rate
             w_mu[rnd_layer] = update_parameter_normal_vec(w_muA[rnd_layer],
-                                                            d=0.05,
-                                                            f=self.bdnn_update_f[rnd_layer] )
+                                                          d=0.05,
+                                                          f=self.bdnn_update_f[rnd_layer] )
             # update temp regularization
             if self.prior_t_reg[0] > 0.0:
                 t_reg[0] = update_parameter(t_regA[0], 0, 1, d=0.05, f=1)
@@ -2755,17 +2755,17 @@ class BdnnTester():
                 self.print_update("%s %s %s" % (iteration, post, postA))
 
             if (post - postA) > np.log(self._rng.random()):
-                postA = post
+                postA = post + 0.0
                 w_lamA, w_muA = copy_lib.deepcopy(w_lam), copy_lib.deepcopy(w_mu)
-                t_regA = t_reg
+                t_regA = t_reg + 0.0
     
             if iteration % 100 == 0 and iteration > self.burnin:
-                lam, _ = get_rate_BDNN(t_reg[0], self.traits, w_lam, act_f=self.act_f, out_act_f=self.out_act_f)
-                mu, _ = get_rate_BDNN(t_reg[1], self.traits, w_mu, act_f=self.act_f, out_act_f=self.out_act_f)
+                lamA, _ = get_rate_BDNN(t_regA[0], self.traits, w_lamA, act_f=self.act_f, out_act_f=self.out_act_f)
+                muA, _ = get_rate_BDNN(t_regA[1], self.traits, w_muA, act_f=self.act_f, out_act_f=self.out_act_f)
 #                print('inferred lam', lam)
 #                print('inferred mu', mu)
-                lam_acc.append(lam)
-                mu_acc.append(mu)
+                lam_acc.append(lamA)
+                mu_acc.append(muA)
 
         # summarize results
         lam_acc = np.array(lam_acc)
@@ -2779,8 +2779,8 @@ class BdnnTester():
         if self.verbose:
             print('\nlambda', post_lam, "\n")
             print('\nmu', post_mu, "\n")
-            print("\n\nCV lambda:", cv[0])
-            print("CV mu:", cv[1], "\n")
+            print("\nCV lambda:", cv[0], "\n")
+            print("\nCV mu:", cv[1], "\n")
 
         return cv
 
@@ -2967,13 +2967,13 @@ class BdnnTesterSampling():
                 self.print_update("%s %s %s" % (iteration, post, postA))
 
             if (post - postA + hasting) > np.log(self._rng.random()):
-                q_ratesA = q_rates
-                q_multiA = q_multi
-                q_rates_speciesA = q_rates_species
-                alpha_gammaA = alpha_gamma
-                postA = post
+                q_ratesA = q_rates + 0.0
+                q_multiA = q_multi + 0.0
+                q_rates_speciesA = q_rates_species + 0.0
+                alpha_gammaA = alpha_gamma + 0.0
+                postA = post + 0.0
                 w_qA = copy_lib.deepcopy(w_q)
-                t_regA = t_reg
+                t_regA = t_reg + 0.0
     
             if iteration % 100 == 0 and iteration > self.burnin:
                 if self.use_HPP_NN_lik:
@@ -2989,7 +2989,7 @@ class BdnnTesterSampling():
         cv = np.std(post_q) / np.mean(post_q)
         if self.verbose:
             print('\nsampling', post_q, "\n")
-            print("\n\nCV sampling:", cv)
+            print("\nCV sampling:", cv)
 
         return cv
 
@@ -4077,6 +4077,19 @@ def get_bdnn_lik(bdnn_obj, bdnn_time, i_events, n_S, w, t_reg, reg_denom, trait_
     return np.sum(bdnn_lik)
 
 
+def get_bdnn_lik_notime(bdnn_obj, w_lam, w_mu, trait_tbl_NN, t_reg_lam, t_reg_mu, reg_denom_lam, reg_denom_mu, ts, te):
+    hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
+    out_act_f = bdnn_obj.bdnn_settings['out_act_f']
+    lam = get_rate_BDNN_3D_noreg(trait_tbl_NN[0], w_lam, hidden_act_f, out_act_f)
+    mu = get_rate_BDNN_3D_noreg(trait_tbl_NN[1], w_mu, hidden_act_f, out_act_f)
+    lam = lam ** t_reg_lam / reg_denom_lam
+    mu = mu ** t_reg_mu / reg_denom_mu
+    s = ts - te
+    likL = np.sum(np.log(lam) - lam * s)
+    likM = np.sum(np.log(mu[te > 0])) - np.sum(mu * s)
+    return likL, likM
+
+
 def create_perm_comb(bdnn_obj, do_inter_imp = True, combine_discr_features = None, rate_type='speciation'):
     names_features = get_names_features(bdnn_obj, rate_type)
     idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
@@ -4223,14 +4236,22 @@ def perm_mcmc_sample_i(arg):
         trt_tbls[0][:, :, div_idx_trt_tbl] = bdnn_binned_div
         trt_tbls[1][:, :, div_idx_trt_tbl] = bdnn_binned_div
     # Original bd liks
-    orig_birth_lik = get_bdnn_lik(bdnn_obj,
-                                  bdnn_time, i_events_sp, n_S,
-                                  post_w_sp_i, t_reg_lam_i, reg_denom_lam_i,
-                                  trt_tbls[0])
-    orig_death_lik = get_bdnn_lik(bdnn_obj,
-                                  bdnn_time, i_events_ex, n_S,
-                                  post_w_ex_i, t_reg_mu_i, reg_denom_mu_i,
-                                  trt_tbls[1])
+    if trt_tbls[0].ndim == 3:
+        orig_birth_lik = get_bdnn_lik(bdnn_obj,
+                                      bdnn_time, i_events_sp, n_S,
+                                      post_w_sp_i, t_reg_lam_i, reg_denom_lam_i,
+                                      trt_tbls[0])
+        orig_death_lik = get_bdnn_lik(bdnn_obj,
+                                      bdnn_time, i_events_ex, n_S,
+                                      post_w_ex_i, t_reg_mu_i, reg_denom_mu_i,
+                                      trt_tbls[1])
+    else:
+        orig_birth_lik, orig_death_lik = get_bdnn_lik_notime(bdnn_obj,
+                                                             post_w_sp_i, post_w_ex_i, trt_tbls,
+                                                             t_reg_lam_i, t_reg_mu_i,
+                                                             reg_denom_lam_i, reg_denom_mu_i,
+                                                             post_ts_i, post_te_i)
+    
     sp_lik_j = np.zeros((n_perm, n_perm_traits))
     ex_lik_j = np.zeros((n_perm, n_perm_traits))
     rngint = np.random.default_rng()
@@ -4262,14 +4283,21 @@ def perm_mcmc_sample_i(arg):
                                               post_w_ex_i, t_reg_mu_i, reg_denom_mu_i,
                                               trt_tbls_perm[1])
             else:
-                sp_lik_j[k, j] = get_bdnn_lik(bdnn_obj,
-                                              bdnn_time, i_events_sp, n_S,
-                                              post_w_sp_i, t_reg_lam_i, reg_denom_lam_i,
-                                              trt_tbls_perm[0])
-                ex_lik_j[k, j] = get_bdnn_lik(bdnn_obj,
-                                              bdnn_time, i_events_ex, n_S,
-                                              post_w_ex_i, t_reg_mu_i, reg_denom_mu_i,
-                                              trt_tbls_perm[1])
+                if trt_tbls_perm[0].ndim == 3:
+                    sp_lik_j[k, j] = get_bdnn_lik(bdnn_obj,
+                                                  bdnn_time, i_events_sp, n_S,
+                                                  post_w_sp_i, t_reg_lam_i, reg_denom_lam_i,
+                                                  trt_tbls_perm[0])
+                    ex_lik_j[k, j] = get_bdnn_lik(bdnn_obj,
+                                                  bdnn_time, i_events_ex, n_S,
+                                                  post_w_ex_i, t_reg_mu_i, reg_denom_mu_i,
+                                                  trt_tbls_perm[1])
+                else:
+                    sp_lik_j[k, j], ex_lik_j[k, j] = get_bdnn_lik_notime(bdnn_obj,
+                                                                         post_w_sp_i, post_w_ex_i, trt_tbls,
+                                                                         t_reg_lam_i, t_reg_mu_i,
+                                                                         reg_denom_lam_i, reg_denom_mu_i,
+                                                                         post_ts_i, post_te_i)
     species_sp_delta_lik = sp_lik_j - orig_birth_lik
     species_ex_delta_lik = ex_lik_j - orig_death_lik
     return np.hstack((species_sp_delta_lik, species_ex_delta_lik))
@@ -4436,13 +4464,14 @@ def feature_permutation(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm = 10, 
         bdnn_time_highres = get_bdnn_time(fixed_times_of_shift_highres, np.max(post_ts))
 
     args = []
+    i_events_sp, i_events_ex, n_S, bin_size = None, None, None, None
     for i in range(n_mcmc):
         if trt_tbls[0].ndim == 3:
             bin_size = np.tile(np.abs(np.diff(bdnn_time_highres)), n_taxa).reshape((n_taxa, len(bdnn_time_highres) - 1))
             i_events_sp_highres, i_events_ex_highres, n_S_highres = get_events_ns(post_ts[i, :], post_te[i, :], bdnn_time_highres, bin_size)
             trt_tbls_highres_trimmed = trim_trt_tbls_to_match_event(trt_tbls_highres, i_events_sp_highres)
-        bin_size = np.tile(np.abs(np.diff(bdnn_time)), n_taxa).reshape((n_taxa, len(bdnn_time) - 1))
-        i_events_sp, i_events_ex, n_S = get_events_ns(post_ts[i, :], post_te[i, :], bdnn_time, bin_size)
+            bin_size = np.tile(np.abs(np.diff(bdnn_time)), n_taxa).reshape((n_taxa, len(bdnn_time) - 1))
+            i_events_sp, i_events_ex, n_S = get_events_ns(post_ts[i, :], post_te[i, :], bdnn_time, bin_size)
         a = [bdnn_obj, post_ts[i, :], post_te[i, :],
              bdnn_time, i_events_sp, i_events_ex, n_S,
              bdnn_time_highres, i_events_sp_highres, i_events_ex_highres, n_S_highres,
@@ -5799,7 +5828,7 @@ def make_shap_result_for_single_feature_sampling(names_features_q, combine_discr
                            'shap': np.nan, 'lwr_shap': np.nan, 'upr_shap': np.nan},
                            index = [0])
     taxa_shap_q = pd.DataFrame(columns = ['shap', 'lwr_shap', 'upr_shap', 'rate', 'rate_lwr', 'rate_upr'])
-    return shap_q, shap_q
+    return shap_q, taxa_shap_q
 
 
 def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes=1, combine_discr_features={}, show_progressbar=False, do_inter_imp=True, use_mean=False):
