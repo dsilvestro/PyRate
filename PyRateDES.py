@@ -1652,7 +1652,7 @@ def plot_raw_diversity(time, desin_list, wd, fossil):
     print("done\n")
 
 
-def plot_RTT(plot_file, burnin):
+def plot_RTT(plot_file, burnin, plot_time):
     if burnin == 0:
         print("""Burnin was set to 0. Use command -b to specify a higher burnin
 (e.g. -b 100 will exclude the first 100 samples).""")
@@ -1718,6 +1718,20 @@ def plot_RTT(plot_file, burnin):
     for i in d12_index:
         time_string = head[i].split("_")[1]
         time_plot.append(float(time_string))
+    time_plot = np.array(time_plot)
+
+    # Truncate rates according to user defined time interval
+    if "marginal_rates" in plot_file and (plot_time[0] < np.inf or plot_time[1] > 0.0):
+        keep = np.logical_and(time_plot < plot_time[0], time_plot > plot_time[1])
+        d12_mean = d12_mean[keep]
+        d21_mean = d21_mean[keep]
+        d12_hpd = d12_hpd[:, keep]
+        d21_hpd = d21_hpd[:, keep]
+        e1_mean = e1_mean[keep]
+        e2_mean = e2_mean[keep]
+        e1_hpd = e1_hpd[:, keep]
+        e2_hpd = e2_hpd[:, keep]
+        time_plot = time_plot[keep]
     
     # write R file
     print("\ngenerating R file...", end=' ')
@@ -1746,7 +1760,7 @@ def plot_RTT(plot_file, burnin):
         r_script += "\nlayout(matrix(1:2, ncol = 2, nrow = 1, byrow = TRUE))"
 
     r_script += "\npar(las = 1, mar = c(4, 4, 0.5, 0.5))"
-    r_script += "\nplot(time, d12_mean, type = 'n', ylim = c(0, Ylim_d), xlim = c(max(time), 0), xlab = 'Time', ylab = '%s')" % (y_lab1)
+    r_script += "\nplot(time, d12_mean, type = 'n', ylim = c(0, Ylim_d), xlim = c(max(time), min(time)), xlab = 'Time', ylab = '%s')" % (y_lab1)
     r_script += "\nalpha = 0.3/%s" % lenCI
     for i in range(lenCI):
         r_script += print_R_vec('\nd12_upr', d12_hpd[2 * i, :])
@@ -1754,7 +1768,7 @@ def plot_RTT(plot_file, burnin):
         r_script += "\npolygon(c(time, rev(time)), c(d12_lwr, rev(d12_upr)), col = adjustcolor('#4c4cec', alpha = 0.3), border = NA)"
     r_script += "\nlines(time, d12_mean, col = '#4c4cec', lwd = 2)"
 
-    r_script += "\nplot(time, d21_mean, type = 'n', ylim = c(0, Ylim_d), xlim = c(max(time), 0), xlab = 'Time', ylab = '%s')" % (y_lab2)
+    r_script += "\nplot(time, d21_mean, type = 'n', ylim = c(0, Ylim_d), xlim = c(max(time), min(time)), xlab = 'Time', ylab = '%s')" % (y_lab2)
     r_script += "\nalpha = 0.3/%s" % lenCI
     for i in range(lenCI):
         r_script += print_R_vec('\nd21_upr', d21_hpd[2 * i, :])
@@ -1770,13 +1784,13 @@ def plot_RTT(plot_file, burnin):
         r_script += print_R_vec('\ne1_lwr', e1_hpd[0, :])
         r_script += print_R_vec('\ne2_lwr', e2_hpd[0, :])
         r_script += "\nYlim_e = max(c(e1_mean, e2_mean, e1_upr, e2_upr), na.rm = TRUE)"
-        r_script += "\nplot(time, e1_mean, type = 'n', ylim = c(0, Ylim_e), xlim = c(max(time), 0), xlab = 'Time', ylab = '%s')" % (y_lab3)
+        r_script += "\nplot(time, e1_mean, type = 'n', ylim = c(0, Ylim_e), xlim = c(max(time), min(time)), xlab = 'Time', ylab = '%s')" % (y_lab3)
         for i in range(lenCI):
             r_script += print_R_vec('\ne1_lwr', e1_hpd[2 * i, :])
             r_script += print_R_vec('\ne1_upr', e1_hpd[2 * i + 1, :])
             r_script += "\npolygon(c(time, rev(time)), c(e1_lwr, rev(e1_upr)), col = adjustcolor('#e34a33', alpha = 0.3), border = NA)"
         r_script += "\nlines(time, e1_mean, col = '#e34a33', lwd = 2)"
-        r_script += "\nplot(time, e2_mean, type = 'n', ylim = c(0, Ylim_e), xlim = c(max(time), 0), xlab = 'Time', ylab = '%s')" % (y_lab4)
+        r_script += "\nplot(time, e2_mean, type = 'n', ylim = c(0, Ylim_e), xlim = c(max(time), min(time)), xlab = 'Time', ylab = '%s')" % (y_lab4)
         for i in range(lenCI):
             r_script += print_R_vec('\ne2_lwr', e2_hpd[2 * i, :])
             r_script += print_R_vec('\ne2_upr', e2_hpd[2 * i + 1, :])
@@ -1878,7 +1892,7 @@ def get_trait_x_cat_effect(trait, trait_untrans, cat, log_transfTrait, base_rate
     return rates_trait_cat, plot_trait_cat, max_rate_list
 
 
-def plot_effect(rate1, covar_rate, name_covar, col_rate, name_rate1, rate2=None, name_rate2=None, time_series=None, covar_time=None, xlog=0):
+def plot_effect(rate1, covar_rate, name_covar, col_rate, name_rate1, rate2=None, name_rate2=None, time_series=None, covar_time=None, xlog=0, plot_time=[np.inf, 0.0]):
     plot_script = "\nlayout(matrix(1:3, ncol = 3, nrow = 1, byrow = TRUE))"
     plot_script += "\npar(las = 1, mar = c(5, 4, 0.5, 0.5))"
     plot_script += print_R_vec('\ncovar_rate', covar_rate)
@@ -1897,6 +1911,11 @@ def plot_effect(rate1, covar_rate, name_covar, col_rate, name_rate1, rate2=None,
     plot_script += "\nname_rate1 = '%s' " % name_rate1
     plot_script += "\ncol_rate='%s' " % col_rate
     if time_series is not None:
+        # Truncate rates according to user defined time interval - do we ever plot a time series with this function?
+        if plot_time[0] < np.inf or plot_time[1] > 0.0:
+            keep = np.logical_and(time_series < plot_time[0], time_series > plot_time[1])
+            time_series = time_series[keep]
+            covar_time = covar_time[keep]
         plot_script += print_R_vec('\ntime_series', time_series)
         plot_script += print_R_vec('\ncovar_time', covar_time)
         plot_script += "\nplot(time_series, covar_time, type = 's', xlim = c(max(time_series), min(time_series)), xlab = 'Time', ylab = name_covar, lwd = 2)"
@@ -1940,7 +1959,7 @@ def plot_effect(rate1, covar_rate, name_covar, col_rate, name_rate1, rate2=None,
     return plot_script
 
 
-def plot_timevar_effect(rate1, rate2, covar_rate1, covar_rate2, name_rate1, name_rate2, name_covar, col_rate, time_series, covar_time):
+def plot_timevar_effect(rate1, rate2, covar_rate1, covar_rate2, name_rate1, name_rate2, name_covar, col_rate, time_series, covar_time, plot_time):
     plot_script = "\nlayout(matrix(1:3, ncol = 3, nrow = 1, byrow = TRUE))"
     plot_script += "\npar(las = 1, mar = c(5, 4, 0.5, 0.5))"
     plot_script += print_R_vec('\ncovar_rate1', covar_rate1)
@@ -1956,6 +1975,10 @@ def plot_timevar_effect(rate1, rate2, covar_rate1, covar_rate2, name_rate1, name
     plot_script += "\nname_rate2 = '%s' " % name_rate2
     plot_script += "\ncol_rate='%s' " % col_rate
     plot_script += "\nylim = max(c(r1_mean, r2_mean, r1_upr, r2_upr), na.rm = TRUE)"
+    if plot_time[0] < np.inf or plot_time[1] > 0.0:
+        keep = np.logical_and(time_series < plot_time[0], time_series > plot_time[1])
+        time_series = time_series[keep]
+        covar_time = covar_time[:, keep]
     plot_script += print_R_vec('\ntime_series', time_series)
     # Plot covariate values through time
     if np.all(covar_time[0, :] - covar_time[1, :] == 0):
@@ -2047,7 +2070,7 @@ def plot_trait_x_cat_effect(rate, trait, name_cont_trait, name_cat_trait, name_r
     return plot_script
 
 
-def plot_covar_effects(plot_file, burnin, plotCI, time_varD, time_varE):
+def plot_covar_effects(plot_file, burnin, plotCI, time_varD, time_varE, plot_time):
     # Many variables taken from the global environment instead of passing them to the function
     if burnin == 0:
         print("""Burnin was set to 0. Use command -b to specify a higher burnin (e.g. -b 100 will exclude the first 100 samples).""")
@@ -2257,7 +2280,7 @@ def plot_covar_effects(plot_file, burnin, plotCI, time_varD, time_varE):
             r_script += plot_timevar_effect(rate1=covarD_d12[i], rate2=covarD_d21[i], covar_rate1=covarD[1, :, i], covar_rate2=covarD[0, :, i],
                                             name_rate1='dispersal 12', name_rate2='dispersal 21',
                                             name_covar=names_time_varD[i], col_rate='#4c4cec',
-                                            time_series=time_series[1:], covar_time=time_varD[:, :, i])
+                                            time_series=time_series[1:], covar_time=time_varD[:, :, i], plot_time=plot_time)
     if do_DivdD:
         r_script += "\n# Diversity-dependent dispersal"
         r_script += plot_effect(covarDivd_d12, covarDivd, 'Diversity', '#4c4cec', 'dispersal 12', covarDivd_d21, 'dispersal 21')
@@ -2285,7 +2308,7 @@ def plot_covar_effects(plot_file, burnin, plotCI, time_varD, time_varE):
             r_script += plot_timevar_effect(rate1=covarE_e1[i], rate2=covarE_e2[i], covar_rate1=covarE[0, :, i], covar_rate2=covarE[1, :, i],
                                             name_rate1='extinction 1', name_rate2='extinction 2',
                                             name_covar=names_time_varE[i], col_rate='#e34a33',
-                                            time_series=time_series[1:], covar_time=time_varE[:, :, i])
+                                            time_series=time_series[1:], covar_time=time_varE[:, :, i], plot_time=plot_time)
     if do_DivdE:
         r_script += "\n# Diversity-dependent extinction"
         r_script += plot_effect(covarDive_e1, covarDive, 'Diversity', '#e34a33', 'extinction 1', covarDive_e2, 'extinction 2')
@@ -2392,7 +2415,8 @@ p.add_argument('-logTraitS', type=int, help='Transform sampling traits by taking
 ### summary
 p.add_argument('-sum',      type=str, help='Summarize results (provide log file)',  default="", metavar="log file")
 p.add_argument('-plot', type=str, help='Marginal rates file or Log file for plotting covariate effect (the latter requires input data set, time variable files, traits and model specification)', default="", metavar="")
-p.add_argument('-plotCI',   type=float, help='credible interval(s) for plotting covariate effects', default=[.95], metavar=0, nargs='+')
+p.add_argument('-plotCI',   type=float, help='Credible interval(s) for plotting covariate effects', default=[.95], metavar=0, nargs='+')
+p.add_argument('-plot_time',   type=float, help='Time interval for RTT plot', default=[np.inf, 0.0], metavar=0, nargs=2)
 
 ### simulation settings ###
 p.add_argument('-sim_d',  type=float, help='dispersal rates',  default=[.4, .1], metavar=1.1, nargs=2)
@@ -2580,7 +2604,7 @@ if args.sum != "":
 plot_file = args.plot
 if plot_file != "":
     if "marginal_rates" in plot_file or "diversity" in plot_file or "dispersal" in plot_file:
-        plot_RTT(plot_file, burnin)
+        plot_RTT(plot_file, burnin, args.plot_time)
         sys.exit("\n")
 
 
@@ -3226,7 +3250,7 @@ if do_DivdE:
 
 if plot_file != "":
     if ("marginal_rates" in plot_file) == False or ("diversity" in plot_file) == False or ("dispersal" in plot_file) == False:
-        plot_covar_effects(plot_file, burnin, args.plotCI, time_varD, time_varE)
+        plot_covar_effects(plot_file, burnin, args.plotCI, time_varD, time_varE, args.plot_time)
         sys.exit("\n")
 
 
