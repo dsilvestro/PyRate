@@ -191,8 +191,8 @@ def make_Q_Covar4VDdE(dv_list, ev_list, rep_d, rep_e,
     elif transf_d == 8: # exponential environmental dependence with rate shifts
         idx1 = np.arange(0, len(covar_parD), 2, dtype=int)
         idx2 = np.arange(1, len(covar_parD), 2, dtype=int)
-        d12 = dv_list[:, 0] * np.exp(np.sum(covar_parD[idx1] * time_var_d1, axis=None))
-        d21 = dv_list[:, 1] * np.exp(np.sum(covar_parD[idx2] * time_var_d2, axis=None))
+        d12 = dv_list[:, 0] * np.exp(np.sum(covar_parD[idx1] * time_var_d1, axis=1))
+        d21 = dv_list[:, 1] * np.exp(np.sum(covar_parD[idx2] * time_var_d2, axis=1))
     else: # time-dependent-dispersal
         d12 = dv_list[:, 0]
         d21 = dv_list[:, 1]
@@ -265,8 +265,8 @@ def make_Q_Covar4VDdE(dv_list, ev_list, rep_d, rep_e,
     elif transf_e == 8: # exponential environmental dependence with rate shifts
         idx1 = np.arange(0, len(covar_parE), 2, dtype=int)
         idx2 = np.arange(1, len(covar_parE), 2, dtype=int)
-        e1 = ev_list[:, 0] * np.exp(np.sum(covar_parE[idx1] * time_var_e1, axis=None))
-        e2 = ev_list[:, 1] * np.exp(np.sum(covar_parE[idx2] * time_var_e2, axis=None))
+        e1 = ev_list[:, 0] * np.exp(np.sum(covar_parE[idx1] * time_var_e1, axis=1))
+        e2 = ev_list[:, 1] * np.exp(np.sum(covar_parE[idx2] * time_var_e2, axis=1))
     else:
         e1 = ev_list[:, 0]
         e2 = ev_list[:, 1]
