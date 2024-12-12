@@ -298,7 +298,7 @@ The partial dependence plots display the effect on speciation and extinction rat
 
 This is an example to obtain partial dependence rates for the predictors body mass, temperature, and time (i.e. marginalizing over the effect of family and geographic distribution)
 ```
-python ./PyRate.py -BDNN_interaction ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_G_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features ./example_files/BDNN_examples/Carnivora/Backscale.txt -plotBDNN_transf_features ./example_files/BDNN_examples/Carnivora/Backscale.txt -BDNN_groups "{\"BodyMass\": [\"BodyMass\"], \"Temperature\": [\"Temperature\"], \"time\": [\"time\"]}" -b 0.5 -resample 3
+python ./PyRate.py -BDNN_interaction ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_G_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features ./example_files/BDNN_examples/Carnivora/Backscale.txt -BDNN_groups "{\"BodyMass\": [\"BodyMass\"], \"Temperature\": [\"Temperature\"], \"time\": [\"time\"]}" -b 0.5 -resample 3
 ```
 
 It will create four text files in the *pyrate_mcmc_logs* folder (two for speciation and two for extinction): 
