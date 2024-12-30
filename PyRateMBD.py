@@ -23,6 +23,7 @@ from pyrate_lib.lib_DD_likelihood  import *
 from pyrate_lib.lib_utilities import calcHPD as calcHPD
 from pyrate_lib.lib_utilities import print_R_vec as print_R_vec
 from pyrate_lib.lib_utilities import get_mode as get_mode
+from pyrate_lib.lib_utilities import read_ts_te_table as read_ts_te_table
 import pyrate_lib.lib_utilities as lib_utilities
 
 
@@ -71,19 +72,11 @@ death_model = args.death_model
 
 
 
-#t_file=np.genfromtxt(dataset, names=True, delimiter='\t', dtype=float)
-t_file=np.loadtxt(dataset, skiprows=1)
-
 name_file = os.path.splitext(os.path.basename(dataset))[0]
 wd = "%s" % os.path.dirname(dataset)
 
-ts=t_file[:,2+2*args.j]
-te=t_file[:,3+2*args.j]
-if args.ignore_clade_col:
-    clade_ID = np.zeros(len(ts)).astype(int)
-else:
-    clade_ID=t_file[:,0]
-    clade_ID=clade_ID.astype(int)
+ts, te, clade_ID, _ = read_ts_te_table(dataset, args.j, ignore_clade_col=args.ignore_clade_col)
+
 
 if args.plot != "":
     j = np.arange((np.shape(t_file)[1]-2)/2)

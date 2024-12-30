@@ -112,6 +112,13 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True, n_sampl
             #y=[x for x in head if 'te_' in x]
             ind_te0 = head.index(y[0])
             print(len(w), "species", shape_f)
+            
+            # get species names
+            species_idx = [i for i in range(len(head)) if head[i].endswith('_TS')]
+            species_names = []
+            for s in species_idx:
+                species_names.append(head[s].replace("_TS", ""))
+            
             j=0
             out_list=list()
             if burnin<1: burnin = int(burnin*shape_f[0])
@@ -208,6 +215,7 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True, n_sampl
                 print(shape(out_array))
                 for i in range(len(out_array[:,0])):
                     log_state=list(out_array[i,:])
+                    log_state[1] = species_names[i]
                     wlog.writerow(log_state)
                     newfile.flush()
                 print("\nFile saved as:", outfile)
@@ -220,6 +228,7 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True, n_sampl
     if len(files)==1 or tag != "":
         for i in range(len(out_array[:,0])):
             log_state=list(out_array[i,:])
+            log_state[1] = species_names[i]
             wlog.writerow(log_state)
             newfile.flush()
 
@@ -232,6 +241,33 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True, n_sampl
 # import lib_utilities
 # lib_utilities.write_ts_te_table("/Users/daniele/Desktop/try/tries",0)
 
+
+def read_ts_te_table(ts_te_tbl_file, j=1, rescale=1, translate=0, focus_clade=-1, add_short_branch=False, ignore_clade_col=False):
+    se_file_open = open(ts_te_tbl_file, 'r')
+    L = se_file_open.readlines()[1:]
+    se_val = [l.split() for l in L if l.split()[0] != "#"]
+    t_file = np.array(se_val)
+    taxa_names = t_file[:, 1]
+    t_file = np.delete(t_file, 1, axis=1).astype(float) # delete column with taxon names
+    
+    FA = t_file[:, 1 + 2 * j] * rescale + translate
+    LO = t_file[:, 2 + 2 * j] * rescale + translate
+    
+    clade_ID = t_file[:, 0].astype(int)
+    if ignore_clade_col:
+        clade_ID = np.zeros(len(FA)).astype(int)
+    
+    # assign short branch length to singletons (ts=te)
+    if add_short_branch:
+        ind_singletons = (FA == LO).nonzero()[0]
+        FA = np.zeros(len(FA))
+        FA[ind_singletons] = 0.1
+        FA = FA + z
+    
+    if focus_clade >= 0:
+        FA, LO = FA[clade_ID==focus_clade], LO[clade_ID==focus_clade]
+    
+    return FA, LO, clade_ID, taxa_names
 
 
 def calc_marginal_likelihood(infile,burnin,extract_mcmc=1):

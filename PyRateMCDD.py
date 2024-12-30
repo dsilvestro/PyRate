@@ -29,7 +29,7 @@ except:
 
 from lib_updates_priors import *
 from lib_DD_likelihood  import *
-
+from pyrate_lib.lib_utilities import read_ts_te_table as read_ts_te_table
 
 #### DATA ###
 
@@ -51,13 +51,8 @@ dataset=args.d
 n_iterations=args.n
 sampling_freq=args.s
 print_freq = args.p
-#t_file=np.genfromtxt(dataset, names=True, delimiter='\t', dtype=float)
-t_file=np.loadtxt(dataset, skiprows=1)
 
-clade_ID=t_file[:,0]
-clade_ID=clade_ID.astype(int)
-ts=t_file[:,2+2*args.j]
-te=t_file[:,3+2*args.j]
+ts, te, clade_ID, _ = read_ts_te_table(dataset, args.j)
 
 constr=args.m
 

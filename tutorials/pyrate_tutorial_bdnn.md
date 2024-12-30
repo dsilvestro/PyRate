@@ -11,6 +11,7 @@
 * [Effect plots](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#partial-dependence-plots)
 * [Predictor importance](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#predictor-importance)
 * [Combining replicates](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#combining-bdnn-files-across-replicates)
+* [Estimated times of origination and extinction](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#estimated-times-of-origination-and-extinction)
 * [Return to Index](https://github.com/dsilvestro/PyRate/tree/master/tutorials#pyrate-tutorials---index)
 ***
 
@@ -429,3 +430,23 @@ If there are different BDNN analyses e.g. with different sets of predictors in t
 
 When the burnin and sub-sampling have been performed to combine the individual replicates, we do not need to specify these parameters in post-processing steps like `-plotBDNN_effects` or `-BDNN_pred_importance`.
 
+---
+### Estimated times of origination and extinction
+
+The BDNN model can be combined with times of origination and extinction that are obtained from a previous PyRate analysis. Thus, the input file is a simple table with the times of origination and extinction of each lineage. The table can be generated using the `-ginput` command as shown [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#generate-input-file-for-pyratecontinuous).
+
+
+#### Run a PyRate to infer times of origination and extinction
+```
+python ./PyRate.py ./example_files/BDNN_examples/Carnivora/Carnivora_occs.py -A 4 -qShift ./example_files/BDNN_examples/Carnivora/Stages.txt -mG -n 1000001 -p 100000 -s 10000
+```
+
+#### Get mean times of origination and extinction
+```
+python ./PyRate.py -ginput ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_Grj_mcmc.log -b 0.25
+```
+
+#### Run BDNN on fixed times of origination and extinction
+```
+python ./PyRate.py -d ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_Grj_se_est.txt -BDNNmodel 1 -trait_file ./example_files/BDNN_examples/Carnivora/Traits.txt -n 500001 -p 20000 -s 5000
+```

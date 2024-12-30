@@ -22,6 +22,7 @@ from pyrate_lib.lib_updates_priors import *
 from pyrate_lib.lib_DD_likelihood  import *
 from pyrate_lib.lib_utilities import calcHPD as calcHPD
 from pyrate_lib.lib_utilities import print_R_vec as print_R_vec
+from pyrate_lib.lib_utilities import read_ts_te_table as read_ts_te_table
 import pyrate_lib.lib_utilities as lib_utilities
 
 self_path=os.getcwd()
@@ -101,21 +102,8 @@ if args.mL != "":
     quit()
 
 useHP = args.use_hp
-#t_file=np.genfromtxt(dataset, names=True, delimiter='\t', dtype=float)
-t_file=np.loadtxt(dataset, skiprows=1)
+ts, te, _, _ = read_ts_te_table(dataset, rep_j, args.rescale, focus_clade=focus_clade)
 
-ts=t_file[:,2+2*rep_j]*args.rescale
-te=t_file[:,3+2*rep_j]*args.rescale
-
-# assign short branch length to singletons (ts=te)
-ind_singletons=(ts==te).nonzero()[0]
-z=np.zeros(len(ts))
-z[ind_singletons] =0.1
-ts =ts+z
-# if more than one clade only one is analyzed (flag -clade)
-clade_ID=t_file[:,0].astype(int)
-if focus_clade>=0:
-    ts,te=ts[clade_ID==focus_clade],te[clade_ID==focus_clade]    
 
 output_wd = os.path.dirname(dataset)
 name_file = os.path.splitext(os.path.basename(dataset))[0]

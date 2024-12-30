@@ -5288,6 +5288,7 @@ if __name__ == '__main__':
                     help="""dictionary with features to plot together (e.g. on-hot encoded discrete features). E.g.: '{"Trait1": ["T1_state1", "T1_state2", "T1_state3"], "Trait2": ["T2_state1", "T2_state2", "T2_state3", "T2_state4"]}'""", default = '{}')
     p.add_argument('-BDNN_interaction',   metavar='<input file>', type=str, help="""Create text files with PDP rates for k-way interactions for BDNN runs: provide path for 'mcmc.log' file (e.g. .../pyrate_mcmc_logs/example_BDS_BDNN_16_8Tc_mcmc.log); use -BDNN_groups to specify features. E.g. '{"Trait1": ["Trait1"], "Trait2": ["Trait2"], "Trait3": ["T3_state1", "T3_state2", "T3_state3"]}'""", default = "")
     p.add_argument("-BDNN_interaction_fix", help='Fix predictors specified for "-BDNN_interaction" to the ones in the trait file', action='store_true', default=False)
+    p.add_argument('-BDNN_PDRTT',   metavar='<input file>', type=str,help="PD rates through time for BDNN: provide path to the 'mcmc.log' file and features via BDNN_interaction", default="")
     p.add_argument('-n_prior',     type=int,help="n. samples from the prior to compute Bayes factors",default=100000)
     p.add_argument('-plotQ',      metavar='<input file>', type=str,help="Plot preservation rates through time: provide 'mcmc.log' file and '-qShift' argument ",default="")
     p.add_argument('-grid_plot',  type=float, help='Plot resolution in Myr (only for plot3 and plotRJ commands). If set to 0: 100 equal time bins', default=0, metavar=0)
@@ -5718,9 +5719,13 @@ if __name__ == '__main__':
     elif args.plotBDNN != "":
         path_dir_log_files = args.plotBDNN
         plot_type = 6
+    elif args.BDNN_PDRTT != "":
+        path_dir_log_files = args.BDNN_PDRTT
+        plot_type = 7
     elif args.plotBDNN_effects != "":
         path_dir_log_files = args.plotBDNN_effects
-        plot_type = 7
+        plot_type = 8
+
     #print(args.plotQ)
 
     list_files_BF=sort(args.BF)
@@ -5729,7 +5734,7 @@ if __name__ == '__main__':
     grid_plot = args.grid_plot
     if path_dir_log_files != "":
         self_path = get_self_path()
-        if plot_type>=3 and plot_type != 7:
+        if plot_type>=3 and plot_type != 8:
             import pyrate_lib.lib_DD_likelihood as lib_DD_likelihood
             import pyrate_lib.lib_utilities as lib_utilities
             import pyrate_lib.rtt_plot_bds as rtt_plot_bds
@@ -5749,8 +5754,14 @@ if __name__ == '__main__':
                 bdnn_lib.plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q)
                 if args.plotBDNN_groups != "":
                     bdnn_lib.plot_bdnn_rtt_groups(path_dir_log_files, args.plotBDNN_groups, burn=burnin, translate=args.translate)
+            elif plot_type== 7:
+                import pyrate_lib.bdnn_lib as bdnn_lib
+                bdnn_lib.get_PDRTT(path_dir_log_files, args.BDNN_groups,
+                                   burn=burnin, thin=args.resample,
+                                   groups_path=args.plotBDNN_groups, translate=args.translate,
+                                   num_processes=args.thread[0], show_progressbar=True)
 
-        elif plot_type == 7:
+        elif plot_type == 8:
             import pyrate_lib.bdnn_lib as bdnn_lib
             mcmc_file = path_dir_log_files
             path_dir_log_files = path_dir_log_files.replace("_mcmc.log", "")
@@ -6166,14 +6177,12 @@ if __name__ == '__main__':
         
     else:
         print(se_tbl_file)
-        t_file=np.loadtxt(se_tbl_file, skiprows=1)
-        print(np.shape(t_file))
-        j=np.maximum(args.j-1,0)
-        FA=t_file[:,2+2*j]*args.rescale+args.translate
-        LO=t_file[:,3+2*j]*args.rescale+args.translate
-        focus_clade=args.clade
-        clade_ID=t_file[:,0].astype(int)
-        if focus_clade>=0: FA,LO=FA[clade_ID==focus_clade],LO[clade_ID==focus_clade]
+        # allow spelled out species names instead of just species index
+        from pyrate_lib.lib_utilities import read_ts_te_table as read_ts_te_table
+        j = np.maximum(args.j-1,0)
+        focus_clade = args.clade
+        FA, LO, _, taxa_names = read_ts_te_table(se_tbl_file, j, args.rescale, args.translate, focus_clade)
+        
         print(j, len(FA), "species")
         fix_SE= 1
         fixed_ts, fixed_te=FA, LO
@@ -6745,7 +6754,7 @@ if __name__ == '__main__':
                 cov_par_init_NN[5] = 1.0
             
             
-            if block_nn_model or has_invariant_bdnn_pred:
+            if BDNNmodel in [1, 3] and (block_nn_model or has_invariant_bdnn_pred):
                 num_zeros = trait_tbl_NN[0].shape[-1]
                 indx_input_list_1 = np.zeros(num_zeros) # includes +1 for time, diversity dependence and temperature
                 indx_input_list_1[-1] = 1 # different block for time
@@ -7056,9 +7065,15 @@ if __name__ == '__main__':
         
         # store fad/lad
         sp_fad_lad = []
-        for i in range(len(fossil)):
-            foss_temp = fossil[i]
-            sp_fad_lad.append([taxa_names[i], np.max(foss_temp), np.min(foss_temp)])
+        if use_se_tbl == 0:
+            for i in range(len(fossil)):
+                foss_temp = fossil[i]
+                sp_fad_lad.append([taxa_names[i], np.max(foss_temp), np.min(foss_temp)])
+            occ_data = fossil
+        else:
+            for i in range(len(taxa_names)):
+                sp_fad_lad.append([taxa_names[i], FA[i], LO[i]])
+            occ_data = None
         
         sp_fad_lad = pd.DataFrame(sp_fad_lad)
         sp_fad_lad.columns = ["Taxon", "FAD", "LAD"]
@@ -7067,7 +7082,7 @@ if __name__ == '__main__':
                    weights=cov_par_init_NN,
                    trait_tbls=trait_tbl_NN,
                    sp_fad_lad=sp_fad_lad,
-                   occ_data=fossil)
+                   occ_data=occ_data)
 
         # print("obj.bdnn_settings", obj.bdnn_settings, cov_par_init_NN)
         bdnn_obj_out_file = "%s/%s.pkl" % (path_dir,suff_out)
