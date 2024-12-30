@@ -152,6 +152,7 @@ def write_ts_te_table(path_dir, tag="",clade=0,burnin=0.1,plot_ltt=True, n_sampl
                 div_trajectory = lib_DD_likelihood.get_DT(time_events,ts,te)
 
                 # R - plot lineages
+                wd = os.path.abspath(path_dir)
                 out="%s/%s_LTT.r" % (wd,name_file)
                 r_file = open(out, "w") 
     
