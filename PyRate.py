@@ -3906,7 +3906,7 @@ def MCMC(all_arg):
             
             bdnn_lam_ratesA, denom_lamA = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[0], cov_parA[0], hidden_act_f, out_act_f,
                                                            apply_reg, bias_node_idx, fix_edgeShift)
-            bdnn_mu_ratesA, denom_muA = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[1], cov_parA[1], hidden_act_f, out_act_f,
+            bdnn_mu_ratesA, denom_muA = get_rate_BDNN_3D(cov_parA[4], trait_tbl_NN[1], cov_parA[1], hidden_act_f, out_act_f,
                                                          apply_reg, bias_node_idx, fix_edgeShift)
             if use_time_as_trait or bdnn_timevar[0] or bdnn_dd or bdnn_loaded_tbls_timevar:
                 bin_size_lam_mu = np.tile(np.abs(np.diff(timesLA)), n_taxa).reshape((n_taxa, len(timesLA) - 1))
