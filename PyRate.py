@@ -1844,19 +1844,19 @@ def MatrixMultiplication(x1,x2):
         z1 += x2[:, 0].T
     return z1
 
-def MatrixMultiplication3D(x1, x2):
+def MatrixMultiplication3D(x1, x2, bias_node_idx=[0]):
     if x1.shape[-1] == x2.shape[1]:
 #        z1 = np.einsum('tnj,ij->tni', x1, x2, optimize=True)
         z1 = np.tensordot(x1, x2.T, axes=([-1], [0]))
 #        z1 = np.array([np.dot(x1[i], x2.T) for i in range(len(x1))])
     else:
 #        z1 = np.einsum('tnj,ij->tni', x1, x2[:, 1:], optimize=True) # w/ bias node
-        z1 = np.tensordot(x1, x2[:, 1:].T, axes=([-1], [0]))
+        z1 = np.tensordot(x1, x2[:, (bias_node_idx[-1] + 1):].T, axes=([-1], [0]))
 #        z1 = np.array([np.dot(x1[i], x2[:, 1:].T) for i in range(len(x1))])
-        z1 += x2[:, 0].T
+        z1 += x2[:, bias_node_idx[-1]].T
     return z1
 
-def get_rate_BDNN(t_reg, x, w, act_f, out_act_f): 
+def get_rate_BDNN(t_reg, x, w, act_f, out_act_f, apply_reg):
     tmp = x+0
     for i in range(len(w)-1):
         tmp = act_f(MatrixMultiplication(tmp, w[i]))
@@ -1864,21 +1864,29 @@ def get_rate_BDNN(t_reg, x, w, act_f, out_act_f):
     tmp = MatrixMultiplication(tmp, w[i+1])
     # output
     rates = out_act_f(tmp).flatten() + small_number
-    reg_rates, denom = get_reg_rates(rates, t_reg)
+    reg_rates, denom = get_reg_rates(rates, t_reg, apply_reg)
     return reg_rates, denom
 
-def get_reg_rates(rates, t_reg):
+def get_reg_rates(rates, t_reg, apply_reg):
     r_tmp = rates ** t_reg
-    denom = np.nanmean(r_tmp) / np.nanmean(rates)
-    return r_tmp / denom, denom
+    denom = np.nanmean(r_tmp[apply_reg]) / np.nanmean(rates[apply_reg])
+    reg_r = r_tmp / denom
+    reg_r[~apply_reg] = rates[~apply_reg]
+    return reg_r, denom
 
 
-def get_unreg_rate_BDNN_3D(x, w, act_f, out_act_f):
+def get_unreg_rate_BDNN_3D(x, w, act_f, out_act_f, apply_reg=True, bias_node_idx=[0], fix_edgeShift=0):
     tmp = x + 0
     for i in range(len(w)-1):
-        tmp = act_f(MatrixMultiplication3D(tmp, w[i]))
-    tmp = MatrixMultiplication3D(tmp, w[i+1])
+        tmp = act_f(MatrixMultiplication3D(tmp, w[i], bias_node_idx))
+    tmp = MatrixMultiplication3D(tmp, w[i+1], bias_node_idx)
     tmp = np.squeeze(tmp).T
+    
+    # add bias node values for the edge bins
+    if fix_edgeShift > 0:
+        w_add = np.tile(w[-1][:, bias_node_idx[0:-1]].reshape(-1), tmp.shape[0])
+        tmp[~apply_reg] = w_add
+    
     # output
     rates = out_act_f(tmp)
     rates += small_number
@@ -1898,19 +1906,19 @@ def get_reg_rate_BDNN_3D(rates, t_reg, bin_ts_te=None):
     return reg_rates, denom, normalize_factor
 
 
-def get_rate_BDNN_3D(t_reg, x, w, act_f, out_act_f):
-    rates = get_unreg_rate_BDNN_3D(x, w, act_f, out_act_f)
-    reg_rates, denom = get_reg_rates(rates, t_reg)
+def get_rate_BDNN_3D(t_reg, x, w, act_f, out_act_f, apply_reg, bias_node_idx=[0], fix_edgeShift=0):
+    rates = get_unreg_rate_BDNN_3D(x, w, act_f, out_act_f, apply_reg, bias_node_idx, fix_edgeShift)
+    reg_rates, denom = get_reg_rates(rates, t_reg, apply_reg)
 
     return reg_rates, denom
 
 
 def BDNN_likelihood(arg):
-    [ts,te,trait_tbl,rate_l,rate_m,cov_par] = arg
+    [ts,te,trait_tbl,rate_l,rate_m,cov_par, apply_reg] = arg
     nn_prm_lam, nn_prm_mu = cov_par[0], cov_par[1]
     s = ts - te
-    lam, _ = get_rate_BDNN(rate_l, trait_tbl[0], nn_prm_lam, hidden_act_f, out_act_f)
-    mu, _ = get_rate_BDNN(rate_m, trait_tbl[1], nn_prm_mu, hidden_act_f, out_act_f)
+    lam, _ = get_rate_BDNN(rate_l, trait_tbl[0], nn_prm_lam, hidden_act_f, out_act_f, apply_reg)
+    mu, _ = get_rate_BDNN(rate_m, trait_tbl[1], nn_prm_mu, hidden_act_f, out_act_f, apply_reg)
     likL = np.sum(np.log(lam) - lam*s)
     likM = np.sum(np.log(mu[te>0])) - np.sum(mu*s)
     return likL + likM
@@ -1923,7 +1931,7 @@ def BDNN_fast_likelihood(arg):
     return likL + likM
 
 def BDNN_partial_lik(arg):
-    [ts,te,up,lo,rate,par, nn_prm,indx]=arg
+    [ts,te,up,lo,rate,par, nn_prm,indx, apply_reg]=arg
     # indexes of the species within time frame
     if par=="l": i_events=np.intersect1d((ts <= up).nonzero()[0], (ts > lo).nonzero()[0])
     else: i_events=np.intersect1d((te <= up).nonzero()[0], (te > lo).nonzero()[0])
@@ -1934,14 +1942,14 @@ def BDNN_partial_lik(arg):
     
     if np.isfinite(indx):
         if par=="l":
-            r, _ = get_rate_BDNN(rate, trait_tbl_NN[0][indx], nn_prm, hidden_act_f, out_act_f)
+            r, _ = get_rate_BDNN(rate, trait_tbl_NN[0][indx], nn_prm, hidden_act_f, out_act_f, apply_reg)
         else:
-            r, _ = get_rate_BDNN(rate, trait_tbl_NN[1][indx], nn_prm, hidden_act_f, out_act_f)
+            r, _ = get_rate_BDNN(rate, trait_tbl_NN[1][indx], nn_prm, hidden_act_f, out_act_f, apply_reg)
     else:
         if par=="l":
-            r, _ = get_rate_BDNN(rate, trait_tbl_NN[0], nn_prm, hidden_act_f, out_act_f)
+            r, _ = get_rate_BDNN(rate, trait_tbl_NN[0], nn_prm, hidden_act_f, out_act_f, apply_reg)
         else:
-            r, _ = get_rate_BDNN(rate, trait_tbl_NN[1], nn_prm, hidden_act_f, out_act_f)
+            r, _ = get_rate_BDNN(rate, trait_tbl_NN[1], nn_prm, hidden_act_f, out_act_f, apply_reg)
     
 #    print(par, r)
     lik= np.sum(log(r[i_events])) + np.sum(-r[n_all_inframe]*n_S) 
@@ -1949,10 +1957,12 @@ def BDNN_partial_lik(arg):
 
 
 def BDNN_fast_partial_lik(arg):
-    [i_events, n_S, r] = arg
+    [i_events, n_S, r, include] = arg
     r_i_events = r * i_events
     r_i_events[np.isfinite(r_i_events)] = np.log(r_i_events[np.isfinite(r_i_events)])
-    lik = np.sum(np.nan_to_num(r_i_events) + -r * n_S, axis=1)
+    rns = np.nan_to_num(r_i_events) + -r * n_S
+    lik = np.sum(rns[:, include[0, :]], axis=1) # Likelihood only within edges
+#    lik = np.sum(rns, axis=1)
     return lik
 
 
@@ -2051,9 +2061,7 @@ def create_mask(w_layers, indx_input_list, nodes_per_feature_list):
     return m_layers
 
 def init_weight_prm(n_nodes, n_features, size_output, init_std=0.1, bias_node=0):
-    bn, bn2, bn3 = 0, 0, 0
-    if bias_node:
-        bn3 = 1
+    bn, bn2, bn3 = 0, 0, bias_node
     n_layers = len(n_nodes) + 1
     # 1st layer
     w_layers = [np.random.normal(0, init_std, (n_nodes[0], n_features + bn))]
@@ -2089,18 +2097,16 @@ def make_trait_time_table(trait_tbl, time_var_tbl, num_fixed_times_of_shift, fix
 
 
 def init_trait_and_weights(trait_tbl, time_var_tbl_lambda, time_var_tbl_mu,
-                           nodes, bias_node=False, fadlad=0.1,
-                           verbose=False,fixed_times_of_shift=[],
-                           use_time_as_trait=False,dd=False,n_taxa=None,
-                           loaded_tbls=""):
-    # if bias_node:
-    #     trait_tbl = 0+np.hstack((trait_tbl,np.ones((trait_tbl.shape[0],1))))
+                           nodes, n_bias_node=0, fadlad=0.1,
+                           verbose=False, fixed_times_of_shift=[],
+                           use_time_as_trait=False, dd=False, n_taxa=None,
+                           loaded_tbls="", fix_edgeShift=0):
     num_fixed_times_of_shift = len(fixed_times_of_shift)
     if (use_time_as_trait or time_var_tbl_lambda is not None or dd) and isinstance(loaded_tbls[0], np.ndarray) is False: # only availble with -fixShift option
         trait_tbl_lam = make_trait_time_table(trait_tbl, time_var_tbl_lambda, num_fixed_times_of_shift, fixed_times_of_shift, n_taxa, dd)
         trait_tbl_mu = make_trait_time_table(trait_tbl, time_var_tbl_mu, num_fixed_times_of_shift, fixed_times_of_shift, n_taxa, dd)
-        w_lam = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_lam[0].shape[1], size_output=1, init_std=0.01, bias_node=bias_node)
-        w_mu = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_mu[0].shape[1], size_output=1, init_std=0.01, bias_node=bias_node)
+        w_lam = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_lam[0].shape[1], size_output=1, init_std=0.01, bias_node=n_bias_node)
+        w_mu = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_mu[0].shape[1], size_output=1, init_std=0.01, bias_node=n_bias_node)
         
         for i in w_lam:
             print(i.shape)
@@ -2128,7 +2134,7 @@ def init_trait_and_weights(trait_tbl, time_var_tbl_lambda, time_var_tbl_mu,
         if use_time_as_trait:
             rescaled_time = (fixed_times_of_shift[:-1] + fixed_times_of_shift[1:]) / 2
             # Append oldest trait table in case the earliest fossils exceeds the loaded trait tables
-            # Oldest trait table is trait_tbl_lam[0, :, :] and the younest trait_tbl_lam[-1, :, :]
+            # Oldest trait table is trait_tbl_lam[0, :, :] and the youngest trait_tbl_lam[-1, :, :]
             if num_fixed_times_of_shift - 1 > trait_tbl_lam.shape[0]:
                 n_repeats = num_fixed_times_of_shift - 1 - trait_tbl_lam.shape[0]
                 missing_trt_tbls = np.tile(trait_tbl_lam[0, :], (n_repeats, 1, 1)) # Oldest bin
@@ -2145,12 +2151,19 @@ def init_trait_and_weights(trait_tbl, time_var_tbl_lambda, time_var_tbl_mu,
             n_taxa = trait_tbl_lam.shape[1]
             rescaled_time = np.repeat(rescaled_time, n_taxa)
             rescaled_time = rescaled_time.reshape((num_fixed_times_of_shift - 1, n_taxa, 1))
+            # Zero out any feature when we use edge shifts
+            if fix_edgeShift in [1, 2]: # both or max boundary
+                trait_tbl_lam[0][:] = 0
+                trait_tbl_mu[0][:] = 0
+            if fix_edgeShift in [1, 3]: # both or min boundary
+                trait_tbl_lam[-1][:] = 0
+                trait_tbl_mu[-1][:] = 0
             trait_tbl_lam = np.c_[trait_tbl_lam, rescaled_time]
             trait_tbl_mu = np.c_[trait_tbl_mu, rescaled_time]
             n_features_sp += 1
             n_features_ex += 1
-        w_lam = init_weight_prm(n_nodes=nodes, n_features=n_features_sp, size_output=1, init_std=0.01, bias_node=bias_node)
-        w_mu = init_weight_prm(n_nodes=nodes, n_features=n_features_ex, size_output=1, init_std=0.01, bias_node=bias_node)
+        w_lam = init_weight_prm(n_nodes=nodes, n_features=n_features_sp, size_output=1, init_std=0.01, bias_node=n_bias_node)
+        w_mu = init_weight_prm(n_nodes=nodes, n_features=n_features_ex, size_output=1, init_std=0.01, bias_node=n_bias_node)
     else:
         if fadlad:
             trait_tbl_lam = 0+np.hstack((trait_tbl, (fadlad*FA).reshape((trait_tbl.shape[0],1)))) 
@@ -2162,8 +2175,8 @@ def init_trait_and_weights(trait_tbl, time_var_tbl_lambda, time_var_tbl_mu,
         else:
             trait_tbl_lam = trait_tbl + 0 
             trait_tbl_mu = trait_tbl + 0 
-        w_lam = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_lam.shape[1], size_output=1, init_std=0.01, bias_node=bias_node)
-        w_mu = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_mu.shape[1], size_output=1, init_std=0.01, bias_node=bias_node)
+        w_lam = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_lam.shape[1], size_output=1, init_std=0.01, bias_node=n_bias_node)
+        w_mu = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_mu.shape[1], size_output=1, init_std=0.01, bias_node=n_bias_node)
         for i in w_lam:
             print(i.shape)
     
@@ -3814,8 +3827,9 @@ def MCMC(all_arg):
         maxTSA = np.max(tsA)
         
         timesLA, timesMA = init_times(maxTSA,time_framesL,time_framesM, np.min(teA))
-        if len(fixed_times_of_shift)>0: timesLA[1:-1],timesMA[1:-1]=fixed_times_of_shift,fixed_times_of_shift
-        if fix_edgeShift > 0:
+        if len(fixed_times_of_shift) > 0:
+            timesLA[1:-1], timesMA[1:-1] = fixed_times_of_shift, fixed_times_of_shift
+        if fix_edgeShift > 0 and not BDNNmodel in [1, 3]:
             print(edgeShifts,fix_edgeShift)
             if fix_edgeShift == 1:
                 timesLA, timesMA = init_times(edgeShifts[0],time_framesL,time_framesM, edgeShifts[1]) # starting shift tims within allowed window
@@ -3880,19 +3894,26 @@ def MCMC(all_arg):
             cov_par_update_f = np.array([0.2, 0.6, -1.0])
             if independ_reg:
                 cov_par_update_f = np.array([0.1, 0.5, 0.6])
+
+            if use_time_as_trait or bdnn_timevar[0] or bdnn_dd or bdnn_loaded_tbls_timevar:
+                timesLA, timesMA = init_times(maxTSA, time_framesL_bdnn, time_framesM_bdnn, np.min(teA))
+                timesLA[1:-1], timesMA[1:-1] = fixed_times_of_shift_bdnn, fixed_times_of_shift_bdnn
+
             # rates not updated and replaced by bias node
             if bdnn_const_baseline:
-                LA = np.ones(len(timesLA)-1)
-                MA = np.ones(len(timesMA)-1)
+                LA = np.ones(len(timesLA) - 1)
+                MA = np.ones(len(timesMA) - 1)
             
-            bdnn_lam_ratesA, denom_lamA = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[0], cov_parA[0], hidden_act_f, out_act_f)
-            bdnn_mu_ratesA, denom_muA = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[1], cov_parA[1], hidden_act_f, out_act_f)
+            bdnn_lam_ratesA, denom_lamA = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[0], cov_parA[0], hidden_act_f, out_act_f,
+                                                           apply_reg, bias_node_idx, fix_edgeShift)
+            bdnn_mu_ratesA, denom_muA = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[1], cov_parA[1], hidden_act_f, out_act_f,
+                                                         apply_reg, bias_node_idx, fix_edgeShift)
             if use_time_as_trait or bdnn_timevar[0] or bdnn_dd or bdnn_loaded_tbls_timevar:
                 bin_size_lam_mu = np.tile(np.abs(np.diff(timesLA)), n_taxa).reshape((n_taxa, len(timesLA) - 1))
                 i_events_spA, i_events_exA, n_SA = get_events_ns(tsA, teA, timesLA, bin_size_lam_mu)
                 likBDtempA = np.zeros((2, n_taxa))
-                likBDtempA[0, :] = BDNN_fast_partial_lik([i_events_spA, n_SA, bdnn_lam_ratesA])
-                likBDtempA[1, :] = BDNN_fast_partial_lik([i_events_spA, n_SA, bdnn_lam_ratesA])
+                likBDtempA[0, :] = BDNN_fast_partial_lik([i_events_spA, n_SA, bdnn_lam_ratesA, apply_reg])
+                likBDtempA[1, :] = BDNN_fast_partial_lik([i_events_spA, n_SA, bdnn_lam_ratesA, apply_reg])
             bdnn_prior_cov_parA[0] = np.sum([np.sum(prior_normal(cov_parA[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_parA[0]))])
             bdnn_prior_cov_parA[1] = np.sum([np.sum(prior_normal(cov_parA[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_parA[1]))])
             if prior_lam_t_reg[0] > 0:
@@ -4122,7 +4143,7 @@ def MCMC(all_arg):
             updated_lam_mu = True
             if np.random.random()<f_shift and len(LA)+len(MA)>2:
                 move_type = 3
-                if fix_edgeShift > 0:
+                if fix_edgeShift > 0 and not BDNNmodel in [1, 3]:
                     if fix_edgeShift == 1:
                         timesL=update_times(timesLA, edgeShifts[0],edgeShifts[1],mod_d4,2,len(timesL)-2)
                         timesM=update_times(timesMA, edgeShifts[0],edgeShifts[1],mod_d4,2,len(timesM)-2)
@@ -4177,8 +4198,10 @@ def MCMC(all_arg):
                 if prior_lam_t_reg[1] > 0 and independ_reg:
                     cov_par[4] = update_parameter(cov_parA[4], 0, 1, d=0.05, f=1)
                     bdnn_prior_cov_par[3] = np.log(prior_lam_t_reg[1]) - prior_lam_t_reg[1] * cov_par[4]
-                bdnn_lam_rates, denom_lam = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f)
-                bdnn_mu_rates, denom_mu = get_rate_BDNN_3D(cov_par[4], trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f)
+                bdnn_lam_rates, denom_lam = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f,
+                                                             apply_reg, bias_node_idx, fix_edgeShift)
+                bdnn_mu_rates, denom_mu = get_rate_BDNN_3D(cov_par[4], trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f,
+                                                           apply_reg, bias_node_idx, fix_edgeShift)
 #                # do not update all at once - why is the BD_lik lower?
 #                rr_cov_lam_mu = np.random.random()
 #                if rr_cov_lam_mu < cov_par_update_f[0] and prior_lam_t_reg[0] > 0:
@@ -4213,9 +4236,11 @@ def MCMC(all_arg):
 #                            cov_par[1][i_layer] *= BDNN_MASK_mu[i_layer]
 #                # Recalculate bdnn rates when we updated cov_par
 #                if cov_lam_updated:
-#                    bdnn_lam_rates, denom_lam = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f)
+#                    bdnn_lam_rates, denom_lam = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f,
+#                                                                 apply_reg, bias_node_idx, fix_edgeShift)
 #                if cov_mu_updated:
-#                    bdnn_mu_rates, denom_mu = get_rate_BDNN_3D(cov_par[4], trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f)
+#                    bdnn_mu_rates, denom_mu = get_rate_BDNN_3D(cov_par[4], trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f,
+#                                                               apply_reg, bias_node_idx, fix_edgeShift)
 
             if BDNNmodel in [2, 3] and rr_bdnn >= 0.0:
                 cov_q_updated = 1
@@ -4515,7 +4540,7 @@ def MCMC(all_arg):
                                 if not bdnn_dd:
                                     ind_bdnn_lik = (ts-te != tsA-teA).nonzero()[0]
                                 i_events_sp, i_events_ex, n_S = update_events_ns(ts, te, timesL, bin_size_lam_mu, i_events_sp, i_events_ex, n_S, ind_bdnn_lik)
-                            args.append([i_events_sp[ind_bdnn_lik, :], n_S[ind_bdnn_lik, :], bdnn_lam_rates[ind_bdnn_lik, :]])
+                            args.append([i_events_sp[ind_bdnn_lik, :], n_S[ind_bdnn_lik, :], bdnn_lam_rates[ind_bdnn_lik, :], apply_reg[ind_bdnn_lik, :]])
                         else:
                             for temp_l in range(len(timesL)-1):
                                 up, lo = timesL[temp_l], timesL[temp_l+1]
@@ -4526,7 +4551,7 @@ def MCMC(all_arg):
                     if BDNNmodel in [1, 3]:
 #                        print('i_events_ex\n', i_events_ex)
 #                        print('n_S\n', n_S)
-                        args.append([i_events_ex[ind_bdnn_lik, :], n_S[ind_bdnn_lik, :], bdnn_mu_rates[ind_bdnn_lik, :]])
+                        args.append([i_events_ex[ind_bdnn_lik, :], n_S[ind_bdnn_lik, :], bdnn_mu_rates[ind_bdnn_lik, :], apply_reg[ind_bdnn_lik, :]])
                     else:
                         for temp_m in range(len(timesM)-1):
                             up, lo = timesM[temp_m], timesM[temp_m+1]
@@ -5606,38 +5631,6 @@ if __name__ == '__main__':
     else:
         fixed_times_of_shift=[]
         fix_Shift = 0
-        
-    fixed_times_of_shift_bdnn = []
-    bdnn_loaded_tbls = args.BDNNpath_taxon_time_tables
-    bdnn_loaded_tbls_timevar = False
-    bdnn_loaded_timevar_pred = False
-    if bdnn_loaded_tbls[0] != "":
-        import pyrate_lib.bdnn_lib as bdnn_lib
-        bdnn_loaded_tbls, bdnn_loaded_names_traits, bdnn_loaded_timevar_pred = bdnn_lib.load_trait_tbl(bdnn_loaded_tbls)
-        if bdnn_loaded_tbls[0].ndim == 3:
-            bdnn_loaded_tbls_timevar = True
-    if (args.BDNNtimetrait != 0 or args.BDNNtimevar[0] or args.BDNNdd or bdnn_loaded_tbls_timevar) and args.BDNNmodel in [1, 3]:# and fix_Shift == 0:
-        # if args.A == 4:
-            # fixed_times_of_shift_bdnn = np.arange(1, 1000)[::-1]
-            # time_framesL_bdnn=len(fixed_times_of_shift_bdnn)+1
-            # time_framesM_bdnn=len(fixed_times_of_shift_bdnn)+1
-            # TDI = 4
-        if fix_Shift == 1:
-             fixed_times_of_shift_bdnn = fixed_times_of_shift
-             time_framesL_bdnn = time_framesL
-             time_framesM_bdnn = time_framesM
-             TDI = 0
-        else:
-            # use 1myr bins by default
-            f_shift=0
-            fixed_times_of_shift_bdnn = np.arange(1, 1000)[::-1]
-            time_framesL_bdnn=len(fixed_times_of_shift_bdnn)+1
-            time_framesM_bdnn=len(fixed_times_of_shift_bdnn)+1
-            fixed_times_of_shift = fixed_times_of_shift_bdnn
-            min_allowed_t=0
-            fix_Shift = 1
-            TDI = 0
-        
 
     if args.edgeShift[0] != np.inf or args.edgeShift[1] != 0:
         edgeShifts = []
@@ -5658,6 +5651,40 @@ if __name__ == '__main__':
     else:
         fix_edgeShift = 0
         min_allowed_n_rates = 1
+
+    fixed_times_of_shift_bdnn = []
+    bdnn_loaded_tbls = args.BDNNpath_taxon_time_tables
+    bdnn_loaded_tbls_timevar = False
+    bdnn_loaded_timevar_pred = False
+    if bdnn_loaded_tbls[0] != "":
+        import pyrate_lib.bdnn_lib as bdnn_lib
+        bdnn_loaded_tbls, bdnn_loaded_names_traits, bdnn_loaded_timevar_pred = bdnn_lib.load_trait_tbl(bdnn_loaded_tbls)
+        if bdnn_loaded_tbls[0].ndim == 3:
+            bdnn_loaded_tbls_timevar = True
+    if (args.BDNNtimetrait != 0 or args.BDNNtimevar[0] or args.BDNNdd or bdnn_loaded_tbls_timevar) and args.BDNNmodel in [1, 3]:# and fix_Shift == 0:
+        # if args.A == 4:
+            # fixed_times_of_shift_bdnn = np.arange(1, 1000)[::-1]
+            # time_framesL_bdnn=len(fixed_times_of_shift_bdnn)+1
+            # time_framesM_bdnn=len(fixed_times_of_shift_bdnn)+1
+            # TDI = 4
+        TDI = 0
+        if fix_Shift == 1:
+            fixed_times_of_shift_bdnn = fixed_times_of_shift
+        else:
+            # use 1myr bins by default
+            f_shift=0
+            fixed_times_of_shift_bdnn = np.arange(1, 1000)[::-1]
+            min_allowed_t=0
+            fix_Shift = 1
+        if fix_edgeShift > 0:
+            # Trim all bins older and/or younger than the edgeShifts
+            if fix_edgeShift in [1, 2]: # both or max boundary
+                fixed_times_of_shift_bdnn = fixed_times_of_shift_bdnn[fixed_times_of_shift_bdnn < edgeShifts[0]]
+            if fix_edgeShift in [1, 3]: # both or min boundary
+                fixed_times_of_shift_bdnn = fixed_times_of_shift_bdnn[fixed_times_of_shift_bdnn > edgeShifts[-1]]
+            fixed_times_of_shift_bdnn = np.sort(np.concatenate((fixed_times_of_shift_bdnn, edgeShifts), axis=None))[::-1]
+
+
 
     # BDMCMC & MCMC SETTINGS
     runs=args.r              # no. parallel MCMCs (MC3)
@@ -5749,9 +5776,10 @@ if __name__ == '__main__':
             elif plot_type== 6:
                 import pyrate_lib.bdnn_lib as bdnn_lib
                 output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q = bdnn_lib.get_bdnn_rtt(path_dir_log_files,
-                                                                                                                          burn = burnin,
+                                                                                                                          burn=burnin,
                                                                                                                           translate=args.translate)
-                bdnn_lib.plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q)
+                bdnn_lib.plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q,
+                                       min_age=args.min_age_plot, max_age=root_plot)
                 if args.plotBDNN_groups != "":
                     bdnn_lib.plot_bdnn_rtt_groups(path_dir_log_files, args.plotBDNN_groups, burn=burnin, translate=args.translate)
             elif plot_type== 7:
@@ -5864,14 +5892,15 @@ if __name__ == '__main__':
                                                                do_inter_imp=do_inter_imp)
         if BDNNmodel in [1, 3]:
             print("Getting SHAP values birth-death")
-            sp_shap, ex_shap, sp_taxa_shap, ex_taxa_shap = bdnn_lib.k_add_kernel_shap(mcmc_file, pkl_file,
-                                                                                      burnin,
-                                                                                      thin=args.resample,
-                                                                                      num_processes=args.thread[0],
-                                                                                      combine_discr_features=args.BDNN_groups,
-                                                                                      show_progressbar=True,
-                                                                                      do_inter_imp=do_inter_imp,
-                                                                                      use_mean=args.BDNN_mean_shap_per_group)
+            sp_shap, ex_shap, sp_taxa_shap, ex_taxa_shap, use_taxa_sp, use_taxa_ex = bdnn_lib.k_add_kernel_shap(mcmc_file,
+                                                                                                                pkl_file,
+                                                                                                                burnin,
+                                                                                                                thin=args.resample,
+                                                                                                                num_processes=args.thread[0],
+                                                                                                                combine_discr_features=args.BDNN_groups,
+                                                                                                                show_progressbar=True,
+                                                                                                                do_inter_imp=do_inter_imp,
+                                                                                                                use_mean=args.BDNN_mean_shap_per_group)
         if BDNNmodel in [2, 3]:
             print("Getting SHAP values sampling")
             q_shap, q_taxa_shap = bdnn_lib.k_add_kernel_shap_sampling(mcmc_file, pkl_file,
@@ -5927,7 +5956,8 @@ if __name__ == '__main__':
                                       sp_main_consrank, ex_main_consrank, q_main_consrank,
                                       combine_discr_features=args.BDNN_groups,
                                       file_transf_features=args.plotBDNN_transf_features,
-                                      translate=args.translate)
+                                      translate=args.translate,
+                                      use_taxa_sp=use_taxa_sp, use_taxa_ex=use_taxa_ex)
         quit()
     elif args.BDNN_interaction != "":
         import pyrate_lib.bdnn_lib as bdnn_lib
@@ -6238,6 +6268,8 @@ if __name__ == '__main__':
         div_idx_trt_tbl = -2
     if bdnn_dd:
         add_to_bdnnblock_mask += 1
+    bias_node_idx = [0]
+    num_bias_node = 1
 
     ############################ SET BIRTH-DEATH MODEL ############################
 
@@ -6245,10 +6277,21 @@ if __name__ == '__main__':
     if args.N > -1: tot_extant=args.N
     else: tot_extant = -1
 
+    n_taxa = len(FA)
+    apply_reg = np.full(n_taxa, True)
     if len(fixed_times_of_shift_bdnn) > 0:
-        fixed_times_of_shift_bdnn=fixed_times_of_shift_bdnn[fixed_times_of_shift_bdnn < np.max(FA)]
-#        keep = np.logical_and(fixed_times_of_shift_bdnn < np.max(FA), fixed_times_of_shift_bdnn >= np.min(LO))
-#        fixed_times_of_shift_bdnn = fixed_times_of_shift_bdnn[keep]
+        fixed_times_of_shift_bdnn = fixed_times_of_shift_bdnn[fixed_times_of_shift_bdnn < np.max(FA)]
+        time_framesL_bdnn = len(fixed_times_of_shift_bdnn) + 1
+        time_framesM_bdnn = len(fixed_times_of_shift_bdnn) + 1
+        apply_reg = np.full((n_taxa, time_framesL_bdnn), True)
+        if fix_edgeShift in [1, 2]: # both or max boundary
+            apply_reg[:, 0] = False
+            bias_node_idx.append(bias_node_idx[-1] + 1)
+            num_bias_node += 1
+        if fix_edgeShift in [1, 3]: # both or min boundary
+            apply_reg[:, -1] = False
+            bias_node_idx.append(bias_node_idx[-1] + 1)
+            num_bias_node += 1
 
     if len(fixed_times_of_shift)>0:
         fixed_times_of_shift=fixed_times_of_shift[fixed_times_of_shift<np.max(FA)]
@@ -6713,7 +6756,7 @@ if __name__ == '__main__':
                 trait_tbl_lm, cov_par_init_lm = init_trait_and_weights(trait_values,
                                                                        time_var_lambda, time_var_mu,
                                                                        n_BDNN_nodes,
-                                                                       bias_node=True,
+                                                                       n_bias_node=num_bias_node,
                                                                        fadlad=args.BDNNfadlad,
                                                                        use_time_as_trait=use_time_as_trait,
                                                                        dd=bdnn_dd,
@@ -7034,6 +7077,13 @@ if __name__ == '__main__':
                 'names_features': names_features_bd,
                 'div_rescaler': bdnn_rescale_div,
             })
+            if fix_edgeShift > 0:
+                bdnn_dict.update({
+                    'apply_reg': apply_reg,
+                    'bias_node_idx': bias_node_idx,
+                    'fix_edgeShift': fix_edgeShift,
+                    'edgeShifts': edgeShifts
+                })
         
         if BDNNmodel in [2, 3]:
             layer_shapes_q = [cov_par_init_NN[2][i_layer].shape for i_layer in range(len(cov_par_init_NN[2]))]

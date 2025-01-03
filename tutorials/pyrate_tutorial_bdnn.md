@@ -50,7 +50,7 @@ python ./PyRate.py ./example_files/BDNN_examples/Carnivora/Carnivora_occs.py -BD
 #### Plot speciation and extinction rates through time
 The `-plotBDNN` command will create a PDF file with the marginal rates through time (RTT).
 ```
-python ./PyRate.py -plotBDNN ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_G_BDS_BDNN_16_8TVc_mcmc.log -b 0.5
+python ./PyRate.py -plotBDNN ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_G_BD1-1_BDNN_16_8TVc_mcmc.log -b 0.5
 ```
 
 The optional argument `-b 0.5` discards 50% of the MCMC samples as burnin. Additional options to display the RTT for a subset of taxa are [detailed below](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#plotting-marginal-rates-through-time).
@@ -62,7 +62,7 @@ Rates through time plot for the Carnivora BDNN analysis obtained with the comman
 #### Display the influence of traits and paleotemperature on rates
 We can create partial dependence plots (PDP) to visualize the influence of single predictors and all two-way interactions on speciation and extinction rates with the `-plotBDNN_effects` command.
 ```
-python ./PyRate.py -plotBDNN_effects ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_G_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features ./example_files/BDNN_examples/Carnivora/Backscale.txt -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.5
+python ./PyRate.py -plotBDNN_effects ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_G_BD1-1_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features ./example_files/BDNN_examples/Carnivora/Backscale.txt -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.5
 ```
 
 The optional argument `-plotBDNN_transf_features` rescales z-transformed continuous traits and time-series predictors to their original scale. The `-BDNN_groups` is used to display categorical predictors with multiple unordered states, for instance, the family to which each taxon belongs in the same figure. See [Setting up a BDNN dataset](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#setting-up-a-bdnn-dataset) for details on trait encoding.
@@ -80,7 +80,7 @@ Lower temperatures are related to higher extinction rates according to the parti
 #### Obtain predictor importance
 In the last step, we (a) assess if the variation in species-time-specific rates exceeds the expectation under a constant diversification process, and (b) rank the predictors according to their influence on speciation and extinction rates.
 ```
-python ./PyRate.py -BDNN_pred_importance ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_G_BDS_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features ./example_files/BDNN_examples/Carnivora/Backscale.txt -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.5 -BDNN_nsim_expected_cv 10
+python ./PyRate.py -BDNN_pred_importance ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_G_BD1-1_BDNN_16_8TVc_mcmc.log -plotBDNN_transf_features ./example_files/BDNN_examples/Carnivora/Backscale.txt -BDNN_groups "{\"geography\": [\"Eurasia\", \"NAmerica\"], \"taxon\": [\"Amphicyonidae\", \"Canidae\", \"Felidae\", \"FeliformiaOther\", \"Hyaenidae\", \"Musteloidea\", \"Ursidae\", \"Viverridae\"]}" -b 0.5 -BDNN_nsim_expected_cv 10
 ```
 
 We set the optional argument `-BDNN_nsim_expected_cv` to 10 (instead of the default 100) to safe some time for the impatient when getting the expected rate variation.
@@ -368,8 +368,20 @@ A set of **Hyper-parameters** can be used to define the architecture of the neur
 
 `-BDNNactfun`: Activation function of the hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid (default=0)
 
-`-BDNNreg`: Specifies whether the regularization layer should be omitted by setting it to -1.0. The default value of 1.0 for the truncated exponential prior assigns the highest probability of no effect on the BDNN predictors. Higher positive values increase this weight. By default the same t~reg~ is used for regularizing speciation and extinction rates. This can be made independent by providing two values `-BDNNreg 1.0 1.0`. `-BDNNreg 1.0 -1.0` would turn on regularization for speciation but not extinction.
+`-BDNNreg`: Specifies whether the regularization layer should be omitted by setting it to -1.0. The default value of 1.0 for the truncated exponential prior assigns the highest probability of no effect on the BDNN predictors. Higher positive values increase this weight. By default the same t<sub>reg</sub> is used for regularizing speciation and extinction rates. This can be made independent by providing two values `-BDNNreg 1.0 1.0`. `-BDNNreg 1.0 -1.0` would turn on regularization for speciation but not extinction.
 
+#### Edge shifts
+
+As in many other [PyRate analyses]([RJMCMC algorithm](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#setting-fixed-shifts-at-the-boundaries,-while-searching-for-rate-shifts-between-them)), we can fix shifts at boundaries, while searching for rate variation between them. This can be achieved by adding the `-edgeShift` argument.
+
+```
+python ./PyRate.py ./example_files/BDNN_examples/Carnivora/Carnivora_occs.py -BDNNmodel 1 -trait_file ./example_files/BDNN_examples/Carnivora/Traits.txt -BDNNtimevar ./example_files/BDNN_examples/Carnivora/Paleotemperature.txt -mG -qShift ./example_files/BDNN_examples/Carnivora/Stages.txt -qFilter 0 -edgeShift 15.97 2.5 -out _edge -n 200001 -p 20000 -s 5000
+```
+
+We can then truncate the rates through time plot at the boundaries with the `-min_age_plot` and `-root_plot` arguments.
+```
+python ./PyRate.py -plotBDNN ./example_files/BDNN_examples/Carnivora/pyrate_mcmc_logs/Carnivora_occs_1_edge_G_BD1-1_BDNN_16_8TVc_mcmc.log -min_age_plot 2.6 -root_plot 15.9 -b 0.5
+```
 
 ---
 ### Specifying custom predictors
