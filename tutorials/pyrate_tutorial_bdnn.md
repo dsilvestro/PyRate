@@ -372,7 +372,7 @@ A set of **Hyper-parameters** can be used to define the architecture of the neur
 
 #### Edge shifts
 
-As in many other [PyRate analyses]([RJMCMC algorithm](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#setting-fixed-shifts-at-the-boundaries,-while-searching-for-rate-shifts-between-them)), we can fix shifts at boundaries, while searching for rate variation between them. This can be achieved by adding the `-edgeShift` argument.
+As in many other [PyRate analyses](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#setting-fixed-shifts-at-the-boundaries,-while-searching-for-rate-shifts-between-them), we can fix shifts at boundaries, while searching for rate variation between them. This can be achieved by adding the `-edgeShift` argument. Adding `-qFilter` allows for shifts in sampling rates at the boundaries.
 
 ```
 python ./PyRate.py ./example_files/BDNN_examples/Carnivora/Carnivora_occs.py -BDNNmodel 1 -trait_file ./example_files/BDNN_examples/Carnivora/Traits.txt -BDNNtimevar ./example_files/BDNN_examples/Carnivora/Paleotemperature.txt -mG -qShift ./example_files/BDNN_examples/Carnivora/Stages.txt -qFilter 0 -edgeShift 15.97 2.5 -out _edge -n 200001 -p 20000 -s 5000
