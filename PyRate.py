@@ -1834,6 +1834,20 @@ def mean_softPlus1D(z):
 def expFun(z):
     return np.exp(z)
 
+
+def init_NN_output(x, w):
+    n_layers = len(w)
+    x_shape = x.shape
+    xs = [x_shape[0]]
+    if len(x_shape) == 3:
+        xs.append(x_shape[1])
+    nn_out = []
+    for i in range(n_layers):
+        init_shape = tuple(xs + [w[i].shape[0]])
+        nn_out.append(np.zeros(init_shape))
+    return nn_out
+
+
 def MatrixMultiplication(x1,x2):
     if x1.shape[1] == x2.shape[1]:
         #z1 = np.einsum('nj,ij->ni', x1, x2)
@@ -1875,12 +1889,29 @@ def get_reg_rates(rates, t_reg, apply_reg):
     return reg_r, denom
 
 
-def get_unreg_rate_BDNN_3D(x, w, act_f, out_act_f, apply_reg=True, bias_node_idx=[0], fix_edgeShift=0):
-    tmp = x + 0
-    for i in range(len(w)-1):
-        tmp = act_f(MatrixMultiplication3D(tmp, w[i], bias_node_idx))
-    tmp = MatrixMultiplication3D(tmp, w[i+1], bias_node_idx)
-    tmp = np.squeeze(tmp).T
+def update_NN(x, w, nnA, rnd_layer, act_f, bias_node_idx):
+    nn = copy_lib.deepcopy(nnA)
+    if rnd_layer != -1:
+        n_layers = len(w) - 1
+        if rnd_layer == 0:
+            nn[0] = act_f(MatrixMultiplication3D(x, w[0]))
+            for i in range(1, n_layers):
+                nn[i] = act_f(MatrixMultiplication3D(nn[i - 1], w[i], bias_node_idx))
+        elif rnd_layer < n_layers:
+            for i in range(rnd_layer, len(w)-1):
+                nn[i] = act_f(MatrixMultiplication3D(nn[i - 1], w[i], bias_node_idx))
+        
+        nn[-1] = MatrixMultiplication3D(nn[-2], w[-1], bias_node_idx)
+    return nn
+
+
+def get_unreg_rate_BDNN_3D(x, w, nnA, act_f, out_act_f, apply_reg=True, bias_node_idx=[0], fix_edgeShift=0, rnd_layer=0):
+#    tmp = x + 0
+#    for i in range(len(w)-1):
+#        tmp = act_f(MatrixMultiplication3D(tmp, w[i], bias_node_idx))
+#    tmp = MatrixMultiplication3D(tmp, w[i+1], bias_node_idx)
+    nn = update_NN(x, w, nnA, rnd_layer, act_f, bias_node_idx)
+    tmp = np.squeeze(nn[-1]).T
     
     # add bias node values for the edge bins
     if fix_edgeShift > 0:
@@ -1891,7 +1922,7 @@ def get_unreg_rate_BDNN_3D(x, w, act_f, out_act_f, apply_reg=True, bias_node_idx
     rates = out_act_f(tmp)
     rates += small_number
     
-    return rates
+    return rates, nn
 
 
 def get_reg_rate_BDNN_3D(rates, t_reg, bin_ts_te=None):
@@ -1906,11 +1937,11 @@ def get_reg_rate_BDNN_3D(rates, t_reg, bin_ts_te=None):
     return reg_rates, denom, normalize_factor
 
 
-def get_rate_BDNN_3D(t_reg, x, w, act_f, out_act_f, apply_reg, bias_node_idx=[0], fix_edgeShift=0):
-    rates = get_unreg_rate_BDNN_3D(x, w, act_f, out_act_f, apply_reg, bias_node_idx, fix_edgeShift)
+def get_rate_BDNN_3D(t_reg, x, w, nnA, act_f, out_act_f, apply_reg, bias_node_idx=[0], fix_edgeShift=0, rnd_layer=0):
+    rates, nn = get_unreg_rate_BDNN_3D(x, w, nnA, act_f, out_act_f, apply_reg, bias_node_idx, fix_edgeShift, rnd_layer)
     reg_rates, denom = get_reg_rates(rates, t_reg, apply_reg)
 
-    return reg_rates, denom
+    return reg_rates, denom, nn
 
 
 def BDNN_likelihood(arg):
@@ -3890,10 +3921,12 @@ def MCMC(all_arg):
         
         if BDNNmodel in [1, 3]:
             cov_parA = cov_par_init_NN
+            nn_lamA = init_NN_output(trait_tbl_NN[0], cov_parA[0])
+            nn_muA = init_NN_output(trait_tbl_NN[1], cov_parA[1])
             bdnn_prior_cov_parA = np.zeros(4)
-            cov_par_update_f = np.array([0.2, 0.6, -1.0])
+            cov_par_update_f = np.array([0.1, 0.55, -1.0])
             if independ_reg:
-                cov_par_update_f = np.array([0.1, 0.5, 0.6])
+                cov_par_update_f = np.array([0.05, 0.5, 0.55])
 
             if use_time_as_trait or bdnn_timevar[0] or bdnn_dd or bdnn_loaded_tbls_timevar:
                 timesLA, timesMA = init_times(maxTSA, time_framesL_bdnn, time_framesM_bdnn, np.min(teA))
@@ -3903,11 +3936,15 @@ def MCMC(all_arg):
             if bdnn_const_baseline:
                 LA = np.ones(len(timesLA) - 1)
                 MA = np.ones(len(timesMA) - 1)
-            
-            bdnn_lam_ratesA, denom_lamA = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[0], cov_parA[0], hidden_act_f, out_act_f,
-                                                           apply_reg, bias_node_idx, fix_edgeShift)
-            bdnn_mu_ratesA, denom_muA = get_rate_BDNN_3D(cov_parA[4], trait_tbl_NN[1], cov_parA[1], hidden_act_f, out_act_f,
-                                                         apply_reg, bias_node_idx, fix_edgeShift)
+
+            bdnn_lam_ratesA, denom_lamA, nn_lamA = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[0], cov_parA[0], nn_lamA,
+                                                                    hidden_act_f, out_act_f,
+                                                                    apply_reg, bias_node_idx, fix_edgeShift,
+                                                                    rnd_layer=len(cov_parA[0]))
+            bdnn_mu_ratesA, denom_muA, nn_muA = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[1], cov_parA[1], nn_muA,
+                                                                 hidden_act_f, out_act_f,
+                                                                 apply_reg, bias_node_idx, fix_edgeShift,
+                                                                 rnd_layer=len(cov_parA[0]))
             if use_time_as_trait or bdnn_timevar[0] or bdnn_dd or bdnn_loaded_tbls_timevar:
                 bin_size_lam_mu = np.tile(np.abs(np.diff(timesLA)), n_taxa).reshape((n_taxa, len(timesLA) - 1))
                 i_events_spA, i_events_exA, n_SA = get_events_ns(tsA, teA, timesLA, bin_size_lam_mu)
@@ -4055,6 +4092,8 @@ def MCMC(all_arg):
             bdnn_mu_rates = bdnn_mu_ratesA
             denom_lam = denom_lamA + 0.0
             denom_mu = denom_muA + 0.0
+            nn_lam = nn_lamA
+            nn_mu = nn_muA
             if use_time_as_trait or bdnn_timevar[0] or bdnn_dd or bdnn_loaded_tbls_timevar:
                 likBDtemp = likBDtempA + 0.0
                 i_events_sp = i_events_spA
@@ -4175,72 +4214,82 @@ def MCMC(all_arg):
             # Do not update weights for lam/mu and q at the same time
             rr_bdnn = (np.random.random() - 0.5) * BDNNmodel in [3]
             if BDNNmodel in [1, 3] and rr_bdnn <= 0.0:
-                cov_lam_updated = 1
-                cov_mu_updated = 1
-                rnd_layer = np.random.randint(0, len(cov_parA[0]))
-                # update layers B rate
-                cov_par[0][rnd_layer] = update_parameter_normal_vec(cov_parA[0][rnd_layer], d=0.05, f= bdnn_update_f[rnd_layer] )
-                bdnn_prior_cov_par[0] = np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[0]))])
-                # update layers D rate
-                cov_par[1][rnd_layer] = update_parameter_normal_vec(cov_parA[1][rnd_layer], d=0.05, f= bdnn_update_f[rnd_layer] )
-                bdnn_prior_cov_par[1] = np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[1]))])
-                if BDNN_MASK_lam:
-                    for i_layer in range(len(cov_parA[0])):
-                        cov_par[0][i_layer] *= BDNN_MASK_lam[i_layer]
-                if BDNN_MASK_mu:
-                    for i_layer in range(len(cov_parA[1])):
-                        cov_par[1][i_layer] *= BDNN_MASK_mu[i_layer]
-                if prior_lam_t_reg[0] > 0:
-                    cov_par[3] = update_parameter(cov_parA[3], 0, 1, d=0.05, f=1)
-                    bdnn_prior_cov_par[2] = np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_par[3]
-                    if not independ_reg:
-                        cov_par[4] = cov_par[3]
-                if prior_lam_t_reg[1] > 0 and independ_reg:
-                    cov_par[4] = update_parameter(cov_parA[4], 0, 1, d=0.05, f=1)
-                    bdnn_prior_cov_par[3] = np.log(prior_lam_t_reg[1]) - prior_lam_t_reg[1] * cov_par[4]
-                bdnn_lam_rates, denom_lam = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f,
-                                                             apply_reg, bias_node_idx, fix_edgeShift)
-                bdnn_mu_rates, denom_mu = get_rate_BDNN_3D(cov_par[4], trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f,
-                                                           apply_reg, bias_node_idx, fix_edgeShift)
-#                # do not update all at once - why is the BD_lik lower?
-#                rr_cov_lam_mu = np.random.random()
-#                if rr_cov_lam_mu < cov_par_update_f[0] and prior_lam_t_reg[0] > 0:
-#                    # update treg lam
-#                    cov_lam_updated = 1
+#                cov_lam_updated = 1
+#                cov_mu_updated = 1
+#                rnd_layer = np.random.randint(0, len(cov_parA[0]))
+#                # update layers B rate
+#                cov_par[0][rnd_layer] = update_parameter_normal_vec(cov_parA[0][rnd_layer], d=0.05, f= bdnn_update_f[rnd_layer] )
+#                bdnn_prior_cov_par[0] = np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[0]))])
+#                # update layers D rate
+#                cov_par[1][rnd_layer] = update_parameter_normal_vec(cov_parA[1][rnd_layer], d=0.05, f= bdnn_update_f[rnd_layer] )
+#                bdnn_prior_cov_par[1] = np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[1]))])
+#                if BDNN_MASK_lam:
+#                    for i_layer in range(len(cov_parA[0])):
+#                        cov_par[0][i_layer] *= BDNN_MASK_lam[i_layer]
+#                if BDNN_MASK_mu:
+#                    for i_layer in range(len(cov_parA[1])):
+#                        cov_par[1][i_layer] *= BDNN_MASK_mu[i_layer]
+#                if prior_lam_t_reg[0] > 0:
 #                    cov_par[3] = update_parameter(cov_parA[3], 0, 1, d=0.05, f=1)
 #                    bdnn_prior_cov_par[2] = np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_par[3]
 #                    if not independ_reg:
 #                        cov_par[4] = cov_par[3]
-#                elif rr_cov_lam_mu < cov_par_update_f[1]:
-#                    # update layers B rate
-#                    cov_lam_updated = 1
-#                    rnd_layer_lam = np.random.randint(0, len(cov_parA[0]))
-#                    cov_par[0][rnd_layer_lam] = update_parameter_normal_vec(cov_parA[0][rnd_layer_lam], d=0.05, f=bdnn_update_f[rnd_layer_lam] )
-#                    bdnn_prior_cov_par[0] = np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[0]))])
-#                    if BDNN_MASK_lam:
-#                        for i_layer in range(len(cov_parA[0])):
-#                            cov_par[0][i_layer] *= BDNN_MASK_lam[i_layer]
-#                elif rr_cov_lam_mu < cov_par_update_f[2] and prior_lam_t_reg[1] > 0:
-#                    # update treg mu
-#                    cov_mu_updated = 1
+#                if prior_lam_t_reg[1] > 0 and independ_reg:
 #                    cov_par[4] = update_parameter(cov_parA[4], 0, 1, d=0.05, f=1)
 #                    bdnn_prior_cov_par[3] = np.log(prior_lam_t_reg[1]) - prior_lam_t_reg[1] * cov_par[4]
-#                else:
-#                    # update layers D rate
-#                    cov_mu_updated = 1
-#                    rnd_layer_mu = np.random.randint(0, len(cov_parA[1]))
-#                    cov_par[1][rnd_layer_mu] = update_parameter_normal_vec(cov_parA[1][rnd_layer_mu], d=0.05, f=bdnn_update_f[rnd_layer_mu] )
-#                    bdnn_prior_cov_par[1] = np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[1]))])
-#                    if BDNN_MASK_mu:
-#                        for i_layer in range(len(cov_parA[1])):
-#                            cov_par[1][i_layer] *= BDNN_MASK_mu[i_layer]
-#                # Recalculate bdnn rates when we updated cov_par
-#                if cov_lam_updated:
-#                    bdnn_lam_rates, denom_lam = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], hidden_act_f, out_act_f,
-#                                                                 apply_reg, bias_node_idx, fix_edgeShift)
-#                if cov_mu_updated:
-#                    bdnn_mu_rates, denom_mu = get_rate_BDNN_3D(cov_par[4], trait_tbl_NN[1], cov_par[1], hidden_act_f, out_act_f,
-#                                                               apply_reg, bias_node_idx, fix_edgeShift)
+#                bdnn_lam_rates, denom_lam, nn_lam = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], nn_lamA,
+#                                                                     hidden_act_f, out_act_f,
+#                                                                     apply_reg, bias_node_idx, fix_edgeShift,
+#                                                                     rnd_layer)
+#                bdnn_mu_rates, denom_mu, nn_mu = get_rate_BDNN_3D(cov_par[4], trait_tbl_NN[1], cov_par[1], nn_muA,
+#                                                                  hidden_act_f, out_act_f,
+#                                                                  apply_reg, bias_node_idx, fix_edgeShift,
+#                                                                  rnd_layer)
+#                # do not update all at once
+                rr_cov_lam_mu = np.random.random()
+                if rr_cov_lam_mu < cov_par_update_f[0] and prior_lam_t_reg[0] > 0:
+                    # update treg lam
+                    cov_lam_updated = 1
+                    rnd_layer_lam = -1
+                    cov_par[3] = update_parameter(cov_parA[3], 0, 1, d=0.05, f=1)
+                    bdnn_prior_cov_par[2] = np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_par[3]
+                    if not independ_reg:
+                        cov_par[4] = cov_par[3]
+                elif rr_cov_lam_mu < cov_par_update_f[1]:
+                    # update layers B rate
+                    cov_lam_updated = 1
+                    rnd_layer_lam = np.random.randint(0, len(cov_parA[0]))
+                    cov_par[0][rnd_layer_lam] = update_parameter_normal_vec(cov_parA[0][rnd_layer_lam], d=0.05, f=bdnn_update_f[rnd_layer_lam] )
+                    bdnn_prior_cov_par[0] = np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[0]))])
+                    if BDNN_MASK_lam:
+                        for i_layer in range(len(cov_parA[0])):
+                            cov_par[0][i_layer] *= BDNN_MASK_lam[i_layer]
+                elif rr_cov_lam_mu < cov_par_update_f[2] and prior_lam_t_reg[1] > 0:
+                    # update treg mu
+                    cov_mu_updated = 1
+                    rnd_layer_mu = -1
+                    cov_par[4] = update_parameter(cov_parA[4], 0, 1, d=0.05, f=1)
+                    bdnn_prior_cov_par[3] = np.log(prior_lam_t_reg[1]) - prior_lam_t_reg[1] * cov_par[4]
+                else:
+                    # update layers D rate
+                    cov_mu_updated = 1
+                    rnd_layer_mu = np.random.randint(0, len(cov_parA[1]))
+                    cov_par[1][rnd_layer_mu] = update_parameter_normal_vec(cov_parA[1][rnd_layer_mu], d=0.05, f=bdnn_update_f[rnd_layer_mu] )
+                    bdnn_prior_cov_par[1] = np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[1]))])
+                    if BDNN_MASK_mu:
+                        for i_layer in range(len(cov_parA[1])):
+                            cov_par[1][i_layer] *= BDNN_MASK_mu[i_layer]
+                # Recalculate bdnn rates when we updated cov_par
+                if cov_lam_updated:
+                    bdnn_lam_rates, denom_lam, nn_lam = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], nn_lamA,
+                                                                         hidden_act_f, out_act_f,
+                                                                         apply_reg, bias_node_idx, fix_edgeShift,
+                                                                         rnd_layer_lam)
+                if cov_mu_updated:
+                    bdnn_mu_rates, denom_mu, nn_mu = get_rate_BDNN_3D(cov_par[4], trait_tbl_NN[1], cov_par[1], nn_muA,
+                                                                      hidden_act_f, out_act_f,
+                                                                      apply_reg, bias_node_idx, fix_edgeShift,
+                                                                      rnd_layer_mu)
 
             if BDNNmodel in [2, 3] and rr_bdnn >= 0.0:
                 cov_q_updated = 1
@@ -4880,6 +4929,8 @@ def MCMC(all_arg):
                     bdnn_mu_ratesA = bdnn_mu_rates
                     denom_lamA = denom_lam
                     denom_muA = denom_mu
+                    nn_lamA = nn_lam
+                    nn_muA = nn_mu
                     if use_time_as_trait or bdnn_timevar[0] or bdnn_dd or bdnn_loaded_tbls_timevar:
                         bdnn_prior_cov_parA = bdnn_prior_cov_par + 0.0
                         i_events_spA = i_events_sp
@@ -4898,6 +4949,8 @@ def MCMC(all_arg):
                     bdnn_mu_rates = bdnn_mu_ratesA
                     denom_lam = denom_lamA
                     denom_mu = denom_muA
+                    nn_lam = nn_lamA
+                    nn_mu = nn_muA
                     if use_time_as_trait or bdnn_timevar[0] or bdnn_dd or bdnn_loaded_tbls_timevar:
                         bdnn_prior_cov_par = bdnn_prior_cov_parA + 0.0
                         i_events_sp = i_events_spA

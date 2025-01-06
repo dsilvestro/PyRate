@@ -47,6 +47,8 @@ from PyRate import get_fossil_features_q_shifts
 from PyRate import make_singleton_mask
 from PyRate import get_bin_ts_te
 #from PyRate import get_q_rate_BDNN
+from PyRate import update_NN
+from PyRate import init_NN_output
 from PyRate import get_unreg_rate_BDNN_3D
 from PyRate import get_q_multipliers_NN
 from PyRate import make_missing_bins
@@ -1583,20 +1585,20 @@ def build_conditional_trait_tbl(bdnn_obj,
     return cond_trait_tbl, names_features
 
 
-def get_conditional_rates(bdnn_obj, cond_trait_tbl, post_w, post_t_reg, post_denom):
-    num_it = len(post_w)
-    obs = cond_trait_tbl[:, -1] == 1
-    rate_cond = np.zeros((np.sum(obs), num_it))
-    for i in range(num_it):
-        rate_cond[:, i] = get_unreg_rate_BDNN_3D(cond_trait_tbl[obs, :-6],
-                                                 post_w[i], # list of arrays
-                                                 bdnn_obj.bdnn_settings['hidden_act_f'],
-                                                 bdnn_obj.bdnn_settings['out_act_f'])
-        rate_cond[:, i] = rate_cond[:, i] ** post_t_reg[i] / post_denom[i]
-    rate_cond2 = np.zeros((len(cond_trait_tbl), num_it))
-    rate_cond2[:] = np.nan
-    rate_cond2[obs, :] = rate_cond
-    return rate_cond2
+#def get_conditional_rates(bdnn_obj, cond_trait_tbl, post_w, post_t_reg, post_denom):
+#    num_it = len(post_w)
+#    obs = cond_trait_tbl[:, -1] == 1
+#    rate_cond = np.zeros((np.sum(obs), num_it))
+#    for i in range(num_it):
+#        rate_cond[:, i] = get_unreg_rate_BDNN_3D(cond_trait_tbl[obs, :-6],
+#                                                 post_w[i], # list of arrays
+#                                                 bdnn_obj.bdnn_settings['hidden_act_f'],
+#                                                 bdnn_obj.bdnn_settings['out_act_f'])
+#        rate_cond[:, i] = rate_cond[:, i] ** post_t_reg[i] / post_denom[i]
+#    rate_cond2 = np.zeros((len(cond_trait_tbl), num_it))
+#    rate_cond2[:] = np.nan
+#    rate_cond2[obs, :] = rate_cond
+#    return rate_cond2
 
 
 def get_rates_summary(cond_rates):
@@ -3774,11 +3776,13 @@ def get_pdp_rate_it_i(arg):
     for j in range(nrows_cond_trait_tbl):
         if obs[j]:
             trait_tbl_tmp = take_traits_from_trt_tbl(trait_tbl, cond_trait_tbl, j, idx_comb_feat)
-            rate_BDNN = get_unreg_rate_BDNN_3D(trait_tbl_tmp,
-                                               post_w_i,  # list of arrays
-                                               hidden_act_f,
-                                               out_act_f,
-                                               bias_node_idx=bias_node_idx)
+            nn = init_NN_output(trait_tbl_tmp, post_w_i)
+            rate_BDNN, _ = get_unreg_rate_BDNN_3D(trait_tbl_tmp,
+                                                  post_w_i,  # list of arrays
+                                                  nn,
+                                                  hidden_act_f,
+                                                  out_act_f,
+                                                  bias_node_idx=bias_node_idx)
             rate_BDNN = norm * (rate_BDNN ** post_t_reg_i / post_denom_i) # either b/d rates or multiplier for q
             rate_BDNN = baseline * rate_BDNN
             rate_it_i[j] = 1.0 / np.mean(1.0 / rate_BDNN) #np.mean(rate_BDNN)
@@ -3884,11 +3888,13 @@ def get_pdp_rate_it_i_free_combination(arg):
     for j in range(nrows_all_comb_tbl):
         trait_tbl_tmp = trait_tbl + 0.0
         trait_tbl_tmp[:, names_comb_idx_conc] = all_comb_tbl[j, :]
-        rate_BDNN = get_unreg_rate_BDNN_3D(trait_tbl_tmp,
-                                           post_w_i,  # list of arrays
-                                           hidden_act_f,
-                                           out_act_f,
-                                           bias_node_idx=bias_node_idx)
+        nn = init_NN_output(trait_tbl_tmp, post_w_i)
+        rate_BDNN, _ = get_unreg_rate_BDNN_3D(trait_tbl_tmp,
+                                              post_w_i,  # list of arrays
+                                              nn,
+                                              hidden_act_f,
+                                              out_act_f,
+                                              bias_node_idx=bias_node_idx)
         rate_BDNN = rate_BDNN ** t_reg_i / denom_reg_i
         rate_it_i[j] = 1.0 / np.mean(1.0/rate_BDNN)
     return rate_it_i
@@ -4032,13 +4038,17 @@ def get_pdrtt_i(arg):
             trait_tbl_exk[:, :, names_comb_idx_conc] = trait_tbl_exk[j, k, names_comb_idx_conc]
             
             # Get PDP rates
-            rate_BDNN = get_unreg_rate_BDNN_3D(trait_tbl_spk, w_sp_i, hidden_act_f, out_act_f,
-                                               apply_reg=apply_reg, bias_node_idx=bias_node_idx, fix_edgeShift=fix_edgeShift)
+            nn_sp = init_NN_output(trait_tbl_spk, w_sp_i)
+            rate_BDNN, _ = get_unreg_rate_BDNN_3D(trait_tbl_spk, w_sp_i, nn_sp,
+                                                  hidden_act_f, out_act_f,
+                                                  apply_reg=apply_reg, bias_node_idx=bias_node_idx, fix_edgeShift=fix_edgeShift)
             rate_BDNN = rate_BDNN ** t_reg_lam_i / reg_denom_lam_i
 #            pdsp[k, j] = 1.0 / np.mean(1.0 / rate_BDNN) # harmonic mean
             pdsp[k, j] = weights_dur / np.sum(dur_bins / rate_BDNN) # weighted harmonic mean
-            rate_BDNN = get_unreg_rate_BDNN_3D(trait_tbl_exk, w_ex_i, hidden_act_f, out_act_f,
-                                               apply_reg=apply_reg, bias_node_idx=bias_node_idx, fix_edgeShift=fix_edgeShift)
+            nn_ex = init_NN_output(trait_tbl_exk, w_ex_i)
+            rate_BDNN, _ = get_unreg_rate_BDNN_3D(trait_tbl_exk, w_ex_i, nn_ex,
+                                                  hidden_act_f, out_act_f,
+                                                  apply_reg=apply_reg, bias_node_idx=bias_node_idx, fix_edgeShift=fix_edgeShift)
             rate_BDNN = rate_BDNN ** t_reg_mu_i / reg_denom_mu_i
 #            pdex[k, j] = 1.0 / np.mean(1.0 / rate_BDNN) # harmonic mean
             pdex[k, j] = weights_dur / np.sum(dur_bins / rate_BDNN) # weighted harmonic mean
@@ -4777,22 +4787,6 @@ def feature_permutation(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm = 10, 
     ex_delta_lik_df = remove_invariant_feature_from_featperm_results(bdnn_obj, ex_delta_lik_df, trt_tbls[1],
                                                                      combine_discr_features)
     return sp_delta_lik_df, ex_delta_lik_df
-
-
-#def get_q_rate_BDNN_noreg(x, w, hidden_act_f, out_act_f, t_reg, reg_denom, q, n, singleton_mask, qbin_ts_te=None):
-#    r = get_rate_BDNN_3D_noreg(x, w, hidden_act_f, out_act_f, True, singleton_mask, qbin_ts_te)
-#    r = (r * n) ** t_reg / reg_denom
-#    if len(q) > 1:
-#        # Several q rates
-#        if r.ndim == 1:
-#            # No time-varying trait table
-#            r = r[:, np.newaxis] * q
-#        else:
-#            # Time-varingy trait table
-#            r = r * q[np.newaxis, :]
-#    else:
-#        r = r * q
-#    return r
 
 
 def get_q_multipliers_NN_dereg(t_reg, reg_denom, n, qnn_output, singleton_mask, qbin_ts_te=None):
@@ -5805,7 +5799,8 @@ def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_a
         trt_tbl_aux[:, idx] = trt_tbl[i, idx]
         trt_tbl_aux2[ll, :, :] = trt_tbl_aux
     trt_tbl_aux = trt_tbl_aux2.reshape(nEval * n_species, nAttr)
-    rate_aux = get_unreg_rate_BDNN_3D(trt_tbl_aux, cov_par, hidden_act_f, out_act_f, bias_node_idx=bias_node_idx)
+    nn = init_NN_output(trt_tbl_aux, cov_par)
+    rate_aux, _ = get_unreg_rate_BDNN_3D(trt_tbl_aux, cov_par, nn, hidden_act_f, out_act_f, bias_node_idx=bias_node_idx)
     rate_aux = norm * (rate_aux ** t_reg / reg_denom)
     rate_aux = rate_aux * baseline
     rate_aux = rate_aux.reshape(nEval, n_species)
@@ -5872,7 +5867,8 @@ def k_add_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out
 
 def fastshap_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f, bias_node_idx, baseline=1.0, norm=1.0):
     def lambdaX(X, cov_par, hidden_act_f, out_act_f, t_reg, reg_denom, bias_node_idx):
-        r = get_unreg_rate_BDNN_3D(X, cov_par, hidden_act_f, out_act_f, bias_node_idx=bias_node_idx)
+        nn = init_NN_output(X, cov_par)
+        r, _ = get_unreg_rate_BDNN_3D(X, cov_par, nn, hidden_act_f, out_act_f, bias_node_idx=bias_node_idx)
         r = baseline * norm * (r ** t_reg / reg_denom)
 #        harmonic_mean = 1.0 / np.mean(1.0 / r)
 #        multi = harmonic_mean / r
