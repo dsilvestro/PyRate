@@ -3923,6 +3923,8 @@ def MCMC(all_arg):
             cov_parA = cov_par_init_NN
             nn_lamA = init_NN_output(trait_tbl_NN[0], cov_parA[0])
             nn_muA = init_NN_output(trait_tbl_NN[1], cov_parA[1])
+            if restore_chain:
+                cov_parA = restore_init_values[7]
             bdnn_prior_cov_parA = np.zeros(4)
             cov_par_update_f = np.array([0.1, 0.55, -1.0])
             if independ_reg:
@@ -3939,18 +3941,16 @@ def MCMC(all_arg):
 
             bdnn_lam_ratesA, denom_lamA, nn_lamA = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[0], cov_parA[0], nn_lamA,
                                                                     hidden_act_f, out_act_f,
-                                                                    apply_reg, bias_node_idx, fix_edgeShift,
-                                                                    rnd_layer=len(cov_parA[0]))
-            bdnn_mu_ratesA, denom_muA, nn_muA = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[1], cov_parA[1], nn_muA,
+                                                                    apply_reg, bias_node_idx, fix_edgeShift)
+            bdnn_mu_ratesA, denom_muA, nn_muA = get_rate_BDNN_3D(cov_parA[4], trait_tbl_NN[1], cov_parA[1], nn_muA,
                                                                  hidden_act_f, out_act_f,
-                                                                 apply_reg, bias_node_idx, fix_edgeShift,
-                                                                 rnd_layer=len(cov_parA[0]))
+                                                                 apply_reg, bias_node_idx, fix_edgeShift)
             if use_time_as_trait or bdnn_timevar[0] or bdnn_dd or bdnn_loaded_tbls_timevar:
                 bin_size_lam_mu = np.tile(np.abs(np.diff(timesLA)), n_taxa).reshape((n_taxa, len(timesLA) - 1))
                 i_events_spA, i_events_exA, n_SA = get_events_ns(tsA, teA, timesLA, bin_size_lam_mu)
                 likBDtempA = np.zeros((2, n_taxa))
                 likBDtempA[0, :] = BDNN_fast_partial_lik([i_events_spA, n_SA, bdnn_lam_ratesA, apply_reg])
-                likBDtempA[1, :] = BDNN_fast_partial_lik([i_events_spA, n_SA, bdnn_lam_ratesA, apply_reg])
+                likBDtempA[1, :] = BDNN_fast_partial_lik([i_events_exA, n_SA, bdnn_mu_ratesA, apply_reg])
             bdnn_prior_cov_parA[0] = np.sum([np.sum(prior_normal(cov_parA[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_parA[0]))])
             bdnn_prior_cov_parA[1] = np.sum([np.sum(prior_normal(cov_parA[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_parA[1]))])
             if prior_lam_t_reg[0] > 0:
@@ -3993,9 +3993,8 @@ def MCMC(all_arg):
         if est_COVAR_prior == 1:
             covar_prior = 1.
             cov_parA = np.random.random(3)*f_cov_par # f_cov_par is 0 or >0 depending on COVAR model
-        else: covar_prior = covar_prior_fixed
-        if restore_chain == 1:
-            cov_parA = restore_init_values[7]
+        else:
+            covar_prior = covar_prior_fixed
 
         #if fix_hyperP == 0:    hyperPA=np.ones(2)
         hyperPA = hypP_par
@@ -6280,7 +6279,8 @@ if __name__ == '__main__':
     if args.restore_mcmc != "":
         restore_init_values = get_init_values(args.restore_mcmc,taxa_names)
         restore_chain = 1
-    else: restore_chain = 0
+    else:
+        restore_chain = 0
 
 
     if args.se_gibbs: 
