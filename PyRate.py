@@ -3847,7 +3847,7 @@ def MCMC(all_arg):
             if FBDrange == 3:
                 teA = LO
             res_FBD_A = []
-        if restore_chain == 1:
+        if restore_chain == 1 and fix_SE != 1:
             tsA_temp, teA_temp = init_ts_te(FA,LO)
             tsA, teA = restore_init_values[0], restore_init_values[1]
             # avoid incompatibilities due to age randomizations
@@ -3961,7 +3961,7 @@ def MCMC(all_arg):
         alpha_pp_gammaA = 1.
         if TPP_model == 1: # init multiple q rates
             q_ratesA = np.zeros(time_framesQ)+q_ratesA[1]
-        if restore_chain == 1:
+        if restore_chain == 1 and fix_SE != 1:
             q_ratesA = restore_init_values[2]
             if TPP_model == 1:
                 if len(q_ratesA) != time_framesQ:
@@ -3999,10 +3999,13 @@ def MCMC(all_arg):
 
         #if fix_hyperP == 0:    hyperPA=np.ones(2)
         hyperPA = hypP_par
-        if restore_chain == 1: hyperPA = restore_init_values[5]
+        if restore_chain == 1:
+            hyperPA = restore_init_values[5]
 
-        if argsG == 0 and TPP_model == 0: q_ratesA[0]=1
-        if argsG == 1 and TPP_model == 1 and restore_chain == 1: alpha_pp_gammaA=restore_init_values[6]
+        if argsG == 0 and TPP_model == 0:
+            q_ratesA[0] = 1
+        if argsG == 1 and TPP_model == 1 and restore_chain == 1 and fix_SE != 1:
+            alpha_pp_gammaA = restore_init_values[6]
         SA=np.sum(tsA-teA)
         W_shapeA=1.
 
