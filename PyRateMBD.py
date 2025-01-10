@@ -79,11 +79,22 @@ ts, te, clade_ID, _ = read_ts_te_table(dataset, args.j, ignore_clade_col=args.ig
 
 
 if args.plot != "":
-    j = np.arange((np.shape(t_file)[1]-2)/2)
-    ts_all=t_file[:,np.array(2+2*j).astype(int)]
-    te_all=t_file[:,np.array(3+2*j).astype(int)]
-    ts=np.mean(ts_all,axis=1)
-    te=np.mean(te_all,axis=1)
+    t_file = np.genfromtxt(args.d, 
+                       skip_header=1,
+                       dtype=None,
+                       delimiter='\t',  # explicitly specify tab delimiter
+                       names=['clade', 'species', 'ts', 'te'],  # explicitly specify column names
+                       encoding=None)
+
+    # Now we can directly access the ts and te columns
+    ts = t_file['ts']
+    te = t_file['te']
+    # # Previous Code: (did not define t_file before calling it, led to error)
+    # j = np.arange((np.shape(t_file)[1]-2)/2)
+    # ts_all=t_file[:,np.array(2+2*j).astype(int)]
+    # # te_all=t_file[:,np.array(3+2*j).astype(int)]
+    # ts=np.mean(ts_all,axis=1)
+    # te=np.mean(te_all,axis=1)
     
 
 corr_model=args.m
