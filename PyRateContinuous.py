@@ -102,7 +102,7 @@ if args.mL != "":
     quit()
 
 useHP = args.use_hp
-ts, te, _, _ = read_ts_te_table(dataset, rep_j, args.rescale, focus_clade=focus_clade)
+ts, te, _, _, _ = read_ts_te_table(dataset, rep_j, args.rescale, focus_clade=focus_clade)
 
 
 output_wd = os.path.dirname(dataset)

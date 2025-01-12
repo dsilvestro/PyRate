@@ -267,7 +267,7 @@ def read_ts_te_table(ts_te_tbl_file, j=1, rescale=1, translate=0, focus_clade=-1
     if focus_clade >= 0:
         FA, LO = FA[clade_ID==focus_clade], LO[clade_ID==focus_clade]
     
-    return FA, LO, clade_ID, taxa_names
+    return FA, LO, clade_ID, taxa_names, t_file
 
 
 def calc_marginal_likelihood(infile,burnin,extract_mcmc=1):

@@ -52,7 +52,7 @@ n_iterations=args.n
 sampling_freq=args.s
 print_freq = args.p
 
-ts, te, clade_ID, _ = read_ts_te_table(dataset, args.j)
+ts, te, clade_ID, _, _ = read_ts_te_table(dataset, args.j)
 
 constr=args.m
 

@@ -6266,7 +6266,7 @@ if __name__ == '__main__':
         from pyrate_lib.lib_utilities import read_ts_te_table as read_ts_te_table
         j = np.maximum(args.j-1,0)
         focus_clade = args.clade
-        FA, LO, _, taxa_names = read_ts_te_table(se_tbl_file, j, args.rescale, args.translate, focus_clade)
+        FA, LO, _, taxa_names, _ = read_ts_te_table(se_tbl_file, j, args.rescale, args.translate, focus_clade)
         
         print(j, len(FA), "species")
         fix_SE= 1

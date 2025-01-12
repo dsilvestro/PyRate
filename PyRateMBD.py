@@ -75,16 +75,16 @@ death_model = args.death_model
 name_file = os.path.splitext(os.path.basename(dataset))[0]
 wd = "%s" % os.path.dirname(dataset)
 
-ts, te, clade_ID, _ = read_ts_te_table(dataset, args.j, ignore_clade_col=args.ignore_clade_col)
+ts, te, clade_ID, _, t_file = read_ts_te_table(dataset, args.j, ignore_clade_col=args.ignore_clade_col)
 
 
 if args.plot != "":
     j = np.arange((np.shape(t_file)[1]-2)/2)
-    ts_all=t_file[:,np.array(2+2*j).astype(int)]
-    te_all=t_file[:,np.array(3+2*j).astype(int)]
+    ts_all=t_file[:,np.array(1+2*j).astype(int)]
+    te_all=t_file[:,np.array(2+2*j).astype(int)]
     ts=np.mean(ts_all,axis=1)
     te=np.mean(te_all,axis=1)
-    
+
 
 corr_model=args.m
 if corr_model ==0: model_name = "exp"
@@ -409,13 +409,14 @@ if max_T != -1 or min_T != -1:
 
 ########################## PLOT RTT ##############################
 if plot_RTT: # NEW FUNCTION 2
+    wd = os.path.abspath(wd)
     out="%s/%s_RTT.r" % (wd,name_file)
     newfile = open(out, "w")
     if model_name == "exp": model_type = "Exponential"
     else: model_type = "Linear"
         
     if platform.system() == "Windows" or platform.system() == "Microsoft":
-        wd_forward = os.path.abspath(wd).replace('\\', '/')
+        wd_forward = wd.replace('\\', '/')
         r_script= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*20, height=0.6*10)\nlibrary(scales)\n" % (wd_forward,name_file)
     else: 
         r_script= "\n\npdf(file='%s/%s_RTT.pdf',width=0.6*20, height=0.6*10)\nlibrary(scales)\n" % (wd,name_file)
