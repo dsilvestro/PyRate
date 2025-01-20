@@ -615,7 +615,7 @@ def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1.): # change rescale to
     #step_size=int(step_size)
     # read data
     print("Processing data...")
-    tbl = np.loadtxt(tste_file,skiprows=1)
+    tbl = np.genfromtxt(tste_file, skip_header=1)
     j_max=int((np.shape(tbl)[1]-1)/2)
     j_range=np.arange(j_max)
     ts = tbl[:,2+2*j_range]*rescale
