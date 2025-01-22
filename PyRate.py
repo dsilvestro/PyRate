@@ -928,10 +928,10 @@ def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type="", keep
                 if file_type == "mcmc":
                     q_not_ind = np.array([i for i in range(len(head)) if not head[i].startswith('q_')])
                     q_ind = np.array([i for i in range(len(head)) if head[i].startswith('q_')])
-                    if len(q_ind)>0 and not keep_q:
+                    if len(q_ind) > 0 and not keep_q:
                         head_temp = head_temp[q_not_ind]
                         head_temp = np.insert(head_temp,q_ind[0],"mean_q")
-                    else:
+                    elif len(q_ind) > 0:
                         head_temp = head_temp[q_not_ind]
                         q_names = np.array(["q_" + str(i) for i in range(max_q_shifts)])
                         head_temp = np.insert(head_temp, q_ind[0], q_names)
