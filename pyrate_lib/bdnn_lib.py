@@ -1112,7 +1112,8 @@ def get_minmaxmean_features(trait_tbl, most_freq, binary, conc_feat, len_cont = 
     m[3, :] = len_cont
     m[3, binary] = (m[1, binary] - m[0, binary]) + 1
     is_in_feat_group = np.isin(np.arange(n_features), conc_feat)
-#    m[3, is_in_feat_group] = 1.0 # Relax assumption that a feaure group is one-hot encoded
+    has_two_states = m[3, :] == 2
+    m[3, np.logical_and(is_in_feat_group, has_two_states)] = 1.0 # Relax assumption that a feaure group is one-hot encoded
     return m
 
 
@@ -1179,7 +1180,22 @@ def get_feature_type(k, m, b, conc_group):
     return tk
 
 
-def get_plot_type_ij(i, m, b, j = np.nan, group_features = None):
+def part_of_cont_cat_feature_group(i, j, m, b, group_features):
+    """Check edge case where we have multiple continuous features combined wih categorical ones in one feature group"""
+    mixed_feature_group = [False]
+    for k in range(len(group_features)):
+        group_indices = group_features[k]
+        in_any_group = np.isin(i, group_indices) or np.isin(j, group_indices)
+        if in_any_group:
+            feature_types_group = np.array([get_feature_type(g, m, b, group_indices) for g in group_indices])
+            if len(feature_types_group) > 2:
+                mixed_feature_group.append(bool(np.isin(15, feature_types_group)))
+    mixed_feature_group = True in mixed_feature_group
+    return mixed_feature_group
+
+
+
+def get_plot_type_ij(i, m, b, j = np.nan, group_features=None):
     conc_group = np.array([])
     if group_features:
         conc_group = np.concatenate(group_features)
@@ -1187,6 +1203,9 @@ def get_plot_type_ij(i, m, b, j = np.nan, group_features = None):
     pt = ti
     if ~np.isnan(j):
         tj = get_feature_type(j, m, b, conc_group)
+        is_mixed_group = False
+        if group_features:
+            is_mixed_group = part_of_cont_cat_feature_group(i, j, m, b, group_features)
         if ti == 1 and tj == 1:
             pt = 5 # binary x binary
         if (ti == 1 and tj == 4) or (ti == 4 and tj == 1):
@@ -1207,8 +1226,8 @@ def get_plot_type_ij(i, m, b, j = np.nan, group_features = None):
             pt = 13 # one-hot x continuous
         if (ti == 3 and tj == 4) or (ti == 4 and tj == 3):
             pt = 14 # ordinal x continuous
-        if ti == 15 or tj == 15:
-            pt = 16 # any interaction between a feature group containing several continuous features and any other feature (i.e. evetnually bypassing this type of interaction)
+        if ti == 15 or tj == 15 or is_mixed_group:
+            pt = 16 # any interaction between a feature group containing several continuous features and any other feature (i.e. eventually bypassing this type of interaction)
     return pt
 
 
@@ -6672,7 +6691,6 @@ def get_consensus_ranking(pv, sh, fp):
     rank_df = pd.DataFrame(np.concatenate((main_consrank, inter_consrank)) + 1.0, columns = ['rank'])
     r = pd.concat([pv_reordered[['feature1', 'feature2']], rank_df], axis = 1)
     feat_merged = merge_results_feat_import(pv, sh, fp, r)
-#    feat_merged = merge_results_feat_import(pv_reordered, sh_reordered, fp_reordered, r)
     return feat_merged, main_consrank
 
 
