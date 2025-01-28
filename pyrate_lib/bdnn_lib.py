@@ -6677,16 +6677,20 @@ def merge_results_feat_import(pv, sh, fp, rr):
 
 def get_consensus_ranking(pv, sh, fp):
     pv_reordered, sh_reordered, fp_reordered = get_same_order(pv, sh, fp)
+    use_import_metrics = [0, 1, 2]
+    feature_group_without_prob = -1 in pv_reordered['posterior_probability'].values
+    if feature_group_without_prob:
+        use_import_metrics = [1, 2]
     feat_main_ranked, feat_inter_ranked = rank_features(pv_reordered, sh_reordered, fp_reordered)
     main_consrank = np.zeros(1)
     if feat_main_ranked.shape[1] > 1:
-        main_consranks = quickcons(feat_main_ranked)
+        main_consranks = quickcons(feat_main_ranked[use_import_metrics, :])
         main_consrank = stats.mode(main_consranks[0], axis = 0)[0].flatten()
     inter_consrank = np.array([])
     if feat_inter_ranked.shape[0] > 0:
         inter_consrank = np.zeros(1)
         if feat_inter_ranked.shape[1] > 1:
-            inter_consranks = quickcons(feat_inter_ranked)
+            inter_consranks = quickcons(feat_inter_ranked[use_import_metrics, :])
             inter_consrank = stats.mode(inter_consranks[0], axis = 0)[0].flatten()
     rank_df = pd.DataFrame(np.concatenate((main_consrank, inter_consrank)) + 1.0, columns = ['rank'])
     r = pd.concat([pv_reordered[['feature1', 'feature2']], rank_df], axis = 1)
