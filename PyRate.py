@@ -1277,12 +1277,15 @@ def update_rates_sliding_win(L,M,tot_L,mod_d3):
     #Ln,Mn=Ln * scale_factor/tot_L , Mn * scale_factor/tot_L
     return Ln,Mn, 1
 
-def update_parameter_normal_vec(oldL,d,f=.25):
+def update_parameter_normal_vec(oldL,d,f=.25, float_prec_f=np.float64):
     S = oldL.shape
     ii = np.random.normal(0,d,S)
     ff = np.random.binomial(1,np.min([f, 1]),S)
+    # avoid no update being performed at all
+    if np.sum(ff) == 0:
+        ff[np.random.randint(S, size=1)] = 1
     # print(np.sum(ff), S, f)
-    s= oldL + ii*ff
+    s= oldL + float_prec_f(ii*ff)
     return s
 
 
@@ -1819,7 +1822,8 @@ def tanh_f_approx(z):
     return tanh
 
 def softPlus(z):
-    return np.log(np.exp(z) + 1)
+#    return np.log(np.exp(z) + 1)
+    return np.logaddexp(0, z) # overflow safe softPlus
 
 def mean_softPlus3D(z):
     # Is this needed when we have time-variable predictors e.g. sediment availability? 
@@ -1835,7 +1839,7 @@ def expFun(z):
     return np.exp(z)
 
 
-def init_NN_output(x, w):
+def init_NN_output(x, w, float_prec_f=np.float64):
     n_layers = len(w)
     x_shape = x.shape
     xs = [x_shape[0]]
@@ -1844,7 +1848,7 @@ def init_NN_output(x, w):
     nn_out = []
     for i in range(n_layers):
         init_shape = tuple(xs + [w[i].shape[0]])
-        nn_out.append(np.zeros(init_shape))
+        nn_out.append(float_prec_f(np.zeros(init_shape)))
     return nn_out
 
 
@@ -1861,11 +1865,13 @@ def MatrixMultiplication(x1,x2):
 def MatrixMultiplication3D(x1, x2, bias_node_idx=[0]):
     if x1.shape[-1] == x2.shape[1]:
 #        z1 = np.einsum('tnj,ij->tni', x1, x2, optimize=True)
-        z1 = np.tensordot(x1, x2.T, axes=([-1], [0]))
+#        z1 = np.tensordot(x1, x2.T, axes=([-1], [0]))
+        z1 = np.tensordot(x1, x2, axes=([-1], [-1])) # Column-major order should be faster for large arrays
 #        z1 = np.array([np.dot(x1[i], x2.T) for i in range(len(x1))])
     else:
 #        z1 = np.einsum('tnj,ij->tni', x1, x2[:, 1:], optimize=True) # w/ bias node
-        z1 = np.tensordot(x1, x2[:, (bias_node_idx[-1] + 1):].T, axes=([-1], [0]))
+#        z1 = np.tensordot(x1, x2[:, (bias_node_idx[-1] + 1):].T, axes=([-1], [0]))
+        z1 = np.tensordot(x1, x2[:, (bias_node_idx[-1] + 1):], axes=([-1], [-1]))
 #        z1 = np.array([np.dot(x1[i], x2[:, 1:].T) for i in range(len(x1))])
         z1 += x2[:, bias_node_idx[-1]].T
     return z1
@@ -2060,7 +2066,12 @@ def get_act_f(i):
 
 def get_hidden_act_f(i):
     return [tanh_f, relu_f, leaky_relu_f, swish_f, sigmoid_f, tanh_f_approx][i]
-    
+
+
+def get_float_prec_f(i):
+    return [np.float64, np.float32][i]
+
+
 def create_mask(w_layers, indx_input_list, nodes_per_feature_list):
     m_layers = []
     for w in w_layers:
@@ -2091,16 +2102,16 @@ def create_mask(w_layers, indx_input_list, nodes_per_feature_list):
         m_layers.append(m)
     return m_layers
 
-def init_weight_prm(n_nodes, n_features, size_output, init_std=0.1, bias_node=0):
+def init_weight_prm(n_nodes, n_features, size_output, float_prec_f=np.float64, init_std=0.1, bias_node=0):
     bn, bn2, bn3 = 0, 0, bias_node
     n_layers = len(n_nodes) + 1
     # 1st layer
-    w_layers = [np.random.normal(0, init_std, (n_nodes[0], n_features + bn))]
+    w_layers = [float_prec_f(np.random.normal(0, init_std, (n_nodes[0], n_features + bn)))]
     # add hidden layers
     for i in range(1, n_layers - 1):
-        w_layers.append(np.random.normal(0, init_std, (n_nodes[i], n_nodes[i - 1] + bn2)))
+        w_layers.append(float_prec_f(np.random.normal(0, init_std, (n_nodes[i], n_nodes[i - 1] + bn2))))
     # last layer
-    w_layers.append(np.random.normal(0, init_std, (size_output, n_nodes[-1] + bn3)))
+    w_layers.append(float_prec_f(np.random.normal(0, init_std, (size_output, n_nodes[-1] + bn3))))
     return w_layers
 
 
@@ -2131,13 +2142,15 @@ def init_trait_and_weights(trait_tbl, time_var_tbl_lambda, time_var_tbl_mu,
                            nodes, n_bias_node=0, fadlad=0.1,
                            verbose=False, fixed_times_of_shift=[],
                            use_time_as_trait=False, dd=False, n_taxa=None,
-                           loaded_tbls="", fix_edgeShift=0):
+                           loaded_tbls="", fix_edgeShift=0, float_prec_f=np.float64):
     num_fixed_times_of_shift = len(fixed_times_of_shift)
     if (use_time_as_trait or time_var_tbl_lambda is not None or dd) and isinstance(loaded_tbls[0], np.ndarray) is False: # only availble with -fixShift option
         trait_tbl_lam = make_trait_time_table(trait_tbl, time_var_tbl_lambda, num_fixed_times_of_shift, fixed_times_of_shift, n_taxa, dd)
         trait_tbl_mu = make_trait_time_table(trait_tbl, time_var_tbl_mu, num_fixed_times_of_shift, fixed_times_of_shift, n_taxa, dd)
-        w_lam = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_lam[0].shape[1], size_output=1, init_std=0.01, bias_node=n_bias_node)
-        w_mu = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_mu[0].shape[1], size_output=1, init_std=0.01, bias_node=n_bias_node)
+        w_lam = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_lam[0].shape[1], size_output=1,
+                                float_prec_f=float_prec_f, init_std=0.01, bias_node=n_bias_node)
+        w_mu = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_mu[0].shape[1], size_output=1,
+                               float_prec_f=float_prec_f, init_std=0.01, bias_node=n_bias_node)
         
         for i in w_lam:
             print(i.shape)
@@ -2193,8 +2206,10 @@ def init_trait_and_weights(trait_tbl, time_var_tbl_lambda, time_var_tbl_mu,
             trait_tbl_mu = np.c_[trait_tbl_mu, rescaled_time]
             n_features_sp += 1
             n_features_ex += 1
-        w_lam = init_weight_prm(n_nodes=nodes, n_features=n_features_sp, size_output=1, init_std=0.01, bias_node=n_bias_node)
-        w_mu = init_weight_prm(n_nodes=nodes, n_features=n_features_ex, size_output=1, init_std=0.01, bias_node=n_bias_node)
+        w_lam = init_weight_prm(n_nodes=nodes, n_features=n_features_sp, size_output=1,
+                                float_prec_f=float_prec_f, init_std=0.01, bias_node=n_bias_node)
+        w_mu = init_weight_prm(n_nodes=nodes, n_features=n_features_ex, size_output=1,
+                               float_prec_f=float_prec_f, init_std=0.01, bias_node=n_bias_node)
     else:
         if fadlad:
             trait_tbl_lam = 0+np.hstack((trait_tbl, (fadlad*FA).reshape((trait_tbl.shape[0],1)))) 
@@ -2206,12 +2221,14 @@ def init_trait_and_weights(trait_tbl, time_var_tbl_lambda, time_var_tbl_mu,
         else:
             trait_tbl_lam = trait_tbl + 0 
             trait_tbl_mu = trait_tbl + 0 
-        w_lam = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_lam.shape[1], size_output=1, init_std=0.01, bias_node=n_bias_node)
-        w_mu = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_mu.shape[1], size_output=1, init_std=0.01, bias_node=n_bias_node)
+        w_lam = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_lam.shape[1], size_output=1,
+                                float_prec_f=float_prec_f, init_std=0.01, bias_node=n_bias_node)
+        w_mu = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_mu.shape[1], size_output=1,
+                               float_prec_f=float_prec_f, init_std=0.01, bias_node=n_bias_node)
         for i in w_lam:
             print(i.shape)
     
-    return [trait_tbl_lam,trait_tbl_mu], [w_lam,w_mu]
+    return [float_prec_f(trait_tbl_lam), float_prec_f(trait_tbl_mu)], [w_lam,w_mu]
 
 
 def init_sampling_trait_and_weights(trait_tbl, time_var_tbl, nodes, bias_node=False,
@@ -3757,7 +3774,7 @@ def get_rate_HP(n,target_k,hp_gamma_shape):
 
 ####### END FUNCTIONS for DIRICHLET PROCESS PRIOR #######
 
-def get_init_values(mcmc_log_file,taxa_names):
+def get_init_values(mcmc_log_file, taxa_names, float_prec_f):
     tbl = np.loadtxt(mcmc_log_file,skiprows=1)
     last_row = np.shape(tbl)[0]-1
     head = next(open(mcmc_log_file)).split()
@@ -3813,6 +3830,8 @@ def get_init_values(mcmc_log_file,taxa_names):
             w_mu_index = [head.index(i) for i in head if "w_mu_" in i]
             w_lam = tbl[last_row, w_lam_index].reshape((1, len(w_lam_index)))
             w_mu = tbl[last_row, w_mu_index].reshape((1, len(w_mu_index)))
+            w_lam = float_prec_f(w_lam)
+            w_mu = float_prec_f(w_mu)
             w_lam = bdnn_reshape_w(w_lam, bdnn_obj, rate_type="diversification")[0]
             w_mu = bdnn_reshape_w(w_mu, bdnn_obj, rate_type="diversification")[0]
             cov_par[0] = w_lam
@@ -3921,10 +3940,11 @@ def MCMC(all_arg):
         
         if BDNNmodel in [1, 3]:
             cov_parA = cov_par_init_NN
-            nn_lamA = init_NN_output(trait_tbl_NN[0], cov_parA[0])
-            nn_muA = init_NN_output(trait_tbl_NN[1], cov_parA[1])
+            nn_lamA = init_NN_output(trait_tbl_NN[0], cov_parA[0], float_prec_f)
+            nn_muA = init_NN_output(trait_tbl_NN[1], cov_parA[1], float_prec_f)
             if restore_chain:
                 cov_parA = restore_init_values[7]
+
             bdnn_prior_cov_parA = np.zeros(4)
             cov_par_update_f = np.array([0.1, 0.55, -1.0])
             if independ_reg:
@@ -4220,10 +4240,10 @@ def MCMC(all_arg):
 #                cov_mu_updated = 1
 #                rnd_layer = np.random.randint(0, len(cov_parA[0]))
 #                # update layers B rate
-#                cov_par[0][rnd_layer] = update_parameter_normal_vec(cov_parA[0][rnd_layer], d=0.05, f= bdnn_update_f[rnd_layer] )
+#                cov_par[0][rnd_layer] = update_parameter_normal_vec(cov_parA[0][rnd_layer], d=0.05, f= bdnn_update_f[rnd_layer], float_prec_f=float_prec_f)
 #                bdnn_prior_cov_par[0] = np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[0]))])
 #                # update layers D rate
-#                cov_par[1][rnd_layer] = update_parameter_normal_vec(cov_parA[1][rnd_layer], d=0.05, f= bdnn_update_f[rnd_layer] )
+#                cov_par[1][rnd_layer] = update_parameter_normal_vec(cov_parA[1][rnd_layer], d=0.05, f= bdnn_update_f[rnd_layer], float_prec_f=float_prec_f)
 #                bdnn_prior_cov_par[1] = np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[1]))])
 #                if BDNN_MASK_lam:
 #                    for i_layer in range(len(cov_parA[0])):
@@ -4261,7 +4281,7 @@ def MCMC(all_arg):
                     # update layers B rate
                     cov_lam_updated = 1
                     rnd_layer_lam = np.random.randint(0, len(cov_parA[0]))
-                    cov_par[0][rnd_layer_lam] = update_parameter_normal_vec(cov_parA[0][rnd_layer_lam], d=0.05, f=bdnn_update_f[rnd_layer_lam] )
+                    cov_par[0][rnd_layer_lam] = update_parameter_normal_vec(cov_parA[0][rnd_layer_lam], d=0.05, f=bdnn_update_f[rnd_layer_lam], float_prec_f=float_prec_f)
                     bdnn_prior_cov_par[0] = np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[0]))])
                     if BDNN_MASK_lam:
                         for i_layer in range(len(cov_parA[0])):
@@ -4276,7 +4296,7 @@ def MCMC(all_arg):
                     # update layers D rate
                     cov_mu_updated = 1
                     rnd_layer_mu = np.random.randint(0, len(cov_parA[1]))
-                    cov_par[1][rnd_layer_mu] = update_parameter_normal_vec(cov_parA[1][rnd_layer_mu], d=0.05, f=bdnn_update_f[rnd_layer_mu] )
+                    cov_par[1][rnd_layer_mu] = update_parameter_normal_vec(cov_parA[1][rnd_layer_mu], d=0.05, f=bdnn_update_f[rnd_layer_mu], float_prec_f=float_prec_f)
                     bdnn_prior_cov_par[1] = np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[1]))])
                     if BDNN_MASK_mu:
                         for i_layer in range(len(cov_parA[1])):
@@ -4717,7 +4737,7 @@ def MCMC(all_arg):
                                 likBDtemp[i]=BPD_partial_lik(args[i])
                                 i+=1
                         # multi-thread computation of lik and prior (rates)
-                        else: likBDtemp = array(pool_lik.map(BPD_partial_lik, args))
+                        else:likBDtemp = array(pool_lik.map(BPD_partial_lik, args))
                         #print sum(likBDtemp)-sum(likBDtempA),hasting,get_hyper_priorBD(timesL,timesM,L,M,T,hyperP)+(-log(max(ts)\
                         # -min(te))*(len(L)-1+len(M)-1))-(get_hyper_priorBD(timesLA,timesMA,LA,MA,T,hyperP)+(-log(max(tsA)\
                         # -min(teA))*(len(LA)-1+len(MA)-1))), len(L),len(M)
@@ -5368,7 +5388,7 @@ if __name__ == '__main__':
                     help="""dictionary with features to plot together (e.g. on-hot encoded discrete features). E.g.: '{"Trait1": ["T1_state1", "T1_state2", "T1_state3"], "Trait2": ["T2_state1", "T2_state2", "T2_state3", "T2_state4"]}'""", default = '{}')
     p.add_argument('-BDNN_interaction',   metavar='<input file>', type=str, help="""Create text files with PDP rates for k-way interactions for BDNN runs: provide path for 'mcmc.log' file (e.g. .../pyrate_mcmc_logs/example_BDS_BDNN_16_8Tc_mcmc.log); use -BDNN_groups to specify features. E.g. '{"Trait1": ["Trait1"], "Trait2": ["Trait2"], "Trait3": ["T3_state1", "T3_state2", "T3_state3"]}'""", default = "")
     p.add_argument("-BDNN_interaction_fix", help='Fix predictors specified for "-BDNN_interaction" to the ones in the trait file', action='store_true', default=False)
-    p.add_argument('-BDNN_PDRTT',   metavar='<input file>', type=str,help="PD rates through time for BDNN: provide path to the 'mcmc.log' file and features via BDNN_interaction", default="")
+    p.add_argument('-BDNN_PDRTT',   metavar='<input file>', type=str,help="PD rates through time for BDNN: provide path to the 'mcmc.log' file and features via -plotBDNN_groups", default="")
     p.add_argument('-n_prior',     type=int,help="n. samples from the prior to compute Bayes factors",default=100000)
     p.add_argument('-plotQ',      metavar='<input file>', type=str,help="Plot preservation rates through time: provide 'mcmc.log' file and '-qShift' argument ",default="")
     p.add_argument('-grid_plot',  type=float, help='Plot resolution in Myr (only for plot3 and plotRJ commands). If set to 0: 100 equal time bins', default=0, metavar=0)
@@ -5462,6 +5482,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNconstbaseline', type=int, help='constant baseline rates (only with -fixShift option AND time as a trait)', default=1, metavar=1)
     p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) abs, 1) softPlus, 2) exp, 3) relu 4) sigmoid 5) sigmoid_rate', default=1, metavar=1)
     p.add_argument('-BDNNactfun', type=int, help='Activation function hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid, 5) fast approximation tanh', default=5, metavar=0)
+    p.add_argument('-BDNNprecision', type=int, help='Floating point precision for nework nodes: 0) double 64, 1) single 32', default=1, metavar=1)
     p.add_argument('-BDNNprior', type=float, help='sd normal prior', default=1, metavar=1)
     p.add_argument('-BDNNreg', type=float, help='regularization prior (-1.0 to turn off regularization, provide two values for independent regularization of lam and mu)', default=[1.0], metavar=[1.0], nargs='+')
     p.add_argument('-BDNNblockmodel',help='Block NN model', action='store_true', default=False)
@@ -5842,7 +5863,7 @@ if __name__ == '__main__':
                 bdnn_lib.get_PDRTT(path_dir_log_files, args.BDNN_groups,
                                    burn=burnin, thin=args.resample,
                                    groups_path=args.plotBDNN_groups, translate=args.translate,
-                                   num_processes=args.thread[0], show_progressbar=True)
+                                   num_processes=args.thread[0], show_progressbar=True, bdnn_precision=args.BDNNprecision)
 
         elif plot_type == 8:
             import pyrate_lib.bdnn_lib as bdnn_lib
@@ -5851,11 +5872,12 @@ if __name__ == '__main__':
             pkl_file = path_dir_log_files + ".pkl"
             obj_effect_plot = bdnn_lib.get_effect_objects(mcmc_file, pkl_file,
                                                           burnin,
-                                                          thin = args.resample,
-                                                          combine_discr_features = args.BDNN_groups,
-                                                          file_transf_features = args.plotBDNN_transf_features,
-                                                          num_processes = args.thread[0],
-                                                          show_progressbar = True)
+                                                          thin=args.resample,
+                                                          combine_discr_features=args.BDNN_groups,
+                                                          file_transf_features=args.plotBDNN_transf_features,
+                                                          num_processes=args.thread[0],
+                                                          show_progressbar=True,
+                                                          bdnn_precision=args.BDNNprecision)
             bdnn_obj, cond_trait_tbl_sp, cond_trait_tbl_ex, cond_trait_tbl_q, names_features_sp, names_features_ex, names_features_q, sp_rate_cond, ex_rate_cond, q_rate_cond, mean_tste, backscale_par = obj_effect_plot
             bdnn_lib.plot_effects(path_dir_log_files,
                                   cond_trait_tbl_sp,
@@ -5933,7 +5955,8 @@ if __name__ == '__main__':
                                                                     num_processes=args.thread[0],
                                                                     combine_discr_features=args.BDNN_groups,
                                                                     show_progressbar=True,
-                                                                    do_inter_imp=do_inter_imp)
+                                                                    do_inter_imp=do_inter_imp,
+                                                                    bdnn_precision=args.BDNNprecision)
         if BDNNmodel in [2, 3]:
             print("Getting permutation importance sampling")
             q_featperm = bdnn_lib.feature_permutation_sampling(mcmc_file, pkl_file,
@@ -5955,7 +5978,8 @@ if __name__ == '__main__':
                                                                                                                 combine_discr_features=args.BDNN_groups,
                                                                                                                 show_progressbar=True,
                                                                                                                 do_inter_imp=do_inter_imp,
-                                                                                                                use_mean=args.BDNN_mean_shap_per_group)
+                                                                                                                use_mean=args.BDNN_mean_shap_per_group,
+                                                                                                                bdnn_precision=args.BDNNprecision)
         if BDNNmodel in [2, 3]:
             print("Getting SHAP values sampling")
             q_shap, q_taxa_shap = bdnn_lib.k_add_kernel_shap_sampling(mcmc_file, pkl_file,
@@ -5972,7 +5996,8 @@ if __name__ == '__main__':
                                                  file_transf_features=args.plotBDNN_transf_features,
                                                  num_processes=args.thread[0],
                                                  show_progressbar=True,
-                                                 do_inter_imp=do_inter_imp)
+                                                 do_inter_imp=do_inter_imp,
+                                                 bdnn_precision=args.BDNNprecision)
         bdnn_obj, cond_trait_tbl_sp, cond_trait_tbl_ex, cond_trait_tbl_q, names_features_sp, names_features_ex, names_features_q, sp_rate_part, ex_rate_part, q_rate_part, sp_fad_lad, backscale_par = obj_effect
         if BDNNmodel in [1, 3]:
             print("Getting marginal probabilities birth-death")
@@ -6028,7 +6053,8 @@ if __name__ == '__main__':
                                                                                       len_cont=100, rate_type="speciation",
                                                                                       fix_observed=args.BDNN_interaction_fix,
                                                                                       num_processes=args.thread[0],
-                                                                                      show_progressbar=True)
+                                                                                      show_progressbar=True,
+                                                                                      bdnn_precision=args.BDNNprecision)
         ex_inter, ex_trt_tbl, names_features = bdnn_lib.get_pdp_rate_free_combination(bdnn_obj, sp_fad_lad, ts_post, te_post,
                                                                                       w_ex, t_reg_mu, reg_denom_mu,
                                                                                       args.BDNN_groups,
@@ -6036,7 +6062,8 @@ if __name__ == '__main__':
                                                                                       len_cont=100, rate_type="extinction",
                                                                                       fix_observed=args.BDNN_interaction_fix,
                                                                                       num_processes=args.thread[0],
-                                                                                      show_progressbar=True)
+                                                                                      show_progressbar=True,
+                                                                                      bdnn_precision=args.BDNNprecision)
         output_wd = os.path.dirname(os.path.realpath(path_dir_log_files))
         name_file = '_'.join(names_features)
         sp_trt_tbl_file = os.path.join(output_wd, name_file + '_at_speciation.csv')
@@ -6276,8 +6303,9 @@ if __name__ == '__main__':
         out_name="%s_%s_%s"  % (os.path.splitext(os.path.basename(se_tbl_file))[0],j,args.out)
         if focus_clade>=0: out_name+= "_c%s" % (focus_clade)
 
+    float_prec_f = get_float_prec_f(args.BDNNprecision)
     if args.restore_mcmc != "":
-        restore_init_values = get_init_values(args.restore_mcmc,taxa_names)
+        restore_init_values = get_init_values(args.restore_mcmc, taxa_names, float_prec_f)
         restore_chain = 1
     else:
         restore_chain = 0
@@ -6818,7 +6846,8 @@ if __name__ == '__main__':
                                                                        dd=bdnn_dd,
                                                                        fixed_times_of_shift=rescaled_time,
                                                                        n_taxa=n_taxa,
-                                                                       loaded_tbls=bdnn_loaded_tbls)
+                                                                       loaded_tbls=bdnn_loaded_tbls,
+                                                                       float_prec_f=float_prec_f)
                 trait_tbl_NN[0] = trait_tbl_lm[0]
                 trait_tbl_NN[1] = trait_tbl_lm[1]
                 cov_par_init_NN[0] = cov_par_init_lm[0]
@@ -7123,6 +7152,7 @@ if __name__ == '__main__':
                 'layers_shapes': layer_shapes_bd,
                 'layers_sizes': layer_sizes_bd,
                 'out_act_f': out_act_f,
+                'float_prec_f': float_prec_f,
                 'mask_lam': BDNN_MASK_lam,
                 'mask_mu': BDNN_MASK_mu,
                 'fixed_times_of_shift_bdnn': fixed_times_of_shift_bdnn,

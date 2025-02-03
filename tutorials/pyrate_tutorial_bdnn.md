@@ -370,6 +370,9 @@ A set of **Hyper-parameters** can be used to define the architecture of the neur
 
 `-BDNNreg`: Specifies whether the regularization layer should be omitted by setting it to -1.0. The default value of 1.0 for the truncated exponential prior assigns the highest probability of no effect on the BDNN predictors. Higher positive values increase this weight. By default the same t<sub>reg</sub> is used for regularizing speciation and extinction rates. This can be made independent by providing two values `-BDNNreg 1.0 1.0`. `-BDNNreg 1.0 -1.0` would turn on regularization for speciation but not extinction.
 
+`-BDNNprecision`: Sets the floating point precision of the neural network nodes and influences the BDNN speed. Default value of 1 refers to 32bit single precision i.e. 7 decimal digits. This is faster for model inference and postprocessing than 64bit values. Use this double precision (i.e. 16 decimal digits) with `-BDNNprecision 1` if your per_species_rates.log shows extremely small values of e.g. 0.000001 (Better: `-rescale` your occurrence data).
+
+
 #### Edge shifts
 
 As in many other [PyRate analyses](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#setting-fixed-shifts-at-the-boundaries,-while-searching-for-rate-shifts-between-them), we can fix shifts at boundaries, while searching for rate variation between them. This can be achieved by adding the `-edgeShift` argument. Adding `-qFilter` allows for shifts in sampling rates at the boundaries.
