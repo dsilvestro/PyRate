@@ -1788,6 +1788,9 @@ def plot_bdnn_inter_discr_cont(rs, tr, r_script, names, names_states, plot_time,
         states = np.unique(tr[:, 1])
         tr_states = tr[:, 1]
         obs_states = obs[:, 1]
+        # Capture odd case where a binary feature has only one state (which should have been filtered as invariant predictor before)
+        if len(states) < len(names_states):
+            names_states = np.array(names_states)[states.astype(int)]
     n_states = len(names_states)
     match rate_type:
         case "speciation":
@@ -4332,9 +4335,9 @@ def get_rate_BDNN_3D_noreg(x, w, act_f, out_act_f, apply_reg=True, bias_node_idx
     if fix_edgeShift > 0:
         apply_reg_change = np.diff(apply_reg[0, :].astype(int), prepend=99)
         if apply_reg[0, 0] == False:
-            tmp[:, np.where(apply_reg_change == 1)[0]] = bias_node_idx[1]
+            tmp[:, :int(np.where(apply_reg_change == 1)[0])] = bias_node_idx[1]
         if apply_reg[0, -1] == False:
-            tmp[:, np.where(apply_reg_change == -1)[0]] = bias_node_idx[-1]
+            tmp[:, int(np.where(apply_reg_change == -1)[0]):] = bias_node_idx[-1]
 
     # output
     rates = out_act_f(tmp)
@@ -4460,7 +4463,9 @@ def permute_species_features(trt_tbl, rng, feat_idx):
     return trt_tbl
 
 
-def permute_trt_tbl(feat_idx, feature_is_time_variable, use_high_res, trt_tbl_lowres, trt_tbl_highres=None, trt_tbl_already_permuted=None, edgeshift_perm=None, seed=None):
+def permute_trt_tbl(feat_idx, feature_is_time_variable, use_high_res, trt_tbl_lowres,
+                    trt_tbl_highres=None, trt_tbl_already_permuted=None, edgeshift_perm=None,
+                    seed=None):
     rng = np.random.default_rng(seed)
     if trt_tbl_lowres[0].ndim == 3:
         if use_high_res:
@@ -4696,7 +4701,9 @@ def set_temporal_resolution(bdnn_obj, min_bs, rate_type='speciation', ts=None, f
                              add_shifts = fixed_shifts2[i + 1]
                          else:
                              add_shifts = fixed_shifts2[i]
-                         fixed_shifts[np.sum(n_bins_highres[:i])] = add_shifts
+                         until_idx = np.sum(n_bins_highres[:i])
+                         if until_idx < len(fixed_shifts):
+                            fixed_shifts[until_idx] = add_shifts
                     else:
                          add_shifts = (fixed_shifts2[i] + new_bs) + np.linspace(0.0, bin_size[i] - new_bs, n_bins_highres[i])
                          idx = np.arange(np.sum(n_bins_highres[:i]), np.sum(n_bins_highres[:(i + 1)]), 1, dtype = int)

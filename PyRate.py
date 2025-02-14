@@ -1872,7 +1872,7 @@ def MatrixMultiplication3D(x1, x2, bias_node_idx=[0]):
 #        z1 = np.einsum('tnj,ij->tni', x1, x2[:, 1:], optimize=True) # w/ bias node
 #        z1 = np.tensordot(x1, x2[:, (bias_node_idx[-1] + 1):].T, axes=([-1], [0]))
         z1 = np.tensordot(x1, x2[:, (bias_node_idx[-1] + 1):], axes=([-1], [-1]))
-#        z1 = np.array([np.dot(x1[i], x2[:, 1:].T) for i in range(len(x1))])
+#        z1 = np.array([np.dot(x1[i], x2[:, (bias_node_idx[-1] + 1):].T) for i in range(len(x1))])
         z1 += x2[:, bias_node_idx[-1]].T
     return z1
 
@@ -5482,7 +5482,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNconstbaseline', type=int, help='constant baseline rates (only with -fixShift option AND time as a trait)', default=1, metavar=1)
     p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) abs, 1) softPlus, 2) exp, 3) relu 4) sigmoid 5) sigmoid_rate', default=1, metavar=1)
     p.add_argument('-BDNNactfun', type=int, help='Activation function hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid, 5) fast approximation tanh', default=5, metavar=0)
-    p.add_argument('-BDNNprecision', type=int, help='Floating point precision for nework nodes: 0) double 64, 1) single 32', default=1, metavar=1)
+    p.add_argument('-BDNNprecision', type=int, help='Floating point precision for network nodes: 0) double 64, 1) single 32', default=1, metavar=1)
     p.add_argument('-BDNNprior', type=float, help='sd normal prior', default=1, metavar=1)
     p.add_argument('-BDNNreg', type=float, help='regularization prior (-1.0 to turn off regularization, provide two values for independent regularization of lam and mu)', default=[1.0], metavar=[1.0], nargs='+')
     p.add_argument('-BDNNblockmodel',help='Block NN model', action='store_true', default=False)
