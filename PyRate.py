@@ -3951,7 +3951,11 @@ def MCMC(all_arg):
                 cov_par_update_f = np.array([0.05, 0.5, 0.55])
 
             if use_time_as_trait or bdnn_timevar[0] or bdnn_dd or bdnn_loaded_tbls_timevar:
-                timesLA, timesMA = init_times(maxTSA, time_framesL_bdnn, time_framesM_bdnn, np.min(teA))
+                if fix_edgeShift in [0, 3]: # no or min boundary
+                    timesLA, timesMA = init_times(maxTSA, time_framesL_bdnn, time_framesM_bdnn, np.min(teA))
+                else:
+                    # maxTSA could be after the enforced edge shift; use whatever age
+                    timesLA, timesMA = init_times(2.0 * fixed_times_of_shift_bdnn[0], time_framesL_bdnn, time_framesM_bdnn, 0.0)
                 timesLA[1:-1], timesMA[1:-1] = fixed_times_of_shift_bdnn, fixed_times_of_shift_bdnn
 
             # rates not updated and replaced by bias node
@@ -4342,9 +4346,12 @@ def MCMC(all_arg):
         M[(M==0).nonzero()]=MA[(M==0).nonzero()]
         if not BDNNmodel:
             cov_par[(cov_par==0).nonzero()]=cov_parA[(cov_par==0).nonzero()]
+        
         max_ts = np.max(ts)
-        timesL[0]=max_ts
-        timesM[0]=max_ts
+        if not (BDNNmodel == 1 and fix_edgeShift in [1, 2]):
+            timesL[0]=max_ts
+            timesM[0]=max_ts
+
         if fix_SE == 0:
             if TPP_model == 1:
                 q_time_frames = np.sort(np.array([max_ts,0]+times_q_shift))[::-1]
@@ -6364,7 +6371,9 @@ if __name__ == '__main__':
     n_taxa = len(FA)
     apply_reg = np.full(n_taxa, True)
     if len(fixed_times_of_shift_bdnn) > 0:
-        fixed_times_of_shift_bdnn = fixed_times_of_shift_bdnn[fixed_times_of_shift_bdnn < np.max(FA)]
+        if not fix_edgeShift in [1, 2]: # both or max boundary
+            # Respect user definition of edges. Do not exclude shifts even if there are no occurrences in the earliest bin.
+            fixed_times_of_shift_bdnn = fixed_times_of_shift_bdnn[fixed_times_of_shift_bdnn < np.max(FA)]
         time_framesL_bdnn = len(fixed_times_of_shift_bdnn) + 1
         time_framesM_bdnn = len(fixed_times_of_shift_bdnn) + 1
         apply_reg = np.full((n_taxa, time_framesL_bdnn), True)

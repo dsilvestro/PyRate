@@ -1019,14 +1019,17 @@ def set_trt_tbl_prec(trt_tbl, prec_f=np.float64):
     return trt_tbl
 
 
-def get_bdnn_time(bdnn_obj, ts):
+def get_bdnn_time(bdnn_obj, ts, fix_edgeShift=0):
     max_age = np.max(ts) + 0.001
     if isinstance(bdnn_obj, np.ndarray):
         shift_times = bdnn_obj
     else:
         shift_times = bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn']
     if len(shift_times) > 0:
-        shift_times = shift_times[shift_times <= max_age]
+        if fix_edgeShift in [0, 3]:
+            shift_times = shift_times[shift_times <= max_age]
+        elif max_age < shift_times[0]:
+            max_age = 1.1 * shift_times[0]
     bdnn_time = np.concatenate((np.array([max_age]), shift_times, np.zeros(1)))
     return bdnn_time
 
@@ -1128,18 +1131,50 @@ def get_mean_div_traj(post_ts, post_te):
     return time_bdnn_div, mean_div
 
 
-def get_minmaxmean_features(trait_tbl, most_freq, binary, conc_feat, len_cont = 100):
+def trim_trait_tbl_by_edges(trait_tbl, bins_within_edge):
+    if trait_tbl.ndim == 3 and isinstance(bins_within_edge, np.ndarray):
+        trait_tbl = trait_tbl[bins_within_edge[0, :], ...]
+    return trait_tbl
+
+
+def trim_tse_by_edges(tse, fix_edge_shift, times_edge_shifts):
+    tse_in_edges = np.arange(len(tse))
+    if fix_edge_shift in [1, 2]: # both or max boundary
+        younger_than_lower_edge = tse <= times_edge_shifts[0]
+        tse = tse[younger_than_lower_edge]
+        tse_in_edges = tse_in_edges[younger_than_lower_edge]
+    if fix_edge_shift in [1, 3]: # both or min boundary
+        older_than_upper_edge = tse >= times_edge_shifts[-1]
+        tse = tse[older_than_upper_edge]
+        tse_in_edges = tse_in_edges[older_than_upper_edge]
+    return tse, tse_in_edges
+
+
+def trim_bdnn_time_by_edges(time, fix_edge_shift, times_edge_shifts):
+    if fix_edge_shift in [1, 2]: # both or max boundary
+        time = time[time <= times_edge_shifts[0]]
+    if fix_edge_shift in [1, 3]: # both or min boundary
+        time = time[time >= times_edge_shifts[-1]]
+    return time
+
+
+def trim_by_edges(tse, trait_tbl, time, fix_edge_shift, bins_within_edges, times_edge_shifts):
+    if fix_edge_shift > 0:
+        trait_tbl = trim_trait_tbl_by_edges(trait_tbl, bins_within_edges)
+        tse, tse_in_edges = trim_tse_by_edges(tse, fix_edge_shift, times_edge_shifts)
+        trait_tbl = trait_tbl[:, tse_in_edges, :]
+        time = trim_bdnn_time_by_edges(time, fix_edge_shift, times_edge_shifts)
+    return tse, trait_tbl, time, tse_in_edges
+
+
+def get_minmaxmean_features(trait_tbl, most_freq, binary, conc_feat, len_cont = 100, bins_within_edges=None):
+    trait_tbl = trim_trait_tbl_by_edges(trait_tbl, bins_within_edges) # This removed environmental values not observed within the edges, but not traits
     n_features = trait_tbl.shape[-1]
     m = np.zeros((4, n_features))
     for i in range(n_features):
-        if len(trait_tbl.shape) == 3:
-            m[0, i] = np.nanmin(trait_tbl[:, :, i])
-            m[1, i] = np.nanmax(trait_tbl[:, :, i])
-            m[2, i] = np.nanmean(trait_tbl[:, :, i])
-        else:
-            m[0, i] = np.nanmin(trait_tbl[:, i])
-            m[1, i] = np.nanmax(trait_tbl[:, i])
-            m[2, i] = np.nanmean(trait_tbl[:, i])
+        m[0, i] = np.nanmin(trait_tbl[..., i])
+        m[1, i] = np.nanmax(trait_tbl[..., i])
+        m[2, i] = np.nanmean(trait_tbl[..., i])
     m[2, binary] = most_freq[binary]
     m[3, :] = len_cont
     m[3, binary] = (m[1, binary] - m[0, binary]) + 1
@@ -1549,12 +1584,15 @@ def build_conditional_trait_tbl(bdnn_obj,
         names_features = replace_names_by_feature_group(names_features, idx_comb_feat, combine_discr_features)
         conc_comb_feat = np.concatenate(idx_comb_feat)
     names_features = np.array(names_features)
+    
+    bins_within_edges, _, fix_edge_shift, times_edge_shifts = get_edgeShifts_obj(bdnn_obj)
     binary_feature, most_frequent_state = is_binary_feature(trait_tbl)
     minmaxmean_features = get_minmaxmean_features(trait_tbl,
                                                   most_frequent_state,
                                                   binary_feature,
                                                   conc_comb_feat,
-                                                  len_cont)
+                                                  len_cont,
+                                                  bins_within_edges)
     feature_variation = is_time_variable_feature(trait_tbl)
     feature_is_time_variable = feature_variation[0,:]
     
@@ -1578,14 +1616,26 @@ def build_conditional_trait_tbl(bdnn_obj,
         trait_at_ts_or_te = np.vstack((trait_at_ts, trait_at_te))
         minmaxmean_features[0, feature_is_time_variable] = np.min(trait_at_ts_or_te[:, feature_is_time_variable], axis = 0)
         minmaxmean_features[1, feature_is_time_variable] = np.max(trait_at_ts_or_te[:, feature_is_time_variable], axis = 0)
+
         if is_time_trait(bdnn_obj):
             tste_rescaled = bdnn_time_rescaler(tste, bdnn_obj)
             min_tste = np.min(tste_rescaled)
             if min_tste < minmaxmean_features[0, -1]:
-                minmaxmean_features[1, -1] = min_tste * 0.98
+                minmaxmean_features[0, -1] = min_tste - 0.02 * min_tste
+            if fix_edge_shift in [1, 3]: # both or min boundary
+                younger_bound = times_edge_shifts[-1] * bdnn_obj.bdnn_settings['time_rescaler']
+                if younger_bound > min_tste:
+                    # s/e events after the younger edge shift
+                    minmaxmean_features[0, -1] = younger_bound - 0.02 * younger_bound
             max_tste = np.max(tste_rescaled)
             if max_tste > minmaxmean_features[1, -1]:
-                minmaxmean_features[1, -1] = max_tste * 1.02
+                minmaxmean_features[1, -1] = max_tste + 0.02 * max_tste
+            if fix_edge_shift in [1, 2]: # both or max boundary
+                earlier_bound = times_edge_shifts[0] * bdnn_obj.bdnn_settings['time_rescaler']
+                if earlier_bound < max_tste:
+                    # s/e events older the earlier edge shift
+                    minmaxmean_features[1, -1] = earlier_bound + 0.02 * earlier_bound
+
     plot_type = get_plot_type(minmaxmean_features, binary_feature, idx_comb_feat, do_inter_imp = do_inter_imp)
     plot_idx = get_plot_idx(plot_type, idx_comb_feat)
     plot_type = np.hstack((plot_type, plot_idx.reshape((len(plot_idx), 1))))
@@ -3811,7 +3861,6 @@ def insert_onehot(trait_tbl_tmp, idx_comb_feat, idx_feat):
     return trait_tbl_tmp
 
 
-
 def take_traits_from_trt_tbl(trait_tbl, cond_trait_tbl, j, idx_comb_feat):
     trait_tbl_tmp = trait_tbl + 0.0
     idx_feat1 = int(cond_trait_tbl[j, -6])
@@ -3864,7 +3913,7 @@ def get_partial_dependence_rates(bdnn_obj, cond_trait_tbl, post_w, post_t_reg, p
     else:
         out_act_f = bdnn_obj.bdnn_settings['out_act_f']
     hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
-    _, bias_node_idx, _, _ = get_edgeShifts_obj(bdnn_obj)
+    bins_within_edges, bias_node_idx, fix_edgeShift, times_edgeShifts = get_edgeShifts_obj(bdnn_obj)
     for i in range(num_it):
         trait_tbl_a = trait_tbl + 0.0
         if rate_type == 'sampling':
@@ -3873,10 +3922,14 @@ def get_partial_dependence_rates(bdnn_obj, cond_trait_tbl, post_w, post_t_reg, p
             trait_tbl_a = get_shap_trt_tbl_sampling(bdnn_obj.bdnn_settings['occs_sp'], trait_tbl_a)
         elif rate_type == 'speciation':
             bdnn_time = get_bdnn_time(bdnn_obj, post_ts[i, :])
-            trait_tbl_a = get_shap_trt_tbl(post_ts[i, :], bdnn_time, trait_tbl_a, float_prec_f)
+            ts = post_ts[i, :]
+            ts, trait_tbl_a, bdnn_time, _ = trim_by_edges(ts, trait_tbl_a, bdnn_time, fix_edgeShift, bins_within_edges, times_edgeShifts)
+            trait_tbl_a = get_shap_trt_tbl(ts, bdnn_time, trait_tbl_a, float_prec_f)
         else:
             bdnn_time = get_bdnn_time(bdnn_obj, post_ts[i, :])
-            trait_tbl_a = get_shap_trt_tbl(post_te[i, :], bdnn_time, trait_tbl_a, float_prec_f)
+            te = post_te[i, :]
+            te, trait_tbl_a, bdnn_time, _ = trim_by_edges(te, trait_tbl_a, bdnn_time, fix_edgeShift, bins_within_edges, times_edgeShifts)
+            trait_tbl_a = get_shap_trt_tbl(te, bdnn_time, trait_tbl_a, float_prec_f)
         if len(baseline) > 1:
             b = baseline[i, :]
             n = norm[i]
@@ -3984,12 +4037,15 @@ def get_pdp_rate_free_combination(bdnn_obj,
     names_features = np.array(names_features)
     names_comb_idx = match_names_comb_with_features(names_comb, names_features)
     names_comb_idx_conc = np.concatenate(names_comb_idx).astype(int)
+
+    bins_within_edges, bias_node_idx, fix_edgeShift, times_edgeShifts = get_edgeShifts_obj(bdnn_obj)
     binary_feature, most_frequent_state = is_binary_feature(trait_tbl)
     minmaxmean_features = get_minmaxmean_features(trait_tbl,
                                                   most_frequent_state,
                                                   binary_feature,
                                                   conc_comb_feat,
-                                                  len_cont)
+                                                  len_cont,
+                                                  bins_within_edges)
     feature_is_time_variable = is_time_variable_feature(trait_tbl)[0, :]
     if trait_tbl.ndim == 3:
         # In case of combined replicates where the times can differ among replicates we need to order from present to past.
@@ -4011,10 +4067,21 @@ def get_pdp_rate_free_combination(bdnn_obj,
             tste_rescaled = bdnn_time_rescaler(tste, bdnn_obj)
             min_tste = np.min(tste_rescaled)
             if min_tste < minmaxmean_features[0, -1]:
-                minmaxmean_features[1, -1] = min_tste * 0.98
+                minmaxmean_features[0, -1] = min_tste - 0.02 * min_tste
+            if fix_edgeShift in [1, 3]: # both or min boundary
+                younger_bound = times_edgeShifts[-1] * bdnn_obj.bdnn_settings['time_rescaler']
+                if younger_bound > min_tste:
+                    # s/e events after the younger edge shift
+                    minmaxmean_features[0, -1] = younger_bound - 0.02 * younger_bound
             max_tste = np.max(tste_rescaled)
             if max_tste > minmaxmean_features[1, -1]:
-                minmaxmean_features[1, -1] = max_tste * 1.02
+                minmaxmean_features[1, -1] = max_tste + 0.02 * max_tste
+            if fix_edgeShift in [1, 2]: # both or max boundary
+                earlier_bound = times_edgeShifts[0] * bdnn_obj.bdnn_settings['time_rescaler']
+                if earlier_bound < max_tste:
+                    # s/e events older the earlier edge shift
+                    minmaxmean_features[1, -1] = earlier_bound + 0.02 * earlier_bound
+            
     if fix_observed is False:
         all_comb_tbl = get_all_combination(names_comb_idx, minmaxmean_features)
     else:
@@ -4031,20 +4098,26 @@ def get_pdp_rate_free_combination(bdnn_obj,
     else:
         out_act_f = bdnn_obj.bdnn_settings['out_act_f']
     hidden_act_f = bdnn_obj.bdnn_settings['out_act_f']
-    _, bias_node_idx, _, _ = get_edgeShifts_obj(bdnn_obj)
     num_it = len(w_post)
-    trait_tbl_for_mean = np.zeros((num_it, trait_tbl.shape[-2], len(names_comb_idx_conc)))
+    trait_tbl_for_mean = np.full((num_it, trait_tbl.shape[-2], len(names_comb_idx_conc)), np.nan)
     args = []
     for i in range(num_it):
         trait_tbl_a = trait_tbl + 0.0
         if rate_type == "speciation":
-            trait_tbl_a = get_shap_trt_tbl(ts_post[i, :], bdnn_time, trait_tbl_a, float_prec_f)
+            ts = ts_post[i, :]
+            ts, trait_tbl_a, bdnn_time, taxon_incl = trim_by_edges(ts, trait_tbl_a, bdnn_time, fix_edgeShift, bins_within_edges, times_edgeShifts)
+            trait_tbl_a = get_shap_trt_tbl(ts, bdnn_time, trait_tbl_a, float_prec_f)
         else:
-            trait_tbl_a = get_shap_trt_tbl(te_post[i, :], bdnn_time, trait_tbl_a, float_prec_f)
-        trait_tbl_for_mean[i, :, :] = trait_tbl_a[:, names_comb_idx_conc]
+            te = te_post[i, :]
+            te, trait_tbl_a, bdnn_time, taxon_incl = trim_by_edges(te, trait_tbl_a, bdnn_time, fix_edgeShift, bins_within_edges, times_edgeShifts)
+            trait_tbl_a = get_shap_trt_tbl(te, bdnn_time, trait_tbl_a, float_prec_f)
+        trait_tbl_for_mean[i, taxon_incl, :] = trait_tbl_a[:, names_comb_idx_conc]
         a = [w_post[i], t_reg_post[i], denom_reg_post[i], trait_tbl_a, all_comb_tbl, names_comb_idx_conc, out_act_f, hidden_act_f, bias_node_idx]
         args.append(a)
-    trait_tbl_mean = np.mean(trait_tbl_for_mean, axis = 0)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', category = RuntimeWarning)
+        trait_tbl_mean = np.nanmean(trait_tbl_for_mean, axis=0)
     b = binary_feature[names_comb_idx_conc]
     trait_tbl_mean[:, b] = stats.mode(trait_tbl_for_mean[:, :, b], axis = 0)[0]
     if fix_observed:
@@ -4664,14 +4737,14 @@ def remove_invariant_feature_from_featperm_results(bdnn_obj, res, trt_tbl, combi
     return res
 
 
-def set_temporal_resolution(bdnn_obj, min_bs, rate_type='speciation', ts=None, float_prec_f=np.float64):
+def set_temporal_resolution(bdnn_obj, min_bs, rate_type='speciation', ts=None, float_prec_f=np.float64, fix_edgeShift=0):
     trt_tbls = copy_lib.deepcopy(bdnn_obj.trait_tbls)
     fixed_shifts = None
     n_bins_highres = 1.0
     if rate_type != 'sampling':
         if trt_tbls[0].ndim == 3:
             fixed_shifts = copy_lib.deepcopy(bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'])
-            fixed_shifts2 = get_bdnn_time(bdnn_obj, ts)[::-1]
+            fixed_shifts2 = get_bdnn_time(bdnn_obj, ts, fix_edgeShift)[::-1]
             bin_size = np.diff(fixed_shifts2)
             if ~np.all(bin_size[:-1] == np.mean(bin_size[:-1])) and min_bs < 0.0:
                 new_bs = np.min(bin_size)
@@ -4774,8 +4847,12 @@ def feature_permutation(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm=10, nu
     hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
     out_act_f = bdnn_obj.bdnn_settings['out_act_f']
     float_prec_f = get_float_prec_f_from_bdnn_obj(bdnn_obj, bdnn_precision)
+    # Create edgeShift objects
+    _, bias_node_idx, fix_edgeShift, edgeShifts = get_edgeShifts_obj(bdnn_obj)
     trt_tbls = bdnn_obj.trait_tbls[:2]
-    trt_tbls_highres, fixed_times_of_shift_highres, _ = set_temporal_resolution(bdnn_obj, min_bs, ts=post_ts, float_prec_f=float_prec_f)
+    trt_tbls_highres, fixed_times_of_shift_highres, _ = set_temporal_resolution(bdnn_obj, min_bs, ts=post_ts,
+                                                                                float_prec_f=float_prec_f,
+                                                                                fix_edgeShift=fix_edgeShift)
     n_features = trt_tbls[0].shape[-1]
     names_features_sp = get_names_features(bdnn_obj, rate_type='speciation')
     names_features_ex = copy_lib.deepcopy(names_features_sp)
@@ -4800,11 +4877,9 @@ def feature_permutation(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm=10, nu
 
     bdnn_time = np.array([np.max(post_ts), 0.0])
     if trt_tbls[0].ndim == 3:
-        bdnn_time = get_bdnn_time(fixed_times_of_shift, np.max(post_ts))
-        bdnn_time_highres = get_bdnn_time(fixed_times_of_shift_highres, np.max(post_ts))
+        bdnn_time = get_bdnn_time(fixed_times_of_shift, np.max(post_ts), fix_edgeShift)
+        bdnn_time_highres = get_bdnn_time(fixed_times_of_shift_highres, np.max(post_ts), fix_edgeShift)
 
-    # Create edgeShift objects
-    _, bias_node_idx, fix_edgeShift, edgeShifts = get_edgeShifts_obj(bdnn_obj)
     apply_reg = True
     apply_reg_highres = True
     if trt_tbls[0].ndim == 3:
