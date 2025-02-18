@@ -1159,6 +1159,7 @@ def trim_bdnn_time_by_edges(time, fix_edge_shift, times_edge_shifts):
 
 
 def trim_by_edges(tse, trait_tbl, time, fix_edge_shift, bins_within_edges, times_edge_shifts):
+    tse_in_edges = np.arange(len(tse))
     if fix_edge_shift > 0:
         trait_tbl = trim_trait_tbl_by_edges(trait_tbl, bins_within_edges)
         tse, tse_in_edges = trim_tse_by_edges(tse, fix_edge_shift, times_edge_shifts)
