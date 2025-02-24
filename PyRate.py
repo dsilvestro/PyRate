@@ -5395,7 +5395,7 @@ if __name__ == '__main__':
                     help="""dictionary with features to plot together (e.g. on-hot encoded discrete features). E.g.: '{"Trait1": ["T1_state1", "T1_state2", "T1_state3"], "Trait2": ["T2_state1", "T2_state2", "T2_state3", "T2_state4"]}'""", default = '{}')
     p.add_argument('-BDNN_interaction',   metavar='<input file>', type=str, help="""Create text files with PDP rates for k-way interactions for BDNN runs: provide path for 'mcmc.log' file (e.g. .../pyrate_mcmc_logs/example_BDS_BDNN_16_8Tc_mcmc.log); use -BDNN_groups to specify features. E.g. '{"Trait1": ["Trait1"], "Trait2": ["Trait2"], "Trait3": ["T3_state1", "T3_state2", "T3_state3"]}'""", default = "")
     p.add_argument("-BDNN_interaction_fix", help='Fix predictors specified for "-BDNN_interaction" to the ones in the trait file', action='store_true', default=False)
-    p.add_argument('-BDNN_PDRTT',   metavar='<input file>', type=str,help="PD rates through time for BDNN: provide path to the 'mcmc.log' file and features via -plotBDNN_groups", default="")
+    p.add_argument('-BDNN_PDRTT',   metavar='<input file>', type=str,help="PD rates through time for BDNN: provide path to the 'mcmc.log' file and features via -BDNN_groups", default="")
     p.add_argument('-n_prior',     type=int,help="n. samples from the prior to compute Bayes factors",default=100000)
     p.add_argument('-plotQ',      metavar='<input file>', type=str,help="Plot preservation rates through time: provide 'mcmc.log' file and '-qShift' argument ",default="")
     p.add_argument('-grid_plot',  type=float, help='Plot resolution in Myr (only for plot3 and plotRJ commands). If set to 0: 100 equal time bins', default=0, metavar=0)
@@ -5864,12 +5864,14 @@ if __name__ == '__main__':
                 bdnn_lib.plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q,
                                        min_age=args.min_age_plot, max_age=root_plot)
                 if args.plotBDNN_groups != "":
-                    bdnn_lib.plot_bdnn_rtt_groups(path_dir_log_files, args.plotBDNN_groups, burn=burnin, translate=args.translate)
+                    bdnn_lib.plot_bdnn_rtt_groups(path_dir_log_files, args.plotBDNN_groups, burn=burnin,
+                                                  translate=args.translate, min_age=args.min_age_plot, max_age=root_plot)
             elif plot_type== 7:
                 import pyrate_lib.bdnn_lib as bdnn_lib
                 bdnn_lib.get_PDRTT(path_dir_log_files, args.BDNN_groups,
                                    burn=burnin, thin=args.resample,
-                                   groups_path=args.plotBDNN_groups, translate=args.translate,
+                                   groups_path=args.plotBDNN_groups,
+                                   translate=args.translate, min_age=args.min_age_plot, max_age=root_plot,
                                    num_processes=args.thread[0], show_progressbar=True, bdnn_precision=args.BDNNprecision)
 
         elif plot_type == 8:
@@ -6099,7 +6101,7 @@ if __name__ == '__main__':
     elif args.combBDNN != "":
         from pyrate_lib.bdnn_lib import combine_pkl
         tag = args.tag
-        combine_pkl(args.combBDNN, tag)
+        combine_pkl(args.combBDNN, tag, burnin, args.resample)
         comb_log_files_smart(args.combBDNN, burnin, tag, resample=args.resample, col_tag=args.col_tag, keep_q=True)
         sys.exit("\n")
     elif len(args.input_data)==0 and args.d == "": sys.exit("\nInput file required. Use '-h' for command list.\n")
@@ -7142,6 +7144,19 @@ if __name__ == '__main__':
             'independent_t_reg': independ_reg,
             'prior_cov': args.BDNNprior
         }
+        # store fad/lad
+        sp_fad_lad = []
+        if use_se_tbl == 0:
+            for i in range(len(fossil)):
+                foss_temp = fossil[i]
+                sp_fad_lad.append([taxa_names[i], np.max(foss_temp), np.min(foss_temp)])
+            occ_data = fossil
+        else:
+            for i in range(len(taxa_names)):
+                sp_fad_lad.append([taxa_names[i], FA[i], LO[i]])
+            occ_data = None
+        sp_fad_lad = pd.DataFrame(sp_fad_lad)
+        sp_fad_lad.columns = ["Taxon", "FAD", "LAD"]
         
         if BDNNmodel in [1, 3]:
             layer_shapes_bd = [cov_par_init_NN[0][i_layer].shape for i_layer in range(len(cov_par_init_NN[0]))]
@@ -7207,21 +7222,6 @@ if __name__ == '__main__':
                 })
             if bdnn_ads >= 0.0:
                 bdnn_dict.update({'highres_q_repeats': highres_q_repeats})
-        
-        # store fad/lad
-        sp_fad_lad = []
-        if use_se_tbl == 0:
-            for i in range(len(fossil)):
-                foss_temp = fossil[i]
-                sp_fad_lad.append([taxa_names[i], np.max(foss_temp), np.min(foss_temp)])
-            occ_data = fossil
-        else:
-            for i in range(len(taxa_names)):
-                sp_fad_lad.append([taxa_names[i], FA[i], LO[i]])
-            occ_data = None
-        
-        sp_fad_lad = pd.DataFrame(sp_fad_lad)
-        sp_fad_lad.columns = ["Taxon", "FAD", "LAD"]
         
         obj = bdnn(bdnn_settings=bdnn_dict,
                    weights=cov_par_init_NN,
