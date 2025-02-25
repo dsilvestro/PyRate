@@ -4331,17 +4331,16 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='',
     group_names = group_names + [""]
     n_groups = len(group_names)
     
+    times_of_shift = get_bdnn_time(bdnn_obj, ts, fix_edgeShift)
+    num_bins = len(times_of_shift) - 1
+    # Get duration of bins into the shape of the trait tables to get weighted harmonic mean
+    duration_bins = -1 * np.diff(times_of_shift)
+    duration_bins = duration_bins.reshape((1, num_bins))
+    duration_bins = np.repeat(duration_bins, num_taxa, axis=0)
+    weights_duration = np.sum(duration_bins)
+    
     args = []
     for i in range(num_it):
-        
-        times_of_shift = get_bdnn_time(bdnn_obj, ts[0, :], fix_edgeShift)
-        num_bins = len(times_of_shift) - 1
-        # Get duration of bins into the shape of the trait tables to get weighted harmonic mean
-        duration_bins = -1 * np.diff(times_of_shift)
-        duration_bins = duration_bins.reshape((1, num_bins))
-        duration_bins = np.repeat(duration_bins, num_taxa, axis=0)
-        weights_duration = np.sum(duration_bins)
-    
         a = [num_bins, num_taxa, trait_tbl_sp, trait_tbl_ex, names_comb_idx_conc, w_sp[i], w_ex[i],
              hidden_act_f, out_act_f, apply_reg, bias_node_idx, fix_edgeShift,
              t_reg_lam[i], t_reg_mu[i], reg_denom_lam[i], reg_denom_mu[i],
@@ -6443,11 +6442,9 @@ def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, num_processes=1, combin
         n_inter_eff_ex = 0
     n_effects_sp = n_main_eff_sp + n_inter_eff_sp + 1 + n_species_sp * n_main_eff_sp
     n_effects_ex = n_main_eff_ex + n_inter_eff_ex + 1 + n_species_ex * n_main_eff_ex
-    
+    bdnn_time = get_bdnn_time(bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'], post_ts, fix_edgeShift)
     args = []
     for i in range(mcmc_samples):
-        bdnn_time = get_bdnn_time(bdnn_obj.bdnn_settings['fixed_times_of_shift_bdnn'], post_ts[i, :], fix_edgeShift)
-
         if fix_edgeShift > 0:
             if fix_edgeShift == 2 : # max boundary
                 use_taxa_sp = post_ts[i, :] <= edgeShifts[0]
