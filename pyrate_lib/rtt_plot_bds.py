@@ -445,7 +445,8 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=0.,burnin=0.2,min_age=0,ma
     files=glob.glob(direct)
     files=np.sort(files)
     stem_file=files[0]
-    wd = "%s" % os.path.dirname(stem_file)
+    wd = "%s" % os.path.abspath(os.path.dirname(stem_file))
+    print('wd', wd)
     #print(name_file, wd)
     print("found", len(files), "log file(s)...\n")
     if logT==1: outname = "Log_"
@@ -453,7 +454,7 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=0.,burnin=0.2,min_age=0,ma
     if max_age>0: outname+= "t%s" % (int(max_age))
     if min_age>0: outname+= "-%s" % (int(min_age))
     if platform.system() == "Windows" or platform.system() == "Microsoft":
-        wd_forward = os.path.abspath(wd).replace('\\', '/')
+        wd_forward = wd.replace('\\', '/')
         r_str = "\n\npdf(file='%s/%sRTT_plots.pdf',width=10, height=15)\npar(mfrow=c(3,2))\nlibrary(scales)" % (wd_forward,outname)
     else:
         r_str = "\n\npdf(file='%s/%sRTT_plots.pdf',width=10, height=15)\npar(mfrow=c(3,2))\nlibrary(scales)" % (wd,outname)
