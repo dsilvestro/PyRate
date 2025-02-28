@@ -1759,22 +1759,6 @@ def build_conditional_trait_tbl(bdnn_obj,
     return cond_trait_tbl, names_features
 
 
-#def get_conditional_rates(bdnn_obj, cond_trait_tbl, post_w, post_t_reg, post_denom):
-#    num_it = len(post_w)
-#    obs = cond_trait_tbl[:, -1] == 1
-#    rate_cond = np.zeros((np.sum(obs), num_it))
-#    for i in range(num_it):
-#        rate_cond[:, i] = get_unreg_rate_BDNN_3D(cond_trait_tbl[obs, :-6],
-#                                                 post_w[i], # list of arrays
-#                                                 bdnn_obj.bdnn_settings['hidden_act_f'],
-#                                                 bdnn_obj.bdnn_settings['out_act_f'])
-#        rate_cond[:, i] = rate_cond[:, i] ** post_t_reg[i] / post_denom[i]
-#    rate_cond2 = np.zeros((len(cond_trait_tbl), num_it))
-#    rate_cond2[:] = np.nan
-#    rate_cond2[obs, :] = rate_cond
-#    return rate_cond2
-
-
 def get_rates_summary(cond_rates):
     nrows_cond_rates = cond_rates.shape[0]
     rate_sum = np.zeros((nrows_cond_rates, 3))
@@ -1844,9 +1828,8 @@ def plot_bdnn_discr(rs, r, tr, r_script, names, names_states, rate_type):
     for i in range(n_states):
         r_script += "\naxis(side = 1, at = %s, labels = '%s')" % (i, str(names_states[i]))
         r_tmp = r[i,:]
-        r_tmp =  r_tmp[r_tmp < rate_max]
-        r_tmp = r_tmp[r_tmp > rate_min]
         r_script += util.print_R_vec("\nvio_data", r_tmp)
+        r_script += "\nvio_data = vio_data[vio_data < ylim[2] & vio_data > ylim[1]]"
         r_script += "\nvioplot(vio_data, at = %s, add = TRUE, wex = 0.5, rectCol = NA, lineCol = NA, colMed = NA, col = col[%s])" % (i, i + 1)
         r_script += "\nlines(rep(%s, 2), c(%s, %s), lwd = 1.5)" % (i, rs[i, 1], rs[i, 2])
         r_script += "\npoints(%s, %s, pch = 19)" % (i, rs[i, 0])
