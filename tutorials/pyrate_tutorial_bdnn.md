@@ -291,7 +291,10 @@ Optional arguments:
 
 * `-BDNN_groups`: String to plot all one-hot encoded states of a trait in the same figure.
 
-* `-thread`: Number of CPU cores to be used for parallel calculation of importance metrics (only available on Linux or Mac systems); e.g. `-thread 2 0` to use two cores.
+* `-root_plot` and `-min_age_plot`: Considers only taxa originating or going extinct in this time window.
+
+* `-thread`: Number of CPU cores to be used for parallel calculation of importance metrics; e.g. `-thread 2 0` to use two cores.
+
 
 #### Partial dependence rates for more than two predictors
 
@@ -351,7 +354,9 @@ Optional arguments:
 
 * `-BDNN_mean_shap_per_group`: Use the mean instead of the sum across all states of a `-BDNN_groups` to get the overall importance of the group. Could be more robust when a trait has many states.
 
-* `-thread`: Number of CPU cores to be used for parallel calculation of importance metrics (only available on Linux or Mac systems); e.g. `-thread 2 0` to use two cores.
+* `-root_plot` and `-min_age_plot`: Considers only taxa originating or going extinct in this time window.
+
+* `-thread`: Number of CPU cores to be used for parallel calculation of importance metrics; e.g. `-thread 2 0` to use two cores.
 
 
 The `-BDNN_pred_importance` command will generate two tab-separated tables with the estimated importance and ranking of each predictor on speciation and extinction rates. It will also generate a PDF file and an R script with the lineage-specific speciation and extinction rates and an estimation of how they are affected by the predictors' values. 

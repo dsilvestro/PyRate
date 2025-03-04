@@ -5872,7 +5872,7 @@ if __name__ == '__main__':
                                    burn=burnin, thin=args.resample,
                                    groups_path=args.plotBDNN_groups,
                                    translate=args.translate, min_age=args.min_age_plot, max_age=root_plot,
-                                   num_processes=args.thread[0], show_progressbar=True, bdnn_precision=args.BDNNprecision)
+                                   bdnn_precision=args.BDNNprecision, num_processes=args.thread[0], show_progressbar=True)
 
         elif plot_type == 8:
             import pyrate_lib.bdnn_lib as bdnn_lib
@@ -5884,9 +5884,12 @@ if __name__ == '__main__':
                                                           thin=args.resample,
                                                           combine_discr_features=args.BDNN_groups,
                                                           file_transf_features=args.plotBDNN_transf_features,
+                                                          bdnn_precision=args.BDNNprecision,
+                                                          min_age=args.min_age_plot,
+                                                          max_age=root_plot,
+                                                          translate=args.translate,
                                                           num_processes=args.thread[0],
-                                                          show_progressbar=True,
-                                                          bdnn_precision=args.BDNNprecision)
+                                                          show_progressbar=True)
             bdnn_obj, cond_trait_tbl_sp, cond_trait_tbl_ex, cond_trait_tbl_q, names_features_sp, names_features_ex, names_features_q, sp_rate_cond, ex_rate_cond, q_rate_cond, mean_tste, backscale_par = obj_effect_plot
             bdnn_lib.plot_effects(path_dir_log_files,
                                   cond_trait_tbl_sp,
@@ -5945,6 +5948,9 @@ if __name__ == '__main__':
             bdnn_lib.get_coefficient_rate_variation(path_dir_log_files, burnin,
                                                     combine_discr_features=args.BDNN_groups,
                                                     num_sim=args.BDNN_nsim_expected_cv,
+                                                    min_age=args.min_age_plot,
+                                                    max_age=root_plot,
+                                                    translate=args.translate,
                                                     num_processes=args.thread[0],
                                                     show_progressbar=True)
         if BDNNmodel in [2, 3] and args.BDNN_nsim_expected_cv > 0:
@@ -5961,11 +5967,13 @@ if __name__ == '__main__':
                                                                     thin=args.resample,
                                                                     min_bs=args.BDNN_pred_importance_window_size[0],
                                                                     n_perm=args.BDNN_pred_importance_nperm,
-                                                                    num_processes=args.thread[0],
                                                                     combine_discr_features=args.BDNN_groups,
-                                                                    show_progressbar=True,
                                                                     do_inter_imp=do_inter_imp,
-                                                                    bdnn_precision=args.BDNNprecision)
+                                                                    bdnn_precision=args.BDNNprecision,
+                                                                    min_age=args.min_age_plot,
+                                                                    max_age=root_plot,
+                                                                    translate=args.translate,
+                                                                    num_processes=args.thread[0], show_progressbar=True)
         if BDNNmodel in [2, 3]:
             print("Getting permutation importance sampling")
             q_featperm = bdnn_lib.feature_permutation_sampling(mcmc_file, pkl_file,
@@ -5973,40 +5981,46 @@ if __name__ == '__main__':
                                                                thin=args.resample,
                                                                min_bs=args.BDNN_pred_importance_window_size[-1],
                                                                n_perm=args.BDNN_pred_importance_nperm,
-                                                               num_processes=args.thread[0],
                                                                combine_discr_features= args.BDNN_groups,
-                                                               show_progressbar=True,
-                                                               do_inter_imp=do_inter_imp)
+                                                               do_inter_imp=do_inter_imp,
+                                                               num_processes=args.thread[0],
+                                                               show_progressbar=True)
         if BDNNmodel in [1, 3]:
             print("Getting SHAP values birth-death")
             sp_shap, ex_shap, sp_taxa_shap, ex_taxa_shap, use_taxa_sp, use_taxa_ex = bdnn_lib.k_add_kernel_shap(mcmc_file,
                                                                                                                 pkl_file,
                                                                                                                 burnin,
                                                                                                                 thin=args.resample,
-                                                                                                                num_processes=args.thread[0],
                                                                                                                 combine_discr_features=args.BDNN_groups,
-                                                                                                                show_progressbar=True,
                                                                                                                 do_inter_imp=do_inter_imp,
                                                                                                                 use_mean=args.BDNN_mean_shap_per_group,
-                                                                                                                bdnn_precision=args.BDNNprecision)
+                                                                                                                bdnn_precision=args.BDNNprecision,
+                                                                                                                min_age=args.min_age_plot,
+                                                                                                                max_age=root_plot,
+                                                                                                                translate=args.translate,
+                                                                                                                num_processes=args.thread[0],
+                                                                                                                show_progressbar=True)
         if BDNNmodel in [2, 3]:
             print("Getting SHAP values sampling")
             q_shap, q_taxa_shap = bdnn_lib.k_add_kernel_shap_sampling(mcmc_file, pkl_file,
                                                                       burnin,
                                                                       thin=args.resample,
-                                                                      num_processes=args.thread[0],
                                                                       combine_discr_features=args.BDNN_groups,
-                                                                      show_progressbar=True,
-                                                                      do_inter_imp=do_inter_imp)
+                                                                      do_inter_imp=do_inter_imp,
+                                                                      num_processes=args.thread[0],
+                                                                      show_progressbar=True)
         obj_effect = bdnn_lib.get_effect_objects(mcmc_file, pkl_file,
                                                  burnin,
                                                  thin=args.resample,
                                                  combine_discr_features=args.BDNN_groups,
                                                  file_transf_features=args.plotBDNN_transf_features,
-                                                 num_processes=args.thread[0],
-                                                 show_progressbar=True,
                                                  do_inter_imp=do_inter_imp,
-                                                 bdnn_precision=args.BDNNprecision)
+                                                 bdnn_precision=args.BDNNprecision,
+                                                 min_age=args.min_age_plot,
+                                                 max_age=root_plot,
+                                                 translate=args.translate,
+                                                 num_processes=args.thread[0],
+                                                 show_progressbar=True)
         bdnn_obj, cond_trait_tbl_sp, cond_trait_tbl_ex, cond_trait_tbl_q, names_features_sp, names_features_ex, names_features_q, sp_rate_part, ex_rate_part, q_rate_part, sp_fad_lad, backscale_par = obj_effect
         if BDNNmodel in [1, 3]:
             print("Getting marginal probabilities birth-death")
@@ -6061,18 +6075,24 @@ if __name__ == '__main__':
                                                                                       backscale_par,
                                                                                       len_cont=100, rate_type="speciation",
                                                                                       fix_observed=args.BDNN_interaction_fix,
+                                                                                      min_age=args.min_age_plot,
+                                                                                      max_age=root_plot,
+                                                                                      translate=args.translate,
+                                                                                      bdnn_precision=args.BDNNprecision,
                                                                                       num_processes=args.thread[0],
-                                                                                      show_progressbar=True,
-                                                                                      bdnn_precision=args.BDNNprecision)
+                                                                                      show_progressbar=True)
         ex_inter, ex_trt_tbl, names_features = bdnn_lib.get_pdp_rate_free_combination(bdnn_obj, sp_fad_lad, ts_post, te_post,
                                                                                       w_ex, t_reg_mu, reg_denom_mu,
                                                                                       args.BDNN_groups,
                                                                                       backscale_par,
                                                                                       len_cont=100, rate_type="extinction",
                                                                                       fix_observed=args.BDNN_interaction_fix,
+                                                                                      min_age=args.min_age_plot,
+                                                                                      max_age=root_plot,
+                                                                                      translate=args.translate,
+                                                                                      bdnn_precision=args.BDNNprecision,
                                                                                       num_processes=args.thread[0],
-                                                                                      show_progressbar=True,
-                                                                                      bdnn_precision=args.BDNNprecision)
+                                                                                      show_progressbar=True)
         output_wd = os.path.dirname(os.path.realpath(path_dir_log_files))
         name_file = '_'.join(names_features)
         sp_trt_tbl_file = os.path.join(output_wd, name_file + '_at_speciation.csv')
