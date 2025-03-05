@@ -332,13 +332,26 @@ def calc_BFlist(f1):
             else: support="very strong"
             print("Support in favor of model %s: %s (%s)" % (i, BF, support))
 
-def get_DT(T,s,e): # returns the Diversity Trajectory of s,e at times T (x10 faster)
-    B=np.sort(np.append(T,T[0]+1))+.000001 # the + .0001 prevents problems with identical ages
-    ss1 = np.histogram(s,bins=B)[0]
-    ee2 = np.histogram(e,bins=B)[0]
-    DD=(ss1-ee2)[::-1]
-    #return np.insert(np.cumsum(DD),0,0)[0:len(T)]
-    return np.cumsum(DD)[0:len(T)]
+#def get_DT(T,s,e): # returns the Diversity Trajectory of s,e at times T (x10 faster)
+#    B=np.sort(np.append(T,T[0]+1))+.000001 # the + .0001 prevents problems with identical ages
+#    ss1 = np.histogram(s,bins=B)[0]
+#    ee2 = np.histogram(e,bins=B)[0]
+#    DD=(ss1-ee2)[::-1]
+#    #return np.insert(np.cumsum(DD),0,0)[0:len(T)]
+#    return np.cumsum(DD)[0:len(T)]
+
+
+def get_DT(T, s, e):
+    change_e = np.full_like(e, -1, dtype=int)
+    change_e[e == 0.0] = 0
+    change = np.concatenate((np.ones_like(s, dtype=int), change_e))
+    event_times = np.concatenate((s, e))
+    order = np.argsort(-event_times) # Order by decreasing times
+    event_times = event_times[order]
+    change = change[order]
+    diversity = np.cumsum(change)
+    interp_func = scipy.interpolate.interp1d(-event_times, diversity, kind='previous', bounds_error=False, fill_value=0)
+    return interp_func(-T)
 
 
 ########################## PLOT RTT ##############################
@@ -2129,7 +2142,8 @@ def make_trait_time_table(trait_tbl, time_var_tbl, num_fixed_times_of_shift, fix
             time_var_tbl_tmp = np.tile(time_var_tbl_tmp, n_taxa).reshape((n_taxa, time_var_tbl.shape[1]))
             trait_tbl_tmp = np.hstack((trait_tbl_tmp, time_var_tbl_tmp))
         if dd:
-            trait_tbl_tmp = np.hstack((trait_tbl_tmp, np.zeros((n_taxa, 1))))
+            div = np.random.random(size=n_taxa).reshape((n_taxa, 1))
+            trait_tbl_tmp = np.hstack((trait_tbl_tmp, div))
         if use_time_as_trait:
             trait_tbl_tmp = np.hstack((trait_tbl_tmp, rescaled_time * np.ones((n_taxa, 1))))
         if trait_tbl is None:
@@ -2170,7 +2184,8 @@ def init_trait_and_weights(trait_tbl, time_var_tbl_lambda, time_var_tbl_mu,
         if dd:
             n_taxa = trait_tbl_lam.shape[1]
             n_bins = trait_tbl_lam.shape[1]
-            add_zeros = np.zeros(n_taxa * n_bins).reshape((n_bins, n_taxa, 1))
+#            add_zeros = np.zeros(n_taxa * n_bins).reshape((n_bins, n_taxa, 1))
+            add_zeros = np.random.random(size=n_taxa * n_bins).reshape((n_bins, n_taxa, 1))
             trait_tbl_lam = np.c_[trait_tbl_lam, add_zeros]
             trait_tbl_mu = np.c_[trait_tbl_mu, add_zeros]
             n_features_sp += 1
@@ -2480,18 +2495,6 @@ def get_binned_time_variable(timebins, var_file, rescale, translate):
     return mean_var, names_var
 
 
-def get_binned_div_traj(timebins, times, values):
-    binned_div = np.zeros(len(timebins))
-    for i in range(1,len(timebins)):
-        t_max = timebins[i-1]
-        t_min = timebins[i]
-        in_range_M = (times <= t_max).nonzero()[0]
-        in_range_m = (times >= t_min).nonzero()[0]
-        values_bin = values[np.intersect1d(in_range_M, in_range_m)]
-        binned_div[i - 1] = np.mean(values_bin)
-    return binned_div
-
-
 def write_pkl(obj, out_file):
     import pickle
     with open(out_file, 'wb') as output:  # Overwrites any existing file.
@@ -2754,14 +2757,38 @@ def add_taxon_age(ts, te, q_time_frames, trt_tbl, tsA=None, teA=None):
     return trt_tbl
 
 
-def add_diversity(trt_tbl, ts, te, timesLA, time_vec, bdnn_rescale_div, n_taxa):
-    bdnn_time_div = np.arange(timesLA[0], 0.0, -0.001)
+def get_binned_div_traj(timebins, times, values):
+    timebins2 = timebins + 0.0
+    # Why are the timebins contain the inf outside the function when not doing a copy?
+    timebins2[0] = np.inf
+    bin_indices = np.digitize(times, timebins2) - 1
+    num_bins = len(timebins) - 1
+    binned_div = np.zeros(num_bins)
+    for i in range(num_bins):
+        mask = bin_indices == i
+        if np.any(mask): # Avoid empty bins
+            binned_div[i] = np.mean(values[mask])
+    return binned_div
+
+
+#def add_diversity(trt_tbl, ts, te, timesLA, time_vec, bdnn_rescale_div, n_taxa, div_idx_trt_tbl):
+#    bdnn_time_div = np.arange(timesLA[0], 0.0, -0.001)
+#    bdnn_div = get_DT(bdnn_time_div, ts, te)
+#    bdnn_binned_div = get_binned_div_traj(time_vec, bdnn_time_div, bdnn_div).flatten()[:-1] / bdnn_rescale_div
+#    bdnn_binned_div = np.repeat(bdnn_binned_div, n_taxa).reshape((len(bdnn_binned_div), n_taxa))
+#    trt_tbl[0][ :, :, div_idx_trt_tbl] = bdnn_binned_div
+#    trt_tbl[1][ :, :, div_idx_trt_tbl] = bdnn_binned_div
+#    return trt_tbl
+
+
+def get_diversity(ts, te, timesLA, time_vec, bdnn_rescale_div, n_taxa, step_size=0.01):
+    bdnn_time_div = np.arange(timesLA[0], 0.0, -step_size)
+    time0 = time.time()
     bdnn_div = get_DT(bdnn_time_div, ts, te)
-    bdnn_binned_div = get_binned_div_traj(time_vec, bdnn_time_div, bdnn_div).flatten()[:-1] / bdnn_rescale_div
+    time0 = time.time()
+    bdnn_binned_div = get_binned_div_traj(time_vec, bdnn_time_div, bdnn_div).reshape(-1) / bdnn_rescale_div
     bdnn_binned_div = np.repeat(bdnn_binned_div, n_taxa).reshape((len(bdnn_binned_div), n_taxa))
-    trt_tbl[0][ :, :, div_idx_trt_tbl] = bdnn_binned_div
-    trt_tbl[1][ :, :, div_idx_trt_tbl] = bdnn_binned_div
-    return trt_tbl
+    return bdnn_binned_div
 
 
 # ADE model
@@ -3939,6 +3966,19 @@ def MCMC(all_arg):
         q_ratesA,cov_parA = init_q_rates() # use 1 for symmetric PERT
         
         if BDNNmodel in [1, 3]:
+            if use_time_as_trait or bdnn_timevar[0] or bdnn_dd or bdnn_loaded_tbls_timevar:
+                if fix_edgeShift in [0, 3]: # no or min boundary
+                    timesLA, timesMA = init_times(maxTSA, time_framesL_bdnn, time_framesM_bdnn, np.min(teA))
+                else:
+                    # maxTSA could be after the enforced edge shift; use whatever age
+                    timesLA, timesMA = init_times(2.0 * fixed_times_of_shift_bdnn[0], time_framesL_bdnn, time_framesM_bdnn, 0.0)
+                timesLA[1:-1], timesMA[1:-1] = fixed_times_of_shift_bdnn, fixed_times_of_shift_bdnn
+
+            if bdnn_dd:
+                binned_div = get_diversity(tsA, teA, timesLA, time_vec, bdnn_rescale_div, n_taxa)
+                trait_tbl_NN[0][ :, :, div_idx_trt_tbl] = binned_div
+                trait_tbl_NN[1][ :, :, div_idx_trt_tbl] = binned_div
+
             cov_parA = cov_par_init_NN
             nn_lamA = init_NN_output(trait_tbl_NN[0], cov_parA[0], float_prec_f)
             nn_muA = init_NN_output(trait_tbl_NN[1], cov_parA[1], float_prec_f)
@@ -3949,14 +3989,6 @@ def MCMC(all_arg):
             cov_par_update_f = np.array([0.1, 0.55, -1.0])
             if independ_reg:
                 cov_par_update_f = np.array([0.05, 0.5, 0.55])
-
-            if use_time_as_trait or bdnn_timevar[0] or bdnn_dd or bdnn_loaded_tbls_timevar:
-                if fix_edgeShift in [0, 3]: # no or min boundary
-                    timesLA, timesMA = init_times(maxTSA, time_framesL_bdnn, time_framesM_bdnn, np.min(teA))
-                else:
-                    # maxTSA could be after the enforced edge shift; use whatever age
-                    timesLA, timesMA = init_times(2.0 * fixed_times_of_shift_bdnn[0], time_framesL_bdnn, time_framesM_bdnn, 0.0)
-                timesLA[1:-1], timesMA[1:-1] = fixed_times_of_shift_bdnn, fixed_times_of_shift_bdnn
 
             # rates not updated and replaced by bias node
             if bdnn_const_baseline:
@@ -4178,13 +4210,16 @@ def MCMC(all_arg):
 
             if BDNNmodel:
                 if bdnn_dd:
-                    bdnn_time_div = np.arange(timesLA[0], 0.0, -0.001)
-                    bdnn_div = get_DT(bdnn_time_div, ts, te)
-                    bdnn_binned_div = get_binned_div_traj(time_vec, bdnn_time_div, bdnn_div).flatten()[:-1] / bdnn_rescale_div
-                    bdnn_binned_div = np.repeat(bdnn_binned_div, n_taxa).reshape((len(bdnn_binned_div), n_taxa))
-                    trait_tbl_NN[0][ :, :, div_idx_trt_tbl] = bdnn_binned_div
-                    trait_tbl_NN[1][ :, :, div_idx_trt_tbl] = bdnn_binned_div
-#                    trait_tbl_NN = add_diversity(trait_tbl_NN, ts, te, timesLA, time_vec, bdnn_rescale_div, n_taxa) # Why we miss the trait table?
+                    binned_div = get_diversity(ts, te, timesLA, time_vec, bdnn_rescale_div, n_taxa)
+                    trait_tbl_NN[0][ :, :, div_idx_trt_tbl] = binned_div
+                    trait_tbl_NN[1][ :, :, div_idx_trt_tbl] = binned_div
+                # Recalculate bdnn rates
+                bdnn_lam_rates, denom_lam, nn_lam = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[0], cov_parA[0], nn_lamA,
+                                                                     hidden_act_f, out_act_f,
+                                                                     apply_reg, bias_node_idx, fix_edgeShift)
+                bdnn_mu_rates, denom_mu, nn_mu = get_rate_BDNN_3D(cov_parA[4], trait_tbl_NN[1], cov_parA[1], nn_muA,
+                                                                  hidden_act_f, out_act_f,
+                                                                  apply_reg, bias_node_idx, fix_edgeShift)
                 if BDNNmodel in [2, 3]:
                     if bdnn_ads >= 0.0:
                         trait_tbl_NN[2] = add_taxon_age(ts, te, q_time_frames_bdnn, trait_tbl_NN[2], tsA, teA)
@@ -4985,16 +5020,12 @@ def MCMC(all_arg):
                         i_events_sp = i_events_spA
                         i_events_ex = i_events_exA
                         n_S = n_SA
-                        if bdnn_dd:
-                            bdnn_time_div = np.arange(timesLA[0], 0.0, -0.001)
-                            bdnn_div = get_DT(bdnn_time_div, tsA, teA)
-                            bdnn_binned_div = get_binned_div_traj(time_vec, bdnn_time_div, bdnn_div).flatten()[:-1] / bdnn_rescale_div
-                            bdnn_binned_div = np.repeat(bdnn_binned_div, n_taxa).reshape((len(bdnn_binned_div), n_taxa))
-                            trait_tbl_NN[0][ :, :, div_idx_trt_tbl] = bdnn_binned_div
-                            trait_tbl_NN[1][ :, :, div_idx_trt_tbl] = bdnn_binned_div
-#                            trait_tbl_NN = add_diversity(trait_tbl_NN, ts, te, timesLA, time_vec, bdnn_rescale_div, n_taxa)
+                        if bdnn_dd and ts_te_updated:
+                            binned_div = get_diversity(tsA, teA, timesLA, time_vec, bdnn_rescale_div, n_taxa)
+                            trait_tbl_NN[0][ :, :, div_idx_trt_tbl] = binned_div
+                            trait_tbl_NN[1][ :, :, div_idx_trt_tbl] = binned_div
                 if BDNNmodel in [2, 3]:
-                    if bdnn_ads >= 0.0 and ts_te_updated == 1:
+                    if bdnn_ads >= 0.0 and ts_te_updated:
                         trait_tbl_NN[2] = add_taxon_age(tsA, teA, q_time_frames_bdnn, trait_tbl_NN[2], ts, te)
 #                    if trait_tbl_NN[2].ndim == 3 and ts_te_updated == 1:
 #                        qbin_ts_te = get_bin_ts_te(tsA, teA, q_time_frames_bdnn)
@@ -5865,7 +5896,7 @@ if __name__ == '__main__':
                                        min_age=args.min_age_plot, max_age=root_plot)
                 if args.plotBDNN_groups != "":
                     bdnn_lib.plot_bdnn_rtt_groups(path_dir_log_files, args.plotBDNN_groups, burn=burnin,
-                                                  translate=args.translate, min_age=args.min_age_plot, max_age=root_plot)
+                                                  translate=args.translate, min_age=args.min_age_plot, max_age=root_plot, bdnn_precision=args.BDNNprecision)
             elif plot_type== 7:
                 import pyrate_lib.bdnn_lib as bdnn_lib
                 bdnn_lib.get_PDRTT(path_dir_log_files, args.BDNN_groups,
