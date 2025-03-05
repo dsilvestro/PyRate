@@ -1859,7 +1859,7 @@ def plot_bdnn_discr(rs, r, tr, r_script, names, names_states, rate_type):
     rate_min = np.nanmin(rs[:, 1])
     rate_max += 0.2 * rate_max
     rate_min -= 0.2 * np.abs(rate_min)
-    rotate_labels = np.sum(np.char.str_len(names_states)) > 50
+    rotate_labels = np.sum(np.char.str_len(np.array(names_states).astype(str))) > 50
     r_script += "\nylim = c(%s, %s)" % (rate_min, rate_max)
     r_script += "\nxlim = c(-0.5, %s + 0.5)" % (n_states - 1)
     if rotate_labels:
