@@ -4210,6 +4210,7 @@ def MCMC(all_arg):
 
             if BDNNmodel:
                 if bdnn_dd:
+                    bdnn_divA = trait_tbl_NN[0][ :, :, div_idx_trt_tbl] + 0.0
                     binned_div = get_diversity(ts, te, timesLA, time_vec, bdnn_rescale_div, n_taxa)
                     trait_tbl_NN[0][ :, :, div_idx_trt_tbl] = binned_div
                     trait_tbl_NN[1][ :, :, div_idx_trt_tbl] = binned_div
@@ -5021,9 +5022,8 @@ def MCMC(all_arg):
                         i_events_ex = i_events_exA
                         n_S = n_SA
                         if bdnn_dd and ts_te_updated:
-                            binned_div = get_diversity(tsA, teA, timesLA, time_vec, bdnn_rescale_div, n_taxa)
-                            trait_tbl_NN[0][ :, :, div_idx_trt_tbl] = binned_div
-                            trait_tbl_NN[1][ :, :, div_idx_trt_tbl] = binned_div
+                            trait_tbl_NN[0][ :, :, div_idx_trt_tbl] = bdnn_divA
+                            trait_tbl_NN[1][ :, :, div_idx_trt_tbl] = bdnn_divA
                 if BDNNmodel in [2, 3]:
                     if bdnn_ads >= 0.0 and ts_te_updated:
                         trait_tbl_NN[2] = add_taxon_age(tsA, teA, q_time_frames_bdnn, trait_tbl_NN[2], ts, te)
