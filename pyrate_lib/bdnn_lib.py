@@ -4915,10 +4915,25 @@ def get_idx_maineffect(m, p, k, old_idx):
     return out
 
 
+def avoid_dropping_inv_ohe_feat(idx_comb_feat, features_without_variance):
+    """Avoid dropping an entire one-hot encoded feature if a single state of it is invariant"""
+    num_feat_groups = len(idx_comb_feat)
+    num_features_without_variance = len(features_without_variance)
+    if num_feat_groups > 0 and num_features_without_variance > 0:
+        for i in range(num_feat_groups):
+            features_without_variance_in_group = np.isin(idx_comb_feat[i], features_without_variance)
+            any_but_not_all = np.any(features_without_variance_in_group) and ~np.all(features_without_variance_in_group)
+            if any_but_not_all:
+                omit_idx = np.isin(features_without_variance, idx_comb_feat[i])
+                features_without_variance = np.delete(features_without_variance, omit_idx)
+    return features_without_variance
+
+
 def remove_invariant_feature_from_featperm_results(bdnn_obj, res, trt_tbl, combine_discr_features = "", rate_type='speciation'):
     features_without_variance = get_idx_feature_without_variance(trt_tbl)
     names_features = get_names_features(bdnn_obj, rate_type=rate_type)
     idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
+    features_without_variance = avoid_dropping_inv_ohe_feat(idx_comb_feat, features_without_variance)
     if idx_comb_feat:
         names_features = replace_names_by_feature_group(names_features, idx_comb_feat, combine_discr_features)
     for i in features_without_variance:
@@ -6507,7 +6522,7 @@ def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, combine_discr_features=
         div_rescaler = bdnn_obj.bdnn_settings['div_rescaler']
     div_idx_trt_tbl = -1
     if is_time_trait(bdnn_obj) and bdnn_dd:
-            div_idx_trt_tbl = -2
+        div_idx_trt_tbl = -2
     hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
     out_act_f = bdnn_obj.bdnn_settings['out_act_f']
     _, bias_node_idx, fix_edgeShift, edgeShifts = get_edgeShifts_obj(bdnn_obj, min_age, max_age, translate)
@@ -6570,8 +6585,11 @@ def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, combine_discr_features=
     if bdnn_dd:
         trt_tbls[0][0, :, div_idx_trt_tbl] = 1.0
         trt_tbls[1][0, :, div_idx_trt_tbl] = 1.0
+
     feature_without_variance_sp = get_idx_feature_without_variance(trt_tbls[0])
     feature_without_variance_ex = get_idx_feature_without_variance(trt_tbls[1])
+    feature_without_variance_sp = avoid_dropping_inv_ohe_feat(idx_comb_feat_sp, feature_without_variance_sp)
+    feature_without_variance_ex = avoid_dropping_inv_ohe_feat(idx_comb_feat_ex, feature_without_variance_ex)
     remove_sp = []
     for i in feature_without_variance_sp:
         remove_sp.append(np.where(shap_names_sp[:, 0] == names_features_sp[i])[0])
@@ -6582,6 +6600,7 @@ def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, combine_discr_features=
         remove_ex.append(np.where(shap_names_ex[:, 1] == names_features_ex[i])[0])
     remove_sp = np.array(list(pd.core.common.flatten(remove_sp))).astype(int)
     remove_ex = np.array(list(pd.core.common.flatten(remove_ex))).astype(int)
+
     mean_shap_sp = np.delete(mean_shap_sp, remove_sp[remove_sp < len(mean_shap_sp)], axis = 0)
     mean_shap_ex = np.delete(mean_shap_ex, remove_ex[remove_ex < len(mean_shap_ex)], axis = 0)
     shap_names_sp_del = np.delete(shap_names_sp, remove_sp, axis = 0)
