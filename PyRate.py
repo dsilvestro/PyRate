@@ -2784,9 +2784,7 @@ def get_binned_div_traj(timebins, times, values):
 
 def get_diversity(ts, te, timesLA, time_vec, bdnn_rescale_div, n_taxa, step_size=0.01):
     bdnn_time_div = np.arange(timesLA[0], 0.0, -step_size)
-    time0 = time.time()
     bdnn_div = get_DT(bdnn_time_div, ts, te)
-    print(time.time() - time0)
     bdnn_binned_div = get_binned_div_traj(time_vec, bdnn_time_div, bdnn_div).reshape(-1) / bdnn_rescale_div
     bdnn_binned_div = np.repeat(bdnn_binned_div, n_taxa).reshape((len(bdnn_binned_div), n_taxa))
     return bdnn_binned_div
