@@ -1178,6 +1178,11 @@ def is_time_variable_feature(trait_tbl):
 
 def get_idx_feature_without_variance(trt_tbl, bins_within_edges=None):
     if trt_tbl.ndim == 3:
+#        print('trt_tbl', trt_tbl[:, 0, -3])
+#        print('trt_tbl', trt_tbl[:, 0, -3].shape)
+#        print('bins_within_edges\n', bins_within_edges.shape)
+#        print('bins_within_edges\n', bins_within_edges[0, :])
+        
         trt_tbl = trim_trait_tbl_by_edges(trt_tbl, bins_within_edges)
         sd_species = np.std(trt_tbl[0,:,:], axis = 0)
         sd_time = np.zeros(trt_tbl.shape[2])
@@ -1709,6 +1714,7 @@ def build_conditional_trait_tbl(bdnn_obj,
     if trait_tbl.ndim == 3:
         # In case of combined replicates where the times can differ among replicates we need to order from present to past.
         trait_tbl = trait_tbl[::-1, :, :]
+        bins_within_edges = bins_within_edges[:, ::-1]
     
     if np.any(feature_is_time_variable) and rate_type != 'sampling':
         fossil_bin_ts = get_bin_from_fossil_age(bdnn_obj, tste, 'speciation', reverse_time=True)
