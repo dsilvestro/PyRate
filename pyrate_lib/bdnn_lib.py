@@ -1714,7 +1714,8 @@ def build_conditional_trait_tbl(bdnn_obj,
     if trait_tbl.ndim == 3:
         # In case of combined replicates where the times can differ among replicates we need to order from present to past.
         trait_tbl = trait_tbl[::-1, :, :]
-        bins_within_edges = bins_within_edges[:, ::-1]
+        if isinstance(bins_within_edges, np.ndarray):
+            bins_within_edges = bins_within_edges[:, ::-1]
     
     if np.any(feature_is_time_variable) and rate_type != 'sampling':
         fossil_bin_ts = get_bin_from_fossil_age(bdnn_obj, tste, 'speciation', reverse_time=True)
