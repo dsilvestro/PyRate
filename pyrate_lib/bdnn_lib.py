@@ -557,8 +557,9 @@ def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, lo
 
 def get_rtt_summary(lam_it, mu_it, gs, times_of_shift, FA, ts, te, num_it, num_bins, translate):
     time_vec = format_t_vec(times_of_shift[1:-1], FA, 0.0, translate)
-    r_sp = np.zeros((num_it, num_bins))
-    r_ex = np.zeros((num_it, num_bins))
+    r_sp = np.full((num_it, num_bins), np.nan)
+    r_ex = np.full((num_it, num_bins), np.nan)
+    longevity = np.full((num_it, num_bins), np.nan)
     FA_gs = np.max(np.mean(ts[:, gs], axis=0))
     LO_gs = np.min(np.mean(te[:, gs], axis=0))
     if FA_gs < FA and FA_gs > times_of_shift[1]:
@@ -577,7 +578,8 @@ def get_rtt_summary(lam_it, mu_it, gs, times_of_shift, FA, ts, te, num_it, num_b
     r_ex[:, times_of_shift[1:] >= FA_gs] = np.nan
     r_ex[:, times_of_shift[:-1] <= LO_gs] = np.nan
     r_div = r_sp - r_ex
-    longevity = 1. / r_ex
+    r_ex_mask = r_ex != 0
+    longevity[r_ex_mask] = 1. / r_ex[r_ex_mask]
     sptt = summarize_rate(r_sp, num_bins)
     extt = summarize_rate(r_ex, num_bins)
     divtt = summarize_rate(r_div, num_bins)
@@ -591,6 +593,22 @@ def overwrite_xlim(xlim, min_age, max_age):
     if max_age != 0:
         xlim[0] = max_age
     return xlim
+
+
+def plot_rtt(path_dir_log_files, burn, translate=0, min_age=0, max_age=0):
+    output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q = get_bdnn_rtt(path_dir_log_files,
+                                                                                                     burn=burn,
+                                                                                                     translate=translate)
+    path_dir_log_files = path_dir_log_files.replace("_mcmc.log", "")
+    pkl_file = path_dir_log_files + ".pkl"
+    bdnn_obj = load_pkl(pkl_file)
+    _, _, fix_edgeShift, times_edgeShifts, = get_edgeShifts_obj(bdnn_obj)
+    if fix_edgeShift in [1, 2] and max_age == 0.0: # both or max boundary
+        max_age = times_edgeShifts[0] - translate
+    if fix_edgeShift in [1, 3] and min_age == 0.0: # both or min boundary
+        min_age = times_edgeShifts[-1] - translate + 0.01 * (times_edgeShifts[-1] - translate)
+    plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q,
+                  min_age=min_age, max_age=max_age)
 
 
 def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn,
@@ -621,7 +639,7 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn,
     float_prec_f = get_float_prec_f_from_bdnn_obj(bdnn_obj, bdnn_precision)
 
     if do_diversification:
-        apply_reg, bias_node_idx, fix_edgeShift, _, = get_edgeShifts_obj(bdnn_obj)
+        apply_reg, bias_node_idx, fix_edgeShift, times_edgeShifts, = get_edgeShifts_obj(bdnn_obj)
         times_of_shift = get_bdnn_time(bdnn_obj, ts, fix_edgeShift)
         num_bins = len(times_of_shift) - 1 # What if there are no bins because we did not use time as predictor?
         hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
@@ -809,6 +827,10 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn,
 #            divtt_file = output_wd + "/" + "%s_%s_DivTT.txt" % (name_file, group_names[g])
 #            divtt2 = pd.DataFrame(np.hstack((time_vec.reshape((len(time_vec), 1)), divtt)), columns = ['time', 'mean', 'lwr', 'upr'])
 #            divtt2.to_csv(divtt_file, na_rep = 'NA', index = False)
+            if fix_edgeShift in [1, 2] and max_age == 0.0: # both or max boundary
+                max_age = times_edgeShifts[0] - translate
+            if fix_edgeShift in [1, 3] and min_age == 0.0: # both or min boundary
+                min_age = times_edgeShifts[-1] - translate
 
         if do_sampling:
             num_q_bins = len(q_bins) - 1
@@ -1233,11 +1255,13 @@ def get_bin_from_fossil_age(bdnn_obj, fad_lad, rate_type, reverse_time=False):
 
 
 def get_mean_div_traj(post_ts, post_te):
-    time_bdnn_div = np.arange(np.max(post_ts), 0, -0.001)
+    M = np.max(post_ts)
+    time_bdnn_div = np.arange(M, 0.0, -M / 10000.0)
     bdnn_div = np.zeros((len(time_bdnn_div), post_ts.shape[0]))
     for i in range(post_ts.shape[0]):
         bdnn_div[:, i] = get_DT(time_bdnn_div, post_ts[i, :], post_te[i, :])
     mean_div = np.mean(bdnn_div, axis = 1)
+#    print(mean_div)
     return time_bdnn_div, mean_div
 
 
@@ -1837,19 +1861,34 @@ def remove_conditional_features(t):
     return t, incl
 
 
-def get_observed(bdnn_obj, feature_idx, feature_is_time_variable, fossil_age, fossil_bin, rate_type):
+def get_observed(bdnn_obj, feature_idx, feature_is_time_variable, fossil_age, fossil_bin, tste, names, rate_type):
     trait_tbl = get_trt_tbl(bdnn_obj, rate_type)
-    if len(trait_tbl.shape) == 3:
+
+    if trait_tbl.ndim == 3:
         trait_tbl = trait_tbl[::-1, :, :]
         obs_cont = trait_tbl[0, :, feature_idx]
         obs_cont = obs_cont.transpose()
     else:
         obs_cont = trait_tbl[:, feature_idx]
+
     if np.any(feature_is_time_variable[feature_idx]) and rate_type != 'sampling':
         for z in range(len(fossil_bin)):
             obs_cont[z, :] = trait_tbl[fossil_bin[z], z, feature_idx]
+
     if np.any(feature_idx + 1 == trait_tbl.shape[-1]) and is_time_trait(bdnn_obj) and rate_type != 'sampling':
         obs_cont[:, obs_cont.shape[1] - 1] = fossil_age # Time is always the last
+
+    if 'diversity' in names:
+        num_taxa = trait_tbl.shape[1]
+        div_idx_trt_tbl = np.where(np.char.find('diversity', names) == 0)[0]
+        _, _, fix_edge_shift, _ = get_edgeShifts_obj(bdnn_obj)
+        times_of_shift = get_bdnn_time(bdnn_obj, tste[:, 0], fix_edge_shift)
+        div_rescaler = bdnn_obj.bdnn_settings["div_rescaler"]
+        M = [np.maximum(np.max(tste), np.max(times_of_shift))]
+        bdnn_binned_div = get_diversity(tste[:, 0], tste[:, 1], M, times_of_shift, div_rescaler, num_taxa)[::-1, 0]
+        div_idx_trt_tbl = np.where(np.char.find('diversity', names) == 0)[0]
+        obs_cont[:, div_idx_trt_tbl] = bdnn_binned_div[fossil_bin].reshape((num_taxa, -1))
+
     if np.any(feature_is_time_variable[feature_idx]) and rate_type == 'sampling':
         bin_species = bdnn_obj.bdnn_settings['occs_sp']
         bin_species = bin_species[:, ::-1]
@@ -1871,8 +1910,6 @@ def plot_bdnn_discr(rs, r, tr, r_script, names, names_states, rate_type):
     r_script += "\nxlim = c(-0.5, %s + 0.5)" % (n_states - 1)
     if rotate_labels:
         r_script += "\npar(las = 2, mar = c(9, 4, 1.5, 0.5))"
-#        r_script += "\nplot(0, 0, type = 'n', xlim = xlim, ylim = ylim, xlab = '', ylab = '%s', xaxt = 'n')" % (rate_type)
-#    else:
     r_script += "\nplot(1, 0, type = 'n', xlim = xlim, ylim = ylim, xlab = '', ylab = '%s', xaxt = 'n')" % rate_type
     match rate_type:
         case "speciation":
@@ -2348,7 +2385,7 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, tste, r_script,
         names = names_features[incl_features]
         rates_sum_plt = rates_summary[idx, :]
         cond_rates_plt = cond_rates[idx,:]
-        obs = get_observed(bdnn_obj, incl_features, feature_is_time_variable, fossil_age, fossil_bin, rate_type2)
+        obs = get_observed(bdnn_obj, incl_features, feature_is_time_variable, fossil_age, fossil_bin, tste, names, rate_type2)
         plot_time = np.isin(time_idx, incl_features)
         if np.isin(pt, np.array([1.0, 2.0, 3.0])):
             names = names_features[incl_features[0]]
@@ -4350,13 +4387,15 @@ def get_species_in_groups(group_names, group_file, group_species_idx, species_na
 
 def get_pdrtt_i(arg):
     [num_bins, num_taxa, trait_tbl_sp, trait_tbl_ex, names_comb_idx_conc, w_sp_i, w_ex_i,
-     hidden_act_f, out_act_f, apply_reg, bias_node_idx, fix_edgeShift,
+     hidden_act_f, out_act_f, bias_node_idx,
      t_reg_lam_i, t_reg_mu_i, reg_denom_lam_i, reg_denom_mu_i,
-     weights_dur, dur_bins] = arg
-    pdsp = np.zeros((num_taxa, num_bins))
-    pdex = np.zeros((num_taxa, num_bins))
+     weights_dur, dur_bins,
+     alive_taxa] = arg
+    
+    pdsp = np.full((num_taxa, num_bins), np.nan)
+    pdex = np.full((num_taxa, num_bins), np.nan)
     for j in range(num_bins):
-        for k in range(num_taxa):
+        for k in alive_taxa[j]: #range(num_taxa):
             # set focal features to the focal feature the k-th species at that moment in time
             trait_tbl_spk = trait_tbl_sp + 0.0
             trait_tbl_exk = trait_tbl_ex + 0.0
@@ -4367,14 +4406,14 @@ def get_pdrtt_i(arg):
             nn_sp = init_NN_output(trait_tbl_spk, w_sp_i)
             rate_BDNN, _ = get_unreg_rate_BDNN_3D(trait_tbl_spk, w_sp_i, nn_sp,
                                                   hidden_act_f, out_act_f,
-                                                  apply_reg=apply_reg, bias_node_idx=bias_node_idx, fix_edgeShift=fix_edgeShift)
+                                                  bias_node_idx=bias_node_idx)
             rate_BDNN = rate_BDNN ** t_reg_lam_i / reg_denom_lam_i
 #            pdsp[k, j] = 1.0 / np.mean(1.0 / rate_BDNN) # harmonic mean
             pdsp[k, j] = weights_dur / np.sum(dur_bins / rate_BDNN) # weighted harmonic mean
             nn_ex = init_NN_output(trait_tbl_exk, w_ex_i)
             rate_BDNN, _ = get_unreg_rate_BDNN_3D(trait_tbl_exk, w_ex_i, nn_ex,
                                                   hidden_act_f, out_act_f,
-                                                  apply_reg=apply_reg, bias_node_idx=bias_node_idx, fix_edgeShift=fix_edgeShift)
+                                                  bias_node_idx=bias_node_idx)
             rate_BDNN = rate_BDNN ** t_reg_mu_i / reg_denom_mu_i
 #            pdex[k, j] = 1.0 / np.mean(1.0 / rate_BDNN) # harmonic mean
             pdex[k, j] = weights_dur / np.sum(dur_bins / rate_BDNN) # weighted harmonic mean
@@ -4386,38 +4425,44 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
     mcmc_file = f
     path_dir_log_files = f.replace("_mcmc.log", "")
     pkl_file = path_dir_log_files + ".pkl" 
-    
+
     output_wd = os.path.dirname(os.path.realpath(mcmc_file))
     name_file = os.path.basename(path_dir_log_files)
     name_file = name_file.replace("_mcmc.log", "")
-    
+
     bdnn_obj, w_sp, w_ex, _, sp_fad_lad, ts, te, t_reg_lam, t_reg_mu, _, reg_denom_lam, reg_denom_mu, _, _, _ = bdnn_parse_results(mcmc_file, pkl_file, burn, thin)
     out_act_f = bdnn_obj.bdnn_settings["out_act_f"]
     hidden_act_f = bdnn_obj.bdnn_settings["hidden_act_f"]
     float_prec_f = get_float_prec_f_from_bdnn_obj(bdnn_obj, bdnn_precision)
     apply_reg, bias_node_idx, fix_edgeShift, times_edgeShifts = get_edgeShifts_obj(bdnn_obj)
     num_it = ts.shape[0]
-    
+
     trait_tbl_sp = get_trt_tbl(bdnn_obj, rate_type="speciation")
     trait_tbl_ex = get_trt_tbl(bdnn_obj, rate_type="extinction")
     trait_tbl_sp = set_trt_tbl_prec(trait_tbl_sp, float_prec_f)
     trait_tbl_ex = set_trt_tbl_prec(trait_tbl_ex, float_prec_f)
-    
+
     trait_tbl_shape = trait_tbl_sp.shape
     num_taxa = trait_tbl_shape[-2]
-    
+
     keys_names_comb = get_names_feature_group(names_comb)
     keys_names_comb = "_".join(keys_names_comb)
     names_features = get_names_features(bdnn_obj, rate_type="speciation")
-    conc_comb_feat = np.array([])
     names_features = np.array(names_features)
     names_comb_idx = match_names_comb_with_features(names_comb, names_features)
     names_comb_idx_conc = np.concatenate(names_comb_idx).astype(int)
-    
+
+    bdnn_dd = 'diversity' in names_features
+    if bdnn_dd:
+        div_rescaler = bdnn_obj.bdnn_settings["div_rescaler"]
+        div_idx_trt_tbl = -1
+        if is_time_trait(bdnn_obj):
+            div_idx_trt_tbl = -2
+
     # positional index for all species and those in the group_path
     species_names = bdnn_obj.sp_fad_lad["Taxon"].to_numpy()
     group_species_idx = []
-    
+
     group_names = []
     if groups_path != '':
         group_file = pd.read_csv(groups_path, delimiter='\t')
@@ -4428,23 +4473,43 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
     n_groups = len(group_names)
     
     times_of_shift = get_bdnn_time(bdnn_obj, ts, fix_edgeShift)
+
+    times_of_shift = trim_bdnn_time_by_edges(times_of_shift, fix_edgeShift, times_edgeShifts)
+    trait_tbl_sp = trim_trait_tbl_by_edges(trait_tbl_sp, apply_reg)
+    trait_tbl_ex = trim_trait_tbl_by_edges(trait_tbl_ex, apply_reg)
+
     num_bins = len(times_of_shift) - 1
+
     # Get duration of bins into the shape of the trait tables to get weighted harmonic mean
     duration_bins = -1 * np.diff(times_of_shift)
     duration_bins = duration_bins.reshape((1, num_bins))
     duration_bins = np.repeat(duration_bins, num_taxa, axis=0)
     weights_duration = np.sum(duration_bins)
-    
+
     args = []
     for i in range(num_it):
+        if bdnn_dd:
+            M = [np.maximum(np.max(ts[i, :]), np.max(times_of_shift))]
+            bdnn_binned_div = get_diversity(ts[i, :], te[i, :], M, times_of_shift, div_rescaler, num_taxa)
+            bdnn_binned_div = float_prec_f(bdnn_binned_div)
+            trait_tbl_sp[:, :, div_idx_trt_tbl] = bdnn_binned_div
+            trait_tbl_ex[:, :, div_idx_trt_tbl] = bdnn_binned_div
+
+        taxa_alive = [get_sp_indx_in_timeframe(ts[i, :],
+                                               te[i, :],
+                                               up=times_of_shift[j],
+                                               lo=times_of_shift[j + 1]) for j in range(num_bins)]
+
         a = [num_bins, num_taxa, trait_tbl_sp, trait_tbl_ex, names_comb_idx_conc, w_sp[i], w_ex[i],
-             hidden_act_f, out_act_f, apply_reg, bias_node_idx, fix_edgeShift,
+             hidden_act_f, out_act_f, bias_node_idx,
              t_reg_lam[i], t_reg_mu[i], reg_denom_lam[i], reg_denom_mu[i],
-             weights_duration, duration_bins]
+             weights_duration, duration_bins,
+             taxa_alive]
         args.append(a)
+
     if num_processes > 1:
         pool_pdp = get_context('spawn').Pool(num_processes)
-        pdrtt = list(tqdm(pool_pdp.imap_unordered(get_pdrtt_i, args),
+        pdrtt = list(tqdm(pool_pdp.imap(get_pdrtt_i, args),
                           total=num_it, disable=show_progressbar == False))
         pool_pdp.close()
     else:
@@ -4454,10 +4519,15 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
     pdrtt = np.stack(pdrtt, axis=0)
     pdsptt = pdrtt[:, :, :num_bins]
     pdextt = pdrtt[:, :, num_bins:]
-
-    # Get marginal pd rates through time for all and the specified group of taxa
+    
     FA = np.max(np.mean(ts, axis=0))
     LO = np.min(np.mean(te, axis=0))
+    if fix_edgeShift in [1, 2] and max_age == 0.0: # both or max boundary
+        max_age = times_edgeShifts[0] - translate
+    if fix_edgeShift in [1, 3] and min_age == 0.0: # both or min boundary
+        min_age = times_edgeShifts[-1] - translate
+
+    # Get marginal pd rates through time for all and the specified group of taxa
     for g in range(len(group_names)):
         gs = group_species_idx[g]
         r_file = "%s_%s_%s_PDRTT.r" % (name_file, group_names[g], keys_names_comb)
@@ -4814,7 +4884,8 @@ def perm_mcmc_sample_i(args):
     
     if bdnn_dd:
         n_taxa = trt_tbls[0].shape[1]
-        bdnn_time_div = np.arange(np.maximum(np.max(ts[i, :]), np.max(bdnn_time)), 0.0, -0.01)
+        M = np.maximum(np.max(ts[i, :]), np.max(bdnn_time))
+        bdnn_time_div = np.arange(M, 0.0, -M / 10000.0)
         bdnn_div = get_DT(bdnn_time_div, ts[i, :], te[i, :])
         bdnn_binned_div_highres = get_binned_div_traj(bdnn_time_highres, bdnn_time_div, bdnn_div) / div_rescaler
         bdnn_binned_div_highres = np.repeat(bdnn_binned_div_highres, n_taxa).reshape((len(bdnn_binned_div_highres), n_taxa))

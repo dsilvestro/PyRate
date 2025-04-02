@@ -2783,7 +2783,7 @@ def get_binned_div_traj(timebins, times, values):
 
 
 def get_diversity(ts, te, timesLA, time_vec, bdnn_rescale_div, n_taxa, step_size=0.01):
-    bdnn_time_div = np.arange(timesLA[0], 0.0, -step_size)
+    bdnn_time_div = np.arange(timesLA[0], 0.0, -timesLA[0] / 10000.0)
     bdnn_div = get_DT(bdnn_time_div, ts, te)
     bdnn_binned_div = get_binned_div_traj(time_vec, bdnn_time_div, bdnn_div).reshape(-1) / bdnn_rescale_div
     bdnn_binned_div = np.repeat(bdnn_binned_div, n_taxa).reshape((len(bdnn_binned_div), n_taxa))
@@ -5888,11 +5888,7 @@ if __name__ == '__main__':
                 rtt_plot_bds = rtt_plot_bds.RTTplot_Q(path_dir_log_files,args.qShift,burnin=burnin,max_age=root_plot)
             elif plot_type== 6:
                 import pyrate_lib.bdnn_lib as bdnn_lib
-                output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q = bdnn_lib.get_bdnn_rtt(path_dir_log_files,
-                                                                                                                          burn=burnin,
-                                                                                                                          translate=args.translate)
-                bdnn_lib.plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q,
-                                       min_age=args.min_age_plot, max_age=root_plot)
+                bdnn_lib.plot_rtt(path_dir_log_files, burn=burnin, translate=args.translate, min_age=args.min_age_plot, max_age=root_plot)
                 if args.plotBDNN_groups != "":
                     bdnn_lib.plot_bdnn_rtt_groups(path_dir_log_files, args.plotBDNN_groups, burn=burnin,
                                                   translate=args.translate, min_age=args.min_age_plot, max_age=root_plot, bdnn_precision=args.BDNNprecision)
