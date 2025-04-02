@@ -127,7 +127,7 @@ def get_score_trained(a,b,max_length_diff=2):
                 #    s_diff = np.abs(len(a1)-len(b1)) + ( min(len(a1),len(b1)) - np.max(np.sum(s_bin,axis=1)) )
 
                 else: # 'align' letters to fix gaps
-                    max_length = max(len(a1),len(b1))
+                    max_length = np.maximum(len(a1), len(b1))
                     if abs(len(a1)-len(b1))==2: # if the difference is the first two letters it's different taxa
                         if len(a1) == max_length:
                             s = a1[2:] ==b1
@@ -157,12 +157,12 @@ def get_score_trained(a,b,max_length_diff=2):
                     #l_a =a1[qq]
                     #l_b =b1[qq]
                 
-                    l_a =a1[np.array(list(itertools.combinations(np.arange(len(a1)),min(len(a1),len(b1)))))]
-                    l_b =b1[np.array(list(itertools.combinations(np.arange(len(b1)),min(len(a1),len(b1)))))]
+                    l_a =a1[np.array(list(itertools.combinations(np.arange(len(a1)), np.minimum(len(a1), len(b1)))))]
+                    l_b =b1[np.array(list(itertools.combinations(np.arange(len(b1)), np.minimum(len(a1), len(b1)))))]
                     s = l_a==l_b
                     s_bin = s.astype(None) # convert True/False array into 1/0 array
                     score = np.max(np.sum(s_bin,axis=1))/np.mean([len(a1),len(b1)])
-                    s_diff = np.abs(len(a1)-len(b1)) + ( min(len(a1),len(b1)) - np.max(np.sum(s_bin,axis=1)) )
+                    s_diff = np.abs(len(a1)-len(b1)) + ( np.minimum(len(a1), len(b1)) - np.max(np.sum(s_bin,axis=1)) )
 
     return score, s_diff
 
