@@ -5967,8 +5967,8 @@ if __name__ == '__main__':
         mcmc_file = path_dir_log_files + "_mcmc.log"
         do_inter_imp = args.BDNN_pred_importance_interaction is False
         BDNNmodel = bdnn_lib.get_bdnn_model(pkl_file)
-        sp_taxa_shap, ex_taxa_shap, q_taxa_shap = None, None, None
-        sp_main_consrank, ex_main_consrank, q_main_consrank = None, None, None
+        sp_taxa_shap, ex_taxa_shap, q_taxa_shap, use_taxa_sp, use_taxa_ex = None, None, None, None, None
+        sp_main_consrank, ex_main_consrank, q_main_consrank, sp_feat_missing, ex_feat_missing = None, None, None, None, None
         if BDNNmodel in [1, 3] and args.BDNN_nsim_expected_cv > 0:
             print("Getting expected coefficient of rate variation")
             bdnn_lib.get_coefficient_rate_variation(path_dir_log_files, burnin,
@@ -6058,21 +6058,23 @@ if __name__ == '__main__':
         if BDNNmodel in [1, 3]:
             # consensus among 3 feature importance methods
             print("Getting consensus ranking birth-death")
-            sp_feat_importance, sp_main_consrank = bdnn_lib.get_consensus_ranking(sp_pv, sp_shap, sp_featperm)
-            ex_feat_importance, ex_main_consrank = bdnn_lib.get_consensus_ranking(ex_pv, ex_shap, ex_featperm)
+            sp_feat_importance, sp_main_consrank, sp_feat_missing = bdnn_lib.get_consensus_ranking(sp_pv, sp_shap, sp_featperm)
+            ex_feat_importance, ex_main_consrank, ex_feat_missing = bdnn_lib.get_consensus_ranking(ex_pv, ex_shap, ex_featperm)
             output_wd = os.path.dirname(os.path.realpath(path_dir_log_files))
             name_file = os.path.basename(path_dir_log_files)
             ex_feat_merged_file = os.path.join(output_wd, name_file + '_ex_predictor_influence.csv')
             ex_feat_importance.to_csv(ex_feat_merged_file, na_rep='NA', index=False)
             sp_feat_merged_file = os.path.join(output_wd, name_file + '_sp_predictor_influence.csv')
             sp_feat_importance.to_csv(sp_feat_merged_file, na_rep='NA', index=False)
+            sp_taxa_shap = bdnn_lib.remove_feature_from_taxa_shaps(sp_taxa_shap, sp_feat_missing)
             sp_taxa_shap_file = os.path.join(output_wd, name_file + '_sp_shap_per_species.csv')
             sp_taxa_shap.to_csv(sp_taxa_shap_file, na_rep='NA', index=False)
+            ex_taxa_shap = bdnn_lib.remove_feature_from_taxa_shaps(ex_taxa_shap, ex_feat_missing)
             ex_taxa_shap_file = os.path.join(output_wd, name_file + '_ex_shap_per_species.csv')
             ex_taxa_shap.to_csv(ex_taxa_shap_file, na_rep='NA', index=False)
         if BDNNmodel in [2, 3]:
             print("Getting consensus ranking sampling")
-            q_feat_importance, q_main_consrank = bdnn_lib.get_consensus_ranking(q_pv, q_shap, q_featperm)
+            q_feat_importance, q_main_consrank, _ = bdnn_lib.get_consensus_ranking(q_pv, q_shap, q_featperm)
             output_wd = os.path.dirname(os.path.realpath(path_dir_log_files))
             name_file = os.path.basename(path_dir_log_files)
             q_feat_merged_file = os.path.join(output_wd, name_file + '_q_predictor_influence.csv')
@@ -6086,7 +6088,8 @@ if __name__ == '__main__':
                                       combine_discr_features=args.BDNN_groups,
                                       file_transf_features=args.plotBDNN_transf_features,
                                       translate=args.translate,
-                                      use_taxa_sp=use_taxa_sp, use_taxa_ex=use_taxa_ex)
+                                      use_taxa_sp=use_taxa_sp, use_taxa_ex=use_taxa_ex,
+                                      sp_feat_missing=sp_feat_missing, ex_feat_missing=ex_feat_missing)
         quit()
     elif args.BDNN_interaction != "":
         import pyrate_lib.bdnn_lib as bdnn_lib

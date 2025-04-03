@@ -7146,7 +7146,10 @@ def get_consensus_ranking(pv, sh, fp):
     rank_df = pd.DataFrame(np.concatenate((main_consrank, inter_consrank)) + 1.0, columns = ['rank'])
     r = pd.concat([pv_reordered[['feature1', 'feature2']], rank_df], axis = 1)
     feat_merged = merge_results_feat_import(pv, sh, fp, r)
-    return feat_merged, main_consrank
+    # Some features may not be included when we use -root_plot and -min_age_plot; exclude them from the contribution.pdf
+    shape_features = sh['feature1'].drop_duplicates()
+    feat_missing = shape_features[shape_features.isin(pv['feature1'].drop_duplicates()) == False].to_numpy()
+    return feat_merged, main_consrank, feat_missing
 
 
 # Plot SHAP
@@ -7450,7 +7453,7 @@ def dotplot_species_shap(mcmc_file, pkl_file, burnin, thin, output_wd, name_file
                          sp_taxa_shap, ex_taxa_shap, q_taxa_shap,
                          sp_consrank, ex_consrank, q_consrank,
                          combine_discr_features='', file_transf_features='', translate=0,
-                         use_taxa_sp=None, use_taxa_ex=None):
+                         use_taxa_sp=None, use_taxa_ex=None, sp_feat_missing=None, ex_feat_missing=None):
     ob = load_pkl(pkl_file)
     species_names = ob.sp_fad_lad["Taxon"]
     suffix_pdf = "contribution_per_species_rates"
@@ -7653,9 +7656,13 @@ def dotplot_species_shap(mcmc_file, pkl_file, burnin, thin, output_wd, name_file
                                                                                                     combine_discr_features,
                                                                                                     file_transf_features,
                                                                                                     translate)
-            r_script = get_dotplot_rscript_species_shap(r_script, species_names[use_taxa_sp].to_numpy(),
-                                                        sp_taxa_shap, sp_consrank, sp_shap_trt_tbl[use_taxa_sp, :],
-                                                        sp_names_features, sp_names_features_orig, rate_type = 'speciation')
+            sp_shap_trt_tbl, sp_names_features, sp_names_features_orig = remove_missing_feature(sp_shap_trt_tbl,
+                                                                                                sp_names_features,
+                                                                                                sp_names_features_orig,
+                                                                                                sp_feat_missing)
+            r_script = get_dotplot_rscript_species_shap(r_script, species_names[use_taxa_sp].to_numpy(), sp_taxa_shap,
+                                                        sp_consrank, sp_shap_trt_tbl[use_taxa_sp, :],
+                                                        sp_names_features, sp_names_features_orig, rate_type='speciation')
         else:
             r_script += "\nplot(1:5, 1:5, type = 'n', main = 'No shap values available when there is only one predictor')"
     if not ex_taxa_shap is None:
@@ -7665,9 +7672,13 @@ def dotplot_species_shap(mcmc_file, pkl_file, burnin, thin, output_wd, name_file
                                                                                                     combine_discr_features,
                                                                                                     file_transf_features,
                                                                                                     translate)
-            r_script = get_dotplot_rscript_species_shap(r_script, species_names[use_taxa_ex].to_numpy(),
-                                                        ex_taxa_shap, ex_consrank, ex_shap_trt_tbl[use_taxa_ex, :],
-                                                        ex_names_features, ex_names_features_orig, rate_type = 'extinction')
+            ex_shap_trt_tbl, ex_names_features, ex_names_features_orig = remove_missing_feature(ex_shap_trt_tbl,
+                                                                                                ex_names_features,
+                                                                                                ex_names_features_orig,
+                                                                                                ex_feat_missing)
+            r_script = get_dotplot_rscript_species_shap(r_script, species_names[use_taxa_ex].to_numpy(), ex_taxa_shap,
+                                                        ex_consrank, ex_shap_trt_tbl[use_taxa_ex, :],
+                                                        ex_names_features, ex_names_features_orig, rate_type='extinction')
         else:
             r_script += "\nplot(1:5, 1:5, type = 'n', main = 'No shap values available when there is only one predictor')"
     if not q_taxa_shap is None:
@@ -7689,3 +7700,34 @@ def dotplot_species_shap(mcmc_file, pkl_file, burnin, thin, output_wd, name_file
         cmd = "cd %s; Rscript %s_%s.r" % (output_wd, name_file, suffix_pdf)
     print("cmd", cmd)
     os.system(cmd)
+
+
+def remove_feature_from_taxa_shaps(taxa_shap, feat_missing):
+    """
+    Remove features from taxon-specific SHAP values.
+    E.g. when using -root_plot and -min_age_plot and the feature does not vary in this time frame.
+    """
+    num_feat_missing = len(feat_missing)
+    if num_feat_missing > 0:
+        for f in feat_missing:
+            feat = taxa_shap['feature'].to_numpy().astype(str)
+            keep_rows = ~np.char.endswith(feat, "__" + f)
+            taxa_shap = taxa_shap.iloc[keep_rows]
+    return taxa_shap
+
+
+def remove_missing_feature(shap_trt_tbl, names_features, names_features_orig, feat_missing):
+    """
+    Remove missing features for importance plot.
+    Features are not included in the importance table when they do not vary in a given time window e.g. when using -root_plot and -min_age_plot.
+    """
+    num_feat_missing = len(feat_missing)
+    if num_feat_missing > 0:
+        keep = []
+        for f in feat_missing:
+            keep = keep + np.where(np.char.find(names_features, f) != 0)[0].tolist()
+        names_features = names_features[keep]
+        names_features_orig = names_features_orig[keep]
+        shap_trt_tbl = shap_trt_tbl[:, keep]
+    return shap_trt_tbl, names_features, names_features_orig
+
