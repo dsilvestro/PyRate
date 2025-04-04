@@ -1926,12 +1926,16 @@ def update_NN(x, w, nnA, rnd_layer, act_f, bias_node_idx):
 
 
 def get_unreg_rate_BDNN_3D(x, w, nnA, act_f, out_act_f, apply_reg=True, bias_node_idx=[0], fix_edgeShift=0, rnd_layer=0):
-#    tmp = x + 0
-#    for i in range(len(w)-1):
-#        tmp = act_f(MatrixMultiplication3D(tmp, w[i], bias_node_idx))
-#    tmp = MatrixMultiplication3D(tmp, w[i+1], bias_node_idx)
-    nn = update_NN(x, w, nnA, rnd_layer, act_f, bias_node_idx)
-    tmp = np.squeeze(nn[-1]).T
+    if nnA is None:
+        nn = nnA
+        tmp = x + 0
+        for i in range(len(w)-1):
+            tmp = act_f(MatrixMultiplication3D(tmp, w[i], bias_node_idx))
+        tmp = MatrixMultiplication3D(tmp, w[i+1], bias_node_idx)
+        tmp = np.squeeze(tmp).T
+    else:
+        nn = update_NN(x, w, nnA, rnd_layer, act_f, bias_node_idx)
+        tmp = np.squeeze(nn[-1]).T
     
     # add bias node values for the edge bins
     if fix_edgeShift > 0:
@@ -3979,8 +3983,10 @@ def MCMC(all_arg):
                 trait_tbl_NN[1][ :, :, div_idx_trt_tbl] = binned_div
 
             cov_parA = cov_par_init_NN
-            nn_lamA = init_NN_output(trait_tbl_NN[0], cov_parA[0], float_prec_f)
-            nn_muA = init_NN_output(trait_tbl_NN[1], cov_parA[1], float_prec_f)
+            nn_lamA, nn_muA = None, None
+            if not nn_activate_all:
+                nn_lamA = init_NN_output(trait_tbl_NN[0], cov_parA[0], float_prec_f)
+                nn_muA = init_NN_output(trait_tbl_NN[1], cov_parA[1], float_prec_f)
             if restore_chain:
                 cov_parA = restore_init_values[7]
 
@@ -5523,6 +5529,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNprior', type=float, help='sd normal prior', default=1, metavar=1)
     p.add_argument('-BDNNreg', type=float, help='regularization prior (-1.0 to turn off regularization, provide two values for independent regularization of lam and mu)', default=[1.0], metavar=[1.0], nargs='+')
     p.add_argument('-BDNNblockmodel',help='Block NN model', action='store_true', default=False)
+    p.add_argument('-BDNNactivate_all',help='Activate all hidden layers even if weights were not updated; increases run time', action='store_true', default=False)
     p.add_argument('-BDNNtimevar', type=str, help='Time variable file for birth-death process (e.g. PhanerozoicTempSmooth.txt), several variable in different columns possible. If paths to two different time variable files are provided, the first one is used for lambda and the second for mu', default=[""], metavar="", nargs='+')
     p.add_argument('-BDNNtimevar_q', type=str, help='Time variable file for sampling process, several variable in different columns possible', default="", metavar="")
     p.add_argument('-BDNNads', type=float, help='(Relative)age-dependent sampling (-1.0: off; 0.0: use qShifts; >0.0 resample qShifts to this value)', default=-1.0, metavar=1)
@@ -6402,6 +6409,7 @@ if __name__ == '__main__':
     out_act_f_q = get_act_f(args.BDNNoutputfun)
     hidden_act_f = get_hidden_act_f(args.BDNNactfun)
     block_nn_model = args.BDNNblockmodel
+    nn_activate_all = args.BDNNactivate_all
     bdnn_timevar = args.BDNNtimevar
     bdnn_timevar_q = args.BDNNtimevar_q
     bdnn_dd = args.BDNNdd
