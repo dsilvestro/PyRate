@@ -2254,7 +2254,8 @@ def init_trait_and_weights(trait_tbl, time_var_tbl_lambda, time_var_tbl_mu,
 def init_sampling_trait_and_weights(trait_tbl, time_var_tbl, nodes, bias_node=False,
                                     n_taxa=None,
                                     replicates_tbls=None,
-                                    loaded_tbls=""):
+                                    loaded_tbls="",
+                                    float_prec_f=np.float64):
     is_trait_dep = not trait_tbl is None
     is_env_dep = isinstance(time_var_tbl, np.ndarray)
     is_age_dep = not replicates_tbls is None
@@ -2285,8 +2286,9 @@ def init_sampling_trait_and_weights(trait_tbl, time_var_tbl, nodes, bias_node=Fa
     
     trait_tbl_q = np.c_[tbl_trt, tbl_env, tbl_ads]
     
-    w_q = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_q.shape[-1], size_output=1, init_std=0.01, bias_node=bias_node)
-    return trait_tbl_q, w_q
+    w_q = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_q.shape[-1], size_output=1,
+                          float_prec_f=float_prec_f, init_std=0.01, bias_node=bias_node)
+    return float_prec_f(trait_tbl_q), w_q
 
 
 #def get_q_rate_BDNN(q, t_reg, qnn_output, singleton_mask, qbin_ts_te):
@@ -4371,7 +4373,7 @@ def MCMC(all_arg):
                 else:
                     rnd_layer_q = np.random.randint(0, len(cov_parA[2]))
                     # update layers q rate
-                    cov_par[2][rnd_layer_q] = update_parameter_normal_vec(cov_parA[2][rnd_layer_q], d=0.05, f=bdnn_update_f[rnd_layer_q])
+                    cov_par[2][rnd_layer_q] = update_parameter_normal_vec(cov_parA[2][rnd_layer_q], d=0.05, f=bdnn_update_f[rnd_layer_q], float_prec_f=float_prec_f)
 
 
             if not BDNNmodel:
@@ -6023,6 +6025,7 @@ if __name__ == '__main__':
                                                                n_perm=args.BDNN_pred_importance_nperm,
                                                                combine_discr_features= args.BDNN_groups,
                                                                do_inter_imp=do_inter_imp,
+                                                               bdnn_precision=args.BDNNprecision,
                                                                num_processes=args.thread[0],
                                                                show_progressbar=True)
         if BDNNmodel in [1, 3]:
@@ -6047,6 +6050,7 @@ if __name__ == '__main__':
                                                                       thin=args.resample,
                                                                       combine_discr_features=args.BDNN_groups,
                                                                       do_inter_imp=do_inter_imp,
+                                                                      bdnn_precision=args.BDNNprecision,
                                                                       num_processes=args.thread[0],
                                                                       show_progressbar=True)
         obj_effect = bdnn_lib.get_effect_objects(mcmc_file, pkl_file,
@@ -6944,7 +6948,8 @@ if __name__ == '__main__':
                                                                                      n_BDNN_nodes,
                                                                                      bias_node=False,
                                                                                      n_taxa=n_taxa,
-                                                                                     replicates_tbls=highres_q_repeats)
+                                                                                     replicates_tbls=highres_q_repeats,
+                                                                                     float_prec_f=float_prec_f)
                 cov_par_init_NN[2] = cov_par_init_NN_q
                 prior_bdnn_w_q_sd = [np.ones(cov_par_init_NN[2][i].shape) * args.BDNNprior for i in range(len(cov_par_init_NN[2]))]
             if prior_lam_t_reg[0] > 0:

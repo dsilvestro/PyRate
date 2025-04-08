@@ -49,9 +49,7 @@ from PyRate import get_occs_sp
 from PyRate import get_fossil_features_q_shifts
 from PyRate import make_singleton_mask
 from PyRate import get_bin_ts_te
-#from PyRate import get_q_rate_BDNN
 from PyRate import update_NN
-from PyRate import init_NN_output
 from PyRate import get_unreg_rate_BDNN_3D
 from PyRate import get_q_multipliers_NN
 from PyRate import make_missing_bins
@@ -684,7 +682,7 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn,
                 bdnn_binned_div = get_diversity(ts[i, :], te[i, :], M, times_of_shift, bdnn_rescale_div, n_taxa)
                 trait_tbl[0][:, :, div_idx_trt_tbl] = bdnn_binned_div
                 trait_tbl[1][:, :, div_idx_trt_tbl] = bdnn_binned_div
-            trait_tbl = set_trt_tbl_prec(trait_tbl, float_prec_f)
+            trait_tbl = set_list_prec(trait_tbl, float_prec_f)
             lam = get_rate_BDNN_3D_noreg(trait_tbl[0], w_sp[i], hidden_act_f, out_act_f,
                                          apply_reg, bias_node_idx, fix_edgeShift)
             lam_it[i, :, :] = lam ** t_reg_lam[i] / reg_denom_lam[i]
@@ -1154,7 +1152,7 @@ def get_trt_tbl(bdnn_obj, rate_type):
     return trait_tbl
 
 
-def set_trt_tbl_prec(trt_tbl, prec_f=np.float64):
+def set_list_prec(trt_tbl, prec_f=np.float64):
     if isinstance(trt_tbl, np.ndarray):
         trt_tbl = prec_f(trt_tbl)
     else:
@@ -4112,10 +4110,9 @@ def get_pdp_rate_it_i(arg):
     for j in range(nrows_cond_trait_tbl):
         if obs[j]:
             trait_tbl_tmp = take_traits_from_trt_tbl(trait_tbl, cond_trait_tbl, j, idx_comb_feat)
-            nn = init_NN_output(trait_tbl_tmp, post_w_i)
             rate_BDNN, _ = get_unreg_rate_BDNN_3D(trait_tbl_tmp,
                                                   post_w_i,  # list of arrays
-                                                  nn,
+                                                  None,
                                                   hidden_act_f,
                                                   out_act_f,
                                                   bias_node_idx=bias_node_idx)
@@ -4133,7 +4130,7 @@ def get_partial_dependence_rates(bdnn_obj, cond_trait_tbl, post_w, post_t_reg, p
     num_it = len(post_w)
     trait_tbl = get_trt_tbl(bdnn_obj, rate_type)
     float_prec_f = get_float_prec_f_from_bdnn_obj(bdnn_obj, bdnn_precision)
-    trait_tbl = set_trt_tbl_prec(trait_tbl, float_prec_f)
+    trait_tbl = set_list_prec(trait_tbl, float_prec_f)
     names_features = get_names_features(bdnn_obj, rate_type=rate_type)
     idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
     args = []
@@ -4226,10 +4223,9 @@ def get_pdp_rate_it_i_free_combination(arg):
     for j in range(nrows_all_comb_tbl):
         trait_tbl_tmp = trait_tbl + 0.0
         trait_tbl_tmp[:, names_comb_idx_conc] = all_comb_tbl[j, :]
-        nn = init_NN_output(trait_tbl_tmp, post_w_i)
         rate_BDNN, _ = get_unreg_rate_BDNN_3D(trait_tbl_tmp,
                                               post_w_i,  # list of arrays
-                                              nn,
+                                              None,
                                               hidden_act_f,
                                               out_act_f,
                                               bias_node_idx=bias_node_idx)
@@ -4254,7 +4250,7 @@ def get_pdp_rate_free_combination(bdnn_obj,
                                   show_progressbar=False):
     trait_tbl = get_trt_tbl(bdnn_obj, rate_type)
     float_prec_f = get_float_prec_f_from_bdnn_obj(bdnn_obj, bdnn_precision)
-    trait_tbl = set_trt_tbl_prec(trait_tbl, float_prec_f)
+    trait_tbl = set_list_prec(trait_tbl, float_prec_f)
     names_features = get_names_features(bdnn_obj, rate_type=rate_type)
     bins_within_edges, bias_node_idx, fix_edgeShift, times_edgeShifts = get_edgeShifts_obj(bdnn_obj, min_age, max_age, translate)
     # diversity-dependence
@@ -4421,15 +4417,13 @@ def get_pdrtt_i(arg):
             trait_tbl_exk[:, :, names_comb_idx_conc] = trait_tbl_exk[j, k, names_comb_idx_conc]
             
             # Get PDP rates
-            nn_sp = init_NN_output(trait_tbl_spk, w_sp_i)
-            rate_BDNN, _ = get_unreg_rate_BDNN_3D(trait_tbl_spk, w_sp_i, nn_sp,
+            rate_BDNN, _ = get_unreg_rate_BDNN_3D(trait_tbl_spk, w_sp_i, None,
                                                   hidden_act_f, out_act_f,
                                                   bias_node_idx=bias_node_idx)
             rate_BDNN = rate_BDNN ** t_reg_lam_i / reg_denom_lam_i
 #            pdsp[k, j] = 1.0 / np.mean(1.0 / rate_BDNN) # harmonic mean
             pdsp[k, j] = weights_dur / np.sum(dur_bins / rate_BDNN) # weighted harmonic mean
-            nn_ex = init_NN_output(trait_tbl_exk, w_ex_i)
-            rate_BDNN, _ = get_unreg_rate_BDNN_3D(trait_tbl_exk, w_ex_i, nn_ex,
+            rate_BDNN, _ = get_unreg_rate_BDNN_3D(trait_tbl_exk, w_ex_i, None,
                                                   hidden_act_f, out_act_f,
                                                   bias_node_idx=bias_node_idx)
             rate_BDNN = rate_BDNN ** t_reg_mu_i / reg_denom_mu_i
@@ -4457,8 +4451,8 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
 
     trait_tbl_sp = get_trt_tbl(bdnn_obj, rate_type="speciation")
     trait_tbl_ex = get_trt_tbl(bdnn_obj, rate_type="extinction")
-    trait_tbl_sp = set_trt_tbl_prec(trait_tbl_sp, float_prec_f)
-    trait_tbl_ex = set_trt_tbl_prec(trait_tbl_ex, float_prec_f)
+    trait_tbl_sp = set_list_prec(trait_tbl_sp, float_prec_f)
+    trait_tbl_ex = set_list_prec(trait_tbl_ex, float_prec_f)
 
     trait_tbl_shape = trait_tbl_sp.shape
     num_taxa = trait_tbl_shape[-2]
@@ -4892,6 +4886,9 @@ def perm_mcmc_sample_i(args):
      bias_node_idx, fix_edgeShift, apply_reg, apply_reg_highres] = load_from_shared_memory(shm)
     # Cleanup shared memory (no unlink here)
     shm.close()
+
+    w_sp_i = set_list_prec(w_sp[i], float_prec_f)
+    w_ex_i = set_list_prec(w_ex[i], float_prec_f)
     
     if trt_tbls[0].ndim == 3:
         bin_size = np.tile(np.abs(np.diff(bdnn_time_highres)), n_taxa).reshape((n_taxa, len(bdnn_time_highres) - 1))
@@ -4919,12 +4916,12 @@ def perm_mcmc_sample_i(args):
     if trt_tbls[0].ndim == 3:
         orig_birth_lik = get_bdnn_lik(hidden_act_f, out_act_f,
                                       bdnn_time, i_events_sp, n_S,
-                                      w_sp[i], t_reg_lam[i], reg_denom_lam[i],
+                                      w_sp_i, t_reg_lam[i], reg_denom_lam[i],
                                       trt_tbls[0],
                                       apply_reg, bias_node_idx, fix_edgeShift)
         orig_death_lik = get_bdnn_lik(hidden_act_f, out_act_f,
                                       bdnn_time, i_events_ex, n_S,
-                                      w_ex[i], t_reg_mu[i], reg_denom_mu[i],
+                                      w_ex_i, t_reg_mu[i], reg_denom_mu[i],
                                       trt_tbls[1],
                                       apply_reg, bias_node_idx, fix_edgeShift)
     else:
@@ -5086,7 +5083,7 @@ def set_temporal_resolution(bdnn_obj, min_bs, rate_type='speciation', ts=None, f
                              add_shifts = add_shifts[:-1]
                          fixed_shifts[idx] = add_shifts
                 fixed_shifts = fixed_shifts[::-1]
-        trt_tbls = set_trt_tbl_prec(trt_tbls, float_prec_f)
+        trt_tbls = set_list_prec(trt_tbls, float_prec_f)
     else:
         if trt_tbls[2].ndim == 3:
             fixed_shifts = copy_lib.deepcopy(bdnn_obj.bdnn_settings['q_time_frames'])[::-1]
@@ -5174,7 +5171,7 @@ def feature_permutation(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm=10, co
     ex_feature_is_time_variable = is_time_variable_feature(trt_tbls[1])
     feature_is_time_variable = (sp_feature_is_time_variable + ex_feature_is_time_variable) > 0
     
-    trt_tbls = set_trt_tbl_prec(trt_tbls, float_prec_f)
+    trt_tbls = set_list_prec(trt_tbls, float_prec_f)
     perm_traits, perm_feature_idx = create_perm_comb(bdnn_obj, do_inter_imp, combine_discr_features)
     n_perm_traits = len(perm_traits)
 
@@ -5338,8 +5335,9 @@ def perm_mcmc_sample_q_i(arg):
     return q_delta_lik
 
 
-def feature_permutation_sampling(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm=10, combine_discr_features="", do_inter_imp=True, num_processes=1, show_progressbar=False):
-    bdnn_obj, _, _, w_q, _, ts, te, _, _, t_reg_q, reg_denom_lam, _, reg_denom_q, norm_q, alpha = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
+def feature_permutation_sampling(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm=10, combine_discr_features="",
+                                 do_inter_imp=True, bdnn_precision=0, num_processes=1, show_progressbar=False):
+    bdnn_obj, _, _, w_q, _, ts, te, _, _, t_reg_q, _, _, reg_denom_q, norm_q, alpha = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
     n_mcmc = ts.shape[0]
     trt_tbl = get_trt_tbl(bdnn_obj, rate_type='sampling')
     feature_is_time_variable = is_time_variable_feature(trt_tbl)
@@ -5375,6 +5373,7 @@ def feature_permutation_sampling(mcmc_file, pkl_file, burnin, thin, min_bs, n_pe
     perm_traits, perm_feature_idx = create_perm_comb(bdnn_obj, do_inter_imp, combine_discr_features, rate_type='sampling')
     n_perm_traits = len(perm_traits)
     out_act_f = bdnn_obj.bdnn_settings['out_act_f_q']
+    float_prec_f = get_float_prec_f_from_bdnn_obj(bdnn_obj, bdnn_precision)
     
     gamma_ncat = bdnn_obj.bdnn_settings['pp_gamma_ncat']
     argsG = 0
@@ -5399,6 +5398,8 @@ def feature_permutation_sampling(mcmc_file, pkl_file, burnin, thin, min_bs, n_pe
         trt_tbl_a = np.copy(trt_tbl)
         if "taxon_age" in names_features:
             trt_tbl_a = add_taxon_age(ts[i, :], te[i, :], q_bins, trt_tbl_a)
+        trt_tbl_a = set_list_prec(trt_tbl_a, float_prec_f)
+        w_q_i = set_list_prec(w_q[i], float_prec_f)
         occ_sp_for_a = occs_sp
         if not constant_baseline_q:
             occ_sp_for_a = occs_sp[:, not_na]
@@ -5408,7 +5409,7 @@ def feature_permutation_sampling(mcmc_file, pkl_file, burnin, thin, min_bs, n_pe
             qbins_ts_te = get_bin_ts_te(ts[i, :], te[i, :], q_bins)
 
         a = [q_i, alpha[i], argsG, gamma_ncat, YangGammaQuant,
-             norm_q[i], w_q[i], t_reg_q[i], reg_denom_q[i],
+             norm_q[i], w_q_i, t_reg_q[i], reg_denom_q[i],
              trt_tbl_a,
              bdnn_obj.bdnn_settings['hidden_act_f'], out_act_f,
              n_perm, n_perm_traits, n_features, feature_is_time_variable, perm_feature_idx,
@@ -6272,8 +6273,7 @@ def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_a
         trt_tbl_aux[:, idx] = trt_tbl[i, idx]
         trt_tbl_aux2[ll, :, :] = trt_tbl_aux
     trt_tbl_aux = trt_tbl_aux2.reshape(nEval * n_species, nAttr)
-    nn = init_NN_output(trt_tbl_aux, cov_par)
-    rate_aux, _ = get_unreg_rate_BDNN_3D(trt_tbl_aux, cov_par, nn, hidden_act_f, out_act_f, bias_node_idx=bias_node_idx)
+    rate_aux, _ = get_unreg_rate_BDNN_3D(trt_tbl_aux, cov_par, None, hidden_act_f, out_act_f, bias_node_idx=bias_node_idx)
     rate_aux = norm * (rate_aux ** t_reg / reg_denom)
     rate_aux = rate_aux * baseline
     rate_aux = rate_aux.reshape(nEval, n_species)
@@ -6340,8 +6340,7 @@ def k_add_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out
 
 def fastshap_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f, bias_node_idx, baseline=1.0, norm=1.0):
     def lambdaX(X, cov_par, hidden_act_f, out_act_f, t_reg, reg_denom, bias_node_idx):
-        nn = init_NN_output(X, cov_par)
-        r, _ = get_unreg_rate_BDNN_3D(X, cov_par, nn, hidden_act_f, out_act_f, bias_node_idx=bias_node_idx)
+        r, _ = get_unreg_rate_BDNN_3D(X, cov_par, None, hidden_act_f, out_act_f, bias_node_idx=bias_node_idx)
         r = baseline * norm * (r ** t_reg / reg_denom)
 #        harmonic_mean = 1.0 / np.mean(1.0 / r)
 #        multi = harmonic_mean / r
@@ -6472,8 +6471,8 @@ def k_add_kernel_shap_i(arg):
     shap_trt_tbl_sp = get_shap_trt_tbl(post_ts_i, bdnn_time, trt_tbls[0], float_prec_f)
     shap_trt_tbl_ex = get_shap_trt_tbl(post_te_i, bdnn_time, trt_tbls[1], float_prec_f)
     # keep only taxa within the edge window
-    shap_trt_tbl_sp = set_trt_tbl_prec(shap_trt_tbl_sp[use_taxa_sp, :], float_prec_f)
-    shap_trt_tbl_ex = set_trt_tbl_prec(shap_trt_tbl_ex[use_taxa_ex, :], float_prec_f)
+    shap_trt_tbl_sp = set_list_prec(shap_trt_tbl_sp[use_taxa_sp, :], float_prec_f)
+    shap_trt_tbl_ex = set_list_prec(shap_trt_tbl_ex[use_taxa_ex, :], float_prec_f)
     if do_inter_imp:
         shap_main_sp, shap_interaction_sp = k_add_kernel_explainer(shap_trt_tbl_sp, post_w_sp_i,
                                                                    t_reg_lam_i, reg_denom_lam_i,
@@ -6604,7 +6603,7 @@ def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, combine_discr_features=
     mcmc_samples = post_ts.shape[0]
     float_prec_f = get_float_prec_f_from_bdnn_obj(bdnn_obj, bdnn_precision)
     trt_tbls = bdnn_obj.trait_tbls[:2]
-    trt_tbls = set_trt_tbl_prec(trt_tbls, float_prec_f)
+    trt_tbls = set_list_prec(trt_tbls, float_prec_f)
     n_species = trt_tbls[0].shape[-2]
     n_features = trt_tbls[0].shape[-1]
     names_features_sp = get_names_features(bdnn_obj, rate_type='speciation')
@@ -6748,9 +6747,11 @@ def k_add_kernel_shap_sampling_i(arg):
     return ke
 
 
-def k_add_kernel_shap_sampling(mcmc_file, pkl_file, burnin, thin, combine_discr_features = {}, do_inter_imp=True, num_processes=1, show_progressbar=False):
+def k_add_kernel_shap_sampling(mcmc_file, pkl_file, burnin, thin, combine_discr_features = {},
+                               do_inter_imp=True, bdnn_precision=0, num_processes=1, show_progressbar=False):
     bdnn_obj, _, _, post_w_q, sp_fad_lad, post_ts, post_te, _, _, post_t_reg_q, _, _, post_reg_denom_q, post_norm_q, alpha = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
     mcmc_samples = post_ts.shape[0]
+    float_prec_f = get_float_prec_f_from_bdnn_obj(bdnn_obj, bdnn_precision)
     trt_tbl = get_trt_tbl(bdnn_obj, 'sampling')
     n_species = trt_tbl.shape[-2]
     n_features = trt_tbl.shape[-1]
@@ -6779,6 +6780,7 @@ def k_add_kernel_shap_sampling(mcmc_file, pkl_file, burnin, thin, combine_discr_
         if 'taxon_age' in names_features:
             trt_tbl = add_taxon_age(post_ts[i, :], post_te[i, :], bdnn_obj.bdnn_settings['q_time_frames'], trt_tbl)
         shap_trt_tbl = get_shap_trt_tbl_sampling(bdnn_obj.bdnn_settings['occs_sp'], trt_tbl)
+        shap_trt_tbl = set_list_prec(shap_trt_tbl, float_prec_f)
         a = [post_w_q[i], post_t_reg_q[i], post_reg_denom_q[i], q[i, :], post_norm_q[i],
              hidden_act_f, out_act_f,
              shap_trt_tbl, idx_comb_feat, do_inter_imp, use_taxa_q]
