@@ -108,8 +108,8 @@ try:
         os_spec_lib="macOS"
         try:
             from pyrate_lib.fastPyRateC.macOS._FastPyRateC import PyRateC_BD_partial_lik, PyRateC_HOMPP_lik, PyRateC_setFossils, \
-                                   PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
-                                                             PyRateC_NHPP_lik, PyRateC_FBD_T4
+                                PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
+                                                            PyRateC_NHPP_lik, PyRateC_FBD_T4
         except:
             from pyrate_lib.fastPyRateC.macOS_arm._FastPyRateC import PyRateC_BD_partial_lik, PyRateC_HOMPP_lik, PyRateC_setFossils, \
                                    PyRateC_getLogGammaPDF, PyRateC_initEpochs, PyRateC_HPP_vec_lik, \
@@ -1949,16 +1949,16 @@ def get_unreg_rate_BDNN_3D(x, w, nnA, act_f, out_act_f, apply_reg=True, bias_nod
     return rates, nn
 
 
-def get_reg_rate_BDNN_3D(rates, t_reg, bin_ts_te=None):
-    normalize_factor = None
-    if rates.ndim == 2:
-        # set rate to NA before ts and after te
-        for i in range(rates.shape[0]):
-            rates[i, :bin_ts_te[i, 0]] = np.nan
-            rates[i, bin_ts_te[i, 1]:] = np.nan
-    reg_rates, denom = get_reg_rates(rates, t_reg)
-    
-    return reg_rates, denom, normalize_factor
+# def get_reg_rate_BDNN_3D(rates, t_reg, bin_ts_te=None):
+#     normalize_factor = None
+#     if rates.ndim == 2:
+#         # set rate to NA before ts and after te
+#         for i in range(rates.shape[0]):
+#             rates[i, :bin_ts_te[i, 0]] = np.nan
+#             rates[i, bin_ts_te[i, 1]:] = np.nan
+#     reg_rates, denom = get_reg_rates(rates, t_reg)
+#
+#     return reg_rates, denom, normalize_factor
 
 
 def get_rate_BDNN_3D(t_reg, x, w, nnA, act_f, out_act_f, apply_reg, bias_node_idx=[0], fix_edgeShift=0, rnd_layer=0):
@@ -2324,7 +2324,7 @@ def init_sampling_trait_and_weights(trait_tbl, time_var_tbl, nodes, bias_node=Fa
 #    return reg_qnn, denom, normalize_factor
 
 
-def get_q_multipliers_NN(t_reg, qnn_output, singleton_mask, qbin_ts_te=None):
+def get_q_multipliers_NN(t_reg, qnn_output, singleton_mask, apply_reg, qbin_ts_te=None):
     qnn = qnn_output + 0.0
     if qnn.ndim == 2:
         # set rate to NA before ts and after te
@@ -2337,7 +2337,7 @@ def get_q_multipliers_NN(t_reg, qnn_output, singleton_mask, qbin_ts_te=None):
     qnn[np.logical_and(singleton_mask, qnn_not_nan)] = np.nan # singletons, they should not impact the regularization
 
     # perform regularization
-    reg_qnn, denom = get_reg_rates(qnn, t_reg)
+    reg_qnn, denom = get_reg_rates(qnn, t_reg, apply_reg)
 
     # convert to multipliers
     normalize_factor = 1 / np.mean(reg_qnn[np.logical_and(~singleton_mask, qnn_not_nan)])
@@ -4030,6 +4030,9 @@ def MCMC(all_arg):
         timevar_qnn = False
         if BDNNmodel in [2, 3]:
             cov_parA = cov_par_init_NN
+            nn_qA = None
+            if not nn_activate_all:
+                nn_qA = init_NN_output(trait_tbl_NN[2], cov_parA[2], float_prec_f)
             q_rates_tmp = q_ratesA
             if bdnn_ads >= 0.0:
                 trait_tbl_NN[2] = add_taxon_age(tsA, teA, q_time_frames_bdnn, trait_tbl_NN[2])
@@ -4045,8 +4048,9 @@ def MCMC(all_arg):
             singleton_lik = copy_lib.deepcopy(singleton_mask)
             if singleton_lik.ndim == 2:
                 singleton_lik = singleton_lik[:, 0].reshape(-1)
-            qnn_output_unregA = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_parA[2], hidden_act_f, out_act_f_q)
-            q_multiA, denom_qA, norm_facA = get_q_multipliers_NN(cov_parA[5], qnn_output_unregA, singleton_mask, qbin_ts_te)
+            rnd_layer_q = -1
+            qnn_output_unregA, nn_qA = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_parA[2], nn_qA, hidden_act_f, out_act_f_q)
+            q_multiA, denom_qA, norm_facA = get_q_multipliers_NN(cov_parA[5], qnn_output_unregA, singleton_mask, apply_reg_q, qbin_ts_te)
             bdnn_prior_qA = np.sum([np.sum(prior_normal(cov_parA[2][i], prior_bdnn_w_q_sd[i])) for i in range(len(cov_parA[2]))])
             if prior_lam_t_reg[0] > 0:
                 bdnn_prior_qA += np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_parA[5]
@@ -4148,6 +4152,7 @@ def MCMC(all_arg):
             bdnn_q_rates = bdnn_q_ratesA
             denom_q = denom_qA + 0.0
             norm_fac = norm_facA + 0.0
+            nn_q = nn_qA
         if BDNNmodel in [1, 3]:
             cov_par = copy_lib.deepcopy(cov_parA)
             bdnn_prior_cov_par = bdnn_prior_cov_parA + 0.0
@@ -4219,13 +4224,13 @@ def MCMC(all_arg):
                     binned_div = get_diversity(ts, te, timesLA, time_vec, bdnn_rescale_div, n_taxa)
                     trait_tbl_NN[0][ :, :, div_idx_trt_tbl] = binned_div
                     trait_tbl_NN[1][ :, :, div_idx_trt_tbl] = binned_div
-                # Recalculate bdnn rates
-                bdnn_lam_rates, denom_lam, nn_lam = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[0], cov_parA[0], nn_lamA,
-                                                                     hidden_act_f, out_act_f,
-                                                                     apply_reg, bias_node_idx, fix_edgeShift)
-                bdnn_mu_rates, denom_mu, nn_mu = get_rate_BDNN_3D(cov_parA[4], trait_tbl_NN[1], cov_parA[1], nn_muA,
-                                                                  hidden_act_f, out_act_f,
-                                                                  apply_reg, bias_node_idx, fix_edgeShift)
+                    # Recalculate bdnn rates
+                    bdnn_lam_rates, denom_lam, nn_lam = get_rate_BDNN_3D(cov_parA[3], trait_tbl_NN[0], cov_parA[0], nn_lamA,
+                                                                            hidden_act_f, out_act_f,
+                                                                            apply_reg, bias_node_idx, fix_edgeShift)
+                    bdnn_mu_rates, denom_mu, nn_mu = get_rate_BDNN_3D(cov_parA[4], trait_tbl_NN[1], cov_parA[1], nn_muA,
+                                                                        hidden_act_f, out_act_f,
+                                                                        apply_reg, bias_node_idx, fix_edgeShift)
                 if BDNNmodel in [2, 3]:
                     if bdnn_ads >= 0.0:
                         trait_tbl_NN[2] = add_taxon_age(ts, te, q_time_frames_bdnn, trait_tbl_NN[2], tsA, teA)
@@ -4360,13 +4365,13 @@ def MCMC(all_arg):
 
             if BDNNmodel in [2, 3] and rr_bdnn >= 0.0:
                 cov_q_updated = 1
+                rnd_layer_q = -1
                 if prior_lam_t_reg[0] > 0 and np.random.random() < 0.1:
                     cov_par[5] = update_parameter(cov_parA[5], 0, 1, d=0.05, f=1)
                 else:
-                    rnd_layer = np.random.randint(0, len(cov_parA[2]))
+                    rnd_layer_q = np.random.randint(0, len(cov_parA[2]))
                     # update layers q rate
-                    cov_par[2][rnd_layer] = update_parameter_normal_vec(cov_parA[2][rnd_layer], d=0.05, f=bdnn_update_f[rnd_layer])
-#                    qnn_output_unreg = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_par[2], hidden_act_f, out_act_f_q)
+                    cov_par[2][rnd_layer_q] = update_parameter_normal_vec(cov_parA[2][rnd_layer_q], d=0.05, f=bdnn_update_f[rnd_layer_q])
 
 
             if not BDNNmodel:
@@ -4494,8 +4499,8 @@ def MCMC(all_arg):
                                         q_rates_tmp = q_rates[highres_q_repeats]
                                     if timevar_qnn:
                                         qbin_ts_te = get_bin_ts_te(ts, te, q_time_frames_bdnn)
-                                    qnn_output_unreg = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_par[2], hidden_act_f, out_act_f_q)
-                                    q_multi, denom_q, norm_fac = get_q_multipliers_NN(cov_par[5], qnn_output_unreg, singleton_mask, qbin_ts_te)
+                                    qnn_output_unreg, nn_q = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_par[2], nn_qA, hidden_act_f, out_act_f_q, rnd_layer=rnd_layer_q)
+                                    q_multi, denom_q, norm_fac = get_q_multipliers_NN(cov_par[5], qnn_output_unreg, singleton_mask, apply_reg_q, qbin_ts_te)
                                     bdnn_prior_q = np.sum([np.sum(prior_normal(cov_par[2][i], prior_bdnn_w_q_sd[i])) for i in range(len(cov_par[2]))])
                                     if prior_lam_t_reg[0] > 0:
                                         bdnn_prior_q += np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_par[5]
@@ -5013,6 +5018,7 @@ def MCMC(all_arg):
                     denom_qA = denom_q
                     norm_facA = norm_fac
                     bdnn_prior_qA = bdnn_prior_q
+                    nn_qA = nn_q
             elif BDNNmodel:
                 if BDNNmodel in [1, 3]:
                     bdnn_lam_rates = bdnn_lam_ratesA
@@ -5032,6 +5038,7 @@ def MCMC(all_arg):
                 if BDNNmodel in [2, 3]:
                     if bdnn_ads >= 0.0 and ts_te_updated:
                         trait_tbl_NN[2] = add_taxon_age(tsA, teA, q_time_frames_bdnn, trait_tbl_NN[2], ts, te)
+                    nn_q = nn_qA
 #                    if trait_tbl_NN[2].ndim == 3 and ts_te_updated == 1:
 #                        qbin_ts_te = get_bin_ts_te(tsA, teA, q_time_frames_bdnn)
 
@@ -6750,7 +6757,7 @@ if __name__ == '__main__':
             occs_sp_bin.append(h)
         argsHPP = 1
         TPP_model = 1
-        print(times_q_shift, np.max(FA), min(LO))
+        print(times_q_shift, np.max(FA), np.min(LO))
     else:
         TPP_model = 0
 
@@ -6761,6 +6768,7 @@ if __name__ == '__main__':
             highres_q_repeats, times_q_shift = get_highres_repeats(args.qShift, bdnn_ads, np.max(FA))
         argsHPP, occs_sp, log_factorial_occs, duration_q_bins, occs_single_bin, q_time_frames_bdnn, use_HPP_NN_lik, TPP_model, const_q = precompute_fossil_features(args.qShift, bdnn_timevar_q, bdnn_ads)
         singleton_mask = make_singleton_mask(occs_sp, bdnn_timevar_q, bdnn_ads)
+        apply_reg_q = np.full_like(singleton_mask, True)
 
 
     if fix_Shift == 1 and use_ADE_model == 0: 
