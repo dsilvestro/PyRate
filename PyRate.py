@@ -4054,8 +4054,8 @@ def MCMC(all_arg):
             qnn_output_unregA, nn_qA = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_parA[2], nn_qA, hidden_act_f, out_act_f_q)
             q_multiA, denom_qA, norm_facA = get_q_multipliers_NN(cov_parA[5], qnn_output_unregA, singleton_mask, apply_reg_q, qbin_ts_te)
             bdnn_prior_qA = np.sum([np.sum(prior_normal(cov_parA[2][i], prior_bdnn_w_q_sd[i])) for i in range(len(cov_parA[2]))])
-            if prior_lam_t_reg[0] > 0:
-                bdnn_prior_qA += np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_parA[5]
+            if prior_lam_t_reg[-1] > 0:
+                bdnn_prior_qA += np.log(prior_lam_t_reg[-1]) - prior_lam_t_reg[-1] * cov_parA[5]
 
         if est_COVAR_prior == 1:
             covar_prior = 1.
@@ -4368,7 +4368,7 @@ def MCMC(all_arg):
             if BDNNmodel in [2, 3] and rr_bdnn >= 0.0:
                 cov_q_updated = 1
                 rnd_layer_q = -1
-                if prior_lam_t_reg[0] > 0 and np.random.random() < 0.1:
+                if prior_lam_t_reg[-1] > 0 and np.random.random() < 0.1:
                     cov_par[5] = update_parameter(cov_parA[5], 0, 1, d=0.05, f=1)
                 else:
                     rnd_layer_q = np.random.randint(0, len(cov_parA[2]))
@@ -4504,8 +4504,8 @@ def MCMC(all_arg):
                                     qnn_output_unreg, nn_q = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_par[2], nn_qA, hidden_act_f, out_act_f_q, rnd_layer=rnd_layer_q)
                                     q_multi, denom_q, norm_fac = get_q_multipliers_NN(cov_par[5], qnn_output_unreg, singleton_mask, apply_reg_q, qbin_ts_te)
                                     bdnn_prior_q = np.sum([np.sum(prior_normal(cov_par[2][i], prior_bdnn_w_q_sd[i])) for i in range(len(cov_par[2]))])
-                                    if prior_lam_t_reg[0] > 0:
-                                        bdnn_prior_q += np.log(prior_lam_t_reg[0]) - prior_lam_t_reg[0] * cov_par[5]
+                                    if prior_lam_t_reg[-1] > 0:
+                                        bdnn_prior_q += np.log(prior_lam_t_reg[-1]) - prior_lam_t_reg[-1] * cov_par[5]
 
                                 if use_HPP_NN_lik:
                                     lik_fossil[ind1], bdnn_q_rates[ind1, :], _ = HPP_NN_lik([ts[ind1], te[ind1],
