@@ -4151,7 +4151,7 @@ def MCMC(all_arg):
             bdnn_prior_q = bdnn_prior_qA + 0.0
             q_multi = q_multiA + 0.0
             qnn_output_unreg = qnn_output_unregA + 0.0
-            bdnn_q_rates = bdnn_q_ratesA
+            bdnn_q_rates = bdnn_q_ratesA + 0.0
             denom_q = denom_qA + 0.0
             norm_fac = norm_facA + 0.0
             nn_q = nn_qA
@@ -4499,7 +4499,7 @@ def MCMC(all_arg):
                                     q_rates_tmp = q_rates
                                     if bdnn_ads > 0.0 and argsHPP == 0:
                                         q_rates_tmp = q_rates[highres_q_repeats]
-                                    if timevar_qnn:
+                                    if timevar_qnn and ts_te_updated:
                                         qbin_ts_te = get_bin_ts_te(ts, te, q_time_frames_bdnn)
                                     qnn_output_unreg, nn_q = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_par[2], nn_qA, hidden_act_f, out_act_f_q, rnd_layer=rnd_layer_q)
                                     q_multi, denom_q, norm_fac = get_q_multipliers_NN(cov_par[5], qnn_output_unreg, singleton_mask, apply_reg_q, qbin_ts_te)
@@ -6839,7 +6839,10 @@ if __name__ == '__main__':
         independ_reg = True
         if len(prior_lam_t_reg) == 1:
             independ_reg = False
-            prior_lam_t_reg = [prior_lam_t_reg[0], prior_lam_t_reg[0]]
+            if BDNNmodel == 1:
+                prior_lam_t_reg = 2 * prior_lam_t_reg
+            elif BDNNmodel == 3:
+                prior_lam_t_reg = 3 * prior_lam_t_reg
     
         # load trait data
         names_traits = []
@@ -6936,6 +6939,10 @@ if __name__ == '__main__':
                 from pyrate_lib.bdnn_lib import get_idx_feature_without_variance
                 invariant_bdnn_pred = [get_idx_feature_without_variance(trait_tbl_lm[0]), get_idx_feature_without_variance(trait_tbl_lm[1])]
                 has_invariant_bdnn_pred = np.sum(np.concatenate(invariant_bdnn_pred)) > 0
+                if prior_lam_t_reg[0] > 0:
+                    cov_par_init_NN[3] = 0.5
+                if prior_lam_t_reg[1] > 0:
+                    cov_par_init_NN[4] = 0.5
             if BDNNmodel in [2, 3]:
                 hasFoundPyRateC = 0
                 CPPlib = ""
@@ -6952,15 +6959,8 @@ if __name__ == '__main__':
                                                                                      float_prec_f=float_prec_f)
                 cov_par_init_NN[2] = cov_par_init_NN_q
                 prior_bdnn_w_q_sd = [np.ones(cov_par_init_NN[2][i].shape) * args.BDNNprior for i in range(len(cov_par_init_NN[2]))]
-            if prior_lam_t_reg[0] > 0:
-                cov_par_init_NN[3] = 0.5
-                cov_par_init_NN[5] = 0.5
-            if prior_lam_t_reg[1] > 0:
-                cov_par_init_NN[4] = 0.5
-            else:
-                cov_par_init_NN[3] = 1.0
-                cov_par_init_NN[4] = 1.0
-                cov_par_init_NN[5] = 1.0
+                if prior_lam_t_reg[-1] > 0:
+                    cov_par_init_NN[5] = 0.5
             
             
             if BDNNmodel in [1, 3] and (block_nn_model or has_invariant_bdnn_pred):
