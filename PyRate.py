@@ -4035,6 +4035,9 @@ def MCMC(all_arg):
             nn_qA = None
             if not nn_activate_all:
                 nn_qA = init_NN_output(trait_tbl_NN[2], cov_parA[2], float_prec_f)
+            if restore_chain:
+                cov_parA = restore_init_values[7]
+
             q_rates_tmp = q_ratesA
             if bdnn_ads >= 0.0:
                 trait_tbl_NN[2] = add_taxon_age(tsA, teA, q_time_frames_bdnn, trait_tbl_NN[2])
