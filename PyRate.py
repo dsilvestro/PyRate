@@ -1429,7 +1429,7 @@ def draw_se_gibbs(fa,la,q_rates_L,q_rates_M,q_times):
     for i in range(len(qfa)):
         q = qfa[i]
         deltaT = np.random.exponential(1./q)
-        ts_temp = min(ts_temp+deltaT, tfa[i])
+        ts_temp = np.minimum(ts_temp+deltaT, tfa[i])
         if ts_temp < tfa[i]:
             break
 
@@ -1448,7 +1448,7 @@ def draw_se_gibbs(fa,la,q_rates_L,q_rates_M,q_times):
         while True:
             q = qla[i]
             deltaT = np.random.exponential(1./q)
-            te_temp = min(te_temp+deltaT, tla[i])
+            te_temp = np.minimum(te_temp+deltaT, tla[i])
             #print attempt,i,te_temp,len(qla)
             if te_temp < tla[i]:
                 break
@@ -4239,6 +4239,7 @@ def MCMC(all_arg):
                 if BDNNmodel in [2, 3]:
                     if bdnn_ads >= 0.0:
                         trait_tbl_NN[2] = add_taxon_age(ts, te, q_time_frames_bdnn, trait_tbl_NN[2], tsA, teA)
+                        rnd_layer_q = 0
 
             tot_L=np.sum(ts-te)
         
@@ -4494,37 +4495,38 @@ def MCMC(all_arg):
                 else:
                     if num_processes_ts==0:
                         if BDNNmodel in [2, 3]:
-                            if rr == 1.5:
-                                # RJMCMC move for lam/mu
+                            if it > 0 and (rr == 1.5 or updated_lam_mu):
+                                # RJMCMC move for lam/mu or last mcmc iteration
                                 lik_fossil = lik_fossilA + 0.0
                             else:
-                                if not updated_lam_mu:
-                                    q_rates_tmp = q_rates
-                                    if bdnn_ads > 0.0 and argsHPP == 0:
-                                        q_rates_tmp = q_rates[highres_q_repeats]
-                                    if timevar_qnn and ts_te_updated:
-                                        qbin_ts_te = get_bin_ts_te(ts, te, q_time_frames_bdnn)
-                                    qnn_output_unreg, nn_q = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_par[2], nn_qA, hidden_act_f, out_act_f_q, rnd_layer=rnd_layer_q)
-                                    q_multi, denom_q, norm_fac = get_q_multipliers_NN(cov_par[5], qnn_output_unreg, singleton_mask, apply_reg_q, qbin_ts_te)
-                                    bdnn_prior_q = np.sum([np.sum(prior_normal(cov_par[2][i], prior_bdnn_w_q_sd[i])) for i in range(len(cov_par[2]))])
-                                    if prior_lam_t_reg[-1] > 0:
-                                        bdnn_prior_q += np.log(prior_lam_t_reg[-1]) - prior_lam_t_reg[-1] * cov_par[5]
+                                q_rates_tmp = q_rates
+                                if bdnn_ads > 0.0 and argsHPP == 0:
+                                    q_rates_tmp = q_rates[highres_q_repeats]
+                                if timevar_qnn and ts_te_updated:
+                                    qbin_ts_te = get_bin_ts_te(ts, te, q_time_frames_bdnn)
+                                if cov_q_updated or (ts_te_updated and bdnn_ads > 0.0):
+                                    qnn_output_unreg, nn_q = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_par[2], nn_qA,
+                                                                                    hidden_act_f, out_act_f_q, rnd_layer=rnd_layer_q)
+                                q_multi, denom_q, norm_fac = get_q_multipliers_NN(cov_par[5], qnn_output_unreg, singleton_mask, apply_reg_q, qbin_ts_te)
+                                bdnn_prior_q = np.sum([np.sum(prior_normal(cov_par[2][i], prior_bdnn_w_q_sd[i])) for i in range(len(cov_par[2]))])
+                                if cov_q_updated and prior_lam_t_reg[-1] > 0:
+                                    bdnn_prior_q += np.log(prior_lam_t_reg[-1]) - prior_lam_t_reg[-1] * cov_par[5]
 
-                                if use_HPP_NN_lik:
-                                    lik_fossil[ind1], bdnn_q_rates[ind1, :], _ = HPP_NN_lik([ts[ind1], te[ind1],
-                                                                                             q_rates_tmp, alpha_pp_gamma,
-                                                                                             q_multi[ind1], const_q,
-                                                                                             occs_sp[ind1, :], log_factorial_occs[ind1],
-                                                                                             q_time_frames_bdnn, duration_q_bins[ind1, :],
-                                                                                             occs_single_bin[ind1], singleton_lik[ind1],
-                                                                                             argsG, pp_gamma_ncat, YangGammaQuant])
-                                else:
-                                    lik_fossil[ind1], bdnn_q_rates[ind1], _ = HOMPP_NN_lik([ts[ind1], te[ind1],
-                                                                                            q_rates_tmp,
+                            if use_HPP_NN_lik:
+                                lik_fossil[ind1], bdnn_q_rates[ind1, :], _ = HPP_NN_lik([ts[ind1], te[ind1],
+                                                                                            q_rates_tmp, alpha_pp_gamma,
                                                                                             q_multi[ind1], const_q,
-                                                                                            occs_sp[ind1], log_factorial_occs[ind1],
-                                                                                            singleton_lik[ind1],
+                                                                                            occs_sp[ind1, :], log_factorial_occs[ind1],
+                                                                                            q_time_frames_bdnn, duration_q_bins[ind1, :],
+                                                                                            occs_single_bin[ind1], singleton_lik[ind1],
                                                                                             argsG, pp_gamma_ncat, YangGammaQuant])
+                            else:
+                                lik_fossil[ind1], bdnn_q_rates[ind1], _ = HOMPP_NN_lik([ts[ind1], te[ind1],
+                                                                                        q_rates_tmp,
+                                                                                        q_multi[ind1], const_q,
+                                                                                        occs_sp[ind1], log_factorial_occs[ind1],
+                                                                                        singleton_lik[ind1],
+                                                                                        argsG, pp_gamma_ncat, YangGammaQuant])
                         else:
                             for j in range(len(ind1)):
                                 i=ind1[j] # which species' lik
