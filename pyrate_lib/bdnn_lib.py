@@ -1062,7 +1062,7 @@ def get_names_features(bdnn_obj, rate_type):
 def is_time_trait(bdnn_obj):
     t = False
     if 'use_time_as_trait' in bdnn_obj.bdnn_settings.keys():
-        t = bdnn_obj.bdnn_settings['use_time_as_trait'] != 0.0
+        t = bdnn_obj.bdnn_settings['use_time_as_trait'] and bdnn_obj.bdnn_settings['time_rescaler'] != 0.0
     return t
 
 
@@ -1074,10 +1074,10 @@ def backscale_bdnn_diversity(tbl, bdnn_obj, names_feat):
 
 
 def backscale_bdnn_time(x, bdnn_obj):
-    denom = 1
     if is_time_trait(bdnn_obj):
         denom = bdnn_obj.bdnn_settings['time_rescaler']
-    return x / denom
+        x /= denom
+    return x
 
 
 def backscale_time_cond_trait_tbl(cond_trait_tbl, bdnn_obj):
@@ -1757,7 +1757,7 @@ def build_conditional_trait_tbl(bdnn_obj,
         if isinstance(bins_within_edges, np.ndarray):
             bins_within_edges = bins_within_edges[:, ::-1]
     
-    if np.any(feature_is_time_variable) and rate_type != 'sampling':
+    if (np.any(feature_is_time_variable) and rate_type != 'sampling') or fix_edge_shift > 0:
         fossil_bin_ts = get_bin_from_fossil_age(bdnn_obj, tste, 'speciation', reverse_time=True)
         _, ts_in_edges = trim_tse_by_edges(tste[:, 0], fix_edge_shift, times_edge_shifts)
         fossil_bin_ts = fossil_bin_ts[ts_in_edges]
@@ -6281,9 +6281,15 @@ def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_a
     exp_payoffs_shap = exp_payoffs_ci + 0.0
     exp_payoffs_ci = exp_payoffs_ci - exp_payoffs_ci[0]
     # For weighted random samples
-    inter_val = explain_matrix @ exp_payoffs_ci
+    # All computers except Apple M4
+    # inter_val = explain_matrix @ exp_payoffs_ci
+    # shapley_ci = inter_val[1:]
+    # shapley_val_ci_shap = XX_w @ exp_payoffs_shap
+    # Apple M4
+    inter_val = np.einsum('ij,j->i', explain_matrix, exp_payoffs_ci)
     shapley_ci = inter_val[1:]
-    shapley_val_ci_shap = XX_w @ exp_payoffs_shap
+    shapley_val_ci_shap = np.einsum('ij,j->i', XX_w, exp_payoffs_shap)
+
     # Interaction indices
     count = 0
     indices = np.zeros((nAttr, nAttr))
@@ -6315,10 +6321,16 @@ def k_add_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out
         weights[0, 0], weights[-1, -1] = 10 ** 6, 10 ** 6
         try:
             # Pre-computing
-            m = opt_data.T @ weights
-            explain_matrix = np.linalg.inv(m @ opt_data) @ m
-            X_w = X.T @ np.diag(weights_shap)  # This can be pre-computed once for all species
-            XX_w = np.linalg.inv(X_w @ X) @ X_w
+            # All computers except Apple M4
+            # m = opt_data.T @ weights
+            # explain_matrix = np.linalg.inv(m @ opt_data) @ m
+            # X_w = X.T @ np.diag(weights_shap)  # This can be pre-computed once for all species
+            # XX_w = np.linalg.inv(X_w @ X) @ X_w
+            # Apple M4
+            m = np.einsum('ij,jk->ik', opt_data.T, weights)
+            explain_matrix = np.einsum('ij,jk->ik', np.linalg.inv(np.einsum('ij,jk->ik', m, opt_data)), m)
+            X_w = np.einsum('ij,jk->ik', X.T, np.diag(weights_shap))
+            XX_w = np.einsum('ij,jk->ik', np.linalg.inv(np.einsum('ij,jk->ik', X_w, X)), X_w)
             _, _ = get_shap_species_i(0, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f,
                                       bias_node_idx, explain_matrix, XX_w, baseline, norm)
             k_add_not_ok = False

@@ -2136,6 +2136,10 @@ def init_weight_prm(n_nodes, n_features, size_output, float_prec_f=np.float64, i
 def make_trait_time_table(trait_tbl, time_var_tbl, num_fixed_times_of_shift, fixed_times_of_shift, n_taxa, dd):
     # create a list of trait tables, one for each time frame
     trait_tbl_list = []
+
+    # Case where we have edge shifts but no time, dd, or timevar predictor
+    use_time_as_trait = np.all(fixed_times_of_shift == 0.0) == False
+
     for i in range(1, num_fixed_times_of_shift):
         rescaled_time = np.mean([fixed_times_of_shift[i-1], fixed_times_of_shift[i]])
         if trait_tbl is not None:
@@ -2170,7 +2174,7 @@ def init_trait_and_weights(trait_tbl, time_var_tbl_lambda, time_var_tbl_mu,
                                 float_prec_f=float_prec_f, init_std=0.01, bias_node=n_bias_node)
         w_mu = init_weight_prm(n_nodes=nodes, n_features=trait_tbl_mu[0].shape[1], size_output=1,
                                float_prec_f=float_prec_f, init_std=0.01, bias_node=n_bias_node)
-        
+
         for i in w_lam:
             print(i.shape)
     elif isinstance(loaded_tbls[0], np.ndarray):
@@ -5786,6 +5790,7 @@ if __name__ == '__main__':
         fix_edgeShift = 0
         min_allowed_n_rates = 1
 
+    use_time_as_trait = args.BDNNtimetrait != 0
     fixed_times_of_shift_bdnn = []
     bdnn_loaded_tbls = args.BDNNpath_taxon_time_tables
     bdnn_loaded_tbls_timevar = False
@@ -5795,28 +5800,42 @@ if __name__ == '__main__':
         bdnn_loaded_tbls, bdnn_loaded_names_traits, bdnn_loaded_timevar_pred = bdnn_lib.load_trait_tbl(bdnn_loaded_tbls)
         if bdnn_loaded_tbls[0].ndim == 3:
             bdnn_loaded_tbls_timevar = True
-    if (args.BDNNtimetrait != 0 or args.BDNNtimevar[0] or args.BDNNdd or bdnn_loaded_tbls_timevar) and args.BDNNmodel in [1, 3]:# and fix_Shift == 0:
-        # if args.A == 4:
-            # fixed_times_of_shift_bdnn = np.arange(1, 1000)[::-1]
-            # time_framesL_bdnn=len(fixed_times_of_shift_bdnn)+1
-            # time_framesM_bdnn=len(fixed_times_of_shift_bdnn)+1
-            # TDI = 4
-        TDI = 0
-        if fix_Shift == 1:
-            fixed_times_of_shift_bdnn = fixed_times_of_shift
-        else:
-            # use 1myr bins by default
-            f_shift=0
-            fixed_times_of_shift_bdnn = np.arange(1, 1000)[::-1]
-            min_allowed_t=0
+
+    if args.BDNNmodel in [1, 3]:
+        needs_bdnn_time = args.BDNNtimetrait != 0 or args.BDNNtimevar[0] or args.BDNNdd or bdnn_loaded_tbls_timevar
+        if fix_edgeShift > 0 and not needs_bdnn_time:
+            # No time-varying BDNN but we want edgeShifts
+            use_time_as_trait = True
             fix_Shift = 1
-        if fix_edgeShift > 0:
-            # Trim all bins older and/or younger than the edgeShifts
+            fixed_times_of_shift_bdnn = []
             if fix_edgeShift in [1, 2]: # both or max boundary
-                fixed_times_of_shift_bdnn = fixed_times_of_shift_bdnn[fixed_times_of_shift_bdnn < edgeShifts[0]]
+                fixed_times_of_shift_bdnn.append(edgeShifts[0])
             if fix_edgeShift in [1, 3]: # both or min boundary
-                fixed_times_of_shift_bdnn = fixed_times_of_shift_bdnn[fixed_times_of_shift_bdnn > edgeShifts[-1]]
-            fixed_times_of_shift_bdnn = np.sort(np.concatenate((fixed_times_of_shift_bdnn, edgeShifts), axis=None))[::-1]
+                fixed_times_of_shift_bdnn.append(edgeShifts[-1])
+            fixed_times_of_shift_bdnn = np.array(fixed_times_of_shift_bdnn)
+
+        elif needs_bdnn_time:
+            # if args.A == 4:
+                # fixed_times_of_shift_bdnn = np.arange(1, 1000)[::-1]
+                # time_framesL_bdnn=len(fixed_times_of_shift_bdnn)+1
+                # time_framesM_bdnn=len(fixed_times_of_shift_bdnn)+1
+                # TDI = 4
+            TDI = 0
+            if fix_Shift == 1:
+                fixed_times_of_shift_bdnn = fixed_times_of_shift
+            else:
+                # use 1myr bins by default
+                f_shift=0
+                fixed_times_of_shift_bdnn = np.arange(1, 1000)[::-1]
+                min_allowed_t=0
+                fix_Shift = 1
+            if fix_edgeShift > 0:
+                # Trim all bins older and/or younger than the edgeShifts
+                if fix_edgeShift in [1, 2]: # both or max boundary
+                    fixed_times_of_shift_bdnn = fixed_times_of_shift_bdnn[fixed_times_of_shift_bdnn < edgeShifts[0]]
+                if fix_edgeShift in [1, 3]: # both or min boundary
+                    fixed_times_of_shift_bdnn = fixed_times_of_shift_bdnn[fixed_times_of_shift_bdnn > edgeShifts[-1]]
+                fixed_times_of_shift_bdnn = np.sort(np.concatenate((fixed_times_of_shift_bdnn, edgeShifts), axis=None))[::-1]
 
 
 
@@ -6418,7 +6437,6 @@ if __name__ == '__main__':
     if argsG == 1: out_name += "_G"
     if args.se_gibbs: out_name += "_seGibbs"
     
-    use_time_as_trait = args.BDNNtimetrait != 0
     add_to_bdnnblock_mask = 1
     bdnn_const_baseline = args.BDNNconstbaseline
     out_act_f = get_act_f(args.BDNNoutputfun)
@@ -6891,16 +6909,16 @@ if __name__ == '__main__':
             time_vec = np.sort(np.concatenate((FA_LO, fixed_times_of_shift_bdnn)))[::-1]
         else:
             time_vec = np.sort(np.array([np.max(FA), np.min(LO)] + list(fixed_times_of_shift)))[::-1]
-        if args.BDNNtimetrait or bdnn_timevar[0] or bdnn_dd or bdnn_loaded_tbls_timevar:
+
+        rescaled_time = []
+        BDNNtimetrait_rescaler = 1
+        if needs_bdnn_time or fix_edgeShift > 0:
             if args.BDNNtimetrait == -1:
                 BDNNtimetrait_rescaler = 1 / np.max(time_vec)
             else:
                 BDNNtimetrait_rescaler = args.BDNNtimetrait
             rescaled_time = time_vec * BDNNtimetrait_rescaler
             # print("rescaled times", rescaled_time, len(rescaled_time))
-        else:
-            rescaled_time = []
-            BDNNtimetrait_rescaler = 1
 
         if args.BDNNpklfile:
             print("loading BDNN pickle")
@@ -7195,7 +7213,8 @@ if __name__ == '__main__':
         suff_out+= "_BDNN_"
         suff_out+="_".join(map(str, n_BDNN_nodes))
         if BDNNmodel in [1, 3]:
-            if use_time_as_trait:
+            not_edgeshift_but_no_time = np.all(rescaled_time == 0.0) == False
+            if use_time_as_trait and not_edgeshift_but_no_time:
                 suff_out+= "T"
             if bdnn_timevar[0] or bdnn_loaded_timevar_pred:
                 suff_out+= "V"
@@ -7241,7 +7260,7 @@ if __name__ == '__main__':
             names_features_bd += names_time_var
             if bdnn_dd:
                 names_features_bd += ['diversity']
-            if use_time_as_trait:
+            if use_time_as_trait and not_edgeshift_but_no_time:
                 names_features_bd += ['time']
             bdnn_rescale_div = 0.0
             if bdnn_dd:
