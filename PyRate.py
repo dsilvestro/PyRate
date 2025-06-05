@@ -1357,11 +1357,11 @@ def update_times(times, max_time,min_time, mod_d4,a,b):
     y=-1*y
     return y
 
-def update_ts_te(ts, te, d1, sample_extinction=1):
+def update_ts_te(ts, te, d1, d2, sample_extinction=1):
     tsn, ten= zeros(len(ts))+ts, zeros(len(te))+te
     f1=np.random.randint(1,frac1) #int(frac1*len(FA)) #-np.random.randint(0,frac1*len(FA)-1))
     ind=np.random.choice(SP_in_window,f1) # update only values in SP/EX_in_window
-    tsn[ind] = ts[ind] + (np.random.uniform(0,1,len(ind))-.5)*d1
+    tsn[ind] = ts[ind] + (np.random.uniform(0, 1, len(ind)) - .5) * d1[ind]
     M = np.inf #boundMax
     tsn[tsn>M]=M-(tsn[tsn>M]-M)
     m = FA
@@ -1369,7 +1369,7 @@ def update_ts_te(ts, te, d1, sample_extinction=1):
     tsn[tsn>M] = ts[tsn>M]
     if sample_extinction:
         ind=np.random.choice(EX_in_window,f1)
-        ten[ind] = te[ind] + (np.random.uniform(0,1,len(ind))-.5)*d1
+        ten[ind] = te[ind] + (np.random.uniform(0, 1, len(ind)) - .5) * d2[ind]
         M = LO
         ten[ten>M]=M[ten>M]-(ten[ten>M]-M[ten>M])
         m = 0 #boundMin
@@ -1417,6 +1417,34 @@ def update_ts_te_indicator(ts, te, d1, sample_extinction=1):
     tsn[SP_not_in_window] = np.maximum(boundMax, np.max(tsn[SP_in_window]))
     ten[EX_not_in_window] = np.minimum(boundMin, np.min(ten[EX_in_window]))
     return tsn,ten
+
+
+def update_ts_te_tune(ts, te, d1, d2, LO, sample_extinction=1):
+    tsn, ten = np.zeros(len(ts)) + ts, np.zeros(len(te)) + te
+    if sample_extinction == 0:
+        ind = np.random.choice(SP_in_window, 1) # update only values in SP/EX_in_window
+        tsn[ind] = ts[ind] + (np.random.uniform(0, 1, len(ind)) - .5) * d1[ind]
+        M = np.inf #boundMax
+        tsn[tsn > M] = M - (tsn[tsn > M] - M)
+        m = FA
+        tsn[tsn < m] = (m[tsn < m] - tsn[tsn < m]) + m[tsn < m]
+        tsn[tsn > M] = ts[tsn > M]
+    else:
+        ind = np.random.choice(EX_in_window[LO > 0.0], 1)
+        ten[ind] = te[ind] + (np.random.uniform(0, 1, len(ind)) - .5) * d2[ind]
+        M = LO
+        ten[ten > M] = M[ten > M]-(ten[ten > M] - M[ten > M])
+        m = 0 #boundMin
+        ten[ten < m]=(m - ten[ten < m]) + m
+        ten[ten > M] = te[ten > M]
+        ten[LO == 0] = 0                                     # indices of LO==0 (extant species)
+    S = tsn - ten
+    if np.min(S) <= 0:
+        print(S)
+    tsn[SP_not_in_window] = np.maximum(boundMax, np.max(tsn[SP_in_window]))
+    ten[EX_not_in_window] = np.minimum(boundMin, np.min(ten[EX_in_window]))
+    return tsn,ten
+
 
 #### GIBBS SAMPLER S/E
 def draw_se_gibbs(fa,la,q_rates_L,q_rates_M,q_times):
@@ -1496,6 +1524,66 @@ def gibbs_update_ts_te_bdnn(q_rates,sp_rates_L, sp_rates_M, q_time_frames):
         new_te.append(e)
     return np.array(new_ts), np.array(new_te)
 
+
+def make_tste_tune_obj(LO, d1):
+    n_taxa = len(LO)
+    d1_ts = np.repeat(d1, n_taxa)
+    d1_te = np.repeat(d1, n_taxa)
+    exceeds_LO = d1_te > LO
+    d1_te[exceeds_LO] = LO[exceeds_LO]
+    tste_tune_obj = np.zeros((n_taxa, 6)) # attempts, successes, and acceptance ratio for ts and te
+    return d1_ts, d1_te, tste_tune_obj
+
+
+def tune_tste_windows(d1_ts, d1_te,
+                      LO, tste_tune_obj,
+                      it, tune_T_schedule,
+                      updated, se_updated,
+                      accepted=0, target=[0.2, 0.4]):
+
+    se_updated *= 3
+    n_taxa = len(LO)
+    update_interval_frac = 0.5 * n_taxa * tune_T_schedule[1]
+
+    # Keep track of acceptance ratio
+    tste_tune_obj[updated, 0 + se_updated] += 1
+    tste_tune_obj[updated, 1 + se_updated] += accepted
+    tste_tune_obj[updated, 2 + se_updated] = tste_tune_obj[updated, 1 + se_updated] / tste_tune_obj[updated, 0 + se_updated]
+
+    exceeds_tuning_interval = tste_tune_obj[:, 0 + se_updated] > tune_T_schedule[1]
+    if se_updated == 3:
+        exceeds_tuning_interval[LO == 0] = False
+    any_exceeds_tuning_interval = np.any(exceeds_tuning_interval)
+
+    # Tune window sizes
+    if any_exceeds_tuning_interval and it < tune_T_schedule[0] and it > 0.1 * tune_T_schedule[0]:
+        u = np.isin(np.arange(len(d1_ts)), updated)
+        too_low = np.logical_and(tste_tune_obj[:, 2 + se_updated] < target[0], u)
+        too_high = np.logical_and(tste_tune_obj[:, 2 + se_updated] > target[1], u)
+
+        # decrease window size
+        if se_updated == 0:
+            d1_ts[too_low] = 0.9 * d1_ts[too_low]
+        else:
+            d1_te[too_low] = 0.9 * d1_te[too_low]
+
+        # increase window size
+        if se_updated == 0:
+            d1_ts[too_high] = 1.1 * d1_ts[too_high]
+        else:
+            d1_te[too_high] = 1.1 * d1_te[too_high]
+
+        exceeds_LO = d1_te > LO
+        d1_te[exceeds_LO] = LO[exceeds_LO]
+
+    # Reset acceptance ratio calculation
+    if any_exceeds_tuning_interval and it > 0.1 * tune_T_schedule[0]:
+        tste_tune_obj[exceeds_tuning_interval, 0 + se_updated] = 0
+        tste_tune_obj[exceeds_tuning_interval, 1 + se_updated] = 0
+        tste_tune_obj[exceeds_tuning_interval, 2 + se_updated] = 0
+
+
+    return d1_ts, d1_te, tste_tune_obj
 
 
 def seed_missing(x,m,s): # assigns random normally distributed trait values to missing data
@@ -4096,6 +4184,10 @@ def MCMC(all_arg):
         [itt, n_proc_,PostA, likA, priorA,tsA,teA,timesLA,timesMA,LA,MA,q_ratesA, cov_parA, lik_fossilA,likBDtempA]=arg
         SA=np.sum(tsA-teA)
 
+
+
+    d1_ts, d1_te, tste_tune_obj = make_tste_tune_obj(LO, d1)
+
     # start threads
     if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
     if frac1>=0 and num_processes_ts>0: pool_ts = multiprocessing.Pool(num_processes_ts) # update ts, te
@@ -4182,7 +4274,7 @@ def MCMC(all_arg):
         
         # autotuning
         if TDI != 1: tmp=0
-        mod_d1= d1           # window size ts, te
+        mod_d1 = d1           # window size ts, te
         mod_d3= list_d3[tmp] # window size rates
         mod_d4= list_d4[tmp] # window size shift times
 
@@ -4202,8 +4294,12 @@ def MCMC(all_arg):
             else:
                 if edge_indicator and it > 10000:
                     ts,te = update_ts_te_indicator(tsA,teA,mod_d1)
+                elif tune_T_schedule[0] > 0:
+                    ts_or_te_updated = np.random.randint(low=0, high=2, size=1)[0]
+                    ts, te = update_ts_te_tune(tsA, teA, d1_ts, d1_te, LO,
+                                               sample_extinction=ts_or_te_updated)
                 else:
-                    ts,te=update_ts_te(tsA,teA,mod_d1)
+                    ts, te = update_ts_te(tsA, teA, d1_ts, d1_te)
                 
             if use_gibbs_se_sampling or it < fast_burnin:
                 if BDNNmodel in [1, 3]:
@@ -4987,7 +5083,8 @@ def MCMC(all_arg):
         #print sum(lik_fossil), sum(likBDtemp), PoiD_const
         if Post>-inf and Post<inf:
             r_acc = log(np.random.random())
-            if Post*tempMC3-PostA*tempMC3 + hasting >= r_acc or stop_update==inf and TDI in [2,3,4] or accept_it==1:
+            is_accepted = Post*tempMC3-PostA*tempMC3 + hasting >= r_acc or stop_update==inf and TDI in [2,3,4] or accept_it==1
+            if is_accepted:
                 likBDtempA=likBDtemp
                 PostA=Post
                 priorA=prior
@@ -5030,6 +5127,10 @@ def MCMC(all_arg):
                     norm_facA = norm_fac
                     bdnn_prior_qA = bdnn_prior_q
                     nn_qA = nn_q
+                if ts_te_updated and tune_T_schedule[0] > 0:
+                    d1_ts, d1_te, tste_tune_obj = tune_tste_windows(d1_ts, d1_te, LO, tste_tune_obj, it,
+                                                                    tune_T_schedule, ind1, ts_or_te_updated,
+                                                                    accepted=1)
             elif BDNNmodel:
                 if BDNNmodel in [1, 3]:
                     bdnn_lam_rates = bdnn_lam_ratesA
@@ -5052,6 +5153,10 @@ def MCMC(all_arg):
                     nn_q = nn_qA
 #                    if trait_tbl_NN[2].ndim == 3 and ts_te_updated == 1:
 #                        qbin_ts_te = get_bin_ts_te(tsA, teA, q_time_frames_bdnn)
+            if not is_accepted and ts_te_updated and tune_T_schedule[0] > 0:
+                d1_ts, d1_te, tste_tune_obj = tune_tste_windows(d1_ts, d1_te,  LO, tste_tune_obj, it,
+                                                                tune_T_schedule, ind1, ts_or_te_updated,
+                                                                accepted=0)
 
         if it % print_freq ==0 or it==burnin:
             try: l=[round(y, 2) for y in [PostA, likA, priorA, SA]]
@@ -5231,6 +5336,15 @@ def MCMC(all_arg):
             if fix_SE == 0:
                 log_state += list(tsA)
                 log_state += list(teA)
+
+            if tune_T_schedule[0] > 0:
+                log_state += list(np.mean(tste_tune_obj[:, 2]).flatten())
+                if np.any(LO > 0):
+                    log_state += list(np.mean(tste_tune_obj[LO > 0, 5]).flatten())
+                log_state += list(np.mean(d1_ts).flatten())
+                if np.any(LO > 0):
+                    log_state += list(np.mean(d1_te[LO > 0]).flatten())
+
             wlog.writerow(log_state)
             logfile.flush()
             os.fsync(logfile)
@@ -5570,6 +5684,7 @@ if __name__ == '__main__':
     # TUNING
     p.add_argument('-tT',     type=float, help='Tuning - window size (ts, te)', default=1., metavar=1.)
     p.add_argument('-nT',     type=int,   help='Tuning - max number updated values (ts, te)', default=5, metavar=5)
+    p.add_argument('-tuneT',  type=float, help='Autotuning window sizes tT. Maximum iteration and tuning interval', default=[0, 1000], nargs=2)
     p.add_argument('-tQ',     type=float, help='Tuning - window sizes (q/alpha: 1.2 1.2)', default=[1.2,1.2], nargs=2)
     p.add_argument('-tR',     type=float, help='Tuning - window size (rates)', default=1.2, metavar=1.2)
     p.add_argument('-tS',     type=float, help='Tuning - window size (time of shift)', default=1., metavar=1.)
@@ -5676,6 +5791,7 @@ if __name__ == '__main__':
     # TUNING
     d1=args.tT                     # win-size (ts, te)
     frac1= args.nT                 # max number updated values (ts, te)
+    tune_T_schedule = args.tuneT   # schedule tuning win-size (ts, te)
     d2=args.tQ                     # win-sizes (q,alpha)
     d3=args.tR                     # win-size (rates)
     f_rate=args.fR                 # fraction of updated values (rates)
@@ -7463,6 +7579,15 @@ if __name__ == '__main__':
         if fix_SE == 0:
             for i in taxa_names: head.append("%s_TS" % (i))
             for i in taxa_names: head.append("%s_TE" % (i))
+
+        if tune_T_schedule[0] > 0:
+            head += ["accept_ratio_ts"]
+            if np.any(LO > 0):
+                head += ["accept_ratio_te"]
+            head += ["tT_ts"]
+            if np.any(LO > 0):
+                head += ["tT_te"]
+
         wlog=csv.writer(logfile, delimiter='\t')
         wlog.writerow(head)
         
