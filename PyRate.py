@@ -5917,8 +5917,8 @@ if __name__ == '__main__':
         if bdnn_loaded_tbls[0].ndim == 3:
             bdnn_loaded_tbls_timevar = True
 
+    needs_bdnn_time = args.BDNNtimetrait != 0 or args.BDNNtimevar[0] or args.BDNNdd or bdnn_loaded_tbls_timevar
     if args.BDNNmodel in [1, 3]:
-        needs_bdnn_time = args.BDNNtimetrait != 0 or args.BDNNtimevar[0] or args.BDNNdd or bdnn_loaded_tbls_timevar
         if fix_edgeShift > 0 and not needs_bdnn_time:
             # No time-varying BDNN but we want edgeShifts
             use_time_as_trait = True
