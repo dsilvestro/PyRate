@@ -2475,7 +2475,9 @@ def get_highres_repeats(args_qShift, new_bs, FA):
                      add_shifts = qt[i + 1]
                  else:
                      add_shifts = qt[i]
-                 qt_highres[np.sum(n_bins_highres[:i])] = add_shifts
+                 until_idx = np.sum(n_bins_highres[:i])
+                 if until_idx < len(qt_highres):
+                    qt_highres[until_idx] = add_shifts
             else:
                  add_shifts = (qt[i] + new_bs) + np.linspace(0.0, bin_size[i] - new_bs, n_bins_highres[i])
                  idx = np.arange(np.sum(n_bins_highres[:i]), np.sum(n_bins_highres[:(i + 1)]), 1, dtype = int)
@@ -2617,8 +2619,8 @@ def get_taxon_rates_bdnn(arg):
     return sp_rates_L, sp_rates_M
 
 
-def make_missing_bins(FA):
-    missing_bins = np.arange(1, 1000)[::-1]
+def make_missing_bins(FA, bin_size=1):
+    missing_bins = np.arange(1, 1000, bin_size)[::-1]
     max_FA = np.max(FA)
     missing_bins = missing_bins[missing_bins < max_FA]
     missing_bins_FA_0 = np.concatenate((max_FA, missing_bins, np.zeros(1)), axis=None)
@@ -2652,7 +2654,7 @@ def get_fossil_features_q_shifts(fossil, q_bins, occs_sp, LO):
     return log_factorial_occs, duration_q_bins, occs_single_bin
 
 
-def precompute_fossil_features(arg_q_shift, arg_bdnn_timevar, bdnn_ads):
+def precompute_fossil_features(arg_q_shift, arg_bdnn_timevar, bdnn_ads, bin_size=1):
     duration_q_bins = None
     occs_single_bin = None
     if arg_q_shift == "" and arg_bdnn_timevar == "" and bdnn_ads < 0.0:
@@ -2665,7 +2667,7 @@ def precompute_fossil_features(arg_q_shift, arg_bdnn_timevar, bdnn_ads):
         for i in range(len(fossil)):
             occs_sp[i] = np.count_nonzero(fossil[i])
             log_factorial_occs[i] = np.sum(np.log(np.arange(1, occs_sp[i] + 1)))
-        q_bins, _ = make_missing_bins(FA)
+        q_bins, _ = make_missing_bins(FA, bin_size)
         use_HPP_NN_lik = False
     else:
         # Shifts in baseline q, time-dependent features, and/or age-dependent sampling
@@ -2681,7 +2683,7 @@ def precompute_fossil_features(arg_q_shift, arg_bdnn_timevar, bdnn_ads):
         if has_q_shifts or bdnn_ads > 0.0:
             q_bins = np.concatenate((np.max(FA), times_q_shift, np.zeros(1)), axis=None)
         else:
-            q_bins, _ = make_missing_bins(FA)
+            q_bins, _ = make_missing_bins(FA, bin_size)
         occs_sp = get_occs_sp(fossil, q_bins)
         log_factorial_occs, duration_q_bins, occs_single_bin = get_fossil_features_q_shifts(fossil, q_bins, occs_sp, LO)
         use_HPP_NN_lik = True
@@ -5411,8 +5413,11 @@ def MCMC(all_arg):
                     os.fsync(marginal_ex_rate_file)
                 if BDNNmodel in [2, 3]:
                     # get marginal q rate through time
-                    qtt = harmonic_mean_q_through_time(tsA, teA, q_time_frames_bdnn, bdnn_q_ratesA)
-                    qtt = list(qtt) + list(q_time_frames_bdnn[1:-1])
+                    if bdnn_ads > 0.0:
+                        qtt = harmonic_mean_q_through_time(tsA, teA, q_time_frames_bdnn, bdnn_q_ratesA)
+                    else:
+                        qtt = harmonic_mean_q_through_time(tsA, teA, times_q_shift_rtt, bdnn_q_ratesA[..., highres_q_repeats_rtt])
+                    qtt = list(qtt) + list(times_q_shift_rtt[1:-1])
                     w_marg_q.writerow(qtt)
                     marginal_q_rate_file.flush()
                     os.fsync(marginal_q_rate_file)
@@ -6907,9 +6912,13 @@ if __name__ == '__main__':
 
     bdnn_ads = args.BDNNads
     if BDNNmodel in [2, 3]:
+        args_qShift = args.qShift
+        highres_q_repeats_rtt, times_q_shift_rtt = get_highres_repeats(args_qShift, bdnn_time_res, np.max(FA))
         highres_q_repeats = None
         if bdnn_ads >= 0.0:
-            highres_q_repeats, times_q_shift = get_highres_repeats(args.qShift, bdnn_ads, np.max(FA))
+            highres_q_repeats, times_q_shift = get_highres_repeats(args_qShift, bdnn_ads, np.max(FA))
+            times_q_shift_rtt = np.array(times_q_shift)
+        times_q_shift_rtt = np.concatenate((np.inf, times_q_shift_rtt, np.zeros(1)), axis=None)
         argsHPP, occs_sp, log_factorial_occs, duration_q_bins, occs_single_bin, q_time_frames_bdnn, use_HPP_NN_lik, TPP_model, const_q = precompute_fossil_features(args.qShift, bdnn_timevar_q, bdnn_ads)
         singleton_mask = make_singleton_mask(occs_sp, bdnn_timevar_q, bdnn_ads)
         apply_reg_q = np.full_like(singleton_mask, True)
