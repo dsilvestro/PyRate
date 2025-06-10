@@ -5654,6 +5654,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNnodes', type=int, help='number of BD-NN nodes', nargs='+',default=[16, 8])
     p.add_argument('-BDNNfadlad', type=float, help='if > 0 include FAD LAD as traits (rescaled i.e. FAD * BDNNfadlad)', default=0, metavar=0)
     p.add_argument('-BDNNtimetrait', type=float, help='if > 0 use (rescaled) time as a trait (only with -fixShift option). if = -1 auto-rescaled', default= -1, metavar= -1)
+    p.add_argument('-BDNNtimeres', type=float, help='Time resolution for the BDNN model. Is overridden by -fixShift argument.', default=1, metavar=1)
     p.add_argument('-BDNNconstbaseline', type=int, help='constant baseline rates (only with -fixShift option AND time as a trait)', default=1, metavar=1)
     p.add_argument('-BDNNoutputfun', type=int, help='Activation function output layer: 0) abs, 1) softPlus, 2) exp, 3) relu 4) sigmoid 5) sigmoid_rate', default=1, metavar=1)
     p.add_argument('-BDNNactfun', type=int, help='Activation function hidden layer(s): 0) tanh, 1) relu, 2) leaky_relu, 3) swish, 4) sigmoid, 5) fast approximation tanh', default=5, metavar=0)
@@ -5907,6 +5908,7 @@ if __name__ == '__main__':
         min_allowed_n_rates = 1
 
     use_time_as_trait = args.BDNNtimetrait != 0
+    bdnn_time_res = args.BDNNtimeres
     fixed_times_of_shift_bdnn = []
     bdnn_loaded_tbls = args.BDNNpath_taxon_time_tables
     bdnn_loaded_tbls_timevar = False
@@ -5940,9 +5942,8 @@ if __name__ == '__main__':
             if fix_Shift == 1:
                 fixed_times_of_shift_bdnn = fixed_times_of_shift
             else:
-                # use 1myr bins by default
                 f_shift=0
-                fixed_times_of_shift_bdnn = np.arange(1, 1000)[::-1]
+                fixed_times_of_shift_bdnn = np.arange(1, 1000, bdnn_time_res)[::-1]
                 min_allowed_t=0
                 fix_Shift = 1
             if fix_edgeShift > 0:
