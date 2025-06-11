@@ -403,8 +403,8 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
             sys.stdout.write(".")
             sys.stdout.flush()
             head = next(open(f)).split() # should be faster
-            sp_ind= [head.index(s) for s in head if "l_" in s]
-            min_age=min(min_age,len(sp_ind))
+            sp_ind = [head.index(s) for s in head if "l_" in s]
+            min_age = np.minimum(min_age, len(sp_ind))
 
         print("Min root age:", min_age)
         max_ind=min_age-1
@@ -420,6 +420,7 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
         file_name =  os.path.splitext(os.path.basename(f))[0]
         print(file_name)
         try:
+            max_ind = int(max_ind)
             t=np.loadtxt(f, skiprows=np.maximum(1,burnin))
             sys.stdout.write(".")
             sys.stdout.flush()
