@@ -3504,7 +3504,7 @@ def get_coefficient_sampling_variation(path_dir_log_files, burn, combine_discr_f
         axis_q_mean = 0
         use_HPP_NN_lik = True
         TPP_model = 1
-    qtt, time_vec_q = get_qtt(q_tt_file, burn)
+    qtt, time_vec_q = get_rtt(q_tt_file, burn)
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', category = RuntimeWarning)
         qtt_mean = np.nanmean(qtt, axis = axis_q_mean)
