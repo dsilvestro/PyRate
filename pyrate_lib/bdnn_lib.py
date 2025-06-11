@@ -299,7 +299,13 @@ def read_rtt(rtt_file, burnin=0):
     with open(rtt_file, "r") as f:
         rtt = [np.array(x.strip().split(), dtype=float) for x in f.readlines()]
     del rtt[:burnin]
-    return rtt
+    # Have we used RJMCMC?
+    num_it = len(rtt)
+    len_rtt = np.zeros(num_it)
+    for i in range(num_it):
+        len_rtt[i] = len(rtt[i])
+    rjmcmc_used = len(np.unique(len_rtt)) > 1
+    return rtt, rjmcmc_used
 
 
 def summarize_rate(r, n_rates):
@@ -351,22 +357,50 @@ def format_t_vec(t_vec, FA, LA=0.0, translate=0.0):
     return t_vec
 
 
-def get_qtt(f_q, burn):
-    r = read_rtt(f_q)
+def spexq_log_to_array(rate_list, time_vec):
+    """Construct from list of rates a 2D array. Time bins earlier than the oldest fossil will contain nan"""
+    num_it = len(rate_list)
+    r = np.zeros((num_it, len(time_vec) + 1))
+    r[:] = np.nan
+    for i in range(num_it):
+        r_i = rate_list[i]
+        s1 = len(r_i)
+        n_rates = int((s1 + 1) / 2)
+        r[i, :n_rates] = r_i[:n_rates][::-1]
+    r = r[:, ::-1]
+    return r
+
+
+def rjmcmc_log_to_array(rate_list, time_vec, LA):
+    """Construct from list of rjmcmc rates a 2D array."""
+    num_it = len(rate_list)
+    r = np.zeros((num_it, len(time_vec)))
+    r[:] = np.nan
+    for i in range(num_it):
+        r_i = rate_list[i]
+        s1 = len(r_i)
+        n_rates = int((s1 + 1) / 2)
+        rates_i = r_i[:n_rates][::-1]
+        shifts_i = r_i[n_rates:][::-1]
+        d = np.digitize(time_vec, shifts_i)
+        r[i, :] = rates_i[d]
+        r[i, time_vec < LA] = np.nan
+    return r
+
+
+def get_rtt(f_q, burn, FA=None, LA=None):
+    r, rjmcmc = read_rtt(f_q)
     num_it = len(r)
     burnin = check_burnin(burn, num_it)
-    r_q_list = read_rtt(f_q, burnin)
-    time_vec_q = make_t_vec(r_q_list)
-    num_it = len(r_q_list)
-    r_q = np.zeros((num_it, len(time_vec_q) + 1))
-    r_q[:] = np.nan
-    for i in range(num_it):
-        r_q_i = r_q_list[i]
-        s1 = len(r_q_i)
-        n_rates = int((s1 + 1) / 2)
-        r_q[i, :n_rates] = r_q_i[:n_rates][::-1]
-    r_q = r_q[:, ::-1]
-    return r_q, time_vec_q
+    r_list, _ = read_rtt(f_q, burnin)
+    if not rjmcmc:
+        time_vec = make_t_vec(r_list)
+        r_out = spexq_log_to_array(r_list, time_vec)
+    else:
+        time_vec = np.concatenate((np.arange(0, FA, 0.001), np.array(FA)), axis=None)[::-1]
+        r_out = rjmcmc_log_to_array(r_list, time_vec, LA)
+        time_vec = time_vec[1:]
+    return r_out, time_vec
 
 
 def get_bdnn_rtt(f, burn, translate=0):
@@ -389,29 +423,9 @@ def get_bdnn_rtt(f, burn, translate=0):
         LA = sp_fad_lad["LAD"].min()
     
     try:
-        r = read_rtt(f_sp)
-        num_it = len(r)
-        burnin = check_burnin(burn, num_it)
-        r_sp_list = read_rtt(f_sp, burnin)
-        r_ex_list = read_rtt(f_ex, burnin)
-        time_vec = make_t_vec(r_sp_list)
-        # Construct from list of rates a 2D array. Time bins earlier than the oldest fossil will contain nan
-        num_it = len(r_sp_list)
-        r_sp = np.zeros((num_it, len(time_vec) + 1))
-        r_sp[:] = np.nan
-        r_ex = np.zeros((num_it, len(time_vec) + 1))
-        r_ex[:] = np.nan
-        for i in range(num_it):
-            r_sp_i = r_sp_list[i]
-            r_ex_i = r_ex_list[i]
-            s1 = len(r_sp_i)
-            n_rates = int((s1 + 1) / 2)
-            r_sp[i, :n_rates] = r_sp_i[:n_rates][::-1]
-            r_ex[i, :n_rates] = r_ex_i[:n_rates][::-1]
-        r_sp = r_sp[:, ::-1]
-        r_ex = r_ex[:, ::-1]
+        r_sp, time_vec = get_rtt(f_sp, burn, FA, LA)
+        r_ex, _ = get_rtt(f_ex, burn, FA, LA)
         n_rates = r_sp.shape[1]
-
         time_vec = format_t_vec(time_vec, FA, LA, translate)
         r_div = r_sp - r_ex
         longevity = 1. / r_ex
@@ -427,7 +441,7 @@ def get_bdnn_rtt(f, burn, translate=0):
         time_vec = None
     
     try:
-        r_q, time_vec_q = get_qtt(f_q, burn)
+        r_q, time_vec_q = get_rtt(f_q, burn)
         n_rates = r_q.shape[1]
         time_vec_q = format_t_vec(time_vec_q, FA, LA, translate)
         r_q_sum = summarize_rate(r_q, n_rates)
@@ -2507,7 +2521,7 @@ def get_baseline_q2(mcmc_file, burn, thin, mean_across_shifts=True):
     root_age, _ = get_root_age(mcmc_file, burn_idx)
     f = mcmc_file.replace("_mcmc.log", "")
     f_q = f + "_q_rates.log"
-    qtt_list = read_rtt(f_q, burn_idx)
+    qtt_list, _ = read_rtt(f_q, burn_idx)
     time_vec = make_t_vec(qtt_list)
     # harmonic mean through time
     q = get_mean_rates(qtt_list, root_age)
@@ -2892,8 +2906,8 @@ def get_coefficient_rate_variation(path_dir_log_files, burn, combine_discr_featu
                                                                             num_taxa, sp_rates, ex_rates)
 
     root_age, root_age_CI = get_root_age(mcmc_file, burnin)
-    lam_tt = read_rtt(lam_tt_file, burnin)
-    mu_tt = read_rtt(mu_tt_file, burnin)
+    lam_tt, _ = read_rtt(lam_tt_file, burnin)
+    mu_tt, _ = read_rtt(mu_tt_file, burnin)
     lam_tt_CI = get_mean_rate_through_time(lam_tt, root_age, bins_within_edges)
     mu_tt_CI = get_mean_rate_through_time(mu_tt, root_age, bins_within_edges)
 
