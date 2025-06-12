@@ -4139,7 +4139,7 @@ def MCMC(all_arg):
             q_rates_tmp = q_ratesA
             if bdnn_ads >= 0.0:
                 trait_tbl_NN[2] = add_taxon_age(tsA, teA, q_time_frames_bdnn, trait_tbl_NN[2])
-                if bdnn_ads > 0.0 and argsHPP == 0:
+                if not highres_q_repeats is None: #bdnn_ads > 0.0 and argsHPP == 0:
                     q_rates_tmp = q_ratesA[highres_q_repeats]
             qbin_ts_te = None
             bdnn_q_ratesA = np.zeros(n_taxa)
@@ -4606,7 +4606,7 @@ def MCMC(all_arg):
                                 lik_fossil = lik_fossilA + 0.0
                             else:
                                 q_rates_tmp = q_rates
-                                if bdnn_ads > 0.0 and argsHPP == 0:
+                                if not highres_q_repeats is None: #bdnn_ads > 0.0 and argsHPP == 0:
                                     q_rates_tmp = q_rates[highres_q_repeats]
                                 if timevar_qnn and ts_te_updated:
                                     qbin_ts_te = get_bin_ts_te(ts, te, q_time_frames_bdnn)
@@ -5419,7 +5419,7 @@ def MCMC(all_arg):
                     # get marginal q rate through time
                     if bdnn_ads > 0.0 and bdnn_time_res > bdnn_ads:
                         qtt = harmonic_mean_q_through_time(tsA, teA, q_time_frames_bdnn, bdnn_q_ratesA)
-                    elif use_HPP_NN_lik:
+                    elif use_HPP_NN_lik and 'highres_q_repeats_rtt' in globals():
                         qtt = harmonic_mean_q_through_time(tsA, teA, times_q_shift_rtt, bdnn_q_ratesA[..., highres_q_repeats_rtt])
                     else:
                         qtt = harmonic_mean_q_through_time(tsA, teA, times_q_shift_rtt, bdnn_q_ratesA)
@@ -6920,15 +6920,18 @@ if __name__ == '__main__':
     if BDNNmodel in [2, 3]:
         args_qShift = args.qShift
         highres_q_repeats = None
-        if bdnn_ads >= 0.0:
-            highres_q_repeats, times_q_shift = get_highres_repeats(args_qShift, bdnn_ads, np.max(FA))
-        argsHPP, occs_sp, log_factorial_occs, duration_q_bins, occs_single_bin, q_time_frames_bdnn, use_HPP_NN_lik, TPP_model, const_q = precompute_fossil_features(args.qShift, bdnn_timevar_q, bdnn_ads)
+        if bdnn_ads >= 0.0 or (args_qShift != '' and bdnn_timevar_q != ''):
+            min_bin_size = bdnn_time_res
+            if bdnn_ads >= 0.0:
+                min_bin_size = np.minimum(bdnn_ads, bdnn_time_res)
+            highres_q_repeats, times_q_shift = get_highres_repeats(args_qShift, min_bin_size, np.max(FA))
+        argsHPP, occs_sp, log_factorial_occs, duration_q_bins, occs_single_bin, q_time_frames_bdnn, use_HPP_NN_lik, TPP_model, const_q = precompute_fossil_features(args_qShift, bdnn_timevar_q, bdnn_ads, bdnn_time_res)
         singleton_mask = make_singleton_mask(occs_sp, bdnn_timevar_q, bdnn_ads)
         apply_reg_q = np.full_like(singleton_mask, True)
-        if (use_HPP_NN_lik and bdnn_ads <= 0.0) or (not use_HPP_NN_lik and bdnn_time_res < 1.0):
+        if (((use_HPP_NN_lik and bdnn_ads <= 0.0) or (not use_HPP_NN_lik and bdnn_time_res < 1.0) or (bdnn_timevar_q != '' and bdnn_time_res == 1)) and not (bdnn_timevar_q != '' and TPP_model == 0)):
             highres_q_repeats_rtt, times_q_shift_rtt = get_highres_repeats(args_qShift, bdnn_time_res, np.max(FA))
             times_q_shift_rtt = np.concatenate((np.inf, times_q_shift_rtt, np.zeros(1)), axis=None)
-        elif bdnn_ads > 0.0 and bdnn_time_res < bdnn_ads:
+        elif (bdnn_ads > 0.0 and bdnn_time_res < bdnn_ads):
             highres_q_repeats_rtt, times_q_shift_rtt = get_highres_repeats(args_qShift, bdnn_time_res, np.max(FA), q_time_frames_bdnn[::-1])
             times_q_shift_rtt = np.concatenate((np.inf, times_q_shift_rtt, np.zeros(1)), axis=None)
         else:
@@ -7450,7 +7453,7 @@ if __name__ == '__main__':
                     'duration_q_bins': duration_q_bins,
                     'occs_single_bin': occs_single_bin
                 })
-            if bdnn_ads >= 0.0:
+            if not highres_q_repeats is None: # bdnn_ads >= 0.0:
                 bdnn_dict.update({'highres_q_repeats': highres_q_repeats})
         
         obj = bdnn(bdnn_settings=bdnn_dict,
