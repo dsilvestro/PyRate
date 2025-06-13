@@ -1358,11 +1358,11 @@ def update_times(times, max_time,min_time, mod_d4,a,b):
     y=-1*y
     return y
 
-def update_ts_te(ts, te, d1, d2, sample_extinction=1):
+def update_ts_te(ts, te, d1, sample_extinction=1):
     tsn, ten= zeros(len(ts))+ts, zeros(len(te))+te
     f1=np.random.randint(1,frac1) #int(frac1*len(FA)) #-np.random.randint(0,frac1*len(FA)-1))
     ind=np.random.choice(SP_in_window,f1) # update only values in SP/EX_in_window
-    tsn[ind] = ts[ind] + (np.random.uniform(0, 1, len(ind)) - .5) * d1[ind]
+    tsn[ind] = ts[ind] + (np.random.uniform(0,1,len(ind))-.5)*d1
     M = np.inf #boundMax
     tsn[tsn>M]=M-(tsn[tsn>M]-M)
     m = FA
@@ -1370,7 +1370,7 @@ def update_ts_te(ts, te, d1, d2, sample_extinction=1):
     tsn[tsn>M] = ts[tsn>M]
     if sample_extinction:
         ind=np.random.choice(EX_in_window,f1)
-        ten[ind] = te[ind] + (np.random.uniform(0, 1, len(ind)) - .5) * d2[ind]
+        ten[ind] = te[ind] + (np.random.uniform(0,1,len(ind))-.5)*d1
         M = LO
         ten[ten>M]=M[ten>M]-(ten[ten>M]-M[ten>M])
         m = 0 #boundMin
@@ -4305,7 +4305,7 @@ def MCMC(all_arg):
                     ts, te = update_ts_te_tune(tsA, teA, d1_ts, d1_te, LO,
                                                sample_extinction=ts_or_te_updated)
                 else:
-                    ts, te = update_ts_te(tsA, teA, d1_ts, d1_te)
+                    ts, te = update_ts_te(tsA, teA, mod_d1)
                 
             if use_gibbs_se_sampling or it < fast_burnin:
                 if BDNNmodel in [1, 3]:
