@@ -3539,7 +3539,7 @@ def Alg_3_1(arg):
             deathRate=estimate_delta(likBDtemp, M,"m",timesM, ts, te, cov_par, len(L),deathRate,n_likBD,len(L))
         deltaRate=sum(deathRate)
         #print it, "DELTA:", round(deltaRate,3), "\t", deathRate, len(L), len(M),round(sum(likBDtemp),3)
-        cont_time += np.random.exponential(1./min((deltaRate+birthRate), 100000))
+        cont_time += np.random.exponential(1./np.minimum((deltaRate+birthRate), 100000))
         if cont_time>len_cont_time: break
 
         else: # UPDATE MODEL
