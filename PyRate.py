@@ -3518,7 +3518,7 @@ def estimate_delta(likBDtemp, R,par,times, ts, te, cov_par, ind,deathRate,n_likB
             args=[ts, te, up, lo, l, par, cov_par_one,len_L]
             tempL+=BPD_partial_lik(args)
         #print "LIK",    tempL, sum(likBDtemp[ind:ind+len(R)])
-        D=min(tempL-sum(likBDtemp[ind:ind+len(R)]), 100) # to avoid overflows
+        D = np.minimum(tempL - np.sum(likBDtemp[ind:ind + len(R)]), 100) # to avoid overflows
         deathRate[temp_l]=exp(D)
     return deathRate #, n_likBD
 
