@@ -397,7 +397,7 @@ def get_rtt(f_q, burn, FA=None, LA=None):
         time_vec = make_t_vec(r_list)
         r_out = spexq_log_to_array(r_list, time_vec)
     else:
-        time_vec = np.concatenate((np.arange(0, FA, 0.001), np.array(FA)), axis=None)[::-1]
+        time_vec = np.concatenate((np.linspace(0, FA, 1000), np.array(FA)), axis=None)[::-1]
         r_out = rjmcmc_log_to_array(r_list, time_vec, LA)
         time_vec = time_vec[1:]
     return r_out, time_vec
@@ -3507,7 +3507,8 @@ def get_coefficient_sampling_variation(path_dir_log_files, burn, combine_discr_f
     qtt, time_vec_q = get_rtt(q_tt_file, burn)
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', category = RuntimeWarning)
-        qtt_mean = np.nanmean(qtt, axis = axis_q_mean)
+        qtt_mean = np.nanmean(qtt, axis=axis_q_mean)
+        qtt_mean[np.isnan(qtt_mean)] = np.nanmean(qtt_mean) # no q when all taxa are extinct
     if isinstance(qtt_mean, np.floating):
         # np.mean is not returning an array for the overall mean (i.e. when there are no shifts through time)
         qtt_mean = np.array([qtt_mean])
@@ -4059,6 +4060,8 @@ def get_prob_effects(cond_trait_tbl, cond_rates, bdnn_obj, names_features, rate_
 
 
 def get_shap_trt_tbl(tse, times, trt_tbl, prec_f=np.float64):
+    print('tse\n', tse)
+    # print('times\n', times)
     if trt_tbl.ndim == 2:
         shap_trt_tbl = trt_tbl + 0.0
     else:
@@ -4074,6 +4077,7 @@ def get_shap_trt_tbl(tse, times, trt_tbl, prec_f=np.float64):
         shap_trt_tbl = prec_f(np.zeros((n_species, n_features)))
         for i in range(n_species):
             shap_trt_tbl[i,:] = trt_tbl[digitized_tse[i], i, :]
+    print('shap_trt_tbl\n', shap_trt_tbl.flatten())
     return shap_trt_tbl
 
 
