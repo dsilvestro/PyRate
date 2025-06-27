@@ -7305,7 +7305,7 @@ def rank_features(pv_reord, sh_reord, fp_reord):
     n_inter = np.sum(idx_main == False)
     ranked_feat_import_inter = np.array([])
     if n_inter == 1:
-        ranked_feat_import_inter = np.zeros((1, 3))
+        ranked_feat_import_inter = np.zeros((3, 1))
     elif n_inter > 1:
         nan_idx_inter = np.isnan(feat_importance_inter)
         feat_importance_inter[nan_idx_inter] = np.nanmax(feat_importance_inter) + 1
@@ -7356,9 +7356,9 @@ def get_consensus_ranking(pv, sh, fp):
         main_consranks = quickcons(feat_main_ranked[use_import_metrics, :])
         main_consrank = stats.mode(main_consranks[0], axis = 0)[0].flatten()
     inter_consrank = np.array([])
-    if feat_inter_ranked.shape[0] > 0:
+    if feat_inter_ranked.shape[1] > 0:
         inter_consrank = np.zeros(1)
-        if feat_inter_ranked.shape[1] > 1:
+        if feat_inter_ranked.shape[0] > 1:
             inter_consranks = quickcons(feat_inter_ranked[use_import_metrics, :])
             inter_consrank = stats.mode(inter_consranks[0], axis = 0)[0].flatten()
     rank_df = pd.DataFrame(np.concatenate((main_consrank, inter_consrank)) + 1.0, columns = ['rank'])
