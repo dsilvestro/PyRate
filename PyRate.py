@@ -3504,7 +3504,7 @@ def estimate_delta(likBDtemp, R,par,times, ts, te, cov_par, ind,deathRate,n_likB
             args=[ts, te, up, lo, l, par, cov_par_one,len_L]
             tempL+=BPD_partial_lik(args)
         #print "LIK",    tempL, sum(likBDtemp[ind:ind+len(R)])
-        D = np.minimum(tempL - np.sum(likBDtemp[ind:ind + len(R)]), 100) # to avoid overflows
+        D=min(tempL-sum(likBDtemp[ind:ind+len(R)]), 100) # to avoid overflows
         deathRate[temp_l]=exp(D)
     return deathRate #, n_likBD
 
@@ -3525,7 +3525,7 @@ def Alg_3_1(arg):
             deathRate=estimate_delta(likBDtemp, M,"m",timesM, ts, te, cov_par, len(L),deathRate,n_likBD,len(L))
         deltaRate=sum(deathRate)
         #print it, "DELTA:", round(deltaRate,3), "\t", deathRate, len(L), len(M),round(sum(likBDtemp),3)
-        cont_time += np.random.exponential(1./np.minimum((deltaRate+birthRate), 100000))
+        cont_time += np.random.exponential(1./min((deltaRate+birthRate), 100000))
         if cont_time>len_cont_time: break
 
         else: # UPDATE MODEL
