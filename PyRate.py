@@ -2798,20 +2798,6 @@ def HOMPP_NN_lik(arg):
     return lik, q_rates, weight_per_taxon
 
 
-def harmonic_mean_q_per_sp(q, d):
-    # Harmonic mean of q rates per species weighted by the duration in each q bin
-    n_taxa = q.shape[0]
-    harmean_q = np.zeros(n_taxa)
-    for i in range(n_taxa):
-        d_i = d[i, :]
-        q_i = q[i, :]
-        keep = d_i > 0.0
-        d_i = d_i[keep]
-        q_i = q_i[keep]
-        harmean_q[i] = np.nansum(d_i) / np.nansum(d_i / q_i)
-    return harmean_q.tolist()
-
-
 def harmonic_mean_q_through_time(ts, te, time_frames, q_rates):
     if q_rates.ndim == 2:
         w = np.ones(q_rates.shape)
@@ -5435,24 +5421,13 @@ def MCMC(all_arg):
                         marginal_ex_rate_file.flush()
                         os.fsync(marginal_ex_rate_file)
                 
-                if log_per_species_rates:
-                    if BDNNmodel in [1, 3]:
-                        # get time-trait dependent rate at ts (speciation) and te (extinction) | (only works with bdnn_const_baseline)
-                        arg_taxon_rates = [tsA, teA, timesLA, timesMA, bdnn_lam_ratesA, bdnn_mu_ratesA]
-                        sp_lam_vec, sp_mu_vec = get_taxon_rates_bdnn(arg_taxon_rates)
-                        species_rate_writer.writerow([it] + list(sp_lam_vec) + list(sp_mu_vec))
-                        species_rate_file.flush()
-                        os.fsync(species_rate_file)
-                    if BDNNmodel in [2, 3]:
-                        # Should we log (in addition) the deviation of the bdnn_rate from the baseline q rates?
-                        if use_HPP_NN_lik:
-                            time_in_q_bins = get_time_in_q_bins(tsA, teA, q_time_frames_bdnn, duration_q_bins, occs_single_bin)
-                            q_per_sp = harmonic_mean_q_per_sp(bdnn_q_ratesA, time_in_q_bins)
-                            sp_q_marg.writerow([it] + q_per_sp)
-                        else:
-                            sp_q_marg.writerow([it] + bdnn_q_ratesA.tolist())
-                        sp_q_marg_rate_file.flush()
-                        os.fsync(sp_q_marg_rate_file)
+                if log_per_species_rates and BDNNmodel in [1, 3]:
+                    # get time-trait dependent rate at ts (speciation) and te (extinction) | (only works with bdnn_const_baseline)
+                    arg_taxon_rates = [tsA, teA, timesLA, timesMA, bdnn_lam_ratesA, bdnn_mu_ratesA]
+                    sp_lam_vec, sp_mu_vec = get_taxon_rates_bdnn(arg_taxon_rates)
+                    species_rate_writer.writerow([it] + list(sp_lam_vec) + list(sp_mu_vec))
+                    species_rate_file.flush()
+                    os.fsync(species_rate_file)
         
         it += 1
     if TDI==1 and n_proc==0: marginal_likelihood(marginal_file, marginal_lik, temperatures)
@@ -7711,14 +7686,10 @@ if __name__ == '__main__':
             species_rate_file.flush()
 
         # OUTPUT 5 species-specific (relative) preservation rate
-        if sp_specific_q_rates or BDNNmodel in [2, 3]:
+        if sp_specific_q_rates: #  or BDNNmodel in [2, 3]
             sp_q_marg_rate_file_name = "%s/%s_per_species_q_rates.log" % (path_dir, suff_out)
-            if BDNNmodel in [2, 3]:
-                head = ["iteration"]
-                for i in taxa_names: head.append("%s_q" % (i))
-            else:
-                head = ["iteration", "alpha"]
-                for i in taxa_names: head.append("%s_rel_q" % (i))
+            head = ["iteration", "alpha"]
+            for i in taxa_names: head.append("%s_rel_q" % (i))
             sp_q_marg_rate_file = open(sp_q_marg_rate_file_name , "w", newline="")
             sp_q_marg=csv.writer(sp_q_marg_rate_file, delimiter='\t')
             sp_q_marg.writerow(head)
