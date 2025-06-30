@@ -4196,7 +4196,8 @@ def MCMC(all_arg):
 
 
 
-    d1_ts, d1_te, tste_tune_obj = make_tste_tune_obj(LO, bound_te, d1)
+    if fix_SE == 0:
+        d1_ts, d1_te, tste_tune_obj = make_tste_tune_obj(LO, bound_te, d1)
 
     # start threads
     if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
