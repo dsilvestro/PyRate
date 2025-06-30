@@ -1221,6 +1221,8 @@ def init_ts_te(FA,LO):
         ts[ts>boundMax] = np.random.uniform(FA[ts>boundMax],boundMax,len(ts[ts>boundMax])) # avoit init values outside bounds
     if np.min(te) < boundMin:
         te[te<boundMin] = np.random.uniform(boundMin,LO[te<boundMin],len(te[te<boundMin])) # avoit init values outside bounds
+    if np.any(bound_te != bound_te[0]):
+        te[te < bound_te] = np.random.uniform(bound_te[te < bound_te], LO[te < bound_te], len(te[te < bound_te]))
     #te=LO*tt
     if frac1==0: ts, te= FA,LO
     try:
@@ -1358,7 +1360,7 @@ def update_times(times, max_time,min_time, mod_d4,a,b):
     y=-1*y
     return y
 
-def update_ts_te(ts, te, d1, sample_extinction=1):
+def update_ts_te(ts, te, d1, bound_te, sample_extinction=1):
     tsn, ten= zeros(len(ts))+ts, zeros(len(te))+te
     f1=np.random.randint(1,frac1) #int(frac1*len(FA)) #-np.random.randint(0,frac1*len(FA)-1))
     ind=np.random.choice(SP_in_window,f1) # update only values in SP/EX_in_window
@@ -1373,8 +1375,8 @@ def update_ts_te(ts, te, d1, sample_extinction=1):
         ten[ind] = te[ind] + (np.random.uniform(0,1,len(ind))-.5)*d1
         M = LO
         ten[ten>M]=M[ten>M]-(ten[ten>M]-M[ten>M])
-        m = 0 #boundMin
-        ten[ten<m]=(m-ten[ten<m])+m
+        m = bound_te#0 #boundMin
+        ten[ten < m] = (m[ten < m] - ten[ten < m]) + m[ten < m]
         ten[ten>M] = te[ten>M]
         ten[LO==0]=0                                     # indices of LO==0 (extant species)
     S= tsn-ten
@@ -1420,7 +1422,7 @@ def update_ts_te_indicator(ts, te, d1, sample_extinction=1):
     return tsn,ten
 
 
-def update_ts_te_tune(ts, te, d1, d2, LO, sample_extinction=1):
+def update_ts_te_tune(ts, te, d1, d2, FA, LO, bound_te, sample_extinction=1):
     tsn, ten = np.zeros(len(ts)) + ts, np.zeros(len(te)) + te
     if sample_extinction == 0:
         ind = np.random.choice(SP_in_window, 1) # update only values in SP/EX_in_window
@@ -1435,8 +1437,8 @@ def update_ts_te_tune(ts, te, d1, d2, LO, sample_extinction=1):
         ten[ind] = te[ind] + (np.random.uniform(0, 1, len(ind)) - .5) * d2[ind]
         M = LO
         ten[ten > M] = M[ten > M]-(ten[ten > M] - M[ten > M])
-        m = 0 #boundMin
-        ten[ten < m]=(m - ten[ten < m]) + m
+        m = bound_te #0 #boundMin
+        ten[ten < m] = (m[ten < m] - ten[ten < m]) + m[ten < m]
         ten[ten > M] = te[ten > M]
         ten[LO == 0] = 0                                     # indices of LO==0 (extant species)
     S = tsn - ten
@@ -1526,18 +1528,19 @@ def gibbs_update_ts_te_bdnn(q_rates,sp_rates_L, sp_rates_M, q_time_frames):
     return np.array(new_ts), np.array(new_te)
 
 
-def make_tste_tune_obj(LO, d1):
+def make_tste_tune_obj(LO, bound_te, d1):
     n_taxa = len(LO)
     d1_ts = np.repeat(d1, n_taxa)
     d1_te = np.repeat(d1, n_taxa)
-    exceeds_LO = d1_te > LO
-    d1_te[exceeds_LO] = LO[exceeds_LO]
+    b = 2 * (LO - bound_te)
+    exceeds_LO = d1_te > b
+    d1_te[exceeds_LO] = b[exceeds_LO]
     tste_tune_obj = np.zeros((n_taxa, 6)) # attempts, successes, and acceptance ratio for ts and te
     return d1_ts, d1_te, tste_tune_obj
 
 
 def tune_tste_windows(d1_ts, d1_te,
-                      LO, tste_tune_obj,
+                      LO, bound_te, tste_tune_obj,
                       it, tune_T_schedule,
                       updated, se_updated,
                       accepted=0, target=[0.2, 0.4]):
@@ -1574,8 +1577,9 @@ def tune_tste_windows(d1_ts, d1_te,
         else:
             d1_te[too_high] = 1.1 * d1_te[too_high]
 
-        exceeds_LO = d1_te > LO
-        d1_te[exceeds_LO] = LO[exceeds_LO]
+        b = 2 * (LO - bound_te)
+        exceeds_LO = d1_te > b
+        d1_te[exceeds_LO] = b[exceeds_LO]
 
     # Reset acceptance ratio calculation
     if any_exceeds_tuning_interval and it > 0.1 * tune_T_schedule[0]:
@@ -1583,8 +1587,22 @@ def tune_tste_windows(d1_ts, d1_te,
         tste_tune_obj[exceeds_tuning_interval, 1 + se_updated] = 0
         tste_tune_obj[exceeds_tuning_interval, 2 + se_updated] = 0
 
-
     return d1_ts, d1_te, tste_tune_obj
+
+
+def get_taxa_in_groups(group_names, group_file, species_names):
+    group_species_idx = []
+    group_names_species_exist = [] # keep only groups with species that are in the dataset
+    for i in range(len(group_names)):
+        species_in_group = group_file[:, i]
+        incl_taxa = np.logical_or(species_in_group != 'NA', species_in_group != '')
+        species_in_group = species_in_group[incl_taxa]
+        species_idx = np.where(np.isin(species_names, species_in_group))[0]
+        if len(species_idx) > 0:
+            group_species_idx.append(species_idx)
+            group_names_species_exist.append(group_names[i])
+    group_names = group_names_species_exist
+    return group_names, group_species_idx
 
 
 def seed_missing(x,m,s): # assigns random normally distributed trait values to missing data
@@ -4178,7 +4196,7 @@ def MCMC(all_arg):
 
 
 
-    d1_ts, d1_te, tste_tune_obj = make_tste_tune_obj(LO, d1)
+    d1_ts, d1_te, tste_tune_obj = make_tste_tune_obj(LO, bound_te, d1)
 
     # start threads
     if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
@@ -4282,16 +4300,16 @@ def MCMC(all_arg):
             ts_te_updated = 1
             move_type = 1
             if FBDrange == 3:
-                ts,te=update_ts_te(tsA,teA,mod_d1,sample_extinction=0)
+                ts,te=update_ts_te(tsA, teA, mod_d1, bound_te, sample_extinction=0)
             else:
                 if edge_indicator and it > 10000:
                     ts,te = update_ts_te_indicator(tsA,teA,mod_d1)
                 elif tune_T_schedule[0] > 0:
                     ts_or_te_updated = np.random.randint(low=0, high=2, size=1)[0]
-                    ts, te = update_ts_te_tune(tsA, teA, d1_ts, d1_te, LO,
+                    ts, te = update_ts_te_tune(tsA, teA, d1_ts, d1_te, FA, LO, bound_te,
                                                sample_extinction=ts_or_te_updated)
                 else:
-                    ts, te = update_ts_te(tsA, teA, mod_d1)
+                    ts, te = update_ts_te(tsA, teA, mod_d1, bound_te)
                 
             if use_gibbs_se_sampling or it < fast_burnin:
                 if BDNNmodel in [1, 3]:
@@ -5120,7 +5138,7 @@ def MCMC(all_arg):
                     bdnn_prior_qA = bdnn_prior_q
                     nn_qA = nn_q
                 if ts_te_updated and tune_T_schedule[0] > 0:
-                    d1_ts, d1_te, tste_tune_obj = tune_tste_windows(d1_ts, d1_te, LO, tste_tune_obj, it,
+                    d1_ts, d1_te, tste_tune_obj = tune_tste_windows(d1_ts, d1_te, LO, bound_te, tste_tune_obj, it,
                                                                     tune_T_schedule, ind1, ts_or_te_updated,
                                                                     accepted=1)
             elif BDNNmodel:
@@ -5146,7 +5164,7 @@ def MCMC(all_arg):
 #                    if trait_tbl_NN[2].ndim == 3 and ts_te_updated == 1:
 #                        qbin_ts_te = get_bin_ts_te(tsA, teA, q_time_frames_bdnn)
             if not is_accepted and ts_te_updated and tune_T_schedule[0] > 0:
-                d1_ts, d1_te, tste_tune_obj = tune_tste_windows(d1_ts, d1_te,  LO, tste_tune_obj, it,
+                d1_ts, d1_te, tste_tune_obj = tune_tste_windows(d1_ts, d1_te, LO, bound_te, tste_tune_obj, it,
                                                                 tune_T_schedule, ind1, ts_or_te_updated,
                                                                 accepted=0)
 
@@ -5632,6 +5650,7 @@ if __name__ == '__main__':
     p.add_argument('-discrete',help='Discrete-trait-dependent BD model (requires -trait_file)', action='store_true', default=False)
     p.add_argument('-twotrait',help='Discrete-trait-dependent extinction + Covar', action='store_true', default=False)
     p.add_argument('-bound',   type=float, help='Bounded BD model', default=[np.inf, 0], metavar=0, nargs=2)
+    p.add_argument('-bound_te', type=str, help="Path to a tab-separated file where taxa in columns have their latest extinction time set to the age specified in the header", default="", metavar="taxa_file")
     p.add_argument('-partialBD', help='Partial BD model (with -d)', action='store_true', default=False)
     p.add_argument('-edgeShift',type=float, help='Fixed times of shifts at the edges (when -mL/-mM > 3)', default=[np.inf, 0], metavar=0, nargs=2)
     p.add_argument('-qFilter', type=int, help='if set to zero all shifts in preservation rates are kept, even if outside observed timerange', default=1, metavar=1)
@@ -6461,6 +6480,17 @@ if __name__ == '__main__':
             N[i]=len(fossil[i])
             array_all_fossils = array_all_fossils + list(fossil[i])
         array_all_fossils = np.array(array_all_fossils)
+
+        # constrain extinction to a given age
+        bound_te = np.zeros(len(taxa_names))
+        if args.bound_te != '':
+            group_file = np.genfromtxt(args.bound_te, delimiter="\t", dtype=str, filling_values="", comments=None)
+            extinction_ages = group_file[0, :].reshape(-1).tolist()
+            group_file = group_file[1:, :]
+            extinction_ages, group_taxon_idx = get_taxa_in_groups(extinction_ages, group_file, taxa_names)
+            for i in range(len(extinction_ages)):
+                bound_te[group_taxon_idx[i]] = float(extinction_ages[i]) * args.rescale + args.translate
+
 
     # """
     # use_se_trait_id_tbl

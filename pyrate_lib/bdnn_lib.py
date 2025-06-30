@@ -57,6 +57,7 @@ from PyRate import harmonic_mean_q_through_time
 from PyRate import prior_gamma
 from PyRate import add_taxon_age
 from PyRate import get_float_prec_f
+from PyRate import get_taxa_in_groups
 
 from scipy.special import bernoulli, binom
 from itertools import chain, combinations, product
@@ -665,10 +666,10 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn,
     if not w_q is None:
         do_sampling = True
     species_names = bdnn_obj.sp_fad_lad["Taxon"].to_numpy()
-    group_file = pd.read_csv(groups_path, delimiter = '\t')
-    group_names = group_file.columns.tolist()
-    group_species_idx = []
-    group_names, group_species_idx = get_species_in_groups(group_names, group_file, group_species_idx, species_names)
+    group_file = np.genfromtxt(groups_path, delimiter="\t", dtype=str, filling_values="", comments=None)
+    group_names = group_file[0, :].reshape(-1).tolist()
+    group_file = group_file[1:, :]
+    group_names, group_species_idx = get_taxa_in_groups(group_names, group_file, species_names)
     float_prec_f = get_float_prec_f_from_bdnn_obj(bdnn_obj, bdnn_precision)
 
     if do_diversification:
@@ -4466,18 +4467,6 @@ def get_pdp_rate_free_combination(bdnn_obj,
     return rate_out, trt_df, names_features.tolist()
 
 
-def get_species_in_groups(group_names, group_file, group_species_idx, species_names):
-    group_names_species_exist = [] # keep only groups with species that are in the dataset
-    for gn in group_names:
-        species_in_group = group_file[gn].dropna().to_numpy()
-        species_idx = np.where(np.in1d(species_names, species_in_group))[0]
-        if len(species_idx) > 0:
-            group_species_idx.append(species_idx)
-            group_names_species_exist.append(gn)
-    group_names = group_names_species_exist
-    return group_names, group_species_idx
-
-
 def get_pdrtt_i(arg):
     [num_bins, num_taxa, trait_tbl_sp, trait_tbl_ex, names_comb_idx_conc, w_sp_i, w_ex_i,
      hidden_act_f, out_act_f, bias_node_idx,
@@ -4553,9 +4542,10 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
 
     group_names = []
     if groups_path != '':
-        group_file = pd.read_csv(groups_path, delimiter='\t')
-        group_names = group_names + group_file.columns.tolist()
-        group_names, group_species_idx = get_species_in_groups(group_names, group_file, group_species_idx, species_names)
+        group_file = np.genfromtxt(groups_path, delimiter="\t", dtype=str, filling_values="", comments=None)
+        group_names = group_names + group_file[0, :].reshape(-1).tolist()
+        group_file = group_file[1:, :]
+        group_names, group_species_idx = get_taxa_in_groups(group_names, group_file, species_names)
     group_species_idx.append(np.arange(len(species_names)))
     group_names = group_names + [""]
     n_groups = len(group_names)
