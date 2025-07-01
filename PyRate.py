@@ -1300,7 +1300,9 @@ def update_parameter_normal_vec(oldL,d,f=.25, float_prec_f=np.float64):
     ff = np.random.binomial(1,np.min([f, 1]),S)
     # avoid no update being performed at all
     if np.sum(ff) == 0:
-        ff[np.random.randint(S, size=1)] = 1
+        up = np.random.randint(oldL.size, size=1)
+        row, col = np.unravel_index(up, ff.shape)
+        ff[row, col] = 1
     # print(np.sum(ff), S, f)
     s= oldL + float_prec_f(ii*ff)
     return s
