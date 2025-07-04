@@ -1362,13 +1362,13 @@ def update_times(times, max_time,min_time, mod_d4,a,b):
     y=-1*y
     return y
 
-def update_ts_te(ts, te, d1, bound_te, sample_extinction=1):
+def update_ts_te(ts, te, d1, bound_ts, bound_te, sample_extinction=1):
     tsn, ten= zeros(len(ts))+ts, zeros(len(te))+te
     f1=np.random.randint(1,frac1) #int(frac1*len(FA)) #-np.random.randint(0,frac1*len(FA)-1))
     ind=np.random.choice(SP_in_window,f1) # update only values in SP/EX_in_window
     tsn[ind] = ts[ind] + (np.random.uniform(0,1,len(ind))-.5)*d1
-    M = np.inf #boundMax
-    tsn[tsn>M]=M-(tsn[tsn>M]-M)
+    M = bound_ts#np.inf #boundMax
+    tsn[tsn > M] = M[tsn > M] - (tsn[tsn > M] - M[tsn > M])
     m = FA
     tsn[tsn<m]=(m[tsn<m]-tsn[tsn<m])+m[tsn<m]
     tsn[tsn>M] = ts[tsn>M]
@@ -1424,13 +1424,13 @@ def update_ts_te_indicator(ts, te, d1, sample_extinction=1):
     return tsn,ten
 
 
-def update_ts_te_tune(ts, te, d1, d2, FA, LO, bound_te, sample_extinction=1):
+def update_ts_te_tune(ts, te, d1, d2, FA, LO, bound_ts, bound_te, sample_extinction=1):
     tsn, ten = np.zeros(len(ts)) + ts, np.zeros(len(te)) + te
     if sample_extinction == 0:
         ind = np.random.choice(SP_in_window, 1) # update only values in SP/EX_in_window
         tsn[ind] = ts[ind] + (np.random.uniform(0, 1, len(ind)) - .5) * d1[ind]
-        M = np.inf #boundMax
-        tsn[tsn > M] = M - (tsn[tsn > M] - M)
+        M = bound_ts#np.inf #boundMax
+        tsn[tsn > M] = M[tsn > M] - (tsn[tsn > M] - M[tsn > M])
         m = FA
         tsn[tsn < m] = (m[tsn < m] - tsn[tsn < m]) + m[tsn < m]
         tsn[tsn > M] = ts[tsn > M]
@@ -4303,16 +4303,16 @@ def MCMC(all_arg):
             ts_te_updated = 1
             move_type = 1
             if FBDrange == 3:
-                ts,te=update_ts_te(tsA, teA, mod_d1, bound_te, sample_extinction=0)
+                ts,te=update_ts_te(tsA, teA, mod_d1, bound_ts, bound_te, sample_extinction=0)
             else:
                 if edge_indicator and it > 10000:
                     ts,te = update_ts_te_indicator(tsA,teA,mod_d1)
                 elif tune_T_schedule[0] > 0:
                     ts_or_te_updated = np.random.randint(low=0, high=2, size=1)[0]
-                    ts, te = update_ts_te_tune(tsA, teA, d1_ts, d1_te, FA, LO, bound_te,
+                    ts, te = update_ts_te_tune(tsA, teA, d1_ts, d1_te, FA, LO, bound_ts, bound_te,
                                                sample_extinction=ts_or_te_updated)
                 else:
-                    ts, te = update_ts_te(tsA, teA, mod_d1, bound_te)
+                    ts, te = update_ts_te(tsA, teA, mod_d1, bound_ts, bound_te)
                 
             if use_gibbs_se_sampling or it < fast_burnin:
                 if BDNNmodel in [1, 3]:
@@ -5653,6 +5653,7 @@ if __name__ == '__main__':
     p.add_argument('-discrete',help='Discrete-trait-dependent BD model (requires -trait_file)', action='store_true', default=False)
     p.add_argument('-twotrait',help='Discrete-trait-dependent extinction + Covar', action='store_true', default=False)
     p.add_argument('-bound',   type=float, help='Bounded BD model', default=[np.inf, 0], metavar=0, nargs=2)
+    p.add_argument('-bound_ts', type=str, help="Path to a tab-separated file where taxa in columns have their earliest origination time set to the age specified in the header", default="", metavar="taxa_file")
     p.add_argument('-bound_te', type=str, help="Path to a tab-separated file where taxa in columns have their latest extinction time set to the age specified in the header", default="", metavar="taxa_file")
     p.add_argument('-partialBD', help='Partial BD model (with -d)', action='store_true', default=False)
     p.add_argument('-edgeShift',type=float, help='Fixed times of shifts at the edges (when -mL/-mM > 3)', default=[np.inf, 0], metavar=0, nargs=2)
@@ -6484,8 +6485,16 @@ if __name__ == '__main__':
             array_all_fossils = array_all_fossils + list(fossil[i])
         array_all_fossils = np.array(array_all_fossils)
 
-        # constrain extinction to a given age
+        # constrain origination and extinction to a given age
+        bound_ts = np.full(len(taxa_names), np.inf)
         bound_te = np.zeros(len(taxa_names))
+        if args.bound_ts != '':
+            group_file = np.genfromtxt(args.bound_ts, delimiter="\t", dtype=str, filling_values="", comments=None)
+            origination_ages = group_file[0, :].reshape(-1).tolist()
+            group_file = group_file[1:, :]
+            origination_ages, group_taxon_idx = get_taxa_in_groups(origination_ages, group_file, taxa_names)
+            for i in range(len(origination_ages)):
+                bound_ts[group_taxon_idx[i]] = float(origination_ages[i]) * args.rescale + args.translate
         if args.bound_te != '':
             group_file = np.genfromtxt(args.bound_te, delimiter="\t", dtype=str, filling_values="", comments=None)
             extinction_ages = group_file[0, :].reshape(-1).tolist()

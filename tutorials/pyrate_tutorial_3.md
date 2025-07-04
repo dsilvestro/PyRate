@@ -11,7 +11,7 @@
 * [Combine log files from multiple replicates](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#combine-log-files-from-multiple-replicates)
   
 * [Running PyRate on large datasets](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#running-pyrate-on-large-datasets)
-* [Constraining extinction times](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#constraining-extinction-times)
+* [Constraining origination and extinction times](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#constraining-origination-and-extinction-times)
 * [Return to Index](https://github.com/dsilvestro/PyRate/tree/master/tutorials#pyrate-tutorials---index)  
 
 ***
@@ -109,10 +109,10 @@ Running PyRate analyses on very large dataset (e.g. hundreds or thousands of lin
 Note that this model only works for preservation models based on homogenous or time-variable Poisson processes (HPP or TPP). 
 
 
-## Constraining extinction times
-Inferred extinction times can be constrained to remain earlier than a specified age. For instance, this may be appropriate if we know for certain that taxa went extinct during a mass extinction event.
+## Constraining origination and extinction times
+Inferred origination times can be constrained to occur no earlier than a specified age, and extinction times to occur no later than that age. For instance, this may be appropriate if we know for certain that taxa went extinct during a mass extinction event or originated after a given moment in time.
 
-It only requires a tab-separated text file listing all taxa to be constrained to have an extinction time earlier than the age given in the header of the file. Multiple bound can be specified. Because the number of taxa going extinct before a specified age will differ among bounds, some cells of the text file have to be either empty or should filled with _NA_. A taxon cannot be constrained by multiple bounds. E.g. although _Adygeites_ went extinct before theKPg mass extinction, do not add it to the respective column because it is already listed as victim of the end-Triassic exxtinction. 
+Imposing bounds on extinction times requires a tab-separated text file listing all taxa to be constrained to have an extinction time earlier than the age given in the header of the file. Multiple bound can be specified. Because the number of taxa going extinct before a specified age will differ among bounds, some cells of the text file have to be either empty or should filled with _NA_. A taxon cannot be constrained by multiple bounds. E.g. although _Adygeites_ went extinct before theKPg mass extinction, do not add it to the respective column because it is already listed as victim of the end-Triassic exxtinction. 
 
 | 66 | 201.4  | 251.902 | 372.15 |
 | ------------- |:-------------:| -----:| -----:|
@@ -121,8 +121,9 @@ It only requires a tab-separated text file listing all taxa to be constrained to
 | Anaklinoceras    | NA        | Adrianites  |                 |
 |                  | NA        | Agathiceras |                 |
 
-`python ./PyRate.py ./example_files/Ammonoidea.py -bound_te ./example_files/Ammonoidea_bound_te.txt`
+Constraining origination times requires a text file with the same structure and the ages in the header specify the earliest time of origination.
 
-Note that the bounds on extinction ages have no effect when using the Gibbs sampler.
+`python ./PyRate.py ./example_files/Ammonoidea.py -bound_ts ./example_files/Ammonoidea_bound_ts.txt -bound_te ./example_files/Ammonoidea_bound_te.txt`
 
+Note that the bounds on origination and extinction ages have no effect when using the Gibbs sampler.
 
