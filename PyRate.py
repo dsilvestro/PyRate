@@ -5955,7 +5955,7 @@ if __name__ == '__main__':
                 fixed_times_of_shift_bdnn = fixed_times_of_shift
             else:
                 f_shift=0
-                fixed_times_of_shift_bdnn = np.arange(1, 1000, bdnn_time_res)[::-1]
+                fixed_times_of_shift_bdnn = np.arange(bdnn_time_res, 1000, bdnn_time_res)[::-1]
                 min_allowed_t=0
                 fix_Shift = 1
             if fix_edgeShift > 0:
