@@ -23,6 +23,7 @@
 * [Birth-death with rate shifts using BDMCMC](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#estimation-of-speciation-and-extinction-rates-through-time)
 * [Birth-death models with fixed times bins](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#speciation-and-extinction-rates-within-fixed-time-bins)
 * [Running PyRate on large datasets](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#running-pyrate-on-large-datasets)
+* [Constraining origination and extinction times](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_3.md#constraining-origination-and-extinction-times)
 
 
 ### Plotting and summarizing output
