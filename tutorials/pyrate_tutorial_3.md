@@ -112,7 +112,7 @@ Note that this model only works for preservation models based on homogenous or t
 ## Constraining origination and extinction times
 Inferred origination times can be constrained to occur no earlier than a specified age, and extinction times to occur no later than that age. For instance, this may be appropriate if we know for certain that taxa went extinct during a mass extinction event or originated after a given moment in time.
 
-Imposing bounds on origination and extinction times requires a tab or comma separated text file. The first column give the name of the taxon, the second its earliest origination time, and the third column the latest extinction time. When a the origination or extinction time should not be constrained, the respecive cell should contain _NA_. Taxa without any of the two bounds do not need to be included in the text file.
+Imposing bounds on origination and extinction times requires a tab or comma separated text file. The first column gives the name of the taxon, the second its earliest origination time, and the third column the latest extinction time. When an origination or extinction time should not be constrained, the respecive cell should contain _NA_. Taxa without any of the two bounds do not need to be included in the text file.
 
 | taxon            | max_ts  | min_te |
 | ---------------- |:-------:| ------:|
