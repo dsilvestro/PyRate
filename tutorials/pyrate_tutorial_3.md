@@ -112,18 +112,16 @@ Note that this model only works for preservation models based on homogenous or t
 ## Constraining origination and extinction times
 Inferred origination times can be constrained to occur no earlier than a specified age, and extinction times to occur no later than that age. For instance, this may be appropriate if we know for certain that taxa went extinct during a mass extinction event or originated after a given moment in time.
 
-Imposing bounds on extinction times requires a tab-separated text file listing all taxa to be constrained to have an extinction time earlier than the age given in the header of the file. Multiple bound can be specified. Because the number of taxa going extinct before a specified age will differ among bounds, some cells of the text file have to be either empty or should filled with _NA_. A taxon cannot be constrained by multiple bounds. E.g. although _Adygeites_ went extinct before theKPg mass extinction, do not add it to the respective column because it is already listed as victim of the end-Triassic exxtinction. 
+Imposing bounds on origination and extinction times requires a tab or comma separated text file. The first column give the name of the taxon, the second its earliest origination time, and the third column the latest extinction time. When a the origination or extinction time should not be constrained, the respecive cell should contain _NA_. Taxa without any of the two bounds do not need to be included in the text file.
 
-| 66 | 201.4  | 251.902 | 372.15 |
-| ------------- |:-------------:| -----:| -----:|
-| Acanthoscaphites | Adygeites | Abadehceras | Acanthoclymenia |
-| Anagaudryceras   | NA        | Abichites   | Aulatornoceras  |
-| Anaklinoceras    | NA        | Adrianites  |                 |
-|                  | NA        | Agathiceras |                 |
+| taxon            | max_ts  | min_te |
+| ---------------- |:-------:| ------:|
+| Anolcites        | 251.902 | 201.4  |
+| Acanthoscaphites | NA      | 66.0   |
+| Glatziella       | 372.15  | NA     |
 
-Constraining origination times requires a text file with the same structure and the ages in the header specify the earliest time of origination.
 
-`python ./PyRate.py ./example_files/Ammonoidea.py -bound_ts ./example_files/Ammonoidea_bound_ts.txt -bound_te ./example_files/Ammonoidea_bound_te.txt`
+`python ./PyRate.py ./example_files/Ammonoidea.py -bound_ss ./example_files/Ammonoidea_bound_se.txt`
 
 Note that the bounds on origination and extinction ages have no effect when using the Gibbs sampler.
 

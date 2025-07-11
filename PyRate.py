@@ -1592,19 +1592,22 @@ def tune_tste_windows(d1_ts, d1_te,
     return d1_ts, d1_te, tste_tune_obj
 
 
-def get_taxa_in_groups(group_names, group_file, species_names):
-    group_species_idx = []
-    group_names_species_exist = [] # keep only groups with species that are in the dataset
-    for i in range(len(group_names)):
-        species_in_group = group_file[:, i]
-        incl_taxa = np.logical_or(species_in_group != 'NA', species_in_group != '')
-        species_in_group = species_in_group[incl_taxa]
-        species_idx = np.where(np.isin(species_names, species_in_group))[0]
-        if len(species_idx) > 0:
-            group_species_idx.append(species_idx)
-            group_names_species_exist.append(group_names[i])
-    group_names = group_names_species_exist
-    return group_names, group_species_idx
+def set_bound_se(b_ts, b_te, b_se, taxa):
+    b_se = b_se[np.isin(b_se[:, 0], taxa), :]
+    b_se = b_se[np.argsort(b_se[:, 0]), :]
+
+    not_na = b_se[:, 1] != 'NA'
+    max_ts = b_se[not_na, 1].astype(float)
+    max_ts_taxa = b_se[not_na, 0]
+    b_ts[np.isin(taxa, max_ts_taxa)] = max_ts
+
+    not_na = b_se[:, 2] != 'NA'
+    min_te = b_se[not_na, 2].astype(float)
+    min_te_taxa = b_se[not_na, 0]
+    b_te[np.isin(taxa, min_te_taxa)] = min_te
+
+    return b_ts, b_te
+
 
 
 def seed_missing(x,m,s): # assigns random normally distributed trait values to missing data
@@ -5653,8 +5656,7 @@ if __name__ == '__main__':
     p.add_argument('-discrete',help='Discrete-trait-dependent BD model (requires -trait_file)', action='store_true', default=False)
     p.add_argument('-twotrait',help='Discrete-trait-dependent extinction + Covar', action='store_true', default=False)
     p.add_argument('-bound',   type=float, help='Bounded BD model', default=[np.inf, 0], metavar=0, nargs=2)
-    p.add_argument('-bound_ts', type=str, help="Path to a tab-separated file where taxa in columns have their earliest origination time set to the age specified in the header", default="", metavar="taxa_file")
-    p.add_argument('-bound_te', type=str, help="Path to a tab-separated file where taxa in columns have their latest extinction time set to the age specified in the header", default="", metavar="taxa_file")
+    p.add_argument('-bound_se', type=str, help="Path to a text file with three columns: taxon, minimum origination time, maximum extinction time", metavar='<input file>',default="")
     p.add_argument('-partialBD', help='Partial BD model (with -d)', action='store_true', default=False)
     p.add_argument('-edgeShift',type=float, help='Fixed times of shifts at the edges (when -mL/-mM > 3)', default=[np.inf, 0], metavar=0, nargs=2)
     p.add_argument('-qFilter', type=int, help='if set to zero all shifts in preservation rates are kept, even if outside observed timerange', default=1, metavar=1)
@@ -6488,20 +6490,9 @@ if __name__ == '__main__':
         # constrain origination and extinction to a given age
         bound_ts = np.full(len(taxa_names), np.inf)
         bound_te = np.zeros(len(taxa_names))
-        if args.bound_ts != '':
-            group_file = np.genfromtxt(args.bound_ts, delimiter="\t", dtype=str, filling_values="", comments=None)
-            origination_ages = group_file[0, :].reshape(-1).tolist()
-            group_file = group_file[1:, :]
-            origination_ages, group_taxon_idx = get_taxa_in_groups(origination_ages, group_file, taxa_names)
-            for i in range(len(origination_ages)):
-                bound_ts[group_taxon_idx[i]] = float(origination_ages[i]) * args.rescale + args.translate
-        if args.bound_te != '':
-            group_file = np.genfromtxt(args.bound_te, delimiter="\t", dtype=str, filling_values="", comments=None)
-            extinction_ages = group_file[0, :].reshape(-1).tolist()
-            group_file = group_file[1:, :]
-            extinction_ages, group_taxon_idx = get_taxa_in_groups(extinction_ages, group_file, taxa_names)
-            for i in range(len(extinction_ages)):
-                bound_te[group_taxon_idx[i]] = float(extinction_ages[i]) * args.rescale + args.translate
+        if args.bound_se != '':
+            bound_se = np.genfromtxt(args.bound_se, dtype=str, skip_header=1)
+            bound_ts, bound_te = set_bound_se(bound_ts, bound_te, bound_se, taxa_names)
 
 
     # """

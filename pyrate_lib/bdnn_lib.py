@@ -57,7 +57,6 @@ from PyRate import harmonic_mean_q_through_time
 from PyRate import prior_gamma
 from PyRate import add_taxon_age
 from PyRate import get_float_prec_f
-from PyRate import get_taxa_in_groups
 
 from scipy.special import bernoulli, binom
 from itertools import chain, combinations, product
@@ -666,10 +665,10 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn,
     if not w_q is None:
         do_sampling = True
     species_names = bdnn_obj.sp_fad_lad["Taxon"].to_numpy()
-    group_file = np.genfromtxt(groups_path, delimiter="\t", dtype=str, filling_values="", comments=None)
-    group_names = group_file[0, :].reshape(-1).tolist()
-    group_file = group_file[1:, :]
-    group_names, group_species_idx = get_taxa_in_groups(group_names, group_file, species_names)
+    group_file = pd.read_csv(groups_path, delimiter = '\t')
+    group_names = group_file.columns.tolist()
+    group_species_idx = []
+    group_names, group_species_idx = get_species_in_groups(group_names, group_file, group_species_idx, species_names)
     float_prec_f = get_float_prec_f_from_bdnn_obj(bdnn_obj, bdnn_precision)
 
     if do_diversification:
@@ -3537,7 +3536,8 @@ def get_coefficient_sampling_variation(path_dir_log_files, burn, combine_discr_f
             qbin_ts_te = get_bin_ts_te(ts[i, :], te[i, :], q_bins)
 
         qnn_output_unreg, _ = get_unreg_rate_BDNN_3D(trt_tbl_a, w_q[i], None, hidden_act_f, out_act_f_q)
-        q_multi = get_q_multipliers_NN_dereg(t_reg_q[i], reg_denom_q[i], norm_q[i], qnn_output_unreg, singleton_mask, qbin_ts_te)
+        q_multi = get_q_multipliers_NN_dereg(t_reg_q[i], reg_denom_q[i], norm_q[i], qnn_output_unreg, singleton_mask,
+                                             qbin_ts_te, use_for_cv=True)
         species_rates[..., i] = q_multi.reshape((n_taxa, num_q_bins))
 
     with warnings.catch_warnings():
@@ -4125,6 +4125,8 @@ def get_prob_effects(cond_trait_tbl, cond_rates, bdnn_obj, names_features, rate_
 
 
 def get_shap_trt_tbl(tse, times, trt_tbl, prec_f=np.float64):
+    print('tse\n', tse)
+    print('times\n', times)
     if trt_tbl.ndim == 2:
         shap_trt_tbl = trt_tbl + 0.0
     else:
@@ -4137,9 +4139,11 @@ def get_shap_trt_tbl(tse, times, trt_tbl, prec_f=np.float64):
         n_features = s[2]
         digitized_tse = np.digitize(tse, times) - 1
         digitized_tse[digitized_tse < 0] = 0 # Should not do any harm for speciation
+        print('digitized_tse\n', digitized_tse)
         shap_trt_tbl = prec_f(np.zeros((n_species, n_features)))
         for i in range(n_species):
             shap_trt_tbl[i,:] = trt_tbl[digitized_tse[i], i, :]
+    print('trt_tbl\n', shap_trt_tbl[:, 0])
     return shap_trt_tbl
 
 
@@ -4467,6 +4471,19 @@ def get_pdp_rate_free_combination(bdnn_obj,
     return rate_out, trt_df, names_features.tolist()
 
 
+
+def get_species_in_groups(group_names, group_file, group_species_idx, species_names):
+    group_names_species_exist = [] # keep only groups with species that are in the dataset
+    for gn in group_names:
+        species_in_group = group_file[gn].dropna().to_numpy()
+        species_idx = np.where(np.in1d(species_names, species_in_group))[0]
+        if len(species_idx) > 0:
+            group_species_idx.append(species_idx)
+            group_names_species_exist.append(gn)
+    group_names = group_names_species_exist
+    return group_names, group_species_idx
+
+
 def get_pdrtt_i(arg):
     [num_bins, num_taxa, trait_tbl_sp, trait_tbl_ex, names_comb_idx_conc, w_sp_i, w_ex_i,
      hidden_act_f, out_act_f, bias_node_idx,
@@ -4542,10 +4559,9 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
 
     group_names = []
     if groups_path != '':
-        group_file = np.genfromtxt(groups_path, delimiter="\t", dtype=str, filling_values="", comments=None)
-        group_names = group_names + group_file[0, :].reshape(-1).tolist()
-        group_file = group_file[1:, :]
-        group_names, group_species_idx = get_taxa_in_groups(group_names, group_file, species_names)
+        group_file = pd.read_csv(groups_path, delimiter='\t')
+        group_names = group_names + group_file.columns.tolist()
+        group_names, group_species_idx = get_species_in_groups(group_names, group_file, group_species_idx, species_names)
     group_species_idx.append(np.arange(len(species_names)))
     group_names = group_names + [""]
     n_groups = len(group_names)
@@ -5425,7 +5441,7 @@ def feature_permutation(mcmc_file, pkl_file, burnin, thin, min_bs, n_perm=10, co
     return sp_delta_lik_df, ex_delta_lik_df
 
 
-def get_q_multipliers_NN_dereg(t_reg, reg_denom, n, qnn_output, singleton_mask, qbin_ts_te=None):
+def get_q_multipliers_NN_dereg(t_reg, reg_denom, n, qnn_output, singleton_mask, qbin_ts_te=None, use_for_cv=False):
     qnn = qnn_output + 0.0
     if qnn.ndim == 2:
         # set rate to NA before ts and after te
@@ -5437,7 +5453,8 @@ def get_q_multipliers_NN_dereg(t_reg, reg_denom, n, qnn_output, singleton_mask, 
         qnn_not_nan = np.repeat(True, qnn.shape[-1])
     # reverse regularization
     qnn = n * qnn ** t_reg / reg_denom
-    qnn[np.logical_and(singleton_mask, qnn_not_nan)] = 1.0
+    if not use_for_cv:
+        qnn[np.logical_and(singleton_mask, qnn_not_nan)] = 1.0
     return qnn
 
 
