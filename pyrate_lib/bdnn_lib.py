@@ -4125,8 +4125,6 @@ def get_prob_effects(cond_trait_tbl, cond_rates, bdnn_obj, names_features, rate_
 
 
 def get_shap_trt_tbl(tse, times, trt_tbl, prec_f=np.float64):
-    print('tse\n', tse)
-    print('times\n', times)
     if trt_tbl.ndim == 2:
         shap_trt_tbl = trt_tbl + 0.0
     else:
@@ -4139,11 +4137,9 @@ def get_shap_trt_tbl(tse, times, trt_tbl, prec_f=np.float64):
         n_features = s[2]
         digitized_tse = np.digitize(tse, times) - 1
         digitized_tse[digitized_tse < 0] = 0 # Should not do any harm for speciation
-        print('digitized_tse\n', digitized_tse)
         shap_trt_tbl = prec_f(np.zeros((n_species, n_features)))
         for i in range(n_species):
             shap_trt_tbl[i,:] = trt_tbl[digitized_tse[i], i, :]
-    print('trt_tbl\n', shap_trt_tbl[:, 0])
     return shap_trt_tbl
 
 
