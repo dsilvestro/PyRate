@@ -121,7 +121,10 @@ Imposing bounds on origination and extinction times requires a tab or comma sepa
 | Glatziella       | 372.15  | NA     |
 
 
-`python ./PyRate.py ./example_files/Ammonoidea.py -bound_ss ./example_files/Ammonoidea_bound_se.txt`
+`python ./PyRate.py ./example_files/Ammonoidea.py -bound_se ./example_files/Ammonoidea_bound_se.txt`
 
-Note that the bounds on origination and extinction ages have no effect when using the Gibbs sampler.
+The bounds on origination and extinction ages can be used in combination with Gibbs sampler e.g. using:
+
+`python ./PyRate.py ./example_files/Ammonoidea.py -bound_se ./example_files/Ammonoidea_bound_se.txt -qShift ./example_files/epochs_q.txt -se_gibbs -fU 0.35 0.6 0`
+
 
