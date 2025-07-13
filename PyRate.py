@@ -1452,65 +1452,104 @@ def update_ts_te_tune(ts, te, d1, d2, FA, LO, bound_ts, bound_te, sample_extinct
 
 
 #### GIBBS SAMPLER S/E
-def draw_se_gibbs(fa,la,q_rates_L,q_rates_M,q_times):
+def draw_se_gibbs(fa,la,q_rates_L,q_rates_M,q_times, bound_ts, bound_te, tsA, teA):
     t = np.sort(np.array([fa, la] + list(q_times)))[::-1]
     # sample ts
     prior_to_fa = np.arange(len(q_times))[q_times>fa]
     tfa = (q_times[prior_to_fa]-fa)[::-1] # time since fa
     qfa = q_rates_L[prior_to_fa][::-1] # rates before fa
-    ts_temp=0
-    for i in range(len(qfa)):
+    
+    i, attempt=0, 0
+    # print( "QFA", qfa, tfa)
+    while True:
+        ts_temp=0
+        # for i in range(len(qfa)):
+        # print(attempt, i, fa, tfa, qfa)
         q = qfa[i]
-        deltaT = np.random.exponential(1./q)
+        deltaT = np.random.exponential(1. / q)
         ts_temp = np.minimum(ts_temp+deltaT, tfa[i])
-        if ts_temp < tfa[i]:
+        if ts_temp < tfa[i] and (ts_temp + fa) < bound_ts:
+            # print("new TS",(ts_temp + fa), bound_ts, "fa", fa, i, "ts_temp", ts_temp, tfa[i])
             break
+        i+=1
+        attempt += 1
+        
+        if i == len(qfa):
+            i = 0 # try again
+        # if attempt == 100:
+        #     # print("timeout TE_gibbs", te_temp, tla[i], (la - te_temp), la, bound_te)
+        #     te_temp = np.random.uniform(0, np.abs(bound_te - la)) # np.abs(la - te) #
+        #     # quit()
+        #
+        #     break
+        
+        if attempt > 100:
+            # print("timeout TS_gibbs", ts_temp, fa, bound_ts, ts_temp < tfa[i], (ts_temp + fa) < bound_ts)
+            ts_temp = np.abs(tsA - fa) # reset to previous value
+            break
+            #   
+    # break
+        
+            
+        attempt += 1
 
-    ts= ts_temp+fa
-    #print "TS:", ts, fa
+    ts = ts_temp + fa
+    # print("TS:", ts, fa, ts_temp, bound_ts)
     #print q_times
     #print la
+    if ts > bound_ts:
+        print("WTF", "new TS", (ts_temp + fa), bound_ts, "fa", fa, i, "ts_temp", ts_temp, "actual ts",  ts)
+        quit()
+        
     if la>0:
         # sample te
         after_la = np.arange(len(q_times))[q_times<la]
         tla = (la-q_times[after_la]) # time after la
         qla = q_rates_M[after_la-1] # rates after la
-        #print "QLA", qla, tla
+        # print( "QLA", qla, tla)
         te_temp=0
-        i,attempt=0,0
+        i, attempt=0, 0
         while True:
             q = qla[i]
-            deltaT = np.random.exponential(1./q)
-            te_temp = np.minimum(te_temp+deltaT, tla[i])
+            deltaT = np.random.exponential(1. / q)
+            te_temp = np.minimum(te_temp + deltaT, tla[i])
             #print attempt,i,te_temp,len(qla)
-            if te_temp < tla[i]:
+            if te_temp < tla[i] and (la - te_temp) > bound_te:
                 break
             i+=1
-            attempt+=1
+            attempt += 1
             if i == len(qla):
-                i= 0 # try again
-            if attempt==100:
-                te_temp = np.random.uniform(0,la)
+                i = 0 # try again
+            if attempt == 100:
+                # print("timeout TE_gibbs", te_temp, tla[i], (la - te_temp), la, bound_te)
+                # te_temp = np.random.uniform(0, np.abs(bound_te - la)) #
+                te_temp = np.abs(la - teA) # reset to previous valu
+                # quit()
+                
                 break
 
-        te= la-te_temp
+        te = la - te_temp
         #print "TE:", te
     else:
-        te=0
+        te = 0
     return (ts,te)
 
-def gibbs_update_ts_te(q_rates_L,q_rates_M,q_time_frames):
+def gibbs_update_ts_te(q_rates_L,q_rates_M,q_time_frames, bound_ts, bound_te, tsA, teA):
     #print q_rates,q_time_frames
     q_times= q_time_frames+0
     q_times[0] = np.inf
     new_ts = []
     new_te = []
-    for sp_indx in range(0,len(FA)):
+    for sp_indx in range(len(FA)):
         #print "sp",sp_indx
-        s,e = draw_se_gibbs(FA[sp_indx],LO[sp_indx],q_rates_L,q_rates_M,q_times)
+        s,e = draw_se_gibbs(FA[sp_indx], LO[sp_indx],
+                            q_rates_L, q_rates_M, q_times, 
+                            bound_ts[sp_indx], bound_te[sp_indx],
+                            tsA[sp_indx], teA[sp_indx])
         new_ts.append(s)
         new_te.append(e)
     return np.array(new_ts), np.array(new_te)
+
 
 def gibbs_update_ts_te_bdnn(q_rates,sp_rates_L, sp_rates_M, q_time_frames):
     #print q_rates,q_time_frames
@@ -4321,23 +4360,27 @@ def MCMC(all_arg):
                 if BDNNmodel in [1, 3]:
                     arg_taxon_rates = [tsA, teA, timesLA, timesMA, bdnn_lam_ratesA, bdnn_mu_ratesA]
                     sp_rates_L, sp_rates_M = get_taxon_rates_bdnn(arg_taxon_rates)
-                    ts, te = gibbs_update_ts_te_bdnn(q_ratesA, sp_rates_L, sp_rates_M, np.sort(np.array([np.inf,0]+times_q_shift))[::-1])
+                    ts, te = gibbs_update_ts_te_bdnn(q_ratesA, sp_rates_L, sp_rates_M, np.sort(np.array([np.inf,0]+times_q_shift))[::-1],
+                        bound_ts=bound_ts, bound_te=bound_te, tsA=tsA, teA=teA)
                 
                 elif sum(timesL[1:-1])==np.sum(times_q_shift):
-                    ts,te = gibbs_update_ts_te(q_ratesA+LA, q_ratesA+MA, np.sort(np.array([np.inf,0]+times_q_shift))[::-1])
+                    ts,te = gibbs_update_ts_te(q_ratesA+LA+MA, q_ratesA+LA+MA, 
+                        np.sort(np.array([np.inf,0]+times_q_shift))[::-1],
+                        bound_ts=bound_ts, bound_te=bound_te, tsA=tsA, teA=teA)
                 else:
                     times_q_temp = np.sort(np.array([np.inf,0]+times_q_shift))[::-1]
                     q_temp_time = np.sort(np.unique(list(times_q_shift)+list(timesLA[1:])+list(timesMA[1:])))[::-1]
                     q_rates_temp =  q_ratesA[np.digitize(q_temp_time,times_q_temp[1:])]
                     if len(LA)==1:
-                        q_rates_temp_L = q_rates_temp + LA[0]
+                        q_rates_temp_L = q_rates_temp + LA[0] + MA[0]
                     else:
-                        q_rates_temp_L = q_rates_temp + LA[np.digitize(q_temp_time,timesLA[1:])]
+                        q_rates_temp_L = q_rates_temp + LA[np.digitize(q_temp_time,timesLA[1:])] + MA[np.digitize(q_temp_time,timesMA[1:])] 
                     if len(MA)==1:
-                        q_rates_temp_M = q_rates_temp + MA[0]
+                        q_rates_temp_M = q_rates_temp + MA[0] + LA[0]
                     else:
-                        q_rates_temp_M = q_rates_temp + MA[np.digitize(q_temp_time,timesMA[1:])]
-                    ts,te = gibbs_update_ts_te(q_rates_temp_L,q_rates_temp_M,times_q_temp)
+                        q_rates_temp_M = q_rates_temp + MA[np.digitize(q_temp_time,timesMA[1:])] + LA[np.digitize(q_temp_time,timesLA[1:])]
+                    ts,te = gibbs_update_ts_te(q_rates_temp_L,q_rates_temp_M,times_q_temp, 
+                        bound_ts=bound_ts, bound_te=bound_te, tsA=tsA, teA=teA)
 
             if BDNNmodel:
                 if bdnn_dd:
