@@ -115,7 +115,9 @@ A tab-separated text file with species-specific trait data can be loaded in the 
 
 We provide an [example dataset](https://github.com/dsilvestro/PyRate/tree/master/example_files/BDNN_examples/Carnivora) based on [Hauffe et al 2022 MEE](https://doi.org/10.1111/2041-210X.13845). This includes genus-level occurrence data of northern hemisphere Cenozoic carnivores, a table with a paleotemperature time series, and a table with lineage-specific traits: log-transformed body mass, taxonomic information (family-level classification), and continent of occurrence (Eurasia and North America). The tables are simple tab-separated text files with a header.
 
-Note that to improve model convergence **continuous trait and time-series predictor should be z-transformed** (i.e. subtracting the mean and dividing by the standard deviation). The original mean and standard deviation can be stored in a tab-separated text file (see [`Backscale.txt`](https://github.com/dsilvestro/PyRate/tree/master/example_files/BDNN_examples/Carnivora/Backscale.txt) file for an example) and used in the plotting function to [display the results on the original scale](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#partial-dependence-plots).
+Note that to improve model convergence **continuous traits and time-series predictors should be z-transformed** (i.e. subtracting the mean and dividing by the standard deviation). The original mean and standard deviation can be stored in a tab-separated text file (see [`Backscale.txt`](https://github.com/dsilvestro/PyRate/tree/master/example_files/BDNN_examples/Carnivora/Backscale.txt) file for an example) and used in the plotting function to [display the results on the original scale](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_bdnn.md#partial-dependence-plots).
+
+Species-specific traits need to be complete, i.e. no missing states or measures. Taxa with missing traits should either be included or can potentially be imputed.
 
 
 #### Categorical traits
