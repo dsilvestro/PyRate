@@ -5706,7 +5706,7 @@ if __name__ == '__main__':
     p.add_argument('-discrete',help='Discrete-trait-dependent BD model (requires -trait_file)', action='store_true', default=False)
     p.add_argument('-twotrait',help='Discrete-trait-dependent extinction + Covar', action='store_true', default=False)
     p.add_argument('-bound',   type=float, help='Bounded BD model', default=[np.inf, 0], metavar=0, nargs=2)
-    p.add_argument('-bound_se', type=str, help="Path to a text file with three columns: taxon, minimum origination time, maximum extinction time", metavar='<input file>',default="")
+    p.add_argument('-bound_se', type=str, help="Path to a text file with five columns: taxon, maximum origination time, minimum origination time, maximum extinction time, and minimum extinction time", metavar='<input file>',default="")
     p.add_argument('-partialBD', help='Partial BD model (with -d)', action='store_true', default=False)
     p.add_argument('-edgeShift',type=float, help='Fixed times of shifts at the edges (when -mL/-mM > 3)', default=[np.inf, 0], metavar=0, nargs=2)
     p.add_argument('-qFilter', type=int, help='if set to zero all shifts in preservation rates are kept, even if outside observed timerange', default=1, metavar=1)
