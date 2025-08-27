@@ -1631,32 +1631,28 @@ def tune_tste_windows(d1_ts, d1_te,
     return d1_ts, d1_te, tste_tune_obj
 
 
-def set_bound_se(b_ts, b_te, b_se, taxa, rescale=1, translate=0):
-    b_se = b_se.reshape(-1, 3)
+def set_bound_se(b_ts, b_te, b_se, taxa, FA, LO, rescale=1, translate=0):
+    b_se = b_se.reshape(-1, 5)
     constr_taxa = b_se[:, 0]
     for tx in range(len(constr_taxa)):
         if constr_taxa[tx] in taxa:
             indx = np.where(taxa == constr_taxa[tx])[0]
             if b_se[tx, 1] != 'NA':
                 b_ts[indx] = b_se[tx, 1].astype(float) * rescale + translate
+            if b_se[tx, 4] != 'NA':
+                b_te[indx] = b_se[tx, 4].astype(float) * rescale + translate
             if b_se[tx, 2] != 'NA':
-                b_te[indx] = b_se[tx, 2].astype(float) * rescale + translate
-    #
-    #
-    #
-    # b_se = b_se[np.isin(b_se[:, 0], taxa), :]
-    # b_se = b_se[np.argsort(b_se[:, 0]), :]
-    #
-    # not_na = b_se[:, 1] != 'NA'
-    # max_ts = b_se[not_na, 1].astype(float) * rescale + translate
-    # max_ts_taxa = b_se[not_na, 0]
-    # b_ts[np.isin(taxa, max_ts_taxa)] = max_ts
-    #
-    # not_na = b_se[:, 2] != 'NA'
-    # min_te = b_se[not_na, 2].astype(float) * rescale + translate
-    # min_te_taxa = b_se[not_na, 0]
-    # b_te[np.isin(taxa, min_te_taxa)] = min_te
-    return b_ts, b_te
+                FA_new = b_se[tx, 2].astype(float) * rescale + translate
+                if FA_new < FA[indx]:
+                    print('Constrained min_ts of %s is younger than its first record %s' % (b_se[tx, 0], FA[indx]))
+                FA[indx] = FA_new
+            if b_se[tx, 3] != 'NA':
+                LO_new = b_se[tx, 3].astype(float) * rescale + translate
+                if FA_new < FA[indx]:
+                    print('Constrained max_te of %s is earlier than its last record %s' % (b_se[tx, 0], LO[indx]))
+                LO[indx] = LO_new
+
+    return b_ts, b_te, FA, LO
 
 
 
@@ -6546,7 +6542,7 @@ if __name__ == '__main__':
         bound_te = np.zeros(len(taxa_names))
         if args.bound_se != '':
             bound_se = np.genfromtxt(args.bound_se, dtype=str, skip_header=1)
-            bound_ts, bound_te = set_bound_se(bound_ts, bound_te, bound_se, taxa_names, args.rescale, args.translate)
+            bound_ts, bound_te, FA, LO = set_bound_se(bound_ts, bound_te, bound_se, taxa_names, FA, LO, args.rescale, args.translate)
         indx = np.where(bound_te > LO)[0]
         for i in indx:
             print(taxa_names[i], LO[i], bound_te[i])

@@ -1,795 +1,795 @@
-taxon	max_ts	min_te
-Abadehceras	NA	251.902
-Abichites	NA	251.902
-Acanthoclymenia	NA	372.15
-Acanthopleuroceras	201.4	NA
-Acanthoscaphites	NA	66
-Acutimitoceras	372.15	NA
-Adrianites	NA	251.902
-Adygeites	NA	201.4
-Aegeiceras	251.902	NA
-Aegoceras	201.4	NA
-Aegolytoceras	201.4	NA
-Aequilobus	201.4	NA
-Afrolobites	372.15	NA
-Agathiceras	NA	251.902
-Aghdarbandites	251.902	NA
-Alanites	251.902	NA
-Alibashites	NA	251.902
-Alkaites	251.902	NA
-Alloclionites	NA	201.4
-Allogevanites	251.902	NA
-Alpinites	372.15	NA
-Altudoceras	NA	251.902
-Amarassites	NA	201.4
-Amauroceras	201.4	NA
-Amoeboceras	372.15	NA
-Amphipopanoceras	251.902	NA
-Anagaudryceras	NA	66
-Anagymnites	251.902	NA
-Anagymnotoceras	251.902	NA
-Anaklinoceras	NA	66
-Ananorites	251.902	NA
-Anapachydiscus	NA	66
-Anatibetites	NA	201.4
-Anderssonoceras	NA	251.902
-Andicoeloceras	201.4	NA
-Andidiscus	201.4	NA
-Androgynoceras	201.4	NA
-Anfuceras	NA	251.902
-Anolcites	251.902	201.4
-Aplococeras	251.902	NA
-Apoderoceras	201.4	NA
-Arasella	NA	251.902
-Araxoceras	NA	251.902
-Arcestes	NA	201.4
-Arctoasteroceras	201.4	NA
-Arctogymnites	251.902	NA
-Arctohungarites	251.902	NA
-Arctophyllites	251.902	NA
-Arctoptychites	251.902	NA
-Argolites	251.902	NA
-Argosirenites	NA	201.4
-Arianites	251.902	NA
-Aristoptychites	251.902	NA
-Arpadites	251.902	NA
-Arthaberites	251.902	NA
-Asklepioceras	251.902	NA
-Asseretoceras	251.902	NA
-Astreptoceras	NA	66
-Audaxlytoceras	251.902	NA
-Augustaceras	251.902	NA
-Aulatornoceras	NA	372.15
-Aveyroniceras	201.4	NA
-Avushoceras	NA	251.902
-Axonoceras	NA	66
-Azarianites	251.902	NA
-Badiotites	251.902	NA
-Bagnolites	201.4	NA
-Bakonyceras	201.4	NA
-Balhaeceras	251.902	NA
-Balkanites	251.902	NA
-Baltzerites	201.4	NA
-Balvia	372.15	NA
-Barrandeites	251.902	NA
-Beaniceras	201.4	NA
-Beatites	251.902	NA
-Beaumontites	251.902	NA
-Beloceras	NA	372.15
-Beneckeia	251.902	NA
-Beyrichites	251.902	NA
-Billingsites	251.902	NA
-Biloclymenia	372.15	NA
-Boreiohungarites	251.902	NA
-Bosnites	251.902	NA
-Bostrychoceras	NA	66
-Brackites	251.902	NA
-Bradyia	251.902	NA
-Brahmaites	NA	66
-Brouwerites	NA	201.4
-Buddhaites	251.902	NA
-Bugunzhites	251.902	NA
-Bukowskiites	251.902	NA
-Bullatihungarites	251.902	NA
-Bulogites	251.902	NA
-Byrrangoceras	251.902	NA
-Calaiceras	201.4	NA
-Callomoniceras	201.4	NA
-Canadoceras	NA	66
-Canavaria	201.4	NA
-Caribouceras	251.902	NA
-Carinoceras	NA	372.15
-Carinoclymenia	372.15	NA
-Carixiceras	201.4	NA
-Carteria	251.902	NA
-Castanyiceras	201.4	NA
-Catenohalorites	NA	201.4
-Catriceras	201.4	NA
-Caucasites	251.902	NA
-Ceccaceras	251.902	NA
-Ceccaisculitoides	251.902	NA
-Cetonoceras	201.4	NA
-Changhsingoceras	NA	251.902
-Chaotianoceras	NA	251.902
-Charmasseiceras	201.4	NA
-Chieseiceras	251.902	NA
-Chioceras	251.902	NA
-Chiratites	251.902	NA
-Chutoceras	NA	372.15
-Cibolites	NA	251.902
-Cirroceras	NA	66
-Cladiscites	251.902	201.4
-Clauseniceras	NA	372.15
-Clionites	NA	201.4
-Clionitites	251.902	201.4
-Clivotirolites	NA	251.902
-Clydonites	NA	201.4
-Clymenia	372.15	NA
-Coahuilites	NA	66
-Cochloceras	NA	201.4
-Coeloceras	201.4	NA
-Coeloderoceras	201.4	NA
-Columbisculites	251.902	NA
-Columboceras	251.902	NA
-Constrigymnites	251.902	NA
-Coscaites	251.902	NA
-Costaclymenia	372.15	NA
-Costigymnites	251.902	NA
-Courtilloticeras	251.902	NA
-Cowboyiceras	251.902	NA
-Crassotornoceras	NA	372.15
-Cuccoceras	251.902	NA
-Cycloceltites	NA	201.4
-Cyclolobus	NA	251.902
-Cymaclymenia	372.15	NA
-Cyrtoclymenia	372.15	NA
-Cyrtopleurites	NA	201.4
-Czarnoclymenia	372.15	NA
-Czekanowskites	251.902	NA
-Damesites	NA	66
-Daradiceras	NA	66
-Daubichites	NA	251.902
-Daxatina	251.902	NA
-Dayiceras	201.4	NA
-Delphiceras	NA	372.15
-Derolytoceras	201.4	NA
-Desmoceras	NA	66
-Desmophyllites	NA	66
-Desmoscaphites	NA	66
-Detoniceras	251.902	NA
-Devonopronorites	NA	372.15
-Deweveria	251.902	NA
-Didymoceras	NA	66
-Difuntites	NA	251.902
-Dionites	NA	201.4
-Diplomoceras	NA	66
-Discoceratites	251.902	NA
-Discoclymenia	372.15	NA
-Discogymnites	251.902	NA
-Discoptychites	251.902	NA
-Discoscaphites	NA	66
-Discotoceras	NA	251.902
-Discotropites	NA	201.4
-Distichites	NA	201.4
-Dixieceras	251.902	NA
-Domanikoceras	NA	372.15
-Doulingoceras	NA	251.902
-Drepanites	NA	201.4
-Dronovites	NA	201.4
-Drumoceras	251.902	NA
-Durgaites	251.902	NA
-Durvilleoceras	NA	251.902
-Dushanoceras	NA	251.902
-Dzhulfites	NA	251.902
-Dzhulfoceras	NA	251.902
-Ebbighausenites	372.15	NA
-Emaciaticeras	201.4	NA
-Endosiphonites	372.15	NA
-Enkebergoceras	372.15	NA
-Eoacrochordiceras	251.902	NA
-Eoamaltheus	201.4	NA
-Eoaraxoceras	NA	251.902
-Eodanubites	251.902	NA
-Eofrechites	251.902	NA
-Eogymnotoceras	251.902	NA
-Eojiangxiceras	NA	251.902
-Eonathorstites	251.902	NA
-Eoprotrachyceras	251.902	NA
-Eosagenites	251.902	NA
-Eosteinmannites	NA	201.4
-Epadrianites	NA	251.902
-Epammonites	201.4	NA
-Epiboreoceras	251.902	NA
-Epiceltitoides	251.902	NA
-Epigoniceras	NA	66
-Epigymnites	251.902	NA
-Epikellnerites	251.902	NA
-Epitauroceras	NA	251.902
-Epiwocklumeria	372.15	NA
-Epophioceroides	201.4	NA
-Eremites	NA	201.4
-Erfoudites	372.15	NA
-Escarguelites	251.902	NA
-Eschericeratites	251.902	NA
-Esfahanites	NA	251.902
-Esinoceras	251.902	NA
-Eteoderoceras	201.4	NA
-Etoushanoceras	NA	251.902
-Eubaculites	NA	66
-Eubostrychoceras	NA	66
-Eucoroniceras	201.4	NA
-Eudiscoceras	251.902	NA
-Euerbenites	201.4	NA
-Euisculites	NA	201.4
-Eulophoceras	NA	66
-Eumedlicottia	NA	251.902
-Eupachydiscus	NA	66
-Eusanyangites	NA	251.902
-Eutomoceras	251.902	NA
-Evenites	251.902	NA
-Exicrioceras	NA	66
-Exiteloceras	NA	66
-Exomiloceras	201.4	NA
-Falciclymenia	372.15	NA
-Falsanolcites	251.902	NA
-Fastigiceras	201.4	NA
-Favreticeras	251.902	NA
-Felisporadoceras	372.15	NA
-Fengchengoceras	NA	251.902
-Fengshanites	251.902	NA
-Finiclymenia	372.15	NA
-Flexoptychites	251.902	NA
-Foetterleiceras	201.4	NA
-Fontanelliceras	201.4	NA
-Forresteria	NA	66
-Franconiclymenia	372.15	NA
-Frankites	251.902	NA
-Frechites	251.902	NA
-Frechitoides	251.902	NA
-Fresvillia	NA	66
-Fucinites	201.4	NA
-Gabboceras	NA	201.4
-Galaticeras	201.4	NA
-Gastrioceras	NA	251.902
-Gattendorfia	372.15	NA
-Gaudemerites	251.902	NA
-Gaudryceras	NA	66
-Geermuceras	NA	251.902
-Genuclymenia	372.15	NA
-Gervasuttia	251.902	NA
-Gevanites	251.902	NA
-Ginsburgites	251.902	NA
-Gissarites	NA	66
-Glabercolumbites	251.902	NA
-Glatziella	372.15	NA
-Globacrochordiceras	251.902	NA
-Glyptoxoceras	NA	66
-Gnomohalorites	NA	201.4
-Gogoceras	NA	372.15
-Gonioclymenia	372.15	NA
-Gonionotites	NA	201.4
-Gorgheiceras	201.4	NA
-Goricanites	251.902	NA
-Grambergia	251.902	NA
-Grammoceras	201.4	NA
-Griesbachites	251.902	NA
-Groenlandites	251.902	NA
-Grossouvrites	NA	66
-Guangxiceras	251.902	NA
-Guexiceras	201.4	NA
-Guexites	251.902	NA
-Gunnarites	NA	66
-Gymnites	251.902	NA
-Gymnotoceras	251.902	NA
-Gymnotropites	NA	201.4
-Halilucites	251.902	NA
-Halorites	NA	201.4
-Hamites	NA	66
-Hammatoceras	201.4	NA
-Hantkeniceras	201.4	NA
-Haoceras	251.902	NA
-Harpoceras	201.4	NA
-Hauericeras	NA	66
-Hauerites	NA	201.4
-Helicoceras	NA	66
-Helictites	NA	201.4
-Hemilecanites	251.902	NA
-Heraclites	NA	201.4
-Herrickiceras	NA	66
-Hexaclymenia	372.15	NA
-Hildaites	201.4	NA
-Hildoceras	201.4	NA
-Himavatites	251.902	201.4
-Hoeninghausia	NA	372.15
-Holcolytoceras	201.4	NA
-Hollandites	251.902	NA
-Hongshuiheites	NA	251.902
-Hoplitoplacenticeras	NA	66
-Hoploscaphites	NA	66
-Huananoceras	NA	251.902
-Huishuites	251.902	NA
-Humboldtites	251.902	NA
-Hungarites	251.902	NA
-Hyattoceras	NA	251.902
-Hyparpadites	251.902	NA
-Hypasteroceras	201.4	NA
-Hyperderoceras	201.4	NA
-Hyphantoceras	NA	66
-Hypophylloceras	NA	66
-Iberites	251.902	NA
-Idahocolumbites	251.902	NA
-Imitoceras	372.15	NA
-Indigirites	251.902	NA
-Indigirophyllites	251.902	NA
-Indoceltites	251.902	NA
-Indojuvavites	NA	201.4
-Indoscaphites	NA	66
-Intornites	251.902	NA
-Iranites	NA	251.902
-Isculites	251.902	NA
-Ismidites	251.902	NA
-Israelites	251.902	NA
-Istreites	251.902	NA
-Jacobites	NA	66
-Jamesonites	201.4	NA
-Japonites	251.902	NA
-Jeletzkytes	NA	66
-Jenksites	251.902	NA
-Jimboiceras	NA	66
-Jinjiangoceras	NA	251.902
-Joannites	251.902	201.4
-Julfotirolites	NA	251.902
-Julfotoceras	NA	251.902
-Juvavites	NA	201.4
-Kalloclymenia	372.15	NA
-Kamptoclymenia	372.15	NA
-Karaclymenia	372.15	NA
-Karangatites	251.902	NA
-Kellnerites	251.902	NA
-Kenseyoceras	372.15	NA
-Kericserites	201.4	NA
-Khvalynites	251.902	NA
-Kiaclymenia	372.15	NA
-Kiangsiceras	NA	251.902
-Kielcensia	372.15	NA
-Kingoceras	NA	251.902
-Kiparisovia	251.902	NA
-Kitchinites	NA	66
-Kocaelia	251.902	NA
-Koenenites	NA	372.15
-Koipatoceras	251.902	NA
-Komioceras	NA	372.15
-Konglingites	NA	251.902
-Koninckitoides	251.902	NA
-Kosmoclymenia	372.15	NA
-Kossmaticeras	NA	66
-Kufengoceras	NA	251.902
-Laboceras	251.902	NA
-Lagowites	372.15	NA
-Laibinoceras	NA	251.902
-Lanceoptychites	251.902	NA
-Langdaiceras	251.902	NA
-Lanpingoceras	NA	201.4
-Lardaroceras	251.902	NA
-Latemarites	251.902	NA
-Leislingites	NA	201.4
-Lenotropites	251.902	NA
-Lenticoceltites	NA	251.902
-Leptogyroceras	NA	251.902
-Lewyites	NA	66
-Libycoceras	NA	66
-Lijiangoceras	NA	251.902
-Linguaclymenia	372.15	NA
-Lioceratoides	201.4	NA
-Liparoceras	201.4	NA
-Lissoclymenia	372.15	NA
-Lissonites	NA	201.4
-Liuchengoceras	NA	251.902
-Lobites	251.902	NA
-Longmenshanoceras	NA	251.902
-Longobardites	251.902	NA
-Longobarditoides	251.902	NA
-Lutites	NA	251.902
-Lytoceras	NA	66
-Lytoconites	201.4	NA
-Lytotropites	201.4	NA
-Maideroceras	372.15	NA
-Malayites	NA	201.4
-Malletoptychites	251.902	NA
-Manambolites	NA	66
-Mangyshlakites	251.902	NA
-Maorites	NA	66
-Marcouxia	251.902	NA
-Marcouxites	251.902	NA
-Maternoceras	NA	372.15
-Mauretaniaceras	201.4	NA
-Medlicottia	NA	251.902
-Megaceratites	251.902	NA
-Megaphyllites	251.902	201.4
-Meginoceras	251.902	NA
-Meitianoceras	NA	251.902
-Menabites	NA	66
-Menuites	NA	66
-Meridiceras	201.4	NA
-Meropella	251.902	NA
-Mesobeloceras	NA	372.15
-Mesocladiscites	251.902	NA
-Mesoclymenia	372.15	NA
-Mesohimavatites	NA	201.4
-Metacrimites	NA	251.902
-Metacymbites	201.4	NA
-Metadagnoceras	251.902	NA
-Metadinarites	251.902	NA
-Metagastrioceras	NA	251.902
-Metaplacenticeras	NA	66
-Metarnioceras	201.4	NA
-Metasibirites	NA	201.4
-Metoicoceras	NA	66
-Metophioceras	201.4	NA
-Mexicoceras	NA	251.902
-Miltoceras	201.4	NA
-Mimimitoceras	372.15	NA
-Mingyuexiaceras	NA	251.902
-Mixomanticoceras	NA	372.15
-Mojsvarites	251.902	201.4
-Monacanthites	251.902	NA
-Monophyllites	NA	201.4
-Morewites	NA	66
-Mucrodactylites	201.4	NA
-Muensterites	251.902	NA
-Muessenbiaergia	372.15	NA
-Multisulcites	NA	251.902
-Nannosteinmannites	NA	201.4
-Naplesites	NA	372.15
-Nassichukites	NA	201.4
-Nathorstites	251.902	NA
-Neancyloceras	NA	66
-Negebites	251.902	NA
-Neoaganides	NA	251.902
-Neocladiscites	251.902	NA
-Neocolumbites	251.902	NA
-Neocrimites	NA	251.902
-Neocrioceras	NA	66
-Neodesmoceras	NA	66
-Neogauthiericeras	NA	66
-Neogeoceras	NA	251.902
-Neoglassoceras	NA	251.902
-Neograhamites	NA	66
-Neohimavatites	NA	201.4
-Neolioceratoides	201.4	NA
-Neophylloceras	NA	66
-Neotibetites	NA	201.4
-Nevadisculites	251.902	NA
-Nevadites	251.902	201.4
-Nicholsites	251.902	NA
-Nicomedites	251.902	NA
-Nipponites	NA	66
-Nitanoceras	251.902	NA
-Nodicoeloceras	201.4	NA
-Nodihungarites	251.902	NA
-Nodosageceras	NA	251.902
-Noetlingites	251.902	NA
-Nomismoceras	NA	251.902
-Nordiceras	NA	372.15
-Nordophiceratoides	251.902	NA
-Norites	251.902	NA
-Nostoceras	NA	66
-Nuetzelia	251.902	NA
-Oiophyllites	NA	66
-Oistoceras	201.4	NA
-Omanites	251.902	NA
-Ophiorhabdoceras	NA	201.4
-Oxyarietites	201.4	NA
-Oxybeloceras	NA	66
-Oxylongobardites	251.902	NA
-Oxynoticeroides	201.4	NA
-Pachyclymenia	372.15	NA
-Pachydesmoceras	NA	66
-Pachydiscoceras	NA	251.902
-Pachydiscus	NA	66
-Pachyrotoceras	NA	251.902
-Paedopronorites	NA	251.902
-Palaeolecanites	NA	251.902
-Palaeophyllites	251.902	NA
-Paraceltites	NA	251.902
-Paraceratites	251.902	NA
-Paraceratitoides	251.902	NA
-Paracladiscites	NA	201.4
-Paracochloceras	NA	201.4
-Paracoroniceras	201.4	NA
-Paracrochordiceras	251.902	NA
-Paracymbites	201.4	NA
-Paradanubites	251.902	NA
-Paradinarites	251.902	NA
-Paradistichites	NA	201.4
-Parafrechites	251.902	NA
-Paragoceras	251.902	NA
-Paraguembelites	NA	201.4
-Paragymnites	NA	201.4
-Parahungarites	251.902	NA
-Parajuvavites	NA	201.4
-Parakellnerites	251.902	NA
-Paralegoceras	NA	251.902
-Paramexicoceras	NA	251.902
-Paranevadites	251.902	NA
-Paranoritoides	251.902	NA
-Parapachydiscus	NA	66
-Parapopanoceras	251.902	NA
-Parapuzosia	NA	66
-Parasageceras	251.902	NA
-Parasolenoceras	NA	66
-Parasphingites	251.902	NA
-Parasturia	251.902	NA
-Paratibetites	NA	201.4
-Paratrachyceras	251.902	NA
-Paratropites	NA	201.4
-Parawocklumeria	372.15	NA
-Parinaia	251.902	NA
-Parinodiceras	201.4	NA
-Patagiosites	NA	66
-Pearylandites	251.902	NA
-Penglaites	NA	251.902
-Pentagonoceras	NA	251.902
-Pericarinoceras	NA	251.902
-Pericyclus	NA	251.902
-Peripleurites	NA	201.4
-Peripleurocyclus	251.902	NA
-Periptychoceras	NA	251.902
-Pernodoceras	NA	251.902
-Pharciceras	NA	372.15
-Philippites	251.902	NA
-Phisonites	NA	251.902
-Phricodoceras	201.4	NA
-Phylloceras	NA	66
-Phyllocladiscites	251.902	NA
-Phyllopachyceras	NA	66
-Phylloptychoceras	NA	66
-Phyllosphaerites	251.902	NA
-Phyllytoceras	NA	201.4
-Pinacoceras	251.902	201.4
-Placenticeras	NA	66
-Placites	NA	201.4
-Planodiscoceras	NA	251.902
-Platyclymenia	372.15	NA
-Platycuccoceras	251.902	NA
-Platypleuroceras	201.4	NA
-Playfordites	NA	372.15
-Pleuroceras	201.4	NA
-Pleurofrechites	251.902	NA
-Pleuronodoceras	NA	251.902
-Pleydellia	201.4	NA
-Polymorphites	201.4	NA
-Polyptychoceras	NA	66
-Pompeckjites	251.902	NA
-Ponteixites	NA	66
-Ponticeras	NA	372.15
-Postglatziella	372.15	NA
-Praepinacoceras	251.902	NA
-Praesibirites	251.902	NA
-Pravitoceras	NA	66
-Preflorianitoides	251.902	NA
-Pricella	372.15	NA
-Prionoceras	372.15	NA
-Prionocycloceras	NA	66
-Proarcestes	251.902	201.4
-Proavites	251.902	NA
-Probeloceras	NA	372.15
-Prochorites	NA	372.15
-Procladiscites	251.902	NA
-Procymaclymenia	372.15	NA
-Progonioclymenia	372.15	NA
-Progonoceratites	251.902	NA
-Prolecanites	372.15	NA
-Pronoetlingites	251.902	NA
-Propinacoceras	NA	251.902
-Propopanoceras	NA	251.902
-Protactoclymenia	372.15	NA
-Protechioceras	201.4	NA
-Protetragonites	251.902	NA
-Proteusites	251.902	NA
-Protocanites	372.15	NA
-Protocymbites	201.4	NA
-Protoplatytes	NA	201.4
-Prototoceras	NA	251.902
-Protoxyclymenia	372.15	NA
-Protrachyceras	251.902	201.4
-Protropites	251.902	NA
-Pseudacrochordiceras	251.902	NA
-Pseudobaculites	NA	66
-Pseudocarnites	251.902	NA
-Pseudodanubites	251.902	NA
-Pseudohollandites	251.902	NA
-Pseudokeyserlingites	251.902	NA
-Pseudokossmaticeras	NA	66
-Pseudophilites	NA	66
-Pseudophyllites	NA	66
-Pseudoprosphingites	251.902	NA
-Pseudosirenites	NA	201.4
-Pseudoskirroceras	201.4	NA
-Pseudostephanites	NA	251.902
-Pseudothetidites	NA	201.4
-Pseudotoceras	NA	251.902
-Pseudotropites	201.4	NA
-Pseudoxybeloceras	NA	66
-Pseuduptonia	201.4	NA
-Psilocladiscites	251.902	NA
-Psilosturia	251.902	NA
-Pterotoceras	251.902	NA
-Ptychites	251.902	NA
-Ptychopopanoceras	251.902	NA
-Ptychosphaerites	251.902	NA
-Puzosia	NA	66
-Qianjiangoceras	NA	251.902
-Qinglongites	NA	251.902
-Raymondiceras	372.15	NA
-Rectoclymenia	372.15	NA
-Reiflingites	251.902	NA
-Reitziites	251.902	NA
-Renites	372.15	NA
-Repossia	251.902	NA
-Retiogastrioceras	NA	251.902
-Retrotornoceras	NA	372.15
-Reynesocoeloceras	201.4	NA
-Rhabdoceras	NA	201.4
-Rhaeboceras	NA	66
-Rhaetites	NA	201.4
-Rieberites	251.902	NA
-Rieppelites	251.902	NA
-Rimkinites	251.902	NA
-Riphaeoclymenia	372.15	NA
-Roadoceras	NA	251.902
-Robinsonites	251.902	NA
-Romanites	251.902	NA
-Ronconites	251.902	NA
-Rongjiangoceras	NA	251.902
-Rossiceras	251.902	NA
-Rotodiscoceras	NA	251.902
-Rudolftruempyiceras	251.902	NA
-Rugaptychus	NA	66
-Ryugasella	NA	66
-Sabaliceras	NA	251.902
-Sagenites	NA	201.4
-Saghalinites	NA	66
-Salterites	251.902	NA
-Sandbergeroceras	NA	372.15
-Sanyangites	NA	251.902
-Scalarites	NA	66
-Schindewolfoceras	NA	372.15
-Schizoloboceras	NA	251.902
-Schreyerites	251.902	NA
-Sciponoceras	NA	66
-Sellaclymenia	372.15	NA
-Selwoodites	372.15	NA
-Semiornites	251.902	NA
-Serpianites	251.902	NA
-Serramanticoceras	NA	372.15
-Shangsilites	NA	251.902
-Shevyrevites	NA	251.902
-Shouchangoceras	NA	251.902
-Sibyllites	251.902	NA
-Silberlingites	251.902	NA
-Silberlingitoides	251.902	NA
-Silenticeras	251.902	NA
-Simicheiloceras	372.15	NA
-Sinoceltites	NA	251.902
-Sinomeginoceras	251.902	NA
-Sinuiceras	201.4	NA
-Sirenotrachyceras	251.902	NA
-Smithoceras	251.902	NA
-Solenoceras	NA	66
-Soliclymenia	372.15	NA
-Sphaerocladiscites	251.902	NA
-Sphaeromanticoceras	NA	372.15
-Sphenoacanthites	201.4	NA
-Sphenoclymenia	372.15	NA
-Sphenodiscus	NA	66
-Sphingites	251.902	NA
-Spinaptychus	NA	66
-Spirogmoceras	NA	201.4
-Spirosporadoceras	372.15	NA
-Spiroxybeloceras	NA	66
-Stacheoceras	NA	251.902
-Stannakhites	251.902	NA
-Steinmannites	NA	201.4
-Stenarcestes	NA	201.4
-Stenophyllites	251.902	NA
-Stenopopanoceras	251.902	NA
-Stephanoceras	201.4	NA
-Stolleyites	251.902	NA
-Stoppaniceras	251.902	NA
-Stoyanowites	NA	251.902
-Strigogoniatites	NA	251.902
-Sturia	251.902	NA
-Styrites	NA	201.4
-Subcolumbites	251.902	NA
-Subeothinites	NA	251.902
-Subfengshanites	251.902	NA
-Subhungarites	251.902	NA
-Submortoniceras	NA	66
-Subowenites	251.902	NA
-Subradioceras	251.902	NA
-Sulciferites	201.4	NA
-Sulioticeras	251.902	NA
-Sundaites	NA	251.902
-Sutchanites	NA	251.902
-Synwocklumeria	372.15	NA
-Syrdenites	NA	251.902
-Taimyrites	251.902	NA
-Tapashanites	NA	251.902
-Tapponnierites	251.902	NA
-Tardewocklumeria	372.15	NA
-Tardicolumbites	251.902	NA
-Tauromeniceras	201.4	NA
-Tetragonites	NA	66
-Tetsaoceras	251.902	NA
-Texanites	NA	66
-Thanamites	251.902	NA
-Thetidites	NA	201.4
-Thisbites	NA	201.4
-Tibetites	NA	201.4
-Ticinites	251.902	NA
-Tiltoniceras	201.4	NA
-Timanites	NA	372.15
-Timanoceras	NA	372.15
-Timites	251.902	NA
-Timorites	NA	251.902
-Tipperoceras	201.4	NA
-Tjururpites	251.902	NA
-Tmaegoceras	201.4	NA
-Tornia	372.15	NA
-Tozeria	NA	201.4
-Tozericeras	251.902	NA
-Tozerites	251.902	NA
-Trachybaculites	NA	66
-Trachyceras	251.902	NA
-Trachyornites	251.902	NA
-Trachyscaphites	NA	66
-Tragolytoceras	201.4	NA
-Tragorhacoceras	NA	201.4
-Triaclymenia	372.15	NA
-Trigonoclymenia	372.15	NA
-Trigonogastrites	NA	251.902
-Trimanticoceras	NA	372.15
-Trochoclymenia	372.15	NA
-Tropigastrites	251.902	NA
-Tropigymnites	251.902	NA
-Tropihalorites	NA	201.4
-Tsvetkovites	251.902	NA
-Tuaroceras	251.902	NA
-Tuchodiceras	251.902	NA
-Tunglanites	251.902	NA
-Turrilites	NA	66
-Uchtites	NA	372.15
-Ungusporadoceras	372.15	NA
-Unionvillites	251.902	NA
-Uptonia	201.4	NA
-Uraloclymenia	372.15	NA
-Urartoceras	NA	251.902
-Ussuriaspenites	251.902	NA
-Ussuriphyllites	251.902	NA
-Ussurites	251.902	NA
-Vandaites	NA	201.4
-Vedioceras	NA	251.902
-Vertebrites	NA	66
-Vescotoceras	NA	251.902
-Vicininodiceras	201.4	NA
-Virginoceras	NA	372.15
-Vorobyevites	251.902	NA
-Waagenoceras	NA	251.902
-Wangrenoceras	NA	251.902
-Weitschaticeras	251.902	NA
-Wellsites	NA	372.15
-Wocklumeria	372.15	NA
-Wopfingites	NA	201.4
-Xenoprotrachyceras	251.902	NA
-Xiangulingites	NA	251.902
-Yezoites	NA	66
-Yukagirites	201.4	NA
-Yvesgalleticeras	251.902	NA
-Zaghouanites	201.4	NA
-Zamaiceras	201.4	NA
-Zelandites	NA	66
-Zenoites	251.902	NA
-Zestoceras	251.902	NA
-Ziyunites	251.902	NA
-Zugodactylites	201.4	NA
+taxon	max_ts	min_ts	max_te	min_te
+Abadehceras	NA	NA	NA	251.902
+Abichites	NA	NA	NA	251.902
+Acanthoclymenia	NA	NA	NA	372.15
+Acanthopleuroceras	201.4	NA	NA	NA
+Acanthoscaphites	NA	NA	NA	66
+Acutimitoceras	372.15	NA	NA	NA
+Adrianites	NA	NA	NA	251.902
+Adygeites	NA	NA	NA	201.4
+Aegeiceras	251.902	NA	NA	NA
+Aegoceras	201.4	NA	NA	NA
+Aegolytoceras	201.4	NA	NA	NA
+Aequilobus	201.4	NA	NA	NA
+Afrolobites	372.15	NA	NA	NA
+Agathiceras	NA	NA	NA	251.902
+Aghdarbandites	251.902	NA	NA	NA
+Alanites	251.902	NA	NA	NA
+Alibashites	NA	NA	NA	251.902
+Alkaites	251.902	NA	NA	NA
+Alloclionites	NA	NA	NA	201.4
+Allogevanites	251.902	NA	NA	NA
+Alpinites	372.15	NA	NA	NA
+Altudoceras	NA	NA	NA	251.902
+Amarassites	NA	NA	NA	201.4
+Amauroceras	201.4	NA	NA	NA
+Amoeboceras	372.15	NA	NA	NA
+Amphipopanoceras	251.902	NA	NA	NA
+Anagaudryceras	NA	NA	NA	66
+Anagymnites	251.902	NA	NA	NA
+Anagymnotoceras	251.902	NA	NA	NA
+Anaklinoceras	NA	NA	NA	66
+Ananorites	251.902	NA	NA	NA
+Anapachydiscus	NA	NA	NA	66
+Anatibetites	NA	NA	NA	201.4
+Anderssonoceras	NA	NA	NA	251.902
+Andicoeloceras	201.4	NA	NA	NA
+Andidiscus	201.4	NA	NA	NA
+Androgynoceras	201.4	NA	NA	NA
+Anfuceras	NA	NA	NA	251.902
+Anolcites	251.902	NA	NA	201.4
+Aplococeras	251.902	NA	NA	NA
+Apoderoceras	201.4	NA	NA	NA
+Arasella	NA	NA	NA	251.902
+Araxoceras	NA	NA	NA	251.902
+Arcestes	NA	NA	NA	201.4
+Arctoasteroceras	201.4	NA	NA	NA
+Arctogymnites	251.902	NA	NA	NA
+Arctohungarites	251.902	NA	NA	NA
+Arctophyllites	251.902	NA	NA	NA
+Arctoptychites	251.902	NA	NA	NA
+Argolites	251.902	NA	NA	NA
+Argosirenites	NA	NA	NA	201.4
+Arianites	251.902	NA	NA	NA
+Aristoptychites	251.902	NA	NA	NA
+Arpadites	251.902	NA	NA	NA
+Arthaberites	251.902	NA	NA	NA
+Asklepioceras	251.902	NA	NA	NA
+Asseretoceras	251.902	NA	NA	NA
+Astreptoceras	NA	NA	NA	66
+Audaxlytoceras	251.902	NA	NA	NA
+Augustaceras	251.902	NA	NA	NA
+Aulatornoceras	NA	NA	NA	372.15
+Aveyroniceras	201.4	NA	NA	NA
+Avushoceras	NA	NA	NA	251.902
+Axonoceras	NA	NA	NA	66
+Azarianites	251.902	NA	NA	NA
+Badiotites	251.902	NA	NA	NA
+Bagnolites	201.4	NA	NA	NA
+Bakonyceras	201.4	NA	NA	NA
+Balhaeceras	251.902	NA	NA	NA
+Balkanites	251.902	NA	NA	NA
+Baltzerites	201.4	NA	NA	NA
+Balvia	372.15	NA	NA	NA
+Barrandeites	251.902	NA	NA	NA
+Beaniceras	201.4	NA	NA	NA
+Beatites	251.902	NA	NA	NA
+Beaumontites	251.902	NA	NA	NA
+Beloceras	NA	NA	NA	372.15
+Beneckeia	251.902	NA	NA	NA
+Beyrichites	251.902	NA	NA	NA
+Billingsites	251.902	NA	NA	NA
+Biloclymenia	372.15	NA	NA	NA
+Boreiohungarites	251.902	NA	NA	NA
+Bosnites	251.902	NA	NA	NA
+Bostrychoceras	NA	NA	NA	66
+Brackites	251.902	NA	NA	NA
+Bradyia	251.902	NA	NA	NA
+Brahmaites	NA	NA	NA	66
+Brouwerites	NA	NA	NA	201.4
+Buddhaites	251.902	NA	NA	NA
+Bugunzhites	251.902	NA	NA	NA
+Bukowskiites	251.902	NA	NA	NA
+Bullatihungarites	251.902	NA	NA	NA
+Bulogites	251.902	NA	NA	NA
+Byrrangoceras	251.902	NA	NA	NA
+Calaiceras	201.4	NA	NA	NA
+Callomoniceras	201.4	NA	NA	NA
+Canadoceras	NA	NA	NA	66
+Canavaria	201.4	NA	NA	NA
+Caribouceras	251.902	NA	NA	NA
+Carinoceras	NA	NA	NA	372.15
+Carinoclymenia	372.15	NA	NA	NA
+Carixiceras	201.4	NA	NA	NA
+Carteria	251.902	NA	NA	NA
+Castanyiceras	201.4	NA	NA	NA
+Catenohalorites	NA	NA	NA	201.4
+Catriceras	201.4	NA	NA	NA
+Caucasites	251.902	NA	NA	NA
+Ceccaceras	251.902	NA	NA	NA
+Ceccaisculitoides	251.902	NA	NA	NA
+Cetonoceras	201.4	NA	NA	NA
+Changhsingoceras	NA	NA	NA	251.902
+Chaotianoceras	NA	NA	NA	251.902
+Charmasseiceras	201.4	NA	NA	NA
+Chieseiceras	251.902	NA	NA	NA
+Chioceras	251.902	NA	NA	NA
+Chiratites	251.902	NA	NA	NA
+Chutoceras	NA	NA	NA	372.15
+Cibolites	NA	NA	NA	251.902
+Cirroceras	NA	NA	NA	66
+Cladiscites	251.902	NA	NA	201.4
+Clauseniceras	NA	NA	NA	372.15
+Clionites	NA	NA	NA	201.4
+Clionitites	251.902	NA	NA	201.4
+Clivotirolites	NA	NA	NA	251.902
+Clydonites	NA	NA	NA	201.4
+Clymenia	372.15	NA	NA	NA
+Coahuilites	NA	NA	NA	66
+Cochloceras	NA	NA	NA	201.4
+Coeloceras	201.4	NA	NA	NA
+Coeloderoceras	201.4	NA	NA	NA
+Columbisculites	251.902	NA	NA	NA
+Columboceras	251.902	NA	NA	NA
+Constrigymnites	251.902	NA	NA	NA
+Coscaites	251.902	NA	NA	NA
+Costaclymenia	372.15	NA	NA	NA
+Costigymnites	251.902	NA	NA	NA
+Courtilloticeras	251.902	NA	NA	NA
+Cowboyiceras	251.902	NA	NA	NA
+Crassotornoceras	NA	NA	NA	372.15
+Cuccoceras	251.902	NA	NA	NA
+Cycloceltites	NA	NA	NA	201.4
+Cyclolobus	NA	NA	NA	251.902
+Cymaclymenia	372.15	NA	NA	NA
+Cyrtoclymenia	372.15	NA	NA	NA
+Cyrtopleurites	NA	NA	NA	201.4
+Czarnoclymenia	372.15	NA	NA	NA
+Czekanowskites	251.902	NA	NA	NA
+Damesites	NA	NA	NA	66
+Daradiceras	NA	NA	NA	66
+Daubichites	NA	NA	NA	251.902
+Daxatina	251.902	NA	NA	NA
+Dayiceras	201.4	NA	NA	NA
+Delphiceras	NA	NA	NA	372.15
+Derolytoceras	201.4	NA	NA	NA
+Desmoceras	NA	NA	NA	66
+Desmophyllites	NA	NA	NA	66
+Desmoscaphites	NA	NA	NA	66
+Detoniceras	251.902	NA	NA	NA
+Devonopronorites	NA	NA	NA	372.15
+Deweveria	251.902	NA	NA	NA
+Didymoceras	NA	NA	NA	66
+Difuntites	NA	NA	NA	251.902
+Dionites	NA	NA	NA	201.4
+Diplomoceras	NA	NA	NA	66
+Discoceratites	251.902	NA	NA	NA
+Discoclymenia	372.15	NA	NA	NA
+Discogymnites	251.902	NA	NA	NA
+Discoptychites	251.902	NA	NA	NA
+Discoscaphites	NA	NA	NA	66
+Discotoceras	NA	NA	NA	251.902
+Discotropites	NA	NA	NA	201.4
+Distichites	NA	NA	NA	201.4
+Dixieceras	251.902	NA	NA	NA
+Domanikoceras	NA	NA	NA	372.15
+Doulingoceras	NA	NA	NA	251.902
+Drepanites	NA	NA	NA	201.4
+Dronovites	NA	NA	NA	201.4
+Drumoceras	251.902	NA	NA	NA
+Durgaites	251.902	NA	NA	NA
+Durvilleoceras	NA	NA	NA	251.902
+Dushanoceras	NA	NA	NA	251.902
+Dzhulfites	NA	NA	NA	251.902
+Dzhulfoceras	NA	NA	NA	251.902
+Ebbighausenites	372.15	NA	NA	NA
+Emaciaticeras	201.4	NA	NA	NA
+Endosiphonites	372.15	NA	NA	NA
+Enkebergoceras	372.15	NA	NA	NA
+Eoacrochordiceras	251.902	NA	NA	NA
+Eoamaltheus	201.4	NA	NA	NA
+Eoaraxoceras	NA	NA	NA	251.902
+Eodanubites	251.902	NA	NA	NA
+Eofrechites	251.902	NA	NA	NA
+Eogymnotoceras	251.902	NA	NA	NA
+Eojiangxiceras	NA	NA	NA	251.902
+Eonathorstites	251.902	NA	NA	NA
+Eoprotrachyceras	251.902	NA	NA	NA
+Eosagenites	251.902	NA	NA	NA
+Eosteinmannites	NA	NA	NA	201.4
+Epadrianites	NA	NA	NA	251.902
+Epammonites	201.4	NA	NA	NA
+Epiboreoceras	251.902	NA	NA	NA
+Epiceltitoides	251.902	NA	NA	NA
+Epigoniceras	NA	NA	NA	66
+Epigymnites	251.902	NA	NA	NA
+Epikellnerites	251.902	NA	NA	NA
+Epitauroceras	NA	NA	NA	251.902
+Epiwocklumeria	372.15	NA	NA	NA
+Epophioceroides	201.4	NA	NA	NA
+Eremites	NA	NA	NA	201.4
+Erfoudites	372.15	NA	NA	NA
+Escarguelites	251.902	NA	NA	NA
+Eschericeratites	251.902	NA	NA	NA
+Esfahanites	NA	NA	NA	251.902
+Esinoceras	251.902	NA	NA	NA
+Eteoderoceras	201.4	NA	NA	NA
+Etoushanoceras	NA	NA	NA	251.902
+Eubaculites	NA	NA	NA	66
+Eubostrychoceras	NA	NA	NA	66
+Eucoroniceras	201.4	NA	NA	NA
+Eudiscoceras	251.902	NA	NA	NA
+Euerbenites	201.4	NA	NA	NA
+Euisculites	NA	NA	NA	201.4
+Eulophoceras	NA	NA	NA	66
+Eumedlicottia	NA	NA	NA	251.902
+Eupachydiscus	NA	NA	NA	66
+Eusanyangites	NA	NA	NA	251.902
+Eutomoceras	251.902	NA	NA	NA
+Evenites	251.902	NA	NA	NA
+Exicrioceras	NA	NA	NA	66
+Exiteloceras	NA	NA	NA	66
+Exomiloceras	201.4	NA	NA	NA
+Falciclymenia	372.15	NA	NA	NA
+Falsanolcites	251.902	NA	NA	NA
+Fastigiceras	201.4	NA	NA	NA
+Favreticeras	251.902	NA	NA	NA
+Felisporadoceras	372.15	NA	NA	NA
+Fengchengoceras	NA	NA	NA	251.902
+Fengshanites	251.902	NA	NA	NA
+Finiclymenia	372.15	NA	NA	NA
+Flexoptychites	251.902	NA	NA	NA
+Foetterleiceras	201.4	NA	NA	NA
+Fontanelliceras	201.4	NA	NA	NA
+Forresteria	NA	NA	NA	66
+Franconiclymenia	372.15	NA	NA	NA
+Frankites	251.902	NA	NA	NA
+Frechites	251.902	NA	NA	NA
+Frechitoides	251.902	NA	NA	NA
+Fresvillia	NA	NA	NA	66
+Fucinites	201.4	NA	NA	NA
+Gabboceras	NA	NA	NA	201.4
+Galaticeras	201.4	NA	NA	NA
+Gastrioceras	NA	NA	NA	251.902
+Gattendorfia	372.15	NA	NA	NA
+Gaudemerites	251.902	NA	NA	NA
+Gaudryceras	NA	NA	NA	66
+Geermuceras	NA	NA	NA	251.902
+Genuclymenia	372.15	NA	NA	NA
+Gervasuttia	251.902	NA	NA	NA
+Gevanites	251.902	NA	NA	NA
+Ginsburgites	251.902	NA	NA	NA
+Gissarites	NA	NA	NA	66
+Glabercolumbites	251.902	NA	NA	NA
+Glatziella	372.15	NA	NA	NA
+Globacrochordiceras	251.902	NA	NA	NA
+Glyptoxoceras	NA	NA	NA	66
+Gnomohalorites	NA	NA	NA	201.4
+Gogoceras	NA	NA	NA	372.15
+Gonioclymenia	372.15	NA	NA	NA
+Gonionotites	NA	NA	NA	201.4
+Gorgheiceras	201.4	NA	NA	NA
+Goricanites	251.902	NA	NA	NA
+Grambergia	251.902	NA	NA	NA
+Grammoceras	201.4	NA	NA	NA
+Griesbachites	251.902	NA	NA	NA
+Groenlandites	251.902	NA	NA	NA
+Grossouvrites	NA	NA	NA	66
+Guangxiceras	251.902	NA	NA	NA
+Guexiceras	201.4	NA	NA	NA
+Guexites	251.902	NA	NA	NA
+Gunnarites	NA	NA	NA	66
+Gymnites	251.902	NA	NA	NA
+Gymnotoceras	251.902	NA	NA	NA
+Gymnotropites	NA	NA	NA	201.4
+Halilucites	251.902	NA	NA	NA
+Halorites	NA	NA	NA	201.4
+Hamites	NA	NA	NA	66
+Hammatoceras	201.4	NA	NA	NA
+Hantkeniceras	201.4	NA	NA	NA
+Haoceras	251.902	NA	NA	NA
+Harpoceras	201.4	NA	NA	NA
+Hauericeras	NA	NA	NA	66
+Hauerites	NA	NA	NA	201.4
+Helicoceras	NA	NA	NA	66
+Helictites	NA	NA	NA	201.4
+Hemilecanites	251.902	NA	NA	NA
+Heraclites	NA	NA	NA	201.4
+Herrickiceras	NA	NA	NA	66
+Hexaclymenia	372.15	NA	NA	NA
+Hildaites	201.4	NA	NA	NA
+Hildoceras	201.4	NA	NA	NA
+Himavatites	251.902	NA	NA	201.4
+Hoeninghausia	NA	NA	NA	372.15
+Holcolytoceras	201.4	NA	NA	NA
+Hollandites	251.902	NA	NA	NA
+Hongshuiheites	NA	NA	NA	251.902
+Hoplitoplacenticeras	NA	NA	NA	66
+Hoploscaphites	NA	NA	NA	66
+Huananoceras	NA	NA	NA	251.902
+Huishuites	251.902	NA	NA	NA
+Humboldtites	251.902	NA	NA	NA
+Hungarites	251.902	NA	NA	NA
+Hyattoceras	NA	NA	NA	251.902
+Hyparpadites	251.902	NA	NA	NA
+Hypasteroceras	201.4	NA	NA	NA
+Hyperderoceras	201.4	NA	NA	NA
+Hyphantoceras	NA	NA	NA	66
+Hypophylloceras	NA	NA	NA	66
+Iberites	251.902	NA	NA	NA
+Idahocolumbites	251.902	NA	NA	NA
+Imitoceras	372.15	NA	NA	NA
+Indigirites	251.902	NA	NA	NA
+Indigirophyllites	251.902	NA	NA	NA
+Indoceltites	251.902	NA	NA	NA
+Indojuvavites	NA	NA	NA	201.4
+Indoscaphites	NA	NA	NA	66
+Intornites	251.902	NA	NA	NA
+Iranites	NA	NA	NA	251.902
+Isculites	251.902	NA	NA	NA
+Ismidites	251.902	NA	NA	NA
+Israelites	251.902	NA	NA	NA
+Istreites	251.902	NA	NA	NA
+Jacobites	NA	NA	NA	66
+Jamesonites	201.4	NA	NA	NA
+Japonites	251.902	NA	NA	NA
+Jeletzkytes	NA	NA	NA	66
+Jenksites	251.902	NA	NA	NA
+Jimboiceras	NA	NA	NA	66
+Jinjiangoceras	NA	NA	NA	251.902
+Joannites	251.902	NA	NA	201.4
+Julfotirolites	NA	NA	NA	251.902
+Julfotoceras	NA	NA	NA	251.902
+Juvavites	NA	NA	NA	201.4
+Kalloclymenia	372.15	NA	NA	NA
+Kamptoclymenia	372.15	NA	NA	NA
+Karaclymenia	372.15	NA	NA	NA
+Karangatites	251.902	NA	NA	NA
+Kellnerites	251.902	NA	NA	NA
+Kenseyoceras	372.15	NA	NA	NA
+Kericserites	201.4	NA	NA	NA
+Khvalynites	251.902	NA	NA	NA
+Kiaclymenia	372.15	NA	NA	NA
+Kiangsiceras	NA	NA	NA	251.902
+Kielcensia	372.15	NA	NA	NA
+Kingoceras	NA	NA	NA	251.902
+Kiparisovia	251.902	NA	NA	NA
+Kitchinites	NA	NA	NA	66
+Kocaelia	251.902	NA	NA	NA
+Koenenites	NA	NA	NA	372.15
+Koipatoceras	251.902	NA	NA	NA
+Komioceras	NA	NA	NA	372.15
+Konglingites	NA	NA	NA	251.902
+Koninckitoides	251.902	NA	NA	NA
+Kosmoclymenia	372.15	NA	NA	NA
+Kossmaticeras	NA	NA	NA	66
+Kufengoceras	NA	NA	NA	251.902
+Laboceras	251.902	NA	NA	NA
+Lagowites	372.15	NA	NA	NA
+Laibinoceras	NA	NA	NA	251.902
+Lanceoptychites	251.902	NA	NA	NA
+Langdaiceras	251.902	NA	NA	NA
+Lanpingoceras	NA	NA	NA	201.4
+Lardaroceras	251.902	NA	NA	NA
+Latemarites	251.902	NA	NA	NA
+Leislingites	NA	NA	NA	201.4
+Lenotropites	251.902	NA	NA	NA
+Lenticoceltites	NA	NA	NA	251.902
+Leptogyroceras	NA	NA	NA	251.902
+Lewyites	NA	NA	NA	66
+Libycoceras	NA	NA	NA	66
+Lijiangoceras	NA	NA	NA	251.902
+Linguaclymenia	372.15	NA	NA	NA
+Lioceratoides	201.4	NA	NA	NA
+Liparoceras	201.4	NA	NA	NA
+Lissoclymenia	372.15	NA	NA	NA
+Lissonites	NA	NA	NA	201.4
+Liuchengoceras	NA	NA	NA	251.902
+Lobites	251.902	NA	NA	NA
+Longmenshanoceras	NA	NA	NA	251.902
+Longobardites	251.902	NA	NA	NA
+Longobarditoides	251.902	NA	NA	NA
+Lutites	NA	NA	NA	251.902
+Lytoceras	NA	NA	NA	66
+Lytoconites	201.4	NA	NA	NA
+Lytotropites	201.4	NA	NA	NA
+Maideroceras	372.15	NA	NA	NA
+Malayites	NA	NA	NA	201.4
+Malletoptychites	251.902	NA	NA	NA
+Manambolites	NA	NA	NA	66
+Mangyshlakites	251.902	NA	NA	NA
+Maorites	NA	NA	NA	66
+Marcouxia	251.902	NA	NA	NA
+Marcouxites	251.902	NA	NA	NA
+Maternoceras	NA	NA	NA	372.15
+Mauretaniaceras	201.4	NA	NA	NA
+Medlicottia	NA	NA	NA	251.902
+Megaceratites	251.902	NA	NA	NA
+Megaphyllites	251.902	NA	NA	201.4
+Meginoceras	251.902	NA	NA	NA
+Meitianoceras	NA	NA	NA	251.902
+Menabites	NA	NA	NA	66
+Menuites	NA	NA	NA	66
+Meridiceras	201.4	NA	NA	NA
+Meropella	251.902	NA	NA	NA
+Mesobeloceras	NA	NA	NA	372.15
+Mesocladiscites	251.902	NA	NA	NA
+Mesoclymenia	372.15	NA	NA	NA
+Mesohimavatites	NA	NA	NA	201.4
+Metacrimites	NA	NA	NA	251.902
+Metacymbites	201.4	NA	NA	NA
+Metadagnoceras	251.902	NA	NA	NA
+Metadinarites	251.902	NA	NA	NA
+Metagastrioceras	NA	NA	NA	251.902
+Metaplacenticeras	NA	NA	NA	66
+Metarnioceras	201.4	NA	NA	NA
+Metasibirites	NA	NA	NA	201.4
+Metoicoceras	NA	NA	NA	66
+Metophioceras	201.4	NA	NA	NA
+Mexicoceras	NA	NA	NA	251.902
+Miltoceras	201.4	NA	NA	NA
+Mimimitoceras	372.15	NA	NA	NA
+Mingyuexiaceras	NA	NA	NA	251.902
+Mixomanticoceras	NA	NA	NA	372.15
+Mojsvarites	251.902	NA	NA	201.4
+Monacanthites	251.902	NA	NA	NA
+Monophyllites	NA	NA	NA	201.4
+Morewites	NA	NA	NA	66
+Mucrodactylites	201.4	NA	NA	NA
+Muensterites	251.902	NA	NA	NA
+Muessenbiaergia	372.15	NA	NA	NA
+Multisulcites	NA	NA	NA	251.902
+Nannosteinmannites	NA	NA	NA	201.4
+Naplesites	NA	NA	NA	372.15
+Nassichukites	NA	NA	NA	201.4
+Nathorstites	251.902	NA	NA	NA
+Neancyloceras	NA	NA	NA	66
+Negebites	251.902	NA	NA	NA
+Neoaganides	NA	NA	NA	251.902
+Neocladiscites	251.902	NA	NA	NA
+Neocolumbites	251.902	NA	NA	NA
+Neocrimites	NA	NA	NA	251.902
+Neocrioceras	NA	NA	NA	66
+Neodesmoceras	NA	NA	NA	66
+Neogauthiericeras	NA	NA	NA	66
+Neogeoceras	NA	NA	NA	251.902
+Neoglassoceras	NA	NA	NA	251.902
+Neograhamites	NA	NA	NA	66
+Neohimavatites	NA	NA	NA	201.4
+Neolioceratoides	201.4	NA	NA	NA
+Neophylloceras	NA	NA	NA	66
+Neotibetites	NA	NA	NA	201.4
+Nevadisculites	251.902	NA	NA	NA
+Nevadites	251.902	NA	NA	201.4
+Nicholsites	251.902	NA	NA	NA
+Nicomedites	251.902	NA	NA	NA
+Nipponites	NA	NA	NA	66
+Nitanoceras	251.902	NA	NA	NA
+Nodicoeloceras	201.4	NA	NA	NA
+Nodihungarites	251.902	NA	NA	NA
+Nodosageceras	NA	NA	NA	251.902
+Noetlingites	251.902	NA	NA	NA
+Nomismoceras	NA	NA	NA	251.902
+Nordiceras	NA	NA	NA	372.15
+Nordophiceratoides	251.902	NA	NA	NA
+Norites	251.902	NA	NA	NA
+Nostoceras	NA	NA	NA	66
+Nuetzelia	251.902	NA	NA	NA
+Oiophyllites	NA	NA	NA	66
+Oistoceras	201.4	NA	NA	NA
+Omanites	251.902	NA	NA	NA
+Ophiorhabdoceras	NA	NA	NA	201.4
+Oxyarietites	201.4	NA	NA	NA
+Oxybeloceras	NA	NA	NA	66
+Oxylongobardites	251.902	NA	NA	NA
+Oxynoticeroides	201.4	NA	NA	NA
+Pachyclymenia	372.15	NA	NA	NA
+Pachydesmoceras	NA	NA	NA	66
+Pachydiscoceras	NA	NA	NA	251.902
+Pachydiscus	NA	NA	NA	66
+Pachyrotoceras	NA	NA	NA	251.902
+Paedopronorites	NA	NA	NA	251.902
+Palaeolecanites	NA	NA	NA	251.902
+Palaeophyllites	251.902	NA	NA	NA
+Paraceltites	NA	NA	NA	251.902
+Paraceratites	251.902	NA	NA	NA
+Paraceratitoides	251.902	NA	NA	NA
+Paracladiscites	NA	NA	NA	201.4
+Paracochloceras	NA	NA	NA	201.4
+Paracoroniceras	201.4	NA	NA	NA
+Paracrochordiceras	251.902	NA	NA	NA
+Paracymbites	201.4	NA	NA	NA
+Paradanubites	251.902	NA	NA	NA
+Paradinarites	251.902	NA	NA	NA
+Paradistichites	NA	NA	NA	201.4
+Parafrechites	251.902	NA	NA	NA
+Paragoceras	251.902	NA	NA	NA
+Paraguembelites	NA	NA	NA	201.4
+Paragymnites	NA	NA	NA	201.4
+Parahungarites	251.902	NA	NA	NA
+Parajuvavites	NA	NA	NA	201.4
+Parakellnerites	251.902	NA	NA	NA
+Paralegoceras	NA	NA	NA	251.902
+Paramexicoceras	NA	NA	NA	251.902
+Paranevadites	251.902	NA	NA	NA
+Paranoritoides	251.902	NA	NA	NA
+Parapachydiscus	NA	NA	NA	66
+Parapopanoceras	251.902	NA	NA	NA
+Parapuzosia	NA	NA	NA	66
+Parasageceras	251.902	NA	NA	NA
+Parasolenoceras	NA	NA	NA	66
+Parasphingites	251.902	NA	NA	NA
+Parasturia	251.902	NA	NA	NA
+Paratibetites	NA	NA	NA	201.4
+Paratrachyceras	251.902	NA	NA	NA
+Paratropites	NA	NA	NA	201.4
+Parawocklumeria	372.15	NA	NA	NA
+Parinaia	251.902	NA	NA	NA
+Parinodiceras	201.4	NA	NA	NA
+Patagiosites	NA	NA	NA	66
+Pearylandites	251.902	NA	NA	NA
+Penglaites	NA	NA	NA	251.902
+Pentagonoceras	NA	NA	NA	251.902
+Pericarinoceras	NA	NA	NA	251.902
+Pericyclus	NA	NA	NA	251.902
+Peripleurites	NA	NA	NA	201.4
+Peripleurocyclus	251.902	NA	NA	NA
+Periptychoceras	NA	NA	NA	251.902
+Pernodoceras	NA	NA	NA	251.902
+Pharciceras	NA	NA	NA	372.15
+Philippites	251.902	NA	NA	NA
+Phisonites	NA	NA	NA	251.902
+Phricodoceras	201.4	NA	NA	NA
+Phylloceras	NA	NA	NA	66
+Phyllocladiscites	251.902	NA	NA	NA
+Phyllopachyceras	NA	NA	NA	66
+Phylloptychoceras	NA	NA	NA	66
+Phyllosphaerites	251.902	NA	NA	NA
+Phyllytoceras	NA	NA	NA	201.4
+Pinacoceras	251.902	NA	NA	201.4
+Placenticeras	NA	NA	NA	66
+Placites	NA	NA	NA	201.4
+Planodiscoceras	NA	NA	NA	251.902
+Platyclymenia	372.15	NA	NA	NA
+Platycuccoceras	251.902	NA	NA	NA
+Platypleuroceras	201.4	NA	NA	NA
+Playfordites	NA	NA	NA	372.15
+Pleuroceras	201.4	NA	NA	NA
+Pleurofrechites	251.902	NA	NA	NA
+Pleuronodoceras	NA	NA	NA	251.902
+Pleydellia	201.4	NA	NA	NA
+Polymorphites	201.4	NA	NA	NA
+Polyptychoceras	NA	NA	NA	66
+Pompeckjites	251.902	NA	NA	NA
+Ponteixites	NA	NA	NA	66
+Ponticeras	NA	NA	NA	372.15
+Postglatziella	372.15	NA	NA	NA
+Praepinacoceras	251.902	NA	NA	NA
+Praesibirites	251.902	NA	NA	NA
+Pravitoceras	NA	NA	NA	66
+Preflorianitoides	251.902	NA	NA	NA
+Pricella	372.15	NA	NA	NA
+Prionoceras	372.15	NA	NA	NA
+Prionocycloceras	NA	NA	NA	66
+Proarcestes	251.902	NA	NA	201.4
+Proavites	251.902	NA	NA	NA
+Probeloceras	NA	NA	NA	372.15
+Prochorites	NA	NA	NA	372.15
+Procladiscites	251.902	NA	NA	NA
+Procymaclymenia	372.15	NA	NA	NA
+Progonioclymenia	372.15	NA	NA	NA
+Progonoceratites	251.902	NA	NA	NA
+Prolecanites	372.15	NA	NA	NA
+Pronoetlingites	251.902	NA	NA	NA
+Propinacoceras	NA	NA	NA	251.902
+Propopanoceras	NA	NA	NA	251.902
+Protactoclymenia	372.15	NA	NA	NA
+Protechioceras	201.4	NA	NA	NA
+Protetragonites	251.902	NA	NA	NA
+Proteusites	251.902	NA	NA	NA
+Protocanites	372.15	NA	NA	NA
+Protocymbites	201.4	NA	NA	NA
+Protoplatytes	NA	NA	NA	201.4
+Prototoceras	NA	NA	NA	251.902
+Protoxyclymenia	372.15	NA	NA	NA
+Protrachyceras	251.902	NA	NA	201.4
+Protropites	251.902	NA	NA	NA
+Pseudacrochordiceras	251.902	NA	NA	NA
+Pseudobaculites	NA	NA	NA	66
+Pseudocarnites	251.902	NA	NA	NA
+Pseudodanubites	251.902	NA	NA	NA
+Pseudohollandites	251.902	NA	NA	NA
+Pseudokeyserlingites	251.902	NA	NA	NA
+Pseudokossmaticeras	NA	NA	NA	66
+Pseudophilites	NA	NA	NA	66
+Pseudophyllites	NA	NA	NA	66
+Pseudoprosphingites	251.902	NA	NA	NA
+Pseudosirenites	NA	NA	NA	201.4
+Pseudoskirroceras	201.4	NA	NA	NA
+Pseudostephanites	NA	NA	NA	251.902
+Pseudothetidites	NA	NA	NA	201.4
+Pseudotoceras	NA	NA	NA	251.902
+Pseudotropites	201.4	NA	NA	NA
+Pseudoxybeloceras	NA	NA	NA	66
+Pseuduptonia	201.4	NA	NA	NA
+Psilocladiscites	251.902	NA	NA	NA
+Psilosturia	251.902	NA	NA	NA
+Pterotoceras	251.902	NA	NA	NA
+Ptychites	251.902	NA	NA	NA
+Ptychopopanoceras	251.902	NA	NA	NA
+Ptychosphaerites	251.902	NA	NA	NA
+Puzosia	NA	NA	NA	66
+Qianjiangoceras	NA	NA	NA	251.902
+Qinglongites	NA	NA	NA	251.902
+Raymondiceras	372.15	NA	NA	NA
+Rectoclymenia	372.15	NA	NA	NA
+Reiflingites	251.902	NA	NA	NA
+Reitziites	251.902	NA	NA	NA
+Renites	372.15	NA	NA	NA
+Repossia	251.902	NA	NA	NA
+Retiogastrioceras	NA	NA	NA	251.902
+Retrotornoceras	NA	NA	NA	372.15
+Reynesocoeloceras	201.4	NA	NA	NA
+Rhabdoceras	NA	NA	NA	201.4
+Rhaeboceras	NA	NA	NA	66
+Rhaetites	NA	NA	NA	201.4
+Rieberites	251.902	NA	NA	NA
+Rieppelites	251.902	NA	NA	NA
+Rimkinites	251.902	NA	NA	NA
+Riphaeoclymenia	372.15	NA	NA	NA
+Roadoceras	NA	NA	NA	251.902
+Robinsonites	251.902	NA	NA	NA
+Romanites	251.902	NA	NA	NA
+Ronconites	251.902	NA	NA	NA
+Rongjiangoceras	NA	NA	NA	251.902
+Rossiceras	251.902	NA	NA	NA
+Rotodiscoceras	NA	NA	NA	251.902
+Rudolftruempyiceras	251.902	NA	NA	NA
+Rugaptychus	NA	NA	NA	66
+Ryugasella	NA	NA	NA	66
+Sabaliceras	NA	276.1	NA	251.902
+Sagenites	NA	NA	NA	201.4
+Saghalinites	NA	NA	NA	66
+Salterites	251.902	NA	NA	NA
+Sandbergeroceras	NA	NA	NA	372.15
+Sanyangites	NA	NA	NA	251.902
+Scalarites	NA	NA	NA	66
+Schindewolfoceras	NA	NA	NA	372.15
+Schizoloboceras	NA	NA	NA	251.902
+Schreyerites	251.902	NA	NA	NA
+Sciponoceras	NA	NA	NA	66
+Sellaclymenia	372.15	NA	NA	NA
+Selwoodites	372.15	NA	NA	NA
+Semiornites	251.902	NA	NA	NA
+Serpianites	251.902	NA	NA	NA
+Serramanticoceras	NA	NA	NA	372.15
+Shangsilites	NA	NA	NA	251.902
+Shevyrevites	NA	NA	NA	251.902
+Shouchangoceras	NA	NA	NA	251.902
+Sibyllites	251.902	NA	NA	NA
+Silberlingites	251.902	NA	NA	NA
+Silberlingitoides	251.902	NA	NA	NA
+Silenticeras	251.902	NA	NA	NA
+Simicheiloceras	372.15	NA	NA	NA
+Sinoceltites	NA	NA	NA	251.902
+Sinomeginoceras	251.902	NA	NA	NA
+Sinuiceras	201.4	NA	NA	NA
+Sirenotrachyceras	251.902	NA	NA	NA
+Smithoceras	251.902	NA	NA	NA
+Solenoceras	NA	NA	NA	66
+Soliclymenia	372.15	NA	NA	NA
+Sphaerocladiscites	251.902	NA	NA	NA
+Sphaeromanticoceras	NA	NA	NA	372.15
+Sphenoacanthites	201.4	NA	NA	NA
+Sphenoclymenia	372.15	NA	NA	NA
+Sphenodiscus	NA	NA	NA	66
+Sphingites	251.902	NA	NA	NA
+Spinaptychus	NA	NA	NA	66
+Spirogmoceras	NA	NA	NA	201.4
+Spirosporadoceras	372.15	NA	NA	NA
+Spiroxybeloceras	NA	NA	NA	66
+Stacheoceras	NA	NA	NA	251.902
+Stannakhites	251.902	NA	NA	NA
+Steinmannites	NA	NA	NA	201.4
+Stenarcestes	NA	NA	NA	201.4
+Stenophyllites	251.902	NA	NA	NA
+Stenopopanoceras	251.902	NA	NA	NA
+Stephanoceras	201.4	NA	NA	NA
+Stolleyites	251.902	NA	NA	NA
+Stoppaniceras	251.902	NA	NA	NA
+Stoyanowites	NA	NA	NA	251.902
+Strigogoniatites	NA	NA	NA	251.902
+Sturia	251.902	NA	NA	NA
+Styrites	NA	NA	NA	201.4
+Subcolumbites	251.902	NA	NA	NA
+Subeothinites	NA	NA	NA	251.902
+Subfengshanites	251.902	NA	NA	NA
+Subhungarites	251.902	NA	NA	NA
+Submortoniceras	NA	NA	NA	66
+Subowenites	251.902	NA	NA	NA
+Subradioceras	251.902	NA	NA	NA
+Sulciferites	201.4	NA	NA	NA
+Sulioticeras	251.902	NA	NA	NA
+Sundaites	NA	NA	NA	251.902
+Sutchanites	NA	NA	NA	251.902
+Synwocklumeria	372.15	NA	NA	NA
+Syrdenites	NA	NA	NA	251.902
+Taimyrites	251.902	NA	NA	NA
+Tapashanites	NA	NA	NA	251.902
+Tapponnierites	251.902	NA	NA	NA
+Tardewocklumeria	372.15	NA	NA	NA
+Tardicolumbites	251.902	NA	NA	NA
+Tauromeniceras	201.4	NA	NA	NA
+Tetragonites	NA	NA	NA	66
+Tetsaoceras	251.902	NA	NA	NA
+Texanites	NA	NA	NA	66
+Thanamites	251.902	NA	NA	NA
+Thetidites	NA	NA	NA	201.4
+Thisbites	NA	NA	NA	201.4
+Tibetites	NA	NA	NA	201.4
+Ticinites	251.902	NA	NA	NA
+Tiltoniceras	201.4	NA	NA	NA
+Timanites	NA	NA	NA	372.15
+Timanoceras	NA	NA	NA	372.15
+Timites	251.902	NA	NA	NA
+Timorites	NA	NA	NA	251.902
+Tipperoceras	201.4	NA	NA	NA
+Tjururpites	251.902	NA	NA	NA
+Tmaegoceras	201.4	NA	NA	NA
+Tornia	372.15	NA	NA	NA
+Tozeria	NA	NA	NA	201.4
+Tozericeras	251.902	NA	NA	NA
+Tozerites	251.902	NA	NA	NA
+Trachybaculites	NA	NA	NA	66
+Trachyceras	251.902	NA	NA	NA
+Trachyornites	251.902	NA	NA	NA
+Trachyscaphites	NA	NA	NA	66
+Tragolytoceras	201.4	NA	NA	NA
+Tragorhacoceras	NA	NA	NA	201.4
+Triaclymenia	372.15	NA	NA	NA
+Trigonoclymenia	372.15	NA	NA	NA
+Trigonogastrites	NA	NA	NA	251.902
+Trimanticoceras	NA	NA	NA	372.15
+Trochoclymenia	372.15	NA	NA	NA
+Tropigastrites	251.902	NA	NA	NA
+Tropigymnites	251.902	NA	NA	NA
+Tropihalorites	NA	NA	NA	201.4
+Tsvetkovites	251.902	NA	NA	NA
+Tuaroceras	251.902	NA	NA	NA
+Tuchodiceras	251.902	NA	NA	NA
+Tunglanites	251.902	NA	NA	NA
+Turrilites	NA	NA	NA	66
+Uchtites	NA	NA	NA	372.15
+Ungusporadoceras	372.15	NA	NA	NA
+Unionvillites	251.902	NA	NA	NA
+Uptonia	201.4	NA	NA	NA
+Uraloclymenia	372.15	NA	NA	NA
+Urartoceras	NA	NA	NA	251.902
+Ussuriaspenites	251.902	NA	NA	NA
+Ussuriphyllites	251.902	NA	NA	NA
+Ussurites	251.902	NA	NA	NA
+Vandaites	NA	NA	NA	201.4
+Vedioceras	NA	NA	NA	251.902
+Vertebrites	NA	NA	NA	66
+Vescotoceras	NA	NA	NA	251.902
+Vicininodiceras	201.4	NA	NA	NA
+Virginoceras	NA	NA	NA	372.15
+Vorobyevites	251.902	NA	NA	NA
+Waagenoceras	NA	NA	NA	251.902
+Wangrenoceras	NA	NA	NA	251.902
+Weitschaticeras	251.902	NA	NA	NA
+Wellsites	NA	NA	NA	372.15
+Wocklumeria	372.15	NA	NA	NA
+Wopfingites	NA	NA	NA	201.4
+Xenoprotrachyceras	251.902	NA	NA	NA
+Xiangulingites	NA	NA	NA	251.902
+Yezoites	NA	NA	NA	66
+Yukagirites	201.4	NA	NA	NA
+Yvesgalleticeras	251.902	NA	NA	NA
+Zaghouanites	201.4	NA	NA	NA
+Zamaiceras	201.4	NA	NA	NA
+Zelandites	NA	NA	NA	66
+Zenoites	251.902	NA	NA	NA
+Zestoceras	251.902	NA	NA	NA
+Ziyunites	251.902	NA	NA	NA
+Zugodactylites	201.4	NA	NA	NA

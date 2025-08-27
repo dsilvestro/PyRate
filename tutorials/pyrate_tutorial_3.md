@@ -110,15 +110,19 @@ Note that this model only works for preservation models based on homogenous or t
 
 
 ## Constraining origination and extinction times
-Inferred origination times can be constrained to occur no earlier than a specified age, and extinction times to occur no later than that age. For instance, this may be appropriate if we know for certain that taxa went extinct during a mass extinction event or originated after a given moment in time.
+Inferred origination and extinction times can be constrained to occur no earlier or later than a specified age.
 
-Imposing bounds on origination and extinction times requires a tab or comma separated text file. The first column gives the name of the taxon, the second its earliest origination time, and the third column the latest extinction time. When an origination or extinction time should not be constrained, the respecive cell should contain _NA_. Taxa without any of the two bounds do not need to be included in the text file.
+Imposing bounds on origination and extinction times requires a tab or comma separated text file. The first column gives the name of the taxon, the second its earliest origination time, the third the latest originaton time, the fourth the earliest extinction time, and the fifth column the latest extinction time. When an origination or extinction time should not be constrained, the respecive cell should contain _NA_. Taxa without any of the two bounds do not need to be included in the text file.
 
-| taxon            | max_ts  | min_te |
-| ---------------- |:-------:| ------:|
-| Anolcites        | 251.902 | 201.4  |
-| Acanthoscaphites | NA      | 66.0   |
-| Glatziella       | 372.15  | NA     |
+Constraining bound on origination and extinction times may be appropriate if we know for certain that taxa went extinct during a mass extinction event (setting min_te) or originated after a given moment in time (setting max_ts). Setting a minimum age of orignation (min_ts) can be usefull if we only have records younger than a certain age but we know the taxon originated much earlier.
+
+
+| taxon            | max_ts  | min_ts  | max_te | min_te  |
+| ---------------- |:-------:|:-------:|:------:| -------:|
+| Anolcites        | 251.902 | NA      | NA     | 201.4   |
+| Acanthoscaphites | NA      | NA      | NA     | 66.0    |
+| Glatziella       | 372.15  | NA      | NA     | NA      |
+| Sabaliceras      | NA      | 276.1   | NA     | 251.902 |
 
 
 `python ./PyRate.py ./example_files/Ammonoidea.py -bound_se ./example_files/Ammonoidea_bound_se.txt`
