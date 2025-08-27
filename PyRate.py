@@ -1632,6 +1632,7 @@ def tune_tste_windows(d1_ts, d1_te,
 
 
 def set_bound_se(b_ts, b_te, b_se, taxa, rescale=1, translate=0):
+    b_se = b_se.reshape(-1, 3)
     constr_taxa = b_se[:, 0]
     for tx in range(len(constr_taxa)):
         if constr_taxa[tx] in taxa:
