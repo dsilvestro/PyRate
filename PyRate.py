@@ -1637,20 +1637,28 @@ def set_bound_se(b_ts, b_te, b_se, taxa, FA, LO, rescale=1, translate=0):
     for tx in range(len(constr_taxa)):
         if constr_taxa[tx] in taxa:
             indx = np.where(taxa == constr_taxa[tx])[0]
+
             if b_se[tx, 1] != 'NA':
                 b_ts[indx] = b_se[tx, 1].astype(float) * rescale + translate
-            if b_se[tx, 4] != 'NA':
-                b_te[indx] = b_se[tx, 4].astype(float) * rescale + translate
+                if b_ts[indx] < FA[indx]:
+                    print('Constrained max_ts %s of %s is younger than its first record %s' % (b_ts[indx], b_se[tx, 0], FA[indx]))
+
             if b_se[tx, 2] != 'NA':
                 FA_new = b_se[tx, 2].astype(float) * rescale + translate
                 if FA_new < FA[indx]:
-                    print('Constrained min_ts of %s is younger than its first record %s' % (b_se[tx, 0], FA[indx]))
+                    print('Constrained min_ts %s of %s is younger than its first record %s' % (FA_new, b_se[tx, 0], FA[indx]))
                 FA[indx] = FA_new
+
             if b_se[tx, 3] != 'NA':
                 LO_new = b_se[tx, 3].astype(float) * rescale + translate
-                if FA_new < FA[indx]:
-                    print('Constrained max_te of %s is earlier than its last record %s' % (b_se[tx, 0], LO[indx]))
+                if LO_new > LO[indx]:
+                    print('Constrained max_te %s of %s is earlier than its last record %s' % (LO_new, b_se[tx, 0], LO[indx]))
                 LO[indx] = LO_new
+
+            if b_se[tx, 4] != 'NA':
+                b_te[indx] = b_se[tx, 4].astype(float) * rescale + translate
+                if b_te[indx] > LO[indx]:
+                    print('Constrained min_te %s of %s is earlier than its last record %s' % (b_te[indx], b_se[tx, 0], LO[indx]))
 
     return b_ts, b_te, FA, LO
 
@@ -6543,10 +6551,6 @@ if __name__ == '__main__':
         if args.bound_se != '':
             bound_se = np.genfromtxt(args.bound_se, dtype=str, skip_header=1)
             bound_ts, bound_te, FA, LO = set_bound_se(bound_ts, bound_te, bound_se, taxa_names, FA, LO, args.rescale, args.translate)
-        indx = np.where(bound_te > LO)[0]
-        for i in indx:
-            print(taxa_names[i], LO[i], bound_te[i])
-
 
     # """
     # use_se_trait_id_tbl
