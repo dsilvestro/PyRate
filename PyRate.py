@@ -1221,8 +1221,12 @@ def init_ts_te(FA,LO):
         ts[ts>boundMax] = np.random.uniform(FA[ts>boundMax],boundMax,len(ts[ts>boundMax])) # avoit init values outside bounds
     if np.min(te) < boundMin:
         te[te<boundMin] = np.random.uniform(boundMin,LO[te<boundMin],len(te[te<boundMin])) # avoit init values outside bounds
+    if np.any(bound_ts != bound_ts[0]):
+        indx = ts > bound_ts
+        ts[indx] = np.random.uniform(bound_ts[indx], FA[indx], len(ts[indx])) # avoid init values older than max_ts in -bound_se
     if np.any(bound_te != bound_te[0]):
-        te[te < bound_te] = np.random.uniform(bound_te[te < bound_te], LO[te < bound_te], len(te[te < bound_te]))
+        indx = te < bound_te
+        te[indx] = np.random.uniform(bound_te[indx], LO[indx], len(te[indx])) # avoid init values yonger than min_ts in -bound_se
     #te=LO*tt
     if frac1==0: ts, te= FA,LO
     try:
@@ -4053,7 +4057,7 @@ def MCMC(all_arg):
         
         
         if fix_SE == 1: tsA, teA = fixed_ts, fixed_te
-        elif FBDrange==0: tsA, teA = init_ts_te(FA,LO)
+        elif FBDrange == 0: tsA, teA = init_ts_te(FA,LO)
         else:
             tsA, teA = init_ts_te_FBDrange(FA,LO)
             if FBDrange == 3:
