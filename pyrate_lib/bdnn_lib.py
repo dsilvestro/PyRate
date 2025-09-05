@@ -639,7 +639,7 @@ def plot_rtt(path_dir_log_files, burn, translate=0, min_age=0, max_age=0):
     if fix_edgeShift in [1, 2] and max_age == 0.0: # both or max boundary
         max_age = times_edgeShifts[0] - translate
     if fix_edgeShift in [1, 3] and min_age == 0.0: # both or min boundary
-        min_age = times_edgeShifts[-1] - translate + 0.01 * (times_edgeShifts[-1] - translate)
+        min_age = times_edgeShifts[-1] - translate + 0.0001 * (times_edgeShifts[-1] - translate)
     plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q,
                   min_age=min_age, max_age=max_age)
 
@@ -1210,7 +1210,7 @@ def is_time_variable_feature(trait_tbl):
     n_time_bins = trait_tbl.shape[0]
     time_bins = np.arange(0, n_time_bins)
     var_feat = np.zeros((4, n_features), dtype = int)
-    tol = 1e-5
+    tol = 1e-4
     if trait_tbl.ndim == 3:
         for i in range(n_features):
             tr = trait_tbl[time_bins, :, i]
@@ -4514,7 +4514,34 @@ def get_pdrtt_i(arg):
 
 
 def get_pdqtt_i(arg):
-    [trt_tbl, norm_q, w_q, t_reg_q, reg_denom_q, hidden_act_f, out_act_f, singleton_mask, qbins_ts_te] = arg
+    [trait_tbl,
+     num_taxa,
+     num_bins,
+     alive_taxa,
+     names_comb_idx_conc,
+     norm_q,
+     w_q,
+     t_reg_q,
+     reg_denom_q,
+     hidden_act_f,
+     out_act_f,
+     singleton_mask,
+     qbins_ts_te,
+     use_HPP_NN_lik,
+     const_q,
+     ts,
+     te,
+     q,
+     alpha,
+     occs_sp,
+     log_factorial_occs,
+     argsG,
+     gamma_ncat,
+     YangGammaQuant,
+     singleton_lik,
+     q_bins,
+     duration_q_bins,
+     occs_single_bin] = arg
 
     pdq = np.full((num_taxa, num_bins), np.nan)
     for j in range(num_bins):
@@ -4522,18 +4549,20 @@ def get_pdqtt_i(arg):
             trait_tbl_qk = trait_tbl + 0.0
             trait_tbl_qk[:, :, names_comb_idx_conc] = trait_tbl_qk[j, k, names_comb_idx_conc]
             qnn_output_unreg, _ = get_unreg_rate_BDNN_3D(trait_tbl_qk, w_q, None, hidden_act_f, out_act_f)
-            q_multi = get_q_multipliers_NN_dereg(t_reg_q, reg_denom_q, norm_q, qnn_output_unreg, singleton_mask, qbins_ts_te)
+            q_multi = get_q_multipliers_NN_dereg(t_reg_q, 3, norm_q, qnn_output_unreg, singleton_mask, qbins_ts_te)
             if use_HPP_NN_lik:
                 if const_q:
                     q = [q[0], q[0]]
-                _, q_rates, _ = HPP_NN_lik([ts_i, te_i, q, alpha, q_multi, const_q,
-                                            occs_sp, log_factorial_occs, q_time_frames, duration_q_bins, occs_single_bin,
-                                            sl, argsG, gamma_ncat, YangGammaQuant])
+                _, q_rates, _ = HPP_NN_lik([ts, te, q, alpha, q_multi, const_q,
+                                            occs_sp, log_factorial_occs, q_bins, duration_q_bins, occs_single_bin,
+                                            singleton_lik, argsG, gamma_ncat, YangGammaQuant])
             else:
                 q = np.array([alpha, q[0]])
-                _, q_rates, _ = HOMPP_NN_lik([ts_i, te_i, q, q_multi, const_q,
+                _, q_rates, _ = HOMPP_NN_lik([ts, te, q, q_multi, const_q,
                                               occs_sp, log_factorial_occs,
-                                              sl, argsG, gamma_ncat, YangGammaQuant])
+                                              singleton_lik, argsG, gamma_ncat, YangGammaQuant])
+            pdq[k, j] = 1.0 / np.nanmean(1.0 / q_rates)
+    return pdq
 
 
 
@@ -4658,7 +4687,7 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
             xlim = [FA, LO]
             xlim = overwrite_xlim(xlim, min_age, max_age)
             plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, r_q_sum=None, time_vec_q=None,
-                        max_age=max_age, min_age=min_age, xlim=xlim)
+                          max_age=max_age, min_age=min_age, xlim=xlim)
 
     if do_sampling:
         hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
@@ -4671,6 +4700,13 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
         age_dependent_sampling = 'highres_q_repeats' in bdnn_obj.bdnn_settings.keys()
         names_features = get_names_features(bdnn_obj, rate_type='sampling')
         float_prec_f = get_float_prec_f_from_bdnn_obj(bdnn_obj, bdnn_precision)
+
+        keys_names_comb = get_names_feature_group(names_comb)
+        keys_names_comb = "_".join(keys_names_comb)
+        names_features = get_names_features(bdnn_obj, rate_type="sampling")
+        names_features = np.array(names_features)
+        names_comb_idx = match_names_comb_with_features(names_comb, names_features)
+        names_comb_idx_conc = np.concatenate(names_comb_idx).astype(int)
 
         q = get_q_from_mcmc_file(mcmc_file, burn, thin)
         constant_baseline_q = q.shape[1] == 1
@@ -4706,7 +4742,7 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
             singleton_lik = singleton_lik[:, 0].reshape(-1)
 
         qbins_ts_te = None
-        n_taxa = trt_tbl.shape[-2]
+        num_taxa = trt_tbl.shape[-2]
         num_it = ts.shape[0]
 
         args = []
@@ -4721,16 +4757,84 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
             if trt_tbl.ndim == 3:
                 qbins_ts_te = get_bin_ts_te(ts[i, :], te[i, :], q_bins)
 
-            a = [trt_tbl, norm_q[i], w_q_i, t_reg_q[i], reg_denom_q[i], hidden_act_f, out_act_f_q,
-                 singleton_mask, qbins_ts_te,
-                 q[i, :], alpha[i], argsG, gamma_ncat, YangGammaQuant, use_HPP_NN_lik,
+            trt_tbl_a = np.copy(trt_tbl)
+            if age_dependent_sampling:
+                trt_tbl_a = add_taxon_age(ts[i, :], te[i, :], q_bins, trt_tbl_a)
+
+            a = [trt_tbl_a,
+                 num_taxa,
                  num_q_bins,
-                 ts[i, :], te[i, :], taxa_alive,
-                 constant_baseline_q, occs_sp, log_factorial_occs, singleton_lik]
+                 taxa_alive,
+                 names_comb_idx_conc,
+                 norm_q[i],
+                 w_q_i,
+                 t_reg_q[i],
+                 reg_denom_q[i],
+                 hidden_act_f,
+                 out_act_f_q,
+                 singleton_mask,
+                 qbins_ts_te,
+                 use_HPP_NN_lik,
+                 constant_baseline_q,
+                 ts[i, :],
+                 te[i, :],
+                 q[i, :],
+                 alpha[i],
+                 occs_sp,
+                 log_factorial_occs,
+                 argsG,
+                 gamma_ncat,
+                 YangGammaQuant,
+                 singleton_lik]
             if 'q_time_frames' in bdnn_obj.bdnn_settings.keys():
-                a += [q_bins, duration_q_bins, occs_single_bin]
+                a += [q_bins,
+                      duration_q_bins,
+                      occs_single_bin]
 
             args.append(a)
+
+        if num_processes > 1:
+            pool_pdp = get_context('spawn').Pool(num_processes)
+            pdqtt = list(tqdm(pool_pdp.imap(get_pdqtt_i, args),
+                            total=num_it, disable=show_progressbar == False))
+            pool_pdp.close()
+        else:
+            pdqtt = []
+            for i in tqdm(range(num_it), disable=show_progressbar == False):
+                pdqtt.append(get_pdqtt_i(args[i]))
+
+    pdqtt = np.stack(pdqtt, axis=0)
+
+    # Get marginal rates through time for the specified group of taxa
+    FA = np.max(np.mean(ts, axis=0))
+    LO = np.min(np.mean(te, axis=0))
+    for g in range(len(group_names)):
+        gs = group_species_idx[g]
+        r_file = "%s_%s_PDQTT.r" % (name_file, group_names[g])
+        pdf_file = "%s_%s_PDQTT.pdf" % (name_file, group_names[g])
+
+        num_q_bins = len(q_bins) - 1
+        r_q = np.zeros((num_it, num_q_bins))
+        FA_gs = np.max(np.mean(ts[:, gs], axis=0))
+        LO_gs = np.min(np.mean(te[:, gs], axis=0))
+        for i in range(num_it):
+            q_rate = pdqtt[i, gs, :]
+            if pdqtt.shape[2] == 1:
+                q_rate = pdqtt[i, gs, :].reshape(-1)
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', category = RuntimeWarning)
+                r_q[i, :] = harmonic_mean_q_through_time(ts[i, gs], te[i, gs], q_bins, q_rate)
+        time_vec_q = format_t_vec(q_bins[1:-1], FA, LO, translate)
+        r_q[:, q_bins[1:] >= FA_gs] = np.nan
+        r_q[:, q_bins[:-1] <= LO_gs] = np.nan
+        qtt = summarize_rate(r_q, num_q_bins)
+
+
+        xlim = [FA, LO]
+        xlim = overwrite_xlim(xlim, min_age, max_age)
+        plot_bdnn_rtt(output_wd, r_file, pdf_file, None, None, None, None, None, qtt, time_vec_q,
+                        max_age=max_age, min_age=min_age, xlim=xlim)
+
 
 
 def get_greenwells_feature_importance(cond_trait_tbl, pdp_rates, bdnn_obj, names_features, rate_type = 'speciation'):
