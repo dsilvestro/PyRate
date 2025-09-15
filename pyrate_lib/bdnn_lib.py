@@ -4684,7 +4684,7 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
             r_file = "%s_%s_%s_PDRTT.r" % (name_file, group_names[g], keys_names_comb)
             pdf_file = "%s_%s_%s_PDRTT.pdf" % (name_file, group_names[g], keys_names_comb)
             sptt, extt, divtt, longtt, time_vec = get_rtt_summary(pdsptt, pdextt, gs, times_of_shift, FA, ts, te, num_it, num_bins, translate)
-            xlim = [FA, LO]
+            xlim = [FA - translate, LO - translate]
             xlim = overwrite_xlim(xlim, min_age, max_age)
             plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, r_q_sum=None, time_vec_q=None,
                           max_age=max_age, min_age=min_age, xlim=xlim)
@@ -4830,7 +4830,7 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
             qtt = summarize_rate(r_q, num_q_bins)
 
 
-            xlim = [FA, LO]
+            xlim = [FA - translate, LO - translate]
             xlim = overwrite_xlim(xlim, min_age, max_age)
             plot_bdnn_rtt(output_wd, r_file, pdf_file, None, None, None, None, None, qtt, time_vec_q,
                             max_age=max_age, min_age=min_age, xlim=xlim)
