@@ -4803,37 +4803,37 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
             for i in tqdm(range(num_it), disable=show_progressbar == False):
                 pdqtt.append(get_pdqtt_i(args[i]))
 
-    pdqtt = np.stack(pdqtt, axis=0)
+        pdqtt = np.stack(pdqtt, axis=0)
 
-    # Get marginal rates through time for the specified group of taxa
-    FA = np.max(np.mean(ts, axis=0))
-    LO = np.min(np.mean(te, axis=0))
-    for g in range(len(group_names)):
-        gs = group_species_idx[g]
-        r_file = "%s_%s_PDQTT.r" % (name_file, group_names[g])
-        pdf_file = "%s_%s_PDQTT.pdf" % (name_file, group_names[g])
+        # Get marginal rates through time for the specified group of taxa
+        FA = np.max(np.mean(ts, axis=0))
+        LO = np.min(np.mean(te, axis=0))
+        for g in range(len(group_names)):
+            gs = group_species_idx[g]
+            r_file = "%s_%s_PDQTT.r" % (name_file, group_names[g])
+            pdf_file = "%s_%s_PDQTT.pdf" % (name_file, group_names[g])
 
-        num_q_bins = len(q_bins) - 1
-        r_q = np.zeros((num_it, num_q_bins))
-        FA_gs = np.max(np.mean(ts[:, gs], axis=0))
-        LO_gs = np.min(np.mean(te[:, gs], axis=0))
-        for i in range(num_it):
-            q_rate = pdqtt[i, gs, :]
-            if pdqtt.shape[2] == 1:
-                q_rate = pdqtt[i, gs, :].reshape(-1)
-            with warnings.catch_warnings():
-                warnings.simplefilter('ignore', category = RuntimeWarning)
-                r_q[i, :] = harmonic_mean_q_through_time(ts[i, gs], te[i, gs], q_bins, q_rate)
-        time_vec_q = format_t_vec(q_bins[1:-1], FA, LO, translate)
-        r_q[:, q_bins[1:] >= FA_gs] = np.nan
-        r_q[:, q_bins[:-1] <= LO_gs] = np.nan
-        qtt = summarize_rate(r_q, num_q_bins)
+            num_q_bins = len(q_bins) - 1
+            r_q = np.zeros((num_it, num_q_bins))
+            FA_gs = np.max(np.mean(ts[:, gs], axis=0))
+            LO_gs = np.min(np.mean(te[:, gs], axis=0))
+            for i in range(num_it):
+                q_rate = pdqtt[i, gs, :]
+                if pdqtt.shape[2] == 1:
+                    q_rate = pdqtt[i, gs, :].reshape(-1)
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore', category = RuntimeWarning)
+                    r_q[i, :] = harmonic_mean_q_through_time(ts[i, gs], te[i, gs], q_bins, q_rate)
+            time_vec_q = format_t_vec(q_bins[1:-1], FA, LO, translate)
+            r_q[:, q_bins[1:] >= FA_gs] = np.nan
+            r_q[:, q_bins[:-1] <= LO_gs] = np.nan
+            qtt = summarize_rate(r_q, num_q_bins)
 
 
-        xlim = [FA, LO]
-        xlim = overwrite_xlim(xlim, min_age, max_age)
-        plot_bdnn_rtt(output_wd, r_file, pdf_file, None, None, None, None, None, qtt, time_vec_q,
-                        max_age=max_age, min_age=min_age, xlim=xlim)
+            xlim = [FA, LO]
+            xlim = overwrite_xlim(xlim, min_age, max_age)
+            plot_bdnn_rtt(output_wd, r_file, pdf_file, None, None, None, None, None, qtt, time_vec_q,
+                            max_age=max_age, min_age=min_age, xlim=xlim)
 
 
 
