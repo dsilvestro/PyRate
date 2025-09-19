@@ -8,7 +8,7 @@ import copy as copy_lib
 import json
 
 version= "PyRate"
-build  = "v3.1.3 - 20230825"
+build  = "v3.1.3 - 20230919"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
@@ -4390,16 +4390,25 @@ def MCMC(all_arg):
                     times_q_temp = np.sort(np.array([np.inf,0]+times_q_shift))[::-1]
                     q_temp_time = np.sort(np.unique(list(times_q_shift)+list(timesLA[1:])+list(timesMA[1:])))[::-1]
                     q_rates_temp =  q_ratesA[np.digitize(q_temp_time,times_q_temp[1:])]
-                    if len(LA)==1:
-                        q_rates_temp_L = q_rates_temp + LA[0] + MA[0]
-                    else:
-                        q_rates_temp_L = q_rates_temp + LA[np.digitize(q_temp_time,timesLA[1:])] + MA[np.digitize(q_temp_time,timesMA[1:])] 
-                    if len(MA)==1:
-                        q_rates_temp_M = q_rates_temp + MA[0] + LA[0]
-                    else:
-                        q_rates_temp_M = q_rates_temp + MA[np.digitize(q_temp_time,timesMA[1:])] + LA[np.digitize(q_temp_time,timesLA[1:])]
-                    ts,te = gibbs_update_ts_te(q_rates_temp_L,q_rates_temp_M,times_q_temp, 
+                    lm_rates_temp = LA[np.digitize(q_temp_time, timesLA) - 1] + MA[np.digitize(q_temp_time, timesMA) - 1] + q_rates_temp
+                    ts,te = gibbs_update_ts_te(lm_rates_temp,lm_rates_temp,times_q_temp,
                         bound_ts=bound_ts, bound_te=bound_te, tsA=tsA, teA=teA)
+                    
+                    # if len(LA)==1:
+                    #     q_rates_temp_L = q_rates_temp + LA[0] + MA[0]
+                    # else:
+                    #     q_rates_temp_L = q_rates_temp + LA[np.digitize(q_temp_time,timesLA[1:])] + MA[np.digitize(q_temp_time,timesMA[1:])]
+                    # if len(MA)==1:
+                    #     q_rates_temp_M = q_rates_temp + MA[0] + LA[0]
+                    # else:
+                    #     q_rates_temp_M = q_rates_temp + MA[np.digitize(q_temp_time,timesMA[1:])] + LA[np.digitize(q_temp_time,timesLA[1:])]
+                    # ts,te = gibbs_update_ts_te(q_rates_temp_L,q_rates_temp_M,times_q_temp,
+                    #     bound_ts=bound_ts, bound_te=bound_te, tsA=tsA, teA=teA)
+                    #
+                    #
+                    # print("OLD", q_rates_temp_L)
+                    # print("NEW", lm_rates_temp + q_rates_temp)
+                               
 
             if BDNNmodel:
                 if bdnn_dd:
