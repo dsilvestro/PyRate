@@ -2660,7 +2660,7 @@ def get_binned_time_variable(timebins, var_file, rescale, translate):
     for i in range(1, nbins):
         t_max = timebins[i-1]
         t_min = timebins[i]
-        in_range_M = (times <= t_max).nonzero()[0]
+        in_range_M = (times < t_max).nonzero()[0]
         in_range_m = (times >= t_min).nonzero()[0]
         values_bin = values[np.intersect1d(in_range_M, in_range_m),:]
         if values_bin.size == 0:
