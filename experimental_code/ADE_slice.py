@@ -344,5 +344,6 @@ if __name__ == '__main__':
     corrected_q_post = [ade_model.get_corrected_q(ade_data['mean_sampled_sigmas'], q_ztp) for q_ztp in post_pd['q_ztp']]
     post_pd["corrected_q"] = corrected_q_post
 
-    wd = "/Users/dsilvestro/Documents/Projects/Ongoing/ADE_sliced"
+    wd = "./ADE_sliced"
+    os.makedirs(wd, exist_ok=True)
     post_pd.to_csv(os.path.join(wd, 'posterior.log'), index=False, sep='\t')
