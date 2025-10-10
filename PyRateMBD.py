@@ -343,13 +343,14 @@ else:
         head+="\tGl%s_%s" % (fixed_focal_clade,j)
     for j in range(n_clades): 
         head+="\tGm%s_%s" % (fixed_focal_clade,j)
-    for j in range(n_clades): 
-        head+="\tWl%s_%s" % (fixed_focal_clade,j)
-    for j in range(n_clades): 
-        head+="\tWm%s_%s" % (fixed_focal_clade,j)
+    if useHSP:
+        for j in range(n_clades): 
+            head+="\tWl%s_%s" % (fixed_focal_clade,j)
+        for j in range(n_clades): 
+            head+="\tWm%s_%s" % (fixed_focal_clade,j)
 
-    head+="\tLAM_mu"        
-    head+="\tLAM_sd"        
+        head+="\tLAM_mu"        
+        head+="\tLAM_sd"        
     head+="\tTau"        
     head+="\thypR"
     wlog.writerow(head.split('\t'))
@@ -734,9 +735,18 @@ while True:
         #print "Hmu:", TauA, 1./hypRA[0] #,1./hypRA[1],hypRA[2]
     if iteration % sampling_freq ==0:
         k= 1./(1+TauA**2 * LAM[fixed_focal_clade,:,:]**2) # Carvalho 2010 Biometrika, p. 471
-        loc_shrinkage = (1-k) # so if loc_shrinkage > 0 is signal, otherwise it's noise (cf. Carvalho 2010 Biometrika, p. 474)
-        #loc_shrinkage =LAM[fixed_focal_clade,:,:]**2
-        log_state=[iteration,postA,np.sum(likA)]+[priorA]+[l0A[fixed_focal_clade]]+[m0A[fixed_focal_clade]]+list(actualGarray.flatten())+list(loc_shrinkage.flatten())+[mean(LAM[fixed_focal_clade,:,:]),std(LAM[fixed_focal_clade,:,:])] +list(TauA) +[hypRA[0]]
+        if useHSP == 1:
+            loc_shrinkage = (1 - k) # so if loc_shrinkage > 0 is signal, otherwise it's noise (cf. Carvalho 2010 Biometrika, p. 474)
+            #loc_shrinkage =LAM[fixed_focal_clade,:,:]**2
+            log_state=[iteration,postA,np.sum(likA)]+[priorA]+[
+                l0A[fixed_focal_clade]]+[m0A[fixed_focal_clade]] + list(
+                actualGarray.flatten())+list(loc_shrinkage.flatten())+[
+                    mean(LAM[fixed_focal_clade,:,:]),std(LAM[fixed_focal_clade,:,:])] + list(TauA) + [hypRA[0]]
+        else:
+            log_state=[iteration,postA,np.sum(likA)]+[priorA]+[
+                l0A[fixed_focal_clade]] + [m0A[fixed_focal_clade]] + list(
+                actualGarray.flatten()) + list(TauA) + [hypRA[0]]
+            
         wlog.writerow(log_state)
         logfile.flush()
 
