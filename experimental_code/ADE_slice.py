@@ -122,30 +122,8 @@ class ADE_slice:
             dat['sampled_sigmas'][dat['lf_trunc']],
             w_shape, w_scale,
             dat['sampled_te'][dat['lf_trunc']])
-
-        # sampled_length = np.sum(dat['length_in_bin'])
-        # missing_length = np.sum(
-        #     self.wei_pdf(self._x_bins, w_shape, w_scale) - ade_model.wei_pdf(self._x_bins, w_shape, w_scale) * self.prob_fossils(q, self._x_bins))
-        #
-        # sampled_species = len(dat['sampled_sigmas'])
-        #
-        # tot_sampling_probability = np.sum(self.pdf_w_poi(w_shape, w_scale, q, self._x_bins) * self._x_bin_size)
-        # missing_species = sampled_species / tot_sampling_probability
-        # tot_missing_length = missing_length * missing_species
-        #
-        # p = self.pdf_w_poi(w_shape, w_scale, q, self._x_bins) * self._x_bin_size
-        # per_species_sampling_prob = np.array([np.sum(p[self._x_bins < i]) for i in dat['length_in_bin']])
-        # # print(per_species_sampling_prob)
-
-
-        # print(sampled_length, tot_missing_length, missing_species, sampled_species, np.sum(np.log(1 - np.exp(- q * tot_missing_length))))
-        # l4 = np.log(q) * len(dat['foss_age_in_bin']) - q * np.sum(dat['length_in_bin']
-        #  ) #- np.exp(- q * np.sum(dat['length_in_bin']))
         l4 = np.log(q) * len(dat['foss_age_in_bin']) - q * np.sum(dat['length_in_bin'])
 
-        # l4 = (np.log(q) * (tot_sampling_probability * len(dat['foss_age_in_bin'])) - q * (tot_missing_length + sampled_length)
-        #       ) #- np.sum(np.log(1 - np.exp(- q * tot_missing_length)))
-        # print(np.sum(sampled_species * np.log(1 - tot_sampling_probability)))
         return l1 + l2 + l3 + l4
 
 
