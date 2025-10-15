@@ -145,12 +145,22 @@ class ADE_simulator:
         sigmas = self.rg.weibull(w_shape, n_taxa) * w_scale
         ts = np.sort(self.rg.uniform(min_age_ts, root, len(sigmas)))[::-1]
         te = np.maximum(ts - sigmas, t1)
+        # shift by t1, so species with later ts become extant
+        ts = ts - t1
+        te = te - t1
+        
         # drop things prior to t0
         ind = np.where(te < t0)[0]
         sigmas = sigmas[ind]
         ts = ts[ind]
         te = te[ind]
 
+        # drop things after t1
+        ind = np.where(ts > 0)[0]
+        sigmas = sigmas[ind]
+        ts = ts[ind]
+        te = te[ind]
+        
         # truncate living species duration from initial weibull
         sigmas_t = np.minimum(sigmas, ts - te)
 
@@ -276,6 +286,7 @@ if __name__ == '__main__':
     ade_sim = ADE_simulator(seed=1234)
     ade_model = ADE_slice()
 
+    # age of the process
     root = 12
     min_age_ts = 0
     q = .1
@@ -285,9 +296,9 @@ if __name__ == '__main__':
     avg_longevity = 3
     w_scale = avg_longevity / scipy.special.gamma(1 + 1 / w_shape)
 
-
-    t0 = 8.
-    t1 = 0
+    # define
+    t0 = 15.
+    t1 = 2
     n_taxa = 1000
     # ---
     ade_data = ade_sim.simulate(min_age_ts=min_age_ts,
@@ -298,6 +309,7 @@ if __name__ == '__main__':
                                 t0=t0,
                                 t1=t1,
                                 n_taxa=n_taxa)
+    
     range_w_shapes = [0.2, 0.5, 0.75, 1., 1.5, 2., 3., 5.]
     ll = np.array([ade_model.get_full_likelihood(ade_data, w_shape=i, w_scale=10, q=0.25) for i in range_w_shapes])
     print(np.vstack((range_w_shapes, ll)).T)
