@@ -274,11 +274,12 @@ class MCMC():
 
 
 
-def exp_prior_f(prm):
-    return np.sum(np.log(0.1) - prm * 0.1)
+def exp_prior_f(prm, rate):
+    return np.sum(np.log(rate) - prm * rate)
 
 def ade_prior_f(prm):
-    return exp_prior_f(prm[1:]) + scipy.stats.norm.logpdf(np.log(prm[0]),0, 2)
+    # rate of exponential = 1 / scale in np.random.exponential
+    return scipy.stats.norm.logpdf(np.log(prm[0]),0, 2) + exp_prior_f(prm[1], rate=0.1) + exp_prior_f(prm[2],  rate=2.)
 
 
 if __name__ == '__main__':
@@ -289,15 +290,13 @@ if __name__ == '__main__':
     # age of the process
     root = 12
     min_age_ts = 0
-    q = .1
+    q = 0.1
     w_shape = 1.75
-    # w_scale = 2.5
-    # w_scale * scipy.special.gamma(1 / (1 + w_shape))
     avg_longevity = 3
     w_scale = avg_longevity / scipy.special.gamma(1 + 1 / w_shape)
 
-    # define
-    t0 = 15.
+    # define time slice
+    t0 = 10.
     t1 = 2
     n_taxa = 1000
     # ---
@@ -310,13 +309,9 @@ if __name__ == '__main__':
                                 t1=t1,
                                 n_taxa=n_taxa)
     
-    range_w_shapes = [0.2, 0.5, 0.75, 1., 1.5, 2., 3., 5.]
-    ll = np.array([ade_model.get_full_likelihood(ade_data, w_shape=i, w_scale=10, q=0.25) for i in range_w_shapes])
-    print(np.vstack((range_w_shapes, ll)).T)
-    # ---
 
-    init_prm = np.array([1., np.mean(ade_data['mean_length_in_bin']), q])
-                         # np.sum(ade_data['sampled_n_foss']) / np.sum(ade_data['sampled_sigmas'])])
+    init_prm = np.array([1., np.mean(ade_data['mean_length_in_bin']),
+                         np.sum(ade_data['sampled_n_foss']) / np.sum(ade_data['sampled_sigmas'])])
 
     mcmc = MCMC(seed=1234,
                 likelihood_f=ade_model.get_full_likelihood,
