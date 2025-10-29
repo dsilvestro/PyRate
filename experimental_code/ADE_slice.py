@@ -276,10 +276,17 @@ class MCMC():
 
 def exp_prior_f(prm, rate):
     return np.sum(np.log(rate) - prm * rate)
+    
+def gamma_prior(prm, shape, rate):
+    return np.sum(
+        scipy.stats.gamma.logpdf(prm, shape, scale=1 / rate
+    ))
 
 def ade_prior_f(prm):
     # rate of exponential = 1 / scale in np.random.exponential
-    return scipy.stats.norm.logpdf(np.log(prm[0]),0, 2) + exp_prior_f(prm[1], rate=0.1) + exp_prior_f(prm[2],  rate=2.)
+    return scipy.stats.norm.logpdf(np.log(prm[0]),0, 2
+                                   ) + exp_prior_f(prm[1], rate=0.1
+                                                   ) + gamma_prior(prm[2],  shape=2, rate=0.1)
 
 
 if __name__ == '__main__':
