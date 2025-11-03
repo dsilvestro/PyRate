@@ -6,6 +6,7 @@ np.set_printoptions(suppress=True) # prints floats, no scientific notation
 np.set_printoptions(precision=3) # rounds all array elements to 3rd digit
 from scipy.special import beta as f_beta
 from scipy.optimize import fmin_powell as Fopt # fmin
+from scipy.optimize import minimize, Bounds
 from scipy.special import betainc
 import csv,os, argparse,sys
 
@@ -129,16 +130,15 @@ def range01(x, m=0, r=1):
 
 def est_s_e_q(fossil_complete,occs_sp_bin,model=0,exp_se=0,q_shift_times=[],q0_init=[]):
     def calc_tot_lik_given_q(q_arg):
-        q=np.abs(q_arg[0])
         ml_est = []
         i=0
         for x in fossil_complete: # loop over species
             if model==0:
-                ml_est.append(optim_se_given_q_HPP(x,q,exp_se))
+                ml_est.append(optim_se_given_q_HPP(x, q_arg[0], exp_se))
             elif model==1:
-                ml_est.append(optim_se_given_q_NHPP(x,q))
+                ml_est.append(optim_se_given_q_NHPP(x, q_arg[0]))
             elif model==2:
-                ml_est.append(optim_se_given_q_TPP(x,np.abs(np.array(q_arg)),occs_sp_bin[i],q_shift_times,exp_se))
+                ml_est.append(optim_se_given_q_TPP(x, np.array(q_arg), occs_sp_bin[i], q_shift_times, exp_se))
             i+=1
         ml_est = np.array(ml_est)
         tot_lik = np.sum(ml_est[:,0])
@@ -146,16 +146,18 @@ def est_s_e_q(fossil_complete,occs_sp_bin,model=0,exp_se=0,q_shift_times=[],q0_i
     
     q0 = [1.1]
     if model==2: 
-        if len(q0_init)> 0: q0 =q0_init
-        else:    q0= np.ones(len(q_shift_times)-1)
-    #print q0
-    optValues =Fopt(calc_tot_lik_given_q, q0, full_output=1, disp=0)
+        if len(q0_init) > 0:
+            q0 = q0_init
+        else:
+            q0 = np.ones(len(q_shift_times) - 1)
+    bounds = Bounds(np.repeat(0.00001, len(q0)), np.repeat(np.inf, len(q0)))
+    optValues = minimize(calc_tot_lik_given_q, q0, method="Powell", bounds=bounds)
     try:
-        if len(optValues[0]):
-            params=np.abs(np.array(optValues[0]))
+        if len(optValues.x):
+            params = np.array(optValues.x)
     except:
-        params = np.abs(np.array([optValues[0]]))
-    lik= - optValues[1]
+        params = np.array([optValues.x])
+    lik = -optValues.fun
     return [lik, params]
 
 def calcAICc(lik,df,s):
