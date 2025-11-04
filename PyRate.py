@@ -2614,10 +2614,34 @@ def get_names_variable(var_file):
     return vn
 
 
-def interpolate_constant(x, xp, yp):
-    indices = np.searchsorted(xp, x, side='right')
-    y = np.concatenate((yp[0], yp), axis = None)
-    return y[indices]
+def round_half_down(x):
+    s = np.sign(x)
+    a = np.abs(x)
+    return s * np.floor(a + 0.5 - 1e-12)
+
+
+def interpolate_categorical(times_comb, times, v):
+    cat_inter = round_half_down(np.interp(times_comb, times, v))
+    # time points for which we need to interpolate
+    t_inter = np.setdiff1d(times_comb, times)
+    t_inter = t_inter[np.logical_and((t_inter > np.sort(times)[1]), t_inter < np.max(times))]
+
+    for t in t_inter:
+        m_idx = times < t
+        M_idx = times > t
+        # after t
+        m_v = v[m_idx][-1]
+        m_t = times[m_idx][-1]
+        # before t
+        M_t = times[M_idx][0]
+        M_v = v[M_idx][0]
+
+        v_t = M_v
+        if t - m_t > M_t - t:
+            v_t = m_v
+        cat_inter[times_comb == t] == v_t
+
+    return cat_inter
 
 
 def get_binned_time_variable(timebins, var_file, rescale, translate):
@@ -2640,23 +2664,27 @@ def get_binned_time_variable(timebins, var_file, rescale, translate):
         va = np.unique(values[:, i])
         n_va = len(va)
         discr_var[i] = np.all(np.isin(va, np.arange(n_va)))
+
     # If there are no values for the recent, we add the most recent value (i.e. constant environment)
     if (times[0] > timebins[-1]):
         times = np.concatenate((np.zeros(1), times), axis=None)
         values = np.concatenate((values[0, :].reshape((1, -1)), values), axis=0)
+
     # Interpolation if temporal resolution of var_file is lower than time bins
     if nbins > values.shape[0]:
-        times_comb = np.sort(np.concatenate((timebins, times), axis = None))
+        times_comb = np.sort(np.unique(np.concatenate((timebins, times), axis = None)))
         values_comb = np.zeros((len(times_comb), nvars))
         for i in range(nvars):
             if discr_var[i]:
-                values_comb[:, i] = interpolate_constant(times_comb, times, values[:, i])
+                values_comb[:, i] = interpolate_categorical(times_comb, times, values[:, i].reshape(-1))
             else:
                 values_comb[:, i] = np.interp(times_comb, times, values[:, i])
         del(values)
         del(times)
         values = values_comb
         times = times_comb
+
+    # Bining
     for i in range(1, nbins):
         t_max = timebins[i-1]
         t_min = timebins[i]
@@ -7174,6 +7202,7 @@ if __name__ == '__main__':
                                                                        n_taxa=n_taxa,
                                                                        loaded_tbls=bdnn_loaded_tbls,
                                                                        float_prec_f=float_prec_f)
+                np.savetxt("/home/torsten/Work/PyRateHelp/Shelley/features.txt", trait_tbl_lm[1][:, 0, :], delimiter="\t")
                 trait_tbl_NN[0] = trait_tbl_lm[0]
                 trait_tbl_NN[1] = trait_tbl_lm[1]
                 cov_par_init_NN[0] = cov_par_init_lm[0]
