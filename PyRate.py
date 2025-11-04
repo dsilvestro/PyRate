@@ -7202,7 +7202,6 @@ if __name__ == '__main__':
                                                                        n_taxa=n_taxa,
                                                                        loaded_tbls=bdnn_loaded_tbls,
                                                                        float_prec_f=float_prec_f)
-                np.savetxt("/home/torsten/Work/PyRateHelp/Shelley/features.txt", trait_tbl_lm[1][:, 0, :], delimiter="\t")
                 trait_tbl_NN[0] = trait_tbl_lm[0]
                 trait_tbl_NN[1] = trait_tbl_lm[1]
                 cov_par_init_NN[0] = cov_par_init_lm[0]
