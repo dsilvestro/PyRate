@@ -2614,14 +2614,8 @@ def get_names_variable(var_file):
     return vn
 
 
-def round_half_down(x):
-    s = np.sign(x)
-    a = np.abs(x)
-    return s * np.floor(a + 0.5 - 1e-12)
-
-
 def interpolate_categorical(times_comb, times, v):
-    cat_inter = round_half_down(np.interp(times_comb, times, v))
+    cat_inter = np.round(np.interp(times_comb, times, v))
     # time points for which we need to interpolate
     t_inter = np.setdiff1d(times_comb, times)
     t_inter = t_inter[np.logical_and((t_inter > np.sort(times)[1]), t_inter < np.max(times))]
