@@ -205,9 +205,9 @@ Time-series data can be provided in an already binned format. This needs to matc
 
 | Time | Temperature |
 ------:| -----------:|
-0.0 | Mean value from 0.0-1.0 Ma
-1.0 | Mean value from 1.0-2.0 Ma
-2.0 | Mean value from 2.0-3.0 Ma
+0.0 | Mean value from 0.0-0.9999 Ma
+1.0 | Mean value from 1.0-1.9999 Ma
+2.0 | Mean value from 2.0-2.9999 Ma
 
 
 ---
