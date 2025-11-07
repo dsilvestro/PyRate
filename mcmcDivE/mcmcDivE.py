@@ -96,7 +96,8 @@ def get_q_rates(logfile):
 
 def get_q_rates_time_bins(q_rates,q_shifts,time_bins):
     q_rates_bins = np.zeros(len(time_bins)-1)
-    indx = np.digitize(time_bins,q_shifts)
+    indx = np.digitize(time_bins, q_shifts)
+    indx = indx[indx < len(q_rates)]
     q_rates_bins = q_rates[indx] # from recent to old
     return q_rates_bins
     
@@ -167,9 +168,16 @@ res = parse_pyrate_file(0, time_bins)
 
 x_obs = res[0] # from recent to old
 root, tips_time = res[5],res[6]
-
+# print(q_shifts, root, tips_time)
 q_shifts = q_shifts[q_shifts < root]
 q_shifts = q_shifts[q_shifts > tips_time]
+# print(q_shifts, root, tips_time)
+# print(len(q_rates), len(q_shifts))
+if len(q_rates) <= len(q_shifts):
+    q_shifts = q_shifts[(1 + len(q_rates) - len(q_shifts)):]
+
+# print(q_shifts, root, tips_time)
+
 
 
 time_bins = np.sort(np.array(list(np.linspace(tips_time,root,n_bins)) + list(q_shifts)))  # from recent to old
@@ -202,9 +210,9 @@ def get_q_rate_samples():
     q_rates_bins_G = rGamma*(q_rates_bins[:-1]*q_multi_A)
     if verbose: print(q_rates_bins)
     if verbose: print(np.mean(q_rates_bins_G,0))
-    rho_bins_array = 1 - np.exp(-(q_rates_bins_G)*dTime)
+    rho_bins_array = 1 - np.exp(-(q_rates_bins_G) * dTime)
     rho_bins = np.mean(rho_bins_array,0)
-    if verbose: print(1 - np.exp(-(q_rates_bins[:-1])*dTime))
+    if verbose: print(1 - np.exp(-(q_rates_bins[:-1]) * dTime))
     if verbose: print(rho_bins)
     ncat=100
     YangGammaQuant=(np.linspace(0,1,ncat+1)-np.linspace(0,1,ncat+1)[1]/2)[1:]
@@ -216,11 +224,11 @@ def get_q_rate_samples():
 
 q_rates_bins, rGamma, alpha = get_q_rate_samples()
 
-q_rates_bins_G = rGamma*(q_rates_bins[:-1]*q_multi_A)
+q_rates_bins_G = rGamma*(q_rates_bins[:-1] * q_multi_A)
 if verbose: print(np.mean(q_rates_bins_G,0))
-rho_bins_array = 1 - np.exp(-(q_rates_bins_G)*dTime)
+rho_bins_array = 1 - np.exp(-(q_rates_bins_G) * dTime)
 rho_bins = np.mean(rho_bins_array,0)
-if verbose: print(1 - np.exp(-(q_rates_bins[:-1])*dTime))
+if verbose: print(1 - np.exp(-(q_rates_bins[:-1]) * dTime))
 if verbose: print(rho_bins)
 
 #print(dTime)
@@ -250,7 +258,10 @@ q_multi = q_multi_A
 freq_resample_q = 2500
 freq_resample_occs = 1000
 
-print(x_obs, "modern_diversity", modern_diversity)
+if modern_diversity >= 0:
+    print("Setting modern diversity to:", modern_diversity)
+else:
+    print("No constraint on modern diversity")
 
 for iteration in range(args.n):
     rr= np.random.random()
@@ -269,7 +280,7 @@ for iteration in range(args.n):
         sig2, u3     = update_multiplier(sig2_A,1.2)
         if modern_diversity >= 0:
             n_multi[0]   = 0
-        n_est = x_obs + n_multi
+    n_est = x_obs + n_multi
     
     q_rates_bins_G = rGamma*(q_rates_bins[:-1]*q_multi)
     rho_bins_array = 1 - np.exp(-(q_rates_bins_G)*dTime)
@@ -283,10 +294,13 @@ for iteration in range(args.n):
     if np.isfinite(lik):
         pass
     else:
-        print("x_obs", list(x_obs))
-        print("n_est", list(n_est))
-        print("rho_bins", list(rho_bins))
-        quit()
+        print("lik", lik)
+        print("x_obs", (x_obs))
+        print("n_est", (n_est))
+        print(n_est - x_obs)
+        print("n_multi", n_multi)
+        print("rho_bins", (rho_bins))
+        # quit()
     p = np.log(np.random.random())
     if ( prior-prior_A + lik-lik_A + u1+u2+u3 ) >= p or rr < 0.002: # or iteration % freq_resample_q==0:
         n_multi_A = n_multi
