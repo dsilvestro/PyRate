@@ -628,7 +628,7 @@ def overwrite_xlim(xlim, min_age, max_age):
     return xlim
 
 
-def plot_rtt(path_dir_log_files, burn, translate=0, min_age=0, max_age=0):
+def plot_rtt(path_dir_log_files, burn, thin=0, translate=0, min_age=0, max_age=0, bdnn_precision=0):
     output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q = get_bdnn_rtt(path_dir_log_files,
                                                                                                      burn=burn,
                                                                                                      translate=translate)
@@ -642,6 +642,9 @@ def plot_rtt(path_dir_log_files, burn, translate=0, min_age=0, max_age=0):
         min_age = times_edgeShifts[-1] - translate + 0.0001 * (times_edgeShifts[-1] - translate)
     plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q,
                   min_age=min_age, max_age=max_age)
+
+    if not qtt is None:
+        plot_taxon_q_through_time(path_dir_log_files, burn, thin=thin, bdnn_precision=bdnn_precision, translate=translate)
 
 
 def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn,
@@ -5568,6 +5571,7 @@ def perm_mcmc_sample_q_i(arg):
 
     qnn_output_unreg, _ = get_unreg_rate_BDNN_3D(trt_tbl, w_q_i, None, hidden_act_f, out_act_f)
     q_multi = get_q_multipliers_NN_dereg(t_reg_q_i, reg_denom_q_i, n, qnn_output_unreg, sm, qb_se)
+    # np.savetxt("/home/torsten/Work/SamplingNN/q_multi.txt", q_multi, delimiter="\t")
     if use_HPP_NN_lik:
         if const_q:
             q = [q[0], q[0]]
@@ -5579,6 +5583,7 @@ def perm_mcmc_sample_q_i(arg):
         orig_fossil_lik, _, _ = HOMPP_NN_lik([ts_i, te_i, q, q_multi, const_q,
                                               occs_sp, log_factorial_occs,
                                               sl, argsG, gamma_ncat, YangGammaQuant])
+
     orig_fossil_lik = np.sum(orig_fossil_lik)
 
     q_lik_j = np.zeros((n_perm, n_perm_traits))
@@ -5740,6 +5745,201 @@ def feature_permutation_sampling(mcmc_file, pkl_file, burnin, thin, min_bs, n_pe
     delta_lik_df = pd.concat([names_df, delta_lik_df], axis = 1)
     delta_lik_df = remove_invariant_feature_from_featperm_results(bdnn_obj, delta_lik_df, trt_tbl_a, combine_discr_features, 'sampling')
     return delta_lik_df
+
+
+# Display taxon-specific q multipliers through time
+def get_taxon_q_tt(mcmc_file, pkl_file, burnin, thin=0, bdnn_precision=0, translate=0, order_by_ts=True):
+    bdnn_obj, _, _, w_q, sp_fad_lad, ts, te, _, _, t_reg_q, _, _, reg_denom_q, norm_q, alpha = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
+
+    n_mcmc = ts.shape[0]
+    trt_tbl = get_trt_tbl(bdnn_obj, rate_type='sampling')
+    out_act_f = bdnn_obj.bdnn_settings['out_act_f_q']
+    hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
+    float_prec_f = get_float_prec_f_from_bdnn_obj(bdnn_obj, bdnn_precision)
+    ts_mean = np.mean(ts, axis=0)
+    te_mean = np.mean(te, axis=0)
+    names_features = get_names_features(bdnn_obj, rate_type='sampling')
+    occs_sp = np.copy(bdnn_obj.bdnn_settings['occs_sp'])
+    sm_mask = ''
+    n_taxa = trt_tbl.shape[-2]
+
+    if trt_tbl.ndim == 3:
+        q_bins = np.copy(bdnn_obj.bdnn_settings['q_time_frames'])
+        sm_mask = 'make_3D'
+        n_bins = trt_tbl.shape[0]
+        qbins_ts_te = get_bin_ts_te(ts_mean, te_mean, q_bins)
+        q_multi = np.full((n_mcmc, n_taxa, n_bins), np.nan)
+    else:
+        q_bins = np.linspace(np.ceil(np.max(ts_mean)), np.floor(np.min(te_mean)), num=100)
+        qbins_ts_te = None
+        q_multi = np.full((n_mcmc, n_taxa), np.nan)
+
+    singleton_mask = make_singleton_mask(occs_sp, sm_mask)
+
+    for i in range(n_mcmc):
+        w_q_i = set_list_prec(w_q[i], float_prec_f)
+        trt_tbl_a = np.copy(trt_tbl)
+        if 'taxon_age' in names_features:
+            trt_tbl_a = add_taxon_age(ts[i, :], te[i, :], q_bins, trt_tbl_a)
+        qnn_output_unreg, _ = get_unreg_rate_BDNN_3D(trt_tbl_a, w_q_i, None, hidden_act_f, out_act_f)
+        q_multi[i, ...] = get_q_multipliers_NN_dereg(t_reg_q[i], reg_denom_q[i], norm_q[i], qnn_output_unreg, singleton_mask, qbins_ts_te)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', category=RuntimeWarning)
+        q_multi = np.nanmean(q_multi, axis=0).reshape(n_taxa, -1)
+
+    if trt_tbl.ndim == 2:
+        q_multi = np.repeat(q_multi, len(q_bins), axis=1)
+        ind_ts = np.digitize(ts_mean, q_bins[1:])
+        ind_te = np.digitize(te_mean, q_bins[1:])
+        for i in range(n_taxa):
+            q_multi[i, :ind_ts[i]] = np.nan
+            q_multi[i, ind_te[i]:] = np.nan
+
+    taxon_names = sp_fad_lad['Taxon']
+    if order_by_ts:
+        ord = np.argsort(ts_mean)[::-1]
+        q_multi = q_multi[ord, :]
+        taxon_names = taxon_names[ord]
+
+    if not np.isfinite(q_bins[0]):
+        q_bins[0] = np.max(ts_mean)
+
+    return q_multi, q_bins + translate, taxon_names, np.mean(alpha)
+
+
+def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, bdnn_precision=0, translate=0, order_by_ts=True):
+    pkl_file = path_dir_log_files + ".pkl"
+    mcmc_file = path_dir_log_files + "_mcmc.log"
+    q_multi, q_times, taxon_names, alpha = get_taxon_q_tt(mcmc_file, pkl_file, burnin, thin, bdnn_precision, translate, order_by_ts)
+
+    output_wd = os.path.dirname(os.path.realpath(path_dir_log_files))
+    name_file = os.path.basename(path_dir_log_files)
+    suffix_pdf = "taxon_q_multi"
+    out = "%s/%s_%s.r" % (output_wd, name_file, suffix_pdf)
+    newfile = open(out, "w")
+    if platform.system() == "Windows" or platform.system() == "Microsoft":
+        wd_forward = os.path.abspath(output_wd).replace('\\', '/')
+        r_script = "pdf(file='%s/%s_%s.pdf', width = 7, height = 6, useDingbats = FALSE, pointsize = 7)\n" % (wd_forward, name_file, suffix_pdf)
+    else:
+        r_script = "pdf(file='%s/%s_%s.pdf', width = 7, height = 6, useDingbats = FALSE, pointsize = 7)\n" % (output_wd, name_file, suffix_pdf)
+
+    n_taxa = q_multi.shape[0]
+    r_script += util.print_R_vec("\nq_times", q_times)
+    r_script += "\na <- abs(mean(diff(q_times)) / 10)"
+    r_script += "\nm = %s" % np.nanmin(q_multi)
+    r_script += "\nM = %s" % np.nanmax(q_multi)
+    r_script += "\ncol_steps <- 255"
+    r_script += "\nq_range <- c(seq(m, 1, length.out = col_steps), seq(1, M, length.out = col_steps)[2:col_steps])"
+    r_script += "\ncol <- c(colorRampPalette(c('dodgerblue', 'orange'))(col_steps)[1:(col_steps - 1)],"
+    r_script += "\n         'orange',"
+    r_script += "\n         colorRampPalette(c('orange', 'brown'))(col_steps)[2:col_steps])"
+    r_script += "\n"
+    r_script += "\nq_list = vector(mode = 'list', length = %s)" % n_taxa
+    for i in range(n_taxa):
+        r_script += util.print_R_vec("\nq_list[[%s]]", q_multi[i, :]) % (i + 1)
+    r_script += "\n"
+    r_script += "\ntaxon_names = rep(NA_character_, length = %s)" % n_taxa
+    for i in range(n_taxa):
+        r_script += "\ntaxon_names[%s] = '%s'" % (i + 1, taxon_names[i])
+    r_script += "\n"
+    r_script += "\nn_bins <- length(q_list[[1]])"
+    r_script += "\nn_taxa <- length(q_list)"
+    r_script += "\nx <- 1:n_bins"
+    r_script += "\n"
+    r_script += "\npar(las = 1, mar = c(4, 0.5, 0.5, 0.5))"
+    r_script += "\nplot(0, 0, type = 'n', xlim = c(max(q_times), min(q_times)), ylim = c(1, n_taxa),"
+    r_script += "\n     xlab = 'Time', ylab = 'Taxon', yaxt = 'n')"
+    r_script += "\nfor (i in 1:n_taxa) {"
+    r_script += "\n  col_idx <- findInterval(q_list[[i]], q_range)"
+    r_script += "\n  not_na <- !is.na(q_list[[i]])"
+    r_script += "\n  x_i <- x[not_na]"
+    r_script += "\n  col_i <- col[col_idx[not_na]]"
+    r_script += "\n  q_times_i <- q_times[x_i]"
+    r_script += "\n  for (j in 1:sum(not_na)) {"
+    r_script += "\n    rect(xleft = q_times_i[j] + a, xright = q_times_i[j + 1],"
+    r_script += "\n         ybottom = i - 0.4, ytop = i + 0.4,"
+    r_script += "\n         border = NA, col = col_i[j])"
+    r_script += "\n  }"
+    r_script += "\n  text(x = q_times_i[1] + a, y = i, labels = taxon_names[i], cex = 0.3, adj = 1)"
+    r_script += "\n}"
+    r_script += "\n"
+    if alpha != 1:
+        r_script += "\nalpha = %s" % alpha
+        x_mG = np.linspace(0, (4 * alpha) / alpha, 500)
+        y_mG = stats.gamma.pdf(x_mG, a=alpha, scale=1 / alpha)
+        keep = y_mG > 0.01 * np.max(y_mG)
+        x_mG = x_mG[keep]
+        y_mG = y_mG[keep]
+        r_script += util.print_R_vec("\nx_mG", x_mG)
+        r_script += util.print_R_vec("\ny_mG", y_mG)
+        r_script += "\n"
+    else:
+        r_script += "\nx_mG <- NA"
+        r_script += "\ny_mG <- NA"
+        r_script += "\n"
+    r_script += "\nq <- na.omit(unlist(q_list))"
+    r_script += "\n"
+    r_script += "\nq_density <- density(q, n = length(col) + 1, from = min(q), to = max(q))"
+    r_script += "\nq_xm <- min(min(q_density$x), min(x_mG), na.rm = TRUE)"
+    r_script += "\nq_xM <- max(max(q_density$x), max(x_mG), na.rm = TRUE)"
+    r_script += "\nq_ym <- min(min(q_density$y), min(y_mG), na.rm = TRUE)"
+    r_script += "\nq_yM <- max(max(q_density$y), max(y_mG), na.rm = TRUE)"
+    r_script += "\n"
+    r_script += "\nh_left <- max(q_times)"
+    r_script += "\nh_right <- h_left - 0.25 * (max(q_times) - min(q_times))"
+    r_script += "\nh_bottom <- 0.75 * n_taxa"
+    r_script += "\nh_top <- n_taxa"
+    r_script += "\n"
+    r_script += "\nq_x_range <- q_xM - q_xm"
+    r_script += "\nq_y_range <- q_yM - q_ym"
+    r_script += "\nh_x_range <- h_left - h_right"
+    r_script += "\nh_y_range <- h_top - h_bottom"
+    r_script += "\nx_scale_factor <- h_x_range / q_x_range"
+    r_script += "\ny_scale_factor <- h_y_range / q_y_range"
+    r_script += "\nfor (i in 1:length(col)) {"
+    r_script += "\n  rect(xleft = h_left - x_scale_factor * (q_density$x[i] - q_xm),"
+    r_script += "\n       xright = h_left - a - x_scale_factor * (q_density$x[i + 1] - q_xm),"
+    r_script += "\n       ybottom = h_bottom,"
+    r_script += "\n       ytop = h_bottom + y_scale_factor * (q_density$y[i] - q_ym),"
+    r_script += "\n       border = NA, col = col[i])"
+    r_script += "\n}"
+    r_script += "\n"
+    if alpha != 1:
+        r_script += "\nlines(h_left - x_scale_factor * (x_mG - min(x_mG)),"
+        r_script += "\n      h_bottom + y_scale_factor * (y_mG - min(y_mG)), lwd = 2, col = 'grey33')"
+    r_script += "\nsegments(x0 = h_left, x1 = h_right, y0 = h_bottom, y1 = h_bottom)"
+    r_script += "\n"
+    r_script += "\nx_labels <- pretty(c(q_density$x, x_mG), n = 5)"
+    r_script += "\nx_labels <- x_labels[x_labels >= min(min(q), min(x_mG), na.rm = TRUE)"
+    r_script += "\n                     & x_labels <= max(max(q), max(x_mG), na.rm = TRUE)]"
+    # Number of decimal digits for histogram x-labels
+    # with warnings.catch_warnings():
+    #     warnings.simplefilter('ignore')
+    #     r_script += "\nx_labels_digits <- max(nchar(sub(r'(.*\.)', '', x_labels %% 1)))"
+    r_script += "\nx_labels_digits <- max(unlist(lapply(strsplit(as.character(x_labels %% 1), '.', fixed = TRUE),"
+    r_script += "\n                                     function(x) nchar(x[length(x)]))))"
+    r_script += "\nfor (i in 1:length(x_labels)) {"
+    r_script += "\n  x_tick <- h_left - x_scale_factor * (x_labels[i] - q_xm)"
+    r_script += "\n  segments(x0 = x_tick, x1 = x_tick,"
+    r_script += "\n           y0 = h_bottom - 0.03 * h_y_range, y1 = h_bottom)"
+    r_script += "\n}"
+    r_script += "\ntext(x = h_left - x_scale_factor * (x_labels - q_xm),"
+    r_script += "\n     y = rep(h_bottom - 0.05 * h_y_range, length(x_labels)),"
+    r_script += "\n     labels = sprintf(paste0('%.', x_labels_digits, 'f'), x_labels),"
+    r_script += "\n     adj = c(0.5, 1.0))"
+    r_script += "\n"
+    r_script += "\ndev.off()"
+
+    newfile.writelines(r_script)
+    newfile.close()
+    if platform.system() == "Windows" or platform.system() == "Microsoft":
+        cmd = "cd %s & Rscript %s_%s.r" % (output_wd, name_file, suffix_pdf)
+    else:
+        cmd = "cd %s; Rscript %s_%s.r" % (output_wd, name_file, suffix_pdf)
+    print("cmd", cmd)
+    os.system(cmd)
+
 
 
 # Fastshap

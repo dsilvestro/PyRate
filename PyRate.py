@@ -6152,7 +6152,8 @@ if __name__ == '__main__':
                 rtt_plot_bds = rtt_plot_bds.RTTplot_Q(path_dir_log_files,args.qShift,burnin=burnin,max_age=root_plot)
             elif plot_type== 6:
                 import pyrate_lib.bdnn_lib as bdnn_lib
-                bdnn_lib.plot_rtt(path_dir_log_files, burn=burnin, translate=args.translate, min_age=args.min_age_plot, max_age=root_plot)
+                bdnn_lib.plot_rtt(path_dir_log_files, burn=burnin, thin=args.resample, translate=args.translate,
+                                  min_age=args.min_age_plot, max_age=root_plot, bdnn_precision=args.BDNNprecision)
                 if args.plotBDNN_groups != "":
                     bdnn_lib.plot_bdnn_rtt_groups(path_dir_log_files, args.plotBDNN_groups, burn=burnin,
                                                   translate=args.translate, min_age=args.min_age_plot, max_age=root_plot, bdnn_precision=args.BDNNprecision)
