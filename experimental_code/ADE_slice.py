@@ -10,13 +10,18 @@ class ADE_slice:
     def __init__(self,
                  nbins=1000,
                  xLim = 50,
-                 min_dt=0.0000001
+                 min_dt=0.0000001,
+                 min_lam_ztp=0.05,
+                 nbins_int_lam_ztp=1000,
                  ):
         # integration settings //--> Add to command list
         self._nbins = nbins
         self._xLim = xLim
         self._x_bins = np.linspace(min_dt, xLim, nbins)
         self._x_bin_size = self._x_bins[1] - self._x_bins[0]
+        self._min_lam_ztp = min_lam_ztp
+        self._nbins_int_lam_ztp = nbins_int_lam_ztp
+        
 
     # ADE model
     def avg_longevity_to_scale(self, shape, long):
@@ -95,7 +100,7 @@ class ADE_slice:
 
     def get_corrected_q(self, mean_sigma, q_ztp):
         lam_ZTP = q_ztp * mean_sigma  # expected n. of fossils per species
-        lam = np.linspace(lam_ZTP * 0.05, lam_ZTP, 1000)
+        lam = np.linspace(lam_ZTP * self._min_lam_ztp, lam_ZTP, self._nbins_int_lam_ztp)
         lam_ZTP_vec = lam / (1 - np.exp(-lam))
         indx = np.argmin(abs(lam_ZTP_vec - lam_ZTP))
         return lam[indx] / mean_sigma
