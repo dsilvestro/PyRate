@@ -125,7 +125,8 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 #max_age=23.03
 #RTTplot_high_res(f,grid_cell_size,burnin,max_age)
 
-def RTTplot_Q(f,q_shift_file,burnin=0,max_age=0):
+def RTTplot_Q(f, q_shift_file, burnin=0, min_age=0, max_age=0, translate=0,
+              r_script=None, x_label='Ma', y_label='Preservation rate', title='Preservation rates', col="#756bb1", lwd=3, max_y_axis=None):
     wd = "%s" % os.path.dirname(os.path.realpath(f)) # What is "%s" doing here?
     name_file=os.path.splitext(os.path.basename(f))[0]
     t=np.loadtxt(f, skiprows=np.maximum(1,int(burnin)))
@@ -144,9 +145,12 @@ def RTTplot_Q(f,q_shift_file,burnin=0,max_age=0):
     q_ind = [i for i in range(len(head)) if head[i].startswith("q_") and head[i].split("q_")[1] not in ["TS", "TE"]]
     root_ind  = head.index("root_age")
     death_ind = head.index("death_age")
-    min_root_age = np.min(t[:,root_ind])
-    if max_age> 0: min_root_age=max_age
-    max_death_age= max(t[:,death_ind])
+    min_root_age = np.min(t[:,root_ind]) - translate
+    if max_age != 0:
+        min_root_age = max_age + translate
+    max_death_age = np.max(t[:,death_ind]) - translate
+    if min_age != 0:
+        max_death_age = min_age - translate
 
     try: times_q_shift=np.sort(np.loadtxt(q_shift_file))[::-1]
     except: times_q_shift=np.array([np.loadtxt(q_shift_file)])
@@ -159,15 +163,24 @@ def RTTplot_Q(f,q_shift_file,burnin=0,max_age=0):
     means = []
     hpdM  = []
     hpdm  = []
-    data  = "library(scales)\n" 
-    if platform.system() == "Windows" or platform.system() == "Microsoft":
-        wd_forward = os.path.abspath(wd).replace('\\', '/')
-        data+= "\n\npdf(file='%s/%s_RTT_Qrates.pdf',width=0.6*9, height=0.6*7)\n" % (wd,name_file) # 9
-    else: 
-        data+= "\n\npdf(file='%s/%s_RTT_Qrates.pdf',width=0.6*9, height=0.6*7)\n" % (wd,name_file) # 9
+
+    if r_script is None:
+        # data = "library(scales)\n"
+        if platform.system() == "Windows" or platform.system() == "Microsoft":
+            wd_forward = os.path.abspath(wd).replace('\\', '/')
+            data = "\n\npdf(file='%s/%s_RTT_Qrates.pdf',width=0.6*9, height=0.6*7)\n" % (wd,name_file) # 9
+        else:
+            data = "\n\npdf(file='%s/%s_RTT_Qrates.pdf',width=0.6*9, height=0.6*7)\n" % (wd,name_file) # 9
+    else:
+        data = r_script
     
-    
-    max_y_axis,max_x_axis,min_x_axis = np.max(t[:,q_ind]),-np.max(times_q_shift),-np.min(times_q_shift)
+    if max_y_axis is None:
+        max_y_axis = np.max(t[:,q_ind])
+    max_x_axis, min_x_axis = -np.max(times_q_shift), -np.min(times_q_shift)
+    if min_age != 0:
+        min_x_axis = -min_age
+    if max_age != 0:
+        max_x_axis = -max_age
     
     for i in range(len(q_ind)):
         qtemp = t[:,q_ind[i]]
@@ -181,27 +194,35 @@ def RTTplot_Q(f,q_shift_file,burnin=0,max_age=0):
         data += '\nQ_hpd_m = %s' % hpdtemp[0]
         data += '\nQ_hpd_M = %s' % hpdtemp[1]
         if i==0:
-            data += "\nplot(age,age,type = 'n', ylim = c(0, %s), xlim = c(%s,%s), ylab = 'Preservation rate', xlab = 'Ma',main='%s' )" \
-                % (max_y_axis,max_x_axis,min_x_axis,"Preservation rates")            
+            data += "\nplot(age,age,type = 'n', ylim = c(0, %s), xlim = c(%s, %s), xaxt = 'n' , ylab = '%s', xlab = '%s', main='%s')" \
+                % (max_y_axis, max_x_axis, min_x_axis, y_label, x_label, title)
+            data += "\nxaxt = pretty(par('usr')[1:2])"
+            data += "\nxaxt_labels = xaxt"
+            if not r_script is None:
+                data += "\nxaxt_labels = abs(xaxt_labels)"
+            data += "\naxis(side = 1, at = xaxt, labels = xaxt_labels)"
         else:
-            data += """\nsegments(x0=age[1], y0 = %s, x1 = age[1], y1 = Q_mean, col = "#756bb1", lwd=3)""" % (Q_mean_previous)
+            data += """\nsegments(x0=age[1], y0 = %s, x1 = age[1], y1 = Q_mean, col = '%s', lwd = %s)""" % (Q_mean_previous, col, lwd)
         Q_mean_previous = np.mean(qtemp)
-        data += """\nsegments(x0=age[1], y0 = Q_mean, x1 = age[2], y1 = Q_mean, col = "#756bb1", lwd=3)""" 
-        data += """\npolygon( c(age, rev(age)), c(Q_hpd_m, Q_hpd_m, Q_hpd_M, Q_hpd_M), col = alpha("#756bb1",0.5), border = NA)""" 
-    data += "\nn <- dev.off()" 
-        
-    out="%s/%s_RTT_Qrates.r" % (wd,name_file)
-    newfile = open(out, "w") 
-    newfile.writelines(data)
-    newfile.close()
-    print("\nAn R script with the source for the RTT plot was saved as: %s_RTT_Qrates.r\n(in %s)" % (name_file, wd))
-    if platform.system() == "Windows" or platform.system() == "Microsoft":
-        cmd="cd %s & Rscript %s_RTT_Qrates.r" % (wd,name_file)
-    else: 
-        cmd="cd %s; Rscript %s/%s_RTT_Qrates.r" % (wd,wd,name_file)
-    os.system(cmd)
-    
-    print("done\n")
+        data += """\nsegments(x0=age[1], y0 = Q_mean, x1 = age[2], y1 = Q_mean, col = '%s', lwd = %s)""" % (col, lwd)
+        data += """\npolygon( c(age, rev(age)), c(Q_hpd_m, Q_hpd_m, Q_hpd_M, Q_hpd_M), col = adjustcolor('%s', alpha = 0.5), border = NA)""" % col
+
+    if r_script is None:
+        data += "\nn <- dev.off()"
+        out="%s/%s_RTT_Qrates.r" % (wd,name_file)
+        newfile = open(out, "w")
+        newfile.writelines(data)
+        newfile.close()
+        print("\nAn R script with the source for the RTT plot was saved as: %s_RTT_Qrates.r\n(in %s)" % (name_file, wd))
+        if platform.system() == "Windows" or platform.system() == "Microsoft":
+            cmd="cd %s & Rscript %s_RTT_Qrates.r" % (wd,name_file)
+        else:
+            cmd="cd %s; Rscript %s/%s_RTT_Qrates.r" % (wd,wd,name_file)
+        os.system(cmd)
+
+        print("done\n")
+    else:
+        return data
 
 
 
