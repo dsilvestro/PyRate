@@ -461,7 +461,8 @@ def get_bdnn_rtt(f, burn, translate=0):
 
 
 
-def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum, time_vec_q, max_age=0, min_age=0, xlim=None, y_max_q=None):
+def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, long_sum, time_vec, r_q_sum, time_vec_q,
+                  max_age=0, min_age=0, xlim=None, y_max_q=None, logT=0, rscript_to_pdf=True):
     # Truncate by min and max age, allow large bin to be truncated at any moment
     has_div_rates = not r_sp_sum is None
     has_q_rates = not r_q_sum is None
@@ -486,7 +487,10 @@ def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, lo
         time_vec_q[0] = max_age
         r_q_sum = r_q_sum[keep, :]
         no_rate_in_timeframe = np.all(np.isnan(r_q_sum[:, 0]))
-    if (has_div_rates and min_age != 0.0) or np.min(time_vec) < 0.0:
+    time_vec_until_future = False
+    if not time_vec is None:
+        time_vec_until_future = np.min(time_vec) < 0.0
+    if (has_div_rates and min_age != 0.0) or time_vec_until_future:
         keep = np.where(time_vec >= min_age)[0]
         if not np.any(time_vec == min_age):
             keep = np.concatenate((keep, np.array([keep[-1] + 1])))
@@ -497,7 +501,10 @@ def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, lo
         r_div_sum = r_div_sum[keep,: ]
         long_sum = long_sum[keep, :]
         no_div_rate_in_timeframe = np.all(np.isnan(r_sp_sum[:, 0]))
-    if (has_q_rates and min_age != 0.0) or np.min(time_vec_q) < 0.0:
+    time_vec_q_until_future = False
+    if not time_vec_q is None:
+        time_vec_q_until_future = np.min(time_vec_q) < 0.0
+    if (has_q_rates and min_age != 0.0) or time_vec_q_until_future:
         keep = np.where(time_vec_q >= min_age)[0]
         if not np.any(time_vec_q == min_age):
             keep = np.concatenate((keep, np.array([keep[-1] + 1])))
@@ -531,7 +538,24 @@ def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, lo
             r_script = "pdf(file='%s/%s', width = 9, height = %s, useDingbats = FALSE)\n" % (output_wd, pdf_file, 3 * n_rows)
         r_script += "\nlayout(matrix(1:%s, ncol = 2, nrow = %s, byrow = TRUE))" % (n_elements, n_rows)
         r_script += "\npar(las = 1, mar = c(4.5, 4.5, 0.5, 0.5))"
-        if not r_sp_sum is None:
+        if has_div_rates:
+            net_div_greater0 = not np.any(r_div_sum < 0)
+            if logT == 1:
+                r_sp_sum = np.log(r_sp_sum)
+                r_ex_sum = np.log(r_ex_sum)
+                if net_div_greater0:
+                    r_div_sum = np.log(r_div_sum)
+                else:
+                    r_div_sum = np.sign(r_div_sum) * np.log(np.abs(r_div_sum) + 1)
+                long_sum = np.log(long_sum)
+            elif logT == 2:
+                r_sp_sum = np.log10(r_sp_sum)
+                r_ex_sum = np.log10(r_ex_sum)
+                if net_div_greater0:
+                    r_div_sum = np.log10(r_div_sum)
+                else:
+                    r_div_sum = np.sign(r_div_sum) * np.log10(np.abs(r_div_sum) + 1)
+                long_sum = np.log10(long_sum)
             r_script += util.print_R_vec('\ntime_vec', time_vec)
             r_script += util.print_R_vec('\nsp_mean', r_sp_sum[:, 0])
             r_script += util.print_R_vec('\nsp_lwr', r_sp_sum[:, 1])
@@ -551,26 +575,82 @@ def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, lo
                 r_script += "\nxlim = c(%s, %s)" % (xlim[0], xlim[1])
             r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_sp_sum), np.nanmax(r_sp_sum))
             r_script += "\nnot_NA = !is.na(sp_mean)"
-            r_script += "\nplot(time_vec[not_NA], sp_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Speciation rate')"
+            r_script += "\nplot(time_vec[not_NA], sp_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Speciation rate', yaxt = 'n')"
+            r_script += "\nyaxt_label <- pretty(par('usr')[3:4])"
+            if logT == 0:
+                r_script += "\nyaxt <- yaxt_label"
+            elif logT == 1:
+                r_script += "\nyaxt_label <- signif(exp(yaxt_label), digits = 1)"
+                r_script += "\nyaxt <- log(yaxt_label)"
+            elif logT == 2:
+                r_script += "\nyaxt_label <- signif(10**yaxt_label, digits = 1)"
+                r_script += "\nyaxt <- log10(yaxt_label)"
+            r_script += "\naxis(side = 2, at = yaxt, label = yaxt_label)"
             r_script += "\npolygon(c(time_vec[not_NA], rev(time_vec[not_NA])), c(sp_lwr[not_NA], rev(sp_upr[not_NA])), col = adjustcolor('#4c4cec', alpha = 0.5), border = NA)"
             r_script += "\nlines(time_vec[not_NA], sp_mean[not_NA], col = '#4c4cec', lwd = 2)"
+            r_script += "\n"
             r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_ex_sum), np.nanmax(r_ex_sum))
             r_script += "\nnot_NA = !is.na(ex_mean)"
-            r_script += "\nplot(time_vec[not_NA], ex_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Extinction rate')"
+            r_script += "\nplot(time_vec[not_NA], ex_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Extinction rate', yaxt = 'n')"
+            r_script += "\nyaxt_label <- pretty(par('usr')[3:4])"
+            if logT == 0:
+                r_script += "\nyaxt <- yaxt_label"
+            elif logT == 1:
+                r_script += "\nyaxt_label <- signif(exp(yaxt_label), digits = 1)"
+                r_script += "\nyaxt <- log(yaxt_label)"
+            elif logT == 2:
+                r_script += "\nyaxt_label <- signif(10**yaxt_label, digits = 1)"
+                r_script += "\nyaxt <- log10(yaxt_label)"
+            r_script += "\naxis(side = 2, at = yaxt, label = yaxt_label)"
             r_script += "\npolygon(c(time_vec[not_NA], rev(time_vec[not_NA])), c(ex_lwr[not_NA], rev(ex_upr[not_NA])), col = adjustcolor('#e34a33', alpha = 0.5), border = NA)"
             r_script += "\nlines(time_vec[not_NA], ex_mean[not_NA], col = '#e34a33', lwd = 2)"
+            r_script += "\n"
             r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_div_sum), np.nanmax(r_div_sum))
             r_script += "\nnot_NA = !is.na(div_mean)"
-            r_script += "\nplot(time_vec[not_NA], div_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Net diversification rate')"
+            r_script += "\nplot(time_vec[not_NA], div_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Net diversification rate', yaxt = 'n')"
+            r_script += "\nyaxt_label <- pretty(par('usr')[3:4])"
+            if logT == 0:
+                r_script += "\nyaxt <- yaxt_label"
+            else:
+                if net_div_greater0:
+                    if logT == 1:
+                        r_script += "\nyaxt_label <- signif(exp(yaxt_label), digits = 1)"
+                        r_script += "\nyaxt <- log(yaxt_label)"
+                    elif logT == 2:
+                        r_script += "\nyaxt_label <- signif(10**yaxt_label, digits = 1)"
+                        r_script += "\nyaxt <- log10(yaxt_label)"
+                else:
+                    if logT == 1:
+                        r_script += "\nyaxt_label <- signif(sign(yaxt_label) * (exp(abs(yaxt_label)) - 1), digits = 1)"
+                        r_script += "\nyaxt <- sign(yaxt_label) * log(abs(yaxt_label) + 1)"
+                    elif logT == 2:
+                        r_script += "\nyaxt_label <- signif(sign(yaxt_label) * (10**abs(yaxt_label) - 1), digits = 1)"
+                        r_script += "\nyaxt <- sign(yaxt_label) * log10(abs(yaxt_label) + 1)"
+            r_script += "\naxis(side = 2, at = yaxt, label = yaxt_label)"
             r_script += "\npolygon(c(time_vec[not_NA], rev(time_vec[not_NA])), c(div_lwr[not_NA], rev(div_upr[not_NA])), col = adjustcolor('black', alpha = 0.3), border = NA)"
             r_script += "\nlines(time_vec[not_NA], div_mean[not_NA], col = 'black', lwd = 2)"
             r_script += "\nabline(h = 0, col = 'red', lty = 2)"
+            r_script += "\n"
             r_script += "\nylim = c(%s, %s)" % (np.nanmin(long_sum), np.nanmax(long_sum))
             r_script += "\nnot_NA = !is.na(long_mean)"
-            r_script += "\nplot(time_vec[not_NA], long_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Longevity (Myr)')"
+            r_script += "\nplot(time_vec[not_NA], long_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Longevity (Myr)', yaxt = 'n')"
+            r_script += "\nyaxt_label <- pretty(par('usr')[3:4])"
+            if logT == 0:
+                r_script += "\nyaxt <- yaxt_label"
+            elif logT == 1:
+                r_script += "\nyaxt_label <- signif(exp(yaxt_label), digits = 1)"
+                r_script += "\nyaxt <- log(yaxt_label)"
+            elif logT == 2:
+                r_script += "\nyaxt_label <- signif(10**yaxt_label, digits = 1)"
+                r_script += "\nyaxt <- log10(yaxt_label)"
+            r_script += "\naxis(side = 2, at = yaxt, label = yaxt_label)"
             r_script += "\npolygon(c(time_vec[not_NA], rev(time_vec[not_NA])), c(long_lwr[not_NA], rev(long_upr[not_NA])), col = adjustcolor('black', alpha = 0.3), border = NA)"
             r_script += "\nlines(time_vec[not_NA], long_mean[not_NA], col = 'black', lwd = 2)"
         if not r_q_sum is None:
+            if logT == 1:
+                r_q_sum = np.log(r_q_sum)
+            elif logT == 2:
+                r_q_sum = np.log10(r_q_sum)
             r_script += util.print_R_vec('\ntime_vec_q', time_vec_q)
             r_script += util.print_R_vec('\nq_mean', r_q_sum[:, 0])
             r_script += util.print_R_vec('\nq_lwr', r_q_sum[:, 1])
@@ -578,15 +658,40 @@ def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, lo
             r_script += "\nxlim = c(%s, %s)" % (np.max(time_vec_q), np.min(time_vec_q))
             if y_max_q is None:
                 r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_q_sum), np.nanmax(r_q_sum))
+            elif logT == 1:
+                r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_q_sum), np.log(y_max_q))
+            elif logT == 2:
+                r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_q_sum), np.log10(y_max_q))
             else:
                 # as in rtt_plot_bds.RTTplot_Q
                 r_script += "\nylim = c(0, %s)" % y_max_q
             r_script += "\nnot_NA = !is.na(q_mean)"
-            r_script += "\nplot(time_vec_q[not_NA], q_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Sampling rate')"
+            r_script += "\nplot(time_vec_q[not_NA], q_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Sampling rate', yaxt = 'n')"
+            r_script += "\nyaxt_label <- pretty(par('usr')[3:4])"
+            if logT == 0:
+                r_script += "\nyaxt <- yaxt_label"
+            elif logT == 1:
+                r_script += "\nyaxt_label <- signif(exp(yaxt_label), digits = 1)"
+                r_script += "\nyaxt <- log(yaxt_label)"
+            elif logT == 2:
+                r_script += "\nyaxt_label <- signif(10**yaxt_label, digits = 1)"
+                r_script += "\nyaxt <- log10(yaxt_label)"
+            r_script += "\naxis(side = 2, at = yaxt, label = yaxt_label)"
             r_script += "\npolygon(c(time_vec_q[not_NA], rev(time_vec_q[not_NA])), c(q_lwr[not_NA], rev(q_upr[not_NA])), col = adjustcolor('#EEC591', alpha = 0.5), border = NA)"
             r_script += "\nlines(time_vec_q[not_NA], q_mean[not_NA], col = '#EEC591', lwd = 2)"
 
-        return r_script, newfile
+        if rscript_to_pdf:
+            r_script += "\ndev.off()"
+            newfile.writelines(r_script)
+            newfile.close()
+            if platform.system() == "Windows" or platform.system() == "Microsoft":
+                cmd = "cd %s & Rscript %s" % (output_wd, r_file)
+            else:
+                cmd = "cd %s; Rscript %s" % (output_wd, r_file)
+            print("cmd", cmd)
+            os.system(cmd)
+        else:
+            return r_script, newfile
 
 
 def get_rtt_summary(lam_it, mu_it, gs, times_of_shift, FA, ts, te, num_it, num_bins, translate):
@@ -629,7 +734,7 @@ def overwrite_xlim(xlim, min_age, max_age):
     return xlim
 
 
-def plot_rtt(path_dir_log_files, burn, thin=0, translate=0, min_age=0, max_age=0, bdnn_precision=0, q_shift_file=""):
+def plot_rtt(path_dir_log_files, burn, thin=0, translate=0, min_age=0, max_age=0, bdnn_precision=0, q_shift_file="", logT=0):
     output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q = get_bdnn_rtt(path_dir_log_files,
                                                                                                      burn=burn,
                                                                                                      translate=translate)
@@ -644,7 +749,10 @@ def plot_rtt(path_dir_log_files, burn, thin=0, translate=0, min_age=0, max_age=0
         # check if there are several q's but no q_shift_file is provided
         if baseline_q.shape[1] > 1 and q_shift_file == "":
             sys.exit("Please provide '-qShift' argument")
-        y_max_q = np.quantile(baseline_q, q=0.99)
+        q_min_baseline, q_max_baseline = np.quantile(baseline_q, q=(0.005, 0.995))
+        q_min_marginal, q_max_marginal = np.nanmin(qtt), np.nanmax(qtt)
+        y_max_q = np.maximum(q_max_baseline, q_max_marginal)
+        y_min_q = np.minimum(q_min_baseline, q_min_marginal)
 
     _, _, fix_edgeShift, times_edgeShifts, = get_edgeShifts_obj(bdnn_obj)
     max_age2 = max_age
@@ -654,7 +762,7 @@ def plot_rtt(path_dir_log_files, burn, thin=0, translate=0, min_age=0, max_age=0
     if fix_edgeShift in [1, 3] and min_age == 0.0: # both or min boundary
         min_age2 = times_edgeShifts[-1] - translate + 0.0001 * (times_edgeShifts[-1] - translate)
     r_script, newfile = plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q,
-                                      min_age=min_age2, max_age=max_age2, y_max_q=y_max_q)
+                                      min_age=min_age2, max_age=max_age2, y_max_q=y_max_q, logT=logT, rscript_to_pdf=False)
 
     if not r_script is None:
         # baseline sampling rate through time
@@ -669,20 +777,38 @@ def plot_rtt(path_dir_log_files, burn, thin=0, translate=0, min_age=0, max_age=0
             if not q_shift_file == "":
                 from pyrate_lib.rtt_plot_bds import RTTplot_Q
                 r_script = RTTplot_Q(path_dir_log_files + "_mcmc.log", q_shift_file, burnin=burn,
-                                     min_age=min_age2, max_age=max_age2, translate=translate, r_script=r_script,
-                                     x_label="Time (Ma)", y_label="Baseline sampling rate", title="", col="#EEC591", lwd=2, max_y_axis=y_max_q)
+                                     min_age=min_age2, max_age=max_age2, translate=translate, logT=logT, r_script=r_script,
+                                     x_label="Time (Ma)", y_label="Baseline sampling rate", title="", col="#EEC591", lwd=2,
+                                     min_y_axis=y_min_q, max_y_axis=y_max_q)
             else:
                 time_vec_q_notnan = time_vec_q[~np.isnan(qtt[:, 1])]
                 baseline_q_hpd = util.calcHPD(baseline_q, .95).flatten()
+                baseline_q_mean = np.mean(baseline_q)
+                if logT == 1:
+                    baseline_q_hpd = np.log(baseline_q_hpd)
+                    baseline_q_mean = np.log(baseline_q_mean)
+                elif logT == 2:
+                    baseline_q_hpd = np.log10(baseline_q_hpd)
+                    baseline_q_mean = np.log10(baseline_q_mean)
                 r_script += "\n"
                 r_script += "\nx_left <- %s" % np.max(time_vec_q_notnan)
                 r_script += "\nx_right <- %s" % np.min(time_vec_q_notnan)
                 r_script += "\ny_bottom <- %s" % baseline_q_hpd[0]
                 r_script += "\ny_top <- %s" % baseline_q_hpd[1]
-                r_script += "\ny_mean<- %s" % np.mean(baseline_q)
+                r_script += "\ny_mean<- %s" % baseline_q_mean
                 r_script += "\nplot_lim <- par('usr')"
-                r_script += "\nplot(0, 0, type = 'n', xlim = plot_lim[1:2], ylim = plot_lim[3:4], xaxs = 'i', yaxs = 'i',"
+                r_script += "\nplot(0, 0, type = 'n', xlim = plot_lim[1:2], ylim = plot_lim[3:4], yaxt = 'n', xaxs = 'i', yaxs = 'i',"
                 r_script += "\n     xlab = 'Time (Ma)', ylab = 'Baseline sampling rate')"
+                r_script += "\nyaxt_label <- pretty(par('usr')[3:4])"
+                if logT == 0:
+                    r_script += "\nyaxt <- yaxt_label"
+                elif logT == 1:
+                    r_script += "\nyaxt_label <- signif(exp(yaxt_label), digits = 1)"
+                    r_script += "\nyaxt <- log(yaxt_label)"
+                elif logT == 2:
+                    r_script += "\nyaxt_label <- signif(10**yaxt_label, digits = 1)"
+                    r_script += "\nyaxt <- log10(yaxt_label)"
+                r_script += "\naxis(side = 2, at = yaxt, label = yaxt_label)"
                 r_script += "\nrect(xleft = x_left, ybottom = y_bottom, xright = x_right, ytop = y_top,"
                 r_script += "\n     col = adjustcolor('#EEC591', alpha = 0.5), border = NA)"
                 r_script += "\nlines(x = c(x_left, x_right), y = rep(y_mean, 2), col = '#EEC591', lwd = 2)"
@@ -698,11 +824,11 @@ def plot_rtt(path_dir_log_files, burn, thin=0, translate=0, min_age=0, max_age=0
         os.system(cmd)
 
     if not qtt is None:
-        plot_taxon_q_through_time(path_dir_log_files, burn, thin=thin, bdnn_precision=bdnn_precision, translate=translate)
+        plot_taxon_q_through_time(path_dir_log_files, burn, thin=thin, bdnn_precision=bdnn_precision, translate=translate, logT=logT)
 
 
 def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn,
-                         translate=0.0, min_age=0, max_age=0, bdnn_precision=0,
+                         translate=0.0, min_age=0, max_age=0, bdnn_precision=0, logT=0,
                          remove_qshifts=False, remove_alpha=False, mask_features=[]):
                          # remove_qshifts=True, remove_alpha=True, mask_features=[18, 14, 17, 15, 16, 0,1,2,3,4,5,6,7,8,9,10,11,12,13]
     """Make RTT plots for the groups of species defined in the tab-delimited group_path file"""
@@ -937,7 +1063,8 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn,
 
         xlim = [FA, LO]
         xlim = overwrite_xlim(xlim, min_age, max_age)
-        plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q, max_age=max_age, min_age=min_age, xlim=xlim)
+        plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q,
+                      min_age=min_age, max_age=max_age, xlim=xlim, logT=logT)
 
 
 # Display taxon-specific q multipliers through time
@@ -985,7 +1112,12 @@ def get_q_multi(mcmc_file, pkl_file, burnin, thin=0, bdnn_precision=0, mcmc_tste
     return q_multi, np.mean(alpha), q_bins, ts_mean, te_mean
 
 
-def make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names, alpha=1, suffix_pdf = "taxon_q_multi"):
+def make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names, alpha=1, suffix_pdf="taxon_q_multi", logT=0):
+    if logT == 1:
+        q_multi = np.log(q_multi)
+    elif logT == 2:
+        q_multi = np.log10(q_multi)
+
     output_wd = os.path.dirname(os.path.realpath(path_dir_log_files))
     name_file = os.path.basename(path_dir_log_files)
     out = "%s/%s_%s.r" % (output_wd, name_file, suffix_pdf)
@@ -1039,7 +1171,7 @@ def make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names, alpha=
     r_script += "\n"
     if alpha != 1:
         r_script += "\nalpha = %s" % alpha
-        x_mG = np.linspace(0, (4 * alpha) / alpha, 500)
+        x_mG = np.linspace(1e-5, (4 * alpha) / alpha, 500)
         y_mG = stats.gamma.pdf(x_mG, a=alpha, scale=1 / alpha)
         keep = y_mG > 0.01 * np.max(y_mG)
         x_mG = x_mG[keep]
@@ -1086,6 +1218,13 @@ def make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names, alpha=
     r_script += "\nx_labels <- pretty(c(q_density$x, x_mG), n = 5)"
     r_script += "\nx_labels <- x_labels[x_labels >= min(min(q), min(x_mG), na.rm = TRUE)"
     r_script += "\n                     & x_labels <= max(max(q), max(x_mG), na.rm = TRUE)]"
+    r_script += "\nx_labels_tks <- x_labels"
+    if logT == 1:
+        r_script += "\nx_labels <- signif(exp(x_labels), digits = 1)"
+        r_script += "\nx_labels_tks <- log(x_labels)"
+    elif logT == 2:
+        r_script += "\nx_labels <- signif(10**x_labels, digits = 1)"
+        r_script += "\nx_labels_tks <- log10(x_labels)"
     # Number of decimal digits for histogram x-labels
     # with warnings.catch_warnings():
     #     warnings.simplefilter('ignore')
@@ -1093,11 +1232,11 @@ def make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names, alpha=
     r_script += "\nx_labels_digits <- max(unlist(lapply(strsplit(as.character(x_labels %% 1), '.', fixed = TRUE),"
     r_script += "\n                                     function(x) nchar(x[length(x)]))))"
     r_script += "\nfor (i in 1:length(x_labels)) {"
-    r_script += "\n  x_tick <- h_left - x_scale_factor * (x_labels[i] - q_xm)"
+    r_script += "\n  x_tick <- h_left - x_scale_factor * (x_labels_tks[i] - q_xm)"
     r_script += "\n  segments(x0 = x_tick, x1 = x_tick,"
     r_script += "\n           y0 = h_bottom - 0.03 * h_y_range, y1 = h_bottom)"
     r_script += "\n}"
-    r_script += "\ntext(x = h_left - x_scale_factor * (x_labels - q_xm),"
+    r_script += "\ntext(x = h_left - x_scale_factor * (x_labels_tks - q_xm),"
     r_script += "\n     y = rep(h_bottom - 0.05 * h_y_range, length(x_labels)),"
     r_script += "\n     labels = sprintf(paste0('%.', x_labels_digits, 'f'), x_labels),"
     r_script += "\n     adj = c(0.5, 1.0))"
@@ -1114,7 +1253,7 @@ def make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names, alpha=
     os.system(cmd)
 
 
-def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, bdnn_precision=0, translate=0, order_by_ts=True):
+def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, bdnn_precision=0, translate=0, order_by_ts=True, logT=0):
     pkl_file = path_dir_log_files + ".pkl"
     mcmc_file = path_dir_log_files + "_mcmc.log"
     bdnn_obj = load_pkl(pkl_file)
@@ -1137,7 +1276,9 @@ def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, bdnn_precision
         for i in range(n_taxa):
             q_multi_tmp[i, :ind_ts[i]] = np.nan
             q_multi_tmp[i, ind_te[i]:] = np.nan
-        q_multi_tmp[np.arange(n_taxa), ind_ts] = q_multi.reshape(-1) # For taxa with duration < q_bin sizes
+        row_ind = np.arange(n_taxa)
+        q_multi_tmp[row_ind, ind_ts] = q_multi.reshape(-1) # For taxa with duration < q_bin sizes
+        q_multi_tmp[row_ind, ind_te] = q_multi.reshape(-1)
         q_multi = q_multi_tmp
 
     if order_by_ts:
@@ -1146,7 +1287,7 @@ def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, bdnn_precision
         taxon_names = taxon_names[ord]
 
     q_times = q_bins - translate
-    make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names, alpha, suffix_pdf = "taxon_q_multi")
+    make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names, alpha, suffix_pdf="taxon_q_multi")
 
     # taxon-time specific q rates
     q_rates = np.load(path_dir_log_files + "_taxon_time_q_rates.npz")['arr_0']
@@ -1165,9 +1306,12 @@ def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, bdnn_precision
         q_rates = q_rates[:, :, ::-1]
         q_rates = q_rates[:, :, rep_idx]
 
+    # with warnings.catch_warnings():
+    #     warnings.simplefilter('ignore', category=RuntimeWarning)
+    #     q_rates = np.nanmean(q_rates, axis=0, dtype=np.float64)
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', category=RuntimeWarning)
-        q_rates = np.nanmean(q_rates, axis=0)
+        q_rates = 1 / np.nanmean(1 / q_rates, axis=0, dtype=np.float64)
 
     q_rates_tmp = np.copy(q_rates)
     ind_ts = np.digitize(ts_mean, q_bins[1:])
@@ -1175,7 +1319,9 @@ def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, bdnn_precision
     for i in range(n_taxa):
         q_rates_tmp[i, :ind_ts[i]] = np.nan
         q_rates_tmp[i, ind_te[i]:] = np.nan
-    q_rates_tmp[np.arange(n_taxa), ind_ts] = q_rates[np.arange(n_taxa), ind_ts].reshape(-1) # For taxa with duration < q_bin sizes
+    row_ind = np.arange(n_taxa)
+    q_rates_tmp[row_ind, ind_ts] = q_rates[row_ind, ind_ts].reshape(-1) # For taxa with duration < q_bin sizes
+    q_rates_tmp[row_ind, ind_te] = q_rates[row_ind, ind_te].reshape(-1)
     q_rates = q_rates_tmp
 
     if order_by_ts:
@@ -1185,7 +1331,7 @@ def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, bdnn_precision
     no_future = q_times >= 0
     q_times = q_times[no_future]
     q_rates = q_rates[:, no_future[1:]]
-    make_taxon_qtt_pdf(path_dir_log_files, q_rates, q_times, taxon_names, suffix_pdf = "taxon_q")
+    make_taxon_qtt_pdf(path_dir_log_files, q_rates, q_times, taxon_names, suffix_pdf="taxon_q", logT=logT)
 
 
 def apply_thin(w, thin):
@@ -4808,7 +4954,7 @@ def get_pdqtt_i(arg):
 
 
 def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=0, max_age=0,
-              bdnn_precision=0, num_processes=1, show_progressbar=False):
+              bdnn_precision=0, logT=0, num_processes=1, show_progressbar=False):
     mcmc_file = f
     path_dir_log_files = f.replace("_mcmc.log", "")
     pkl_file = path_dir_log_files + ".pkl" 
@@ -4928,7 +5074,7 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
             xlim = [FA - translate, LO - translate]
             xlim = overwrite_xlim(xlim, min_age, max_age)
             plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, r_q_sum=None, time_vec_q=None,
-                          max_age=max_age, min_age=min_age, xlim=xlim)
+                          max_age=max_age, min_age=min_age, xlim=xlim, logT=logT)
 
     if do_sampling:
         hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
@@ -5074,8 +5220,7 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
             xlim = [FA - translate, LO - translate]
             xlim = overwrite_xlim(xlim, min_age, max_age)
             plot_bdnn_rtt(output_wd, r_file, pdf_file, None, None, None, None, None, qtt, time_vec_q,
-                            max_age=max_age, min_age=min_age, xlim=xlim)
-
+                          max_age=max_age, min_age=min_age, xlim=xlim, logT=logT)
 
 
 def get_greenwells_feature_importance(cond_trait_tbl, pdp_rates, bdnn_obj, names_features, rate_type = 'speciation'):

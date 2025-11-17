@@ -125,8 +125,9 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 #max_age=23.03
 #RTTplot_high_res(f,grid_cell_size,burnin,max_age)
 
-def RTTplot_Q(f, q_shift_file, burnin=0, min_age=0, max_age=0, translate=0,
-              r_script=None, x_label='Ma', y_label='Preservation rate', title='Preservation rates', col="#756bb1", lwd=3, max_y_axis=None):
+def RTTplot_Q(f, q_shift_file, burnin=0, min_age=0, max_age=0, translate=0, logT=0, r_script=None,
+              x_label='Ma', y_label='Preservation rate', title='Preservation rates', col="#756bb1", lwd=3,
+              min_y_axis=None, max_y_axis=None):
     wd = "%s" % os.path.dirname(os.path.realpath(f)) # What is "%s" doing here?
     name_file=os.path.splitext(os.path.basename(f))[0]
     t=np.loadtxt(f, skiprows=np.maximum(1,int(burnin)))
@@ -165,7 +166,6 @@ def RTTplot_Q(f, q_shift_file, burnin=0, min_age=0, max_age=0, translate=0,
     hpdm  = []
 
     if r_script is None:
-        # data = "library(scales)\n"
         if platform.system() == "Windows" or platform.system() == "Microsoft":
             wd_forward = os.path.abspath(wd).replace('\\', '/')
             data = "\n\npdf(file='%s/%s_RTT_Qrates.pdf',width=0.6*9, height=0.6*7)\n" % (wd,name_file) # 9
@@ -174,8 +174,18 @@ def RTTplot_Q(f, q_shift_file, burnin=0, min_age=0, max_age=0, translate=0,
     else:
         data = r_script
     
+    q_quantiles = np.quantile(t[:,q_ind], q=(0.005, 0.995))
+    if min_y_axis is None:
+        min_y_axis = q_quantiles[0]
     if max_y_axis is None:
-        max_y_axis = np.max(t[:,q_ind])
+        max_y_axis = q_quantiles[1]
+    if logT == 1:
+        min_y_axis = np.log(min_y_axis)
+        max_y_axis = np.log(max_y_axis)
+    elif logT == 2:
+        min_y_axis = np.log10(min_y_axis)
+        max_y_axis = np.log10(max_y_axis)
+
     max_x_axis, min_x_axis = -np.max(times_q_shift), -np.min(times_q_shift)
     if min_age != 0:
         min_x_axis = -min_age
@@ -185,17 +195,32 @@ def RTTplot_Q(f, q_shift_file, burnin=0, min_age=0, max_age=0, translate=0,
     for i in range(len(q_ind)):
         qtemp = t[:,q_ind[i]]
         hpdtemp = util.calcHPD(qtemp,0.95)
-        #means.append(np.mean(qtemp),)
-        #hpdM.append(hpdtemp[1],hpdtemp[1])
-          #hpdm.append(hpdtemp[0],hpdtemp[0])
+        Q_mean = np.mean(qtemp)
+        if logT == 1:
+            hpdtemp = np.log(hpdtemp)
+            Q_mean = np.log(Q_mean)
+        elif logT == 2:
+            hpdtemp = np.log10(hpdtemp)
+            Q_mean = np.log10(Q_mean)
         time_slice = np.array([times_q_shift[i],times_q_shift[i+1]])
+
         data += '\nage = c(%s, %s)' % (-time_slice[0],-time_slice[1])
-        data += '\nQ_mean = %s' %  np.mean(qtemp)
+        data += '\nQ_mean = %s' % Q_mean
         data += '\nQ_hpd_m = %s' % hpdtemp[0]
         data += '\nQ_hpd_M = %s' % hpdtemp[1]
         if i==0:
-            data += "\nplot(age,age,type = 'n', ylim = c(0, %s), xlim = c(%s, %s), xaxt = 'n' , ylab = '%s', xlab = '%s', main='%s')" \
-                % (max_y_axis, max_x_axis, min_x_axis, y_label, x_label, title)
+            data += "\nplot(age,age,type = 'n', ylim = c(%s, %s), xlim = c(%s, %s), xaxt = 'n', yaxt = 'n', ylab = '%s', xlab = '%s', main='%s')" \
+                % (min_y_axis, max_y_axis, max_x_axis, min_x_axis, y_label, x_label, title)
+            data += "\nyaxt_label <- pretty(par('usr')[3:4])"
+            if logT == 0:
+                data += "\nyaxt <- yaxt_label"
+            elif logT == 1:
+                data += "\nyaxt_label <- signif(exp(yaxt_label), digits = 1)"
+                data += "\nyaxt <- log(yaxt_label)"
+            elif logT == 2:
+                data += "\nyaxt_label <- signif(10**yaxt_label, digits = 1)"
+                data += "\nyaxt <- log10(yaxt_label)"
+            data += "\naxis(side = 2, at = yaxt, label = yaxt_label)"
             data += "\nxaxt = pretty(par('usr')[1:2])"
             data += "\nxaxt_labels = xaxt"
             if not r_script is None:
@@ -203,7 +228,7 @@ def RTTplot_Q(f, q_shift_file, burnin=0, min_age=0, max_age=0, translate=0,
             data += "\naxis(side = 1, at = xaxt, labels = xaxt_labels)"
         else:
             data += """\nsegments(x0=age[1], y0 = %s, x1 = age[1], y1 = Q_mean, col = '%s', lwd = %s)""" % (Q_mean_previous, col, lwd)
-        Q_mean_previous = np.mean(qtemp)
+        Q_mean_previous = Q_mean + 0.0
         data += """\nsegments(x0=age[1], y0 = Q_mean, x1 = age[2], y1 = Q_mean, col = '%s', lwd = %s)""" % (col, lwd)
         data += """\npolygon( c(age, rev(age)), c(Q_hpd_m, Q_hpd_m, Q_hpd_M, Q_hpd_M), col = adjustcolor('%s', alpha = 0.5), border = NA)""" % col
 

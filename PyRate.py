@@ -5639,7 +5639,7 @@ if __name__ == '__main__':
     p.add_argument('input_data', metavar='<input file>', type=str,help='Input python file - see template',default=[],nargs='*')
     p.add_argument('-j',         type=int, help='number of data set in input file', default=1, metavar=1)
     p.add_argument('-trait',     type=int, help='number of trait for Cov model', default=1, metavar=1)
-    p.add_argument('-logT',      type=int, help='Transform trait (or rates for -plotRJ): 0) False, 1) Ln(x), 2) Log10(x)', default=0, metavar=0)
+    p.add_argument('-logT',      type=int, help='Transform trait (or rates for -plotRJ, -plotQ, and -plotBDNN): 0) False, 1) Ln(x), 2) Log10(x)', default=0, metavar=0)
     p.add_argument("-N",         type=int, help='number of exant species', default=-1)
     p.add_argument("-wd",        type=str, help='path to working directory', default="")
     p.add_argument("-out",       type=str, help='output tag', default="")
@@ -6163,23 +6163,24 @@ if __name__ == '__main__':
                 rtt_plot_bds = rtt_plot_bds.plot_marginal_rates(path_dir_log_files,name_tag=file_stem,bin_size=grid_plot,
                         burnin=burnin,min_age=args.min_age_plot,max_age=root_plot,logT=args.logT,n_reps=args.n_prior,min_allowed_t=min_allowed_t)
             elif plot_type== 5:
-                rtt_plot_bds = rtt_plot_bds.RTTplot_Q(path_dir_log_files,args.qShift,burnin=burnin,
+                rtt_plot_bds = rtt_plot_bds.RTTplot_Q(path_dir_log_files,args.qShift,burnin=burnin, logT=args.logT,
                                                       translate=args.translate, min_age=args.min_age_plot, max_age=root_plot)
             elif plot_type== 6:
                 import pyrate_lib.bdnn_lib as bdnn_lib
                 bdnn_lib.plot_rtt(path_dir_log_files, burn=burnin, thin=args.resample, translate=args.translate,
                                   min_age=args.min_age_plot, max_age=root_plot, bdnn_precision=args.BDNNprecision,
-                                  q_shift_file=args.qShift)
+                                  q_shift_file=args.qShift, logT=args.logT)
                 if args.plotBDNN_groups != "":
                     bdnn_lib.plot_bdnn_rtt_groups(path_dir_log_files, args.plotBDNN_groups, burn=burnin,
-                                                  translate=args.translate, min_age=args.min_age_plot, max_age=root_plot, bdnn_precision=args.BDNNprecision)
+                                                  translate=args.translate, min_age=args.min_age_plot, max_age=root_plot,
+                                                  bdnn_precision=args.BDNNprecision, logT=args.logT)
             elif plot_type== 7:
                 import pyrate_lib.bdnn_lib as bdnn_lib
                 bdnn_lib.get_PDRTT(path_dir_log_files, args.BDNN_groups,
                                    burn=burnin, thin=args.resample,
                                    groups_path=args.plotBDNN_groups,
                                    translate=args.translate, min_age=args.min_age_plot, max_age=root_plot,
-                                   bdnn_precision=args.BDNNprecision, num_processes=args.thread[0], show_progressbar=True)
+                                   bdnn_precision=args.BDNNprecision, logT=args.logT, num_processes=args.thread[0], show_progressbar=True)
 
         elif plot_type == 8:
             import pyrate_lib.bdnn_lib as bdnn_lib
