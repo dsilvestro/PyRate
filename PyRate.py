@@ -2985,16 +2985,6 @@ def get_diversity(ts, te, timesLA, time_vec, bdnn_rescale_div, n_taxa, step_size
     return bdnn_binned_div
 
 
-def write_taxon_time_q(file_name, q_rates):
-    newshape = (1, ) + q_rates.shape
-    q = np.float16(q_rates.reshape(newshape))
-    try:
-        data = np.load(file_name)['arr_0']
-        np.savez_compressed(file_name, np.vstack((data, q)))
-    except:
-        np.savez_compressed(file_name, q)
-
-
 # ADE model
 def cdf_WR(W_shape,W_scale,x):
     return (x/W_scale)**(W_shape)
@@ -5549,8 +5539,6 @@ def MCMC(all_arg):
                         w_marg_ex.writerow(list(MA) + list(timesMA[1:len(timesMA)-1]))
                         marginal_ex_rate_file.flush()
                         os.fsync(marginal_ex_rate_file)
-                    # log taxon-time specific q-rates
-                    write_taxon_time_q(taxon_time_specific_q_name, bdnn_q_ratesA)
                 
                 if log_per_species_rates and BDNNmodel in [1, 3]:
                     # get time-trait dependent rate at ts (speciation) and te (extinction) | (only works with bdnn_const_baseline)
@@ -7784,12 +7772,6 @@ if __name__ == '__main__':
                 w_marg_q = csv.writer(marginal_q_rate_file, delimiter='\t')
                 marginal_q_rate_file.flush()
                 os.fsync(marginal_q_rate_file)
-                # log taxon-time specific q-rates
-                taxon_time_specific_q_name = "%s/%s_taxon_time_q_rates.npz" % (path_dir, suff_out)
-                try:
-                    os.remove(taxon_time_specific_q_name)
-                except:
-                    pass
             marginal_frames=0
             if BDNNmodel:
                 fixed_times_of_shift_bdnn_logger = fixed_times_of_shift_bdnn

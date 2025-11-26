@@ -2,7 +2,9 @@ from numpy import *
 import numpy as np
 import os, platform, glob, sys
 import pyrate_lib.lib_utilities as util
-import csv 
+import csv
+
+from PyRate import check_burnin
 
 def get_marginal_rates_plot3(times,rates,grid):
     mr = np.zeros(len(grid))
@@ -127,10 +129,12 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 
 def RTTplot_Q(f, q_shift_file, burnin=0, min_age=0, max_age=0, translate=0, logT=0, r_script=None,
               x_label='Ma', y_label='Preservation rate', title='Preservation rates', col="#756bb1", lwd=3,
-              min_y_axis=None, max_y_axis=None):
+              min_y_axis=None, max_y_axis=None, use_mean_event_ages=False):
     wd = "%s" % os.path.dirname(os.path.realpath(f)) # What is "%s" doing here?
     name_file=os.path.splitext(os.path.basename(f))[0]
-    t=np.loadtxt(f, skiprows=np.maximum(1,int(burnin)))
+    t = np.loadtxt(f, skiprows=1)
+    burn_it = check_burnin(burnin, t.shape[0])
+    t = t[burn_it:, :]
     head = np.array(next(open(f)).split()) # should be faster
     #print np.where(head=="beta")[0], np.where(head=="temperature")[0]
     if "temperature" in head or "beta" in head:
@@ -144,23 +148,42 @@ def RTTplot_Q(f, q_shift_file, burnin=0, min_age=0, max_age=0, translate=0, logT
     
     head= list(head)
     q_ind = [i for i in range(len(head)) if head[i].startswith("q_") and head[i].split("q_")[1] not in ["TS", "TE"]]
+    q_ind = np.array(q_ind).astype(int)
     root_ind  = head.index("root_age")
     death_ind = head.index("death_age")
-    min_root_age = np.min(t[:,root_ind]) - translate
-    if max_age != 0:
-        min_root_age = max_age + translate
-    max_death_age = np.max(t[:,death_ind]) - translate
-    if min_age != 0:
-        max_death_age = min_age - translate
 
-    try: times_q_shift=np.sort(np.loadtxt(q_shift_file))[::-1]
-    except: times_q_shift=np.array([np.loadtxt(q_shift_file)])
-    
-    times_q_shift = times_q_shift[times_q_shift>max_death_age]
-    times_q_shift = times_q_shift[times_q_shift<min_root_age]
+    if use_mean_event_ages:
+        min_root_age = np.mean(t[:,root_ind]) - translate
+        max_death_age = np.mean(t[:,death_ind]) - translate
+    else:
+        min_root_age = np.min(t[:,root_ind]) - translate
+        max_death_age = np.max(t[:,death_ind]) - translate
+
+    try:
+        times_q_shift = np.sort(np.loadtxt(q_shift_file))[::-1]
+    except:
+        times_q_shift = np.array([np.loadtxt(q_shift_file)])
+
+    used_qFilter = len(times_q_shift) >= len(q_ind)
+    if used_qFilter:
+        times_q_shift = times_q_shift[times_q_shift > max_death_age]
+        times_q_shift = times_q_shift[times_q_shift < min_root_age]
+
+    if min_age != 0:
+        max_death_age = min_age
+        keep_q_shift = times_q_shift > max_death_age
+        times_q_shift = times_q_shift[keep_q_shift]
+        q_ind = q_ind[np.concatenate((np.array([True]), keep_q_shift), axis=None)]
+
+    if max_age != 0:
+        min_root_age = max_age
+        keep_q_shift = times_q_shift < min_root_age
+        times_q_shift = times_q_shift[keep_q_shift]
+        q_ind = q_ind[np.concatenate((keep_q_shift, np.array([True])), axis=None)]
+
     times_q_shift = np.sort(np.array(list(times_q_shift) + [max_death_age,min_root_age]))[::-1]
     print(times_q_shift)
-    
+
     means = []
     hpdM  = []
     hpdm  = []
@@ -191,9 +214,10 @@ def RTTplot_Q(f, q_shift_file, burnin=0, min_age=0, max_age=0, translate=0, logT
         min_x_axis = -min_age
     if max_age != 0:
         max_x_axis = -max_age
-    
+
     for i in range(len(q_ind)):
         qtemp = t[:,q_ind[i]]
+        qtemp = qtemp[~np.isnan(qtemp)]
         hpdtemp = util.calcHPD(qtemp,0.95)
         Q_mean = np.mean(qtemp)
         if logT == 1:
