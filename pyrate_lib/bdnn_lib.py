@@ -1315,6 +1315,7 @@ def get_qtt_baseline(sp_fad_lad, path_dir_log_files, burn, q_shift_file, qtt, ti
     y_max_q = None
     y_min_q = None
     baseline_q = None
+    baseline_q_untrimmed = None
 
     if not qtt is None:
         baseline_q_untrimmed = get_q_from_mcmc_file(path_dir_log_files + "_mcmc.log", burn, thin=0)
