@@ -4812,7 +4812,6 @@ def get_pdp_rate_free_combination(bdnn_obj,
                 if earlier_bound < max_tste:
                     # s/e events older the earlier edge shift
                     minmaxmean_features[1, -1] = earlier_bound + 0.02 * earlier_bound
-            
     if fix_observed is False:
         all_comb_tbl = get_all_combination(names_comb_idx, minmaxmean_features)
     else:
@@ -4828,7 +4827,7 @@ def get_pdp_rate_free_combination(bdnn_obj,
         out_act_f = bdnn_obj.bdnn_settings['out_act_f_q']
     else:
         out_act_f = bdnn_obj.bdnn_settings['out_act_f']
-    hidden_act_f = bdnn_obj.bdnn_settings['out_act_f']
+    hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
     num_it = len(w_post)
     trait_tbl_for_mean = np.full((num_it, trait_tbl.shape[-2], len(names_comb_idx_conc)), np.nan)
     args = []
@@ -4863,8 +4862,6 @@ def get_pdp_rate_free_combination(bdnn_obj,
         for i in tqdm(range(num_it), disable = show_progressbar == False):
             rate_pdp.append(get_pdp_rate_it_i_free_combination(args[i]))
     rate_pdp = np.stack(rate_pdp, axis = 1)
-#    np.savetxt("/home/torsten/Work/BDNN/Proboscideans/PyRateAnalyses40Ma/Humans_Island_SpTemp_Grass_Feb_2024/NMDS2_Humans/NMDS2_Humans_" + rate_type + "_full.txt", rate_pdp, delimiter="\t")
-#    np.savetxt("/home/torsten/Work/BDNN/Proboscideans/PyRateAnalyses40Ma/Humans_Island_SpTemp_Grass_Feb_2024/Geography/Geography_" + rate_type + "_pdp.txt", rate_pdp, delimiter="\t")
     rate_pdp_sum = get_rates_summary(rate_pdp)
     rate_pdp_sum_df = pd.DataFrame(rate_pdp_sum, columns = ['mean', 'lwr', 'upr'])
     names_features = names_features[names_comb_idx_conc]
