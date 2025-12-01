@@ -75,7 +75,7 @@ np.seterr(over='ignore', under='ignore')
 small_number= 1e-50
 
 
-def load_trait_tbl(path):
+def load_trait_tbl(path, rate_type="diversification"):
     loaded_trait_tbls = []
     sp_pred_names_tbls = sorted(glob.glob(os.path.join(path[0], "*")))
     sp_pred_tbls = []
@@ -83,49 +83,69 @@ def load_trait_tbl(path):
     if len(sp_pred_names_tbls) > 1:
         for t in sp_pred_names_tbls:
             print(os.path.basename(t))
-            sp_tbl = np.loadtxt(t, skiprows = 1)
+            sp_tbl = np.loadtxt(t, skiprows=1)
             sp_pred_tbls.append(sp_tbl)
         sp_pred_tbls = np.array(sp_pred_tbls)
     else:
         print(os.path.basename(sp_pred_names_tbls[0]))
-        sp_pred_tbls = np.loadtxt(sp_pred_names_tbls[0], skiprows = 1)
-    loaded_trait_tbls.append(sp_pred_tbls)
-    ex_pred_names_tbls = sorted(glob.glob(os.path.join(path[len(path) - 1], "*")))
-    ex_pred_tbls = []
-    print('\nOrder taxon-time specific extinction tables:')
-    if len(ex_pred_names_tbls) > 1:
-        for t in ex_pred_names_tbls:
-            print(os.path.basename(t))
-            ex_tbl = np.loadtxt(t, skiprows = 1)
-            ex_pred_tbls.append(ex_tbl)
-        ex_pred_tbls = np.array(ex_pred_tbls)
+        sp_pred_tbls = np.loadtxt(sp_pred_names_tbls[0], skiprows=1)
+
+    colnames = np.loadtxt(sp_pred_names_tbls[0], max_rows=1, dtype=str).tolist()
+    loaded_tbls_timevar = sp_pred_tbls.ndim == 3
+
+    if rate_type == "sampling":
+        loaded_trait_tbls = sp_pred_tbls
     else:
-        print(ex_pred_names_tbls[0])
-        ex_pred_tbls = np.loadtxt(ex_pred_names_tbls[0], skiprows = 1)
-    loaded_trait_tbls.append(ex_pred_tbls)
-    colnames = np.loadtxt(ex_pred_names_tbls[0], max_rows = 1, dtype = str).tolist()
-    sp_time_variable_pred = is_time_variable_feature(sp_pred_tbls)[0,:]
-    ex_time_variable_pred = is_time_variable_feature(ex_pred_tbls)[0,:]
-    time_variable_pred = np.any(np.concatenate((sp_time_variable_pred, ex_time_variable_pred), axis = None))
+        loaded_trait_tbls.append(sp_pred_tbls)
+        ex_pred_names_tbls = sorted(glob.glob(os.path.join(path[len(path) - 1], "*")))
+        ex_pred_tbls = []
+        print('\nOrder taxon-time specific extinction tables:')
+        if len(ex_pred_names_tbls) > 1:
+            for t in ex_pred_names_tbls:
+                print(os.path.basename(t))
+                ex_tbl = np.loadtxt(t, skiprows=1)
+                ex_pred_tbls.append(ex_tbl)
+            ex_pred_tbls = np.array(ex_pred_tbls)
+        else:
+            print(ex_pred_names_tbls[0])
+            ex_pred_tbls = np.loadtxt(ex_pred_names_tbls[0], skiprows=1)
+        loaded_trait_tbls.append(ex_pred_tbls)
+
     # Should we check if all colnames are in the same order?
-    return loaded_trait_tbls, colnames, time_variable_pred
+    return loaded_trait_tbls, colnames, loaded_tbls_timevar#, time_variable_pred
 
 
-def export_trait_tbl(trait_tbls, names_features, output_wd):
-    path_predictors = os.path.join(output_wd, 'BDNN_predictors')
-    os.makedirs(path_predictors, exist_ok = True)
-    trait_tbls[0] = trait_tbls[0][::-1, :, :]
-    num_tbls = len(trait_tbls[0])
+def export_trait_tbl(trait_tbl, names_features, output_wd, rate_type="BD"):
+    pred_name = '%sNN_predictors' % rate_type
+    path_predictors = os.path.join(output_wd, pred_name)
+    os.makedirs(path_predictors, exist_ok=True)
+
+    num_tbls = 1
+    if trait_tbl.ndim == 3:
+        trait_tbl = trait_tbl[::-1, :, :]
+        num_tbls = len(trait_tbl)
     digits_file_name = "{:0%sd}" % len(str(num_tbls))
+
     for i in range(num_tbls):
-        tbl = trait_tbls[0][i]
+        if num_tbls > 1:
+            tbl = trait_tbl[i]
+        else:
+            tbl = trait_tbl
+
         if 'time' in names_features:
             tbl = tbl[:, :-1]
-        tbl_df = pd.DataFrame(tbl, columns = names_features[0:tbl.shape[1]])
+        if 'diversity' in names_features:
+            tbl = tbl[:, :-1]
+        if 'taxon_age' in names_features:
+            tbl = tbl[:, :-1]
+
+        tbl_df = pd.DataFrame(tbl, columns=names_features[0:tbl.shape[1]])
         file_name = str(digits_file_name.format(i + 1)) + ".txt"
         tbl_df_file = os.path.join(path_predictors, file_name)
-        tbl_df.to_csv(tbl_df_file, index = False, sep ='\t')
-    return path_predictors
+        tbl_df.to_csv(tbl_df_file, index=False, sep='\t')
+
+    print("%sNN predictors export into %s" % (rate_type, path_predictors))
+
 
 
 def make_pseudo_tste(tse, repeats):
@@ -207,7 +227,10 @@ def combine_pkl(path_to_files, tag, burnin, resample):
             # Check if origination and extinction times were fixed
             direct_mcmc = "%s/*%s*_mcmc.log" % (infile, tag)
             files_mcmc = glob.glob(direct_mcmc)
+            name_combined_mcmc = "%s/combined_%s%s_mcmc.log" % (infile, num_replicates, tag)
+            files_mcmc.remove(name_combined_mcmc)
             files_mcmc = np.sort(files_mcmc)
+
             with open(files_mcmc[0], 'r') as f:
                 header_mcmc_log = next(f).strip()
             fix_SE = len([i for i in range(len(header_mcmc_log)) if header_mcmc_log[i].endswith('_TS')]) == 0
@@ -216,7 +239,7 @@ def combine_pkl(path_to_files, tag, burnin, resample):
             if fix_SE:
                 fixed_ts = []
                 fixed_te = []
-                for i in range(len(files_mcmc)):
+                for i in range(num_replicates):
                     num_it = np.loadtxt(files_mcmc[i], skiprows=1).shape[0]
                     b = check_burnin(burnin, num_it)
                     repeats = num_it - b
@@ -233,6 +256,15 @@ def combine_pkl(path_to_files, tag, burnin, resample):
                 })
 
         if q:
+            mcmc_it = np.ones(num_replicates, dtype=int)
+            for i in range(num_replicates):
+                num_it = np.loadtxt(files_mcmc[i], skiprows=1).shape[0]
+                b = check_burnin(burnin, num_it)
+                mcmc_it[i] = num_it - b
+                if resample > 0 and resample < mcmc_it:
+                    mcmc_it[i] = resample
+            replicate = np.repeat(np.arange(num_replicates), mcmc_it)
+
             bdnn_dict.update({
                 'layers_shapes_q': pkl_list[0].bdnn_settings['layers_shapes_q'],
                 'layers_sizes_q': pkl_list[0].bdnn_settings['layers_sizes_q'],
@@ -252,10 +284,15 @@ def combine_pkl(path_to_files, tag, burnin, resample):
                     n_bins[i] = pkl_list[i].bdnn_settings['duration_q_bins'].shape[1]
                 pkl_most_bins = np.argmax(n_bins)
                 bdnn_dict.update({
-                    'occs_sp': pkl_list[pkl_most_bins].bdnn_settings['occs_sp'],
-                    'q_time_frames': pkl_list[pkl_most_bins].bdnn_settings['q_time_frames'],
-                    'duration_q_bins': pkl_list[pkl_most_bins].bdnn_settings['duration_q_bins'],
-                    'occs_single_bin': pkl_list[pkl_most_bins].bdnn_settings['occs_single_bin']
+                    'replicate': replicate,
+                    # 'occs_sp': pkl_list[pkl_most_bins].bdnn_settings['occs_sp'],
+                    # 'q_time_frames': pkl_list[pkl_most_bins].bdnn_settings['q_time_frames'],
+                    # 'duration_q_bins': pkl_list[pkl_most_bins].bdnn_settings['duration_q_bins'],
+                    # 'occs_single_bin': pkl_list[pkl_most_bins].bdnn_settings['occs_single_bin']
+                    'occs_sp': [pkl_list[i].bdnn_settings['occs_sp'] for i in range(num_replicates)],
+                    'q_time_frames': [pkl_list[i].bdnn_settings['q_time_frames'] for i in range(num_replicates)],
+                    'duration_q_bins': [pkl_list[i].bdnn_settings['duration_q_bins'] for i in range(num_replicates)],
+                    'occs_single_bin': [pkl_list[i].bdnn_settings['occs_single_bin'] for i in range(num_replicates)]
                 })
             if 'highres_q_repeats' in pkl_list[0].bdnn_settings.keys():
                 bdnn_dict.update({'highres_q_repeats': pkl_list[pkl_most_bins].bdnn_settings['highres_q_repeats']})
@@ -963,9 +1000,9 @@ def get_q_rates_and_multipliers(bdnn_obj, w_q, sp_fad_lad, ts, te, t_reg_q, reg_
         q_bins = np.array([np.max(ts_mean), 0.0])
     q_bins_copy = np.copy(q_bins)
 
-    sm_mask = ''
+    sm_mask = False
     if trt_tbl.ndim == 3:
-        sm_mask = 'make_3D'
+        sm_mask = True
         n_bins = trt_tbl.shape[0]
         qbins_ts_te = get_bin_ts_te(ts_mean, te_mean, q_bins)
         q_multi = np.full((n_mcmc, n_taxa, n_bins), np.nan)
@@ -1839,26 +1876,39 @@ def replace_names_by_feature_group(names, idx, fg):
     return names
 
 
-def exit_on_missing_feature(names, fg):
+def omit_unused_features_from_feature_group(names, fg):
+    new_fg = []
+    keep_fg = []
     for sublist in fg:
-        for item in sublist:
-            if (item in names) == False:
-                sys.exit(print("Item(s) of the feature group(s) not part of trait file"))
+        filtered = [item for item in sublist if item in names]
+        if filtered:
+            new_fg.append(filtered)
+            keep_fg.append(True)
+        else:
+            keep_fg.append(False)
+    if len(new_fg) == 0:
+        sys.exit(print("No item of the feature group(s) is part of trait file"))
+    return new_fg, keep_fg
 
 
 def get_idx_comb_feat(names, fg):
     idx_comb_feat = []
     if fg != "":
-        fg = list(fg.values())
-        exit_on_missing_feature(names, fg)
-        for i in range(len(fg)):
-            cf = fg[i]
-            icf = np.zeros(len(cf), dtype = int)
+        fg_vals = list(fg.values())
+        fg_vals, keep_fg = omit_unused_features_from_feature_group(names, fg_vals)
+        for i in range(len(fg_vals)):
+            cf = fg_vals[i]
+            icf = np.zeros(len(cf), dtype=int)
             for j in range(len(cf)):
                 for k in range(len(names)):
                     if names[k] == cf[j]:
                         icf[j] = k
             idx_comb_feat.append(icf)
+        # Remove dict entry
+        keys = list(fg.keys())
+        for i in range(len(keys)):
+            if not keep_fg[i]:
+                fg.pop(keys[i], 'None')
     return idx_comb_feat
 
 
@@ -4808,7 +4858,7 @@ def get_pdp_rate_free_combination(bdnn_obj,
             if fix_edgeShift in [1, 2]: # both or max boundary
                 earlier_bound = times_edgeShifts[0] * bdnn_obj.bdnn_settings['time_rescaler']
                 if max_age != 0:
-                    younger_bound = (max_age + translate) * bdnn_obj.bdnn_settings['time_rescaler']
+                    earlier_bound = (max_age + translate) * bdnn_obj.bdnn_settings['time_rescaler']
                 if earlier_bound < max_tste:
                     # s/e events older the earlier edge shift
                     minmaxmean_features[1, -1] = earlier_bound + 0.02 * earlier_bound
@@ -5147,9 +5197,7 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
         if age_dependent_sampling:
             q = q[:, bdnn_obj.bdnn_settings['highres_q_repeats'].astype(int)]
 
-        sm_mask = ''
-        if np.any(feature_is_time_variable) or age_dependent_sampling:
-            sm_mask = 'make_3D'
+        sm_mask = np.any(feature_is_time_variable) or age_dependent_sampling
         singleton_mask = make_singleton_mask(occs_sp, sm_mask)
         singleton_lik = copy_lib.deepcopy(singleton_mask)
         if singleton_lik.ndim == 2:
@@ -6084,9 +6132,7 @@ def feature_permutation_sampling(mcmc_file, pkl_file, burnin, thin, min_bs, n_pe
         argsG = 1
         YangGammaQuant = (np.linspace(0, 1, gamma_ncat + 1) - np.linspace(0, 1, gamma_ncat + 1)[1] / 2)[1:]
     
-    sm_mask = ''
-    if np.any(feature_is_time_variable) or age_dependent_sampling:
-        sm_mask = 'make_3D'
+    sm_mask = np.any(feature_is_time_variable) or age_dependent_sampling
     singleton_mask = make_singleton_mask(occs_sp, sm_mask)
     singleton_lik = copy_lib.deepcopy(singleton_mask)
     if singleton_lik.ndim == 2:
