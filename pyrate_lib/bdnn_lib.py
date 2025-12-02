@@ -79,7 +79,12 @@ def load_trait_tbl(path, rate_type="diversification"):
     loaded_trait_tbls = []
     sp_pred_names_tbls = sorted(glob.glob(os.path.join(path[0], "*")))
     sp_pred_tbls = []
-    print('\nOrder taxon-time specific speciation tables:')
+
+    if rate_type == "diversification":
+        print('\nOrder taxon-time specific speciation tables:')
+    else:
+        print('\nOrder taxon-time specific sampling tables:')
+
     if len(sp_pred_names_tbls) > 1:
         for t in sp_pred_names_tbls:
             print(os.path.basename(t))
@@ -115,7 +120,7 @@ def load_trait_tbl(path, rate_type="diversification"):
     return loaded_trait_tbls, colnames, loaded_tbls_timevar#, time_variable_pred
 
 
-def export_trait_tbl(trait_tbl, names_features, output_wd, rate_type="BD"):
+def export_trait_tbl(trait_tbl, names_features, output_wd, time, rate_type="BD"):
     pred_name = '%sNN_predictors' % rate_type
     path_predictors = os.path.join(output_wd, pred_name)
     os.makedirs(path_predictors, exist_ok=True)
@@ -124,7 +129,9 @@ def export_trait_tbl(trait_tbl, names_features, output_wd, rate_type="BD"):
     if trait_tbl.ndim == 3:
         trait_tbl = trait_tbl[::-1, :, :]
         num_tbls = len(trait_tbl)
+        time = time[::-1]
     digits_file_name = "{:0%sd}" % len(str(num_tbls))
+    time_bin = ""
 
     for i in range(num_tbls):
         if num_tbls > 1:
@@ -140,7 +147,9 @@ def export_trait_tbl(trait_tbl, names_features, output_wd, rate_type="BD"):
             tbl = tbl[:, :-1]
 
         tbl_df = pd.DataFrame(tbl, columns=names_features[0:tbl.shape[1]])
-        file_name = str(digits_file_name.format(i + 1)) + ".txt"
+        if num_tbls > 1:
+            time_bin = "_" + str(time[i + 1])
+        file_name = str(digits_file_name.format(i + 1)) + time_bin + ".txt"
         tbl_df_file = os.path.join(path_predictors, file_name)
         tbl_df.to_csv(tbl_df_file, index=False, sep='\t')
 
@@ -5062,7 +5071,7 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
         out_act_f = bdnn_obj.bdnn_settings["out_act_f"]
         hidden_act_f = bdnn_obj.bdnn_settings["hidden_act_f"]
         float_prec_f = get_float_prec_f_from_bdnn_obj(bdnn_obj, bdnn_precision)
-        apply_reg, bias_node_idx, fix_edgeShift, times_edgeShifts = get_edgeShifts_obj(bdnn_obj)
+        apply_reg, bias_node_idx, fix_edgeShift, times_edgeShifts = get_edgeShifts_obj(bdnn_obj, min_age, max_age, translate)
         num_it = ts.shape[0]
 
         trait_tbl_sp = get_trt_tbl(bdnn_obj, rate_type="speciation")

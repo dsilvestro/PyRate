@@ -7603,9 +7603,9 @@ if __name__ == '__main__':
         if args.BDNNexport_taxon_time_tables:
             import pyrate_lib.bdnn_lib as bdnn_lib
             if BDNNmodel in [1, 3]:
-                bdnn_lib.export_trait_tbl(trait_tbl_NN[0], names_features_bd, output_wd, rate_type="BD")
+                bdnn_lib.export_trait_tbl(trait_tbl_NN[0], names_features_bd, output_wd, time_vec, rate_type="BD")
             if BDNNmodel in [2, 3]:
-                bdnn_lib.export_trait_tbl(trait_tbl_NN[2], names_features_q, output_wd, rate_type="S")
+                bdnn_lib.export_trait_tbl(trait_tbl_NN[2], names_features_q, output_wd, q_time_frames_bdnn, rate_type="S")
             sys.exit()
     
     if mcmc_gen > 0:
