@@ -4744,10 +4744,13 @@ def match_names_comb_with_features(names_comb, names_features):
     for i in range(len(names_comb)):
         names_comb_i = names_comb[keys_names_comb[i]]
         J = len(names_comb_i)
-        idx = np.zeros(J)
+        idx = np.full(J, np.nan)
         for j in range(J):
-            idx[j] = np.where(names_comb_i[j] == names_features)[0]
-        m.append(idx)
+            w = np.where(names_comb_i[j] == names_features)[0]
+            if len(w) > 0:
+                idx[j] = w
+        if not np.any(np.isnan(idx)):
+            m.append(idx)
     return m
 
 
@@ -5287,8 +5290,8 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
         LO = np.min(np.mean(te, axis=0))
         for g in range(len(group_names)):
             gs = group_species_idx[g]
-            r_file = "%s_%s_PDQTT.r" % (name_file, group_names[g])
-            pdf_file = "%s_%s_PDQTT.pdf" % (name_file, group_names[g])
+            r_file = "%s_%s_%s_PDQTT.r" % (name_file, group_names[g], keys_names_comb)
+            pdf_file = "%s_%s_%s_PDQTT.pdf" % (name_file, group_names[g], keys_names_comb)
 
             num_q_bins = len(q_bins) - 1
             r_q = np.zeros((num_it, num_q_bins))
