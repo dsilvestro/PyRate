@@ -2804,10 +2804,10 @@ def get_fossil_features_q_shifts(fossil, q_bins, occs_sp, LO):
     return log_factorial_occs, duration_q_bins, occs_single_bin
 
 
-def precompute_fossil_features(arg_q_shift, arg_bdnn_timevar, bdnn_ads, bin_size=1):
+def precompute_fossil_features(arg_q_shift, snn_timevar, bdnn_ads, bin_size=1):
     duration_q_bins = None
     occs_single_bin = None
-    if arg_q_shift == "" and arg_bdnn_timevar == "" and bdnn_ads < 0.0:
+    if arg_q_shift == "" and not snn_timevar and bdnn_ads < 0.0:
         # Constant baseline q
         constant_q = True
         argsHPP = 1
@@ -2837,7 +2837,7 @@ def precompute_fossil_features(arg_q_shift, arg_bdnn_timevar, bdnn_ads, bin_size
         occs_sp = get_occs_sp(fossil, q_bins)
         log_factorial_occs, duration_q_bins, occs_single_bin = get_fossil_features_q_shifts(fossil, q_bins, occs_sp, LO)
         use_HPP_NN_lik = True
-        if (arg_q_shift == "" and bdnn_ads >= 0.0) or (arg_q_shift == "" and arg_bdnn_timevar != ""):
+        if (arg_q_shift == "" and bdnn_ads >= 0.0) or (arg_q_shift == "" and snn_timevar):
             argsHPP = 1
             TPP_model = 0
             constant_q = True
@@ -7085,7 +7085,7 @@ if __name__ == '__main__':
             if bdnn_ads >= 0.0:
                 min_bin_size = np.minimum(bdnn_ads, bdnn_time_res)
             highres_q_repeats, times_q_shift = get_highres_repeats(args_qShift, min_bin_size, np.max(FA))
-        argsHPP, occs_sp, log_factorial_occs, duration_q_bins, occs_single_bin, q_time_frames_bdnn, use_HPP_NN_lik, TPP_model, const_q = precompute_fossil_features(args_qShift, bdnn_timevar_q, bdnn_ads, bdnn_time_res)
+        argsHPP, occs_sp, log_factorial_occs, duration_q_bins, occs_single_bin, q_time_frames_bdnn, use_HPP_NN_lik, TPP_model, const_q = precompute_fossil_features(args_qShift, snn_timevar, bdnn_ads, bdnn_time_res)
         singleton_mask = make_singleton_mask(occs_sp, snn_timevar, bdnn_ads)
         apply_reg_q = np.full_like(singleton_mask, True)
         if (((use_HPP_NN_lik and bdnn_ads <= 0.0) or (not use_HPP_NN_lik and bdnn_time_res < 1.0) or (snn_timevar and bdnn_time_res == 1)) and not (snn_timevar and TPP_model == 0)):
@@ -7252,7 +7252,6 @@ if __name__ == '__main__':
                                                                                      replicates_tbls=highres_q_repeats,
                                                                                      loaded_tbls=snn_loaded_tbls,
                                                                                      float_prec_f=float_prec_f)
-                print(trait_tbl_NN[2].shape)
                 cov_par_init_NN[2] = cov_par_init_NN_q
                 prior_bdnn_w_q_sd = [np.ones(cov_par_init_NN[2][i].shape) * args.BDNNprior for i in range(len(cov_par_init_NN[2]))]
                 if prior_lam_t_reg[-1] > 0:
