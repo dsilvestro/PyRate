@@ -2938,7 +2938,7 @@ def create_R_files_effects(cond_trait_tbl, cond_rates, bdnn_obj, tste, r_script,
     rates_summary[not_obs,:] = np.nan
     cond_rates[not_obs,:] = np.nan
     time_idx = np.nanmax(cond_trait_tbl[:, -3]) + 10.0
-    if is_time_trait(bdnn_obj):
+    if is_time_trait(bdnn_obj) and rate_type != 'sampling':
         time_idx = np.max(cond_trait_tbl[:, -6])
     rate_type2 = rate_type
     if rate_type == 'net diversification':
