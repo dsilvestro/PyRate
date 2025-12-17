@@ -4273,7 +4273,7 @@ def MCMC(all_arg):
             if TPP_model == 1:
                 if len(q_ratesA) != time_framesQ:
                     q_ratesA=np.zeros(time_framesQ)+mean(q_ratesA)
-        timevar_qnn = False
+
         if BDNNmodel in [2, 3]:
             cov_parA = cov_par_init_NN
             nn_qA = None
@@ -4285,14 +4285,14 @@ def MCMC(all_arg):
             q_rates_tmp = q_ratesA
             if bdnn_ads >= 0.0:
                 trait_tbl_NN[2] = add_taxon_age(tsA, teA, q_time_frames_bdnn, trait_tbl_NN[2])
-                if not highres_q_repeats is None: #bdnn_ads > 0.0 and argsHPP == 0:
+                if not highres_q_repeats is None:
                     q_rates_tmp = q_ratesA[highres_q_repeats]
             qbin_ts_te = None
             bdnn_q_ratesA = np.zeros(n_taxa)
             if occs_sp.ndim == 2:
-                qbin_ts_te = get_bin_ts_te(tsA, teA, q_time_frames_bdnn)
-                timevar_qnn = True
                 bdnn_q_ratesA = np.zeros((n_taxa, len(q_time_frames_bdnn) - 1))
+            if snn_timevar:
+                qbin_ts_te = get_bin_ts_te(tsA, teA, q_time_frames_bdnn)
             # singleton index to calculate preservation likelihood
             singleton_lik = copy_lib.deepcopy(singleton_mask)
             if singleton_lik.ndim == 2:
@@ -4684,7 +4684,7 @@ def MCMC(all_arg):
         if fix_SE == 0 and FBDrange==0:
             ind1=list(range(0,len(fossil)))
             ind2=[]
-            if it>0 and rr<f_update_se and not timevar_qnn: # recalculate likelihood only for ts, te that were updated
+            if it>0 and rr<f_update_se and not snn_timevar: # recalculate likelihood only for ts, te that were updated
                 ind1=((ts-te != tsA-teA).nonzero()[0]).tolist()
                 ind2=(ts-te == tsA-teA).nonzero()[0]
             lik_fossil=zeros(len(fossil))
@@ -4771,7 +4771,7 @@ def MCMC(all_arg):
                                 q_rates_tmp = q_rates
                                 if not highres_q_repeats is None: #bdnn_ads > 0.0 and argsHPP == 0:
                                     q_rates_tmp = q_rates[highres_q_repeats]
-                                if timevar_qnn and ts_te_updated:
+                                if snn_timevar and ts_te_updated:
                                     qbin_ts_te = get_bin_ts_te(ts, te, q_time_frames_bdnn)
                                 if cov_q_updated or (ts_te_updated and bdnn_ads > 0.0):
                                     qnn_output_unreg, nn_q = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_par[2], nn_qA,
