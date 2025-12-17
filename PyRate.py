@@ -4086,6 +4086,16 @@ def get_init_values(mcmc_log_file, taxa_names, float_prec_f):
         mu  = np.array([float(len(te[te>0]))/sum(ts-te)])    # const rate ML estimator
         hyp = np.ones(2)
 
+    # window size for ts/te proposals
+    try:
+        se_name = mcmc_log_file.replace("mcmc.log", "se_windows.txt")
+        se_windows = np.loadtxt(se_name)
+        d1_ts = se_windows[:, 0]
+        d1_te = se_windows[:, 1]
+    except:
+        d1_ts = np.ones(len(ts))
+        d1_te = np.ones(len(te))
+
     if BDNNmodel:
         from pyrate_lib.bdnn_lib import bdnn_reshape_w
         pkl_file = mcmc_log_file.replace("_mcmc.log", "") + ".pkl"
@@ -4111,7 +4121,7 @@ def get_init_values(mcmc_log_file, taxa_names, float_prec_f):
             cov_par[2] = w_q
             cov_par[5] = tbl[last_row, head.index("t_reg_q")]
 
-    return [ts,te,q_rates,lam,mu,hyp,alpha_pp, cov_par]
+    return [ts,te,q_rates,lam,mu,hyp,alpha_pp, cov_par, d1_ts, d1_te]
 
 ########################## MCMC #########################################
 
@@ -4330,6 +4340,8 @@ def MCMC(all_arg):
 
     if fix_SE == 0:
         d1_ts, d1_te, tste_tune_obj = make_tste_tune_obj(LO, bound_te, d1)
+        if restore_chain:
+            d1_ts, d1_te = restore_init_values[8], restore_init_values[9]
 
     # start threads
     if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
@@ -4441,6 +4453,7 @@ def MCMC(all_arg):
                     ts_or_te_updated = np.random.randint(low=0, high=2, size=1)[0]
                     ts, te = update_ts_te_tune(tsA, teA, d1_ts, d1_te, FA, LO, bound_ts, bound_te,
                                                sample_extinction=ts_or_te_updated)
+                    ind_updated_tste = (ts-te != tsA-teA).nonzero()[0]
                 else:
                     ts, te = update_ts_te(tsA, teA, mod_d1, bound_ts, bound_te)
                 
@@ -5285,7 +5298,7 @@ def MCMC(all_arg):
                     nn_qA = nn_q
                 if ts_te_updated and tune_T_schedule[0] > 0:
                     d1_ts, d1_te, tste_tune_obj = tune_tste_windows(d1_ts, d1_te, LO, bound_te, tste_tune_obj, it,
-                                                                    tune_T_schedule, ind1, ts_or_te_updated,
+                                                                    tune_T_schedule, ind_updated_tste, ts_or_te_updated,
                                                                     accepted=1)
             elif BDNNmodel:
                 if BDNNmodel in [1, 3]:
@@ -5311,7 +5324,7 @@ def MCMC(all_arg):
 #                        qbin_ts_te = get_bin_ts_te(tsA, teA, q_time_frames_bdnn)
             if not is_accepted and ts_te_updated and tune_T_schedule[0] > 0:
                 d1_ts, d1_te, tste_tune_obj = tune_tste_windows(d1_ts, d1_te, LO, bound_te, tste_tune_obj, it,
-                                                                tune_T_schedule, ind1, ts_or_te_updated,
+                                                                tune_T_schedule, ind_updated_tste, ts_or_te_updated,
                                                                 accepted=0)
 
         if it % print_freq ==0 or it==burnin:
@@ -5500,6 +5513,8 @@ def MCMC(all_arg):
                 log_state += list(np.mean(d1_ts).flatten())
                 if np.any(LO > 0):
                     log_state += list(np.mean(d1_te[LO > 0]).flatten())
+                if it < tune_T_schedule[0]:
+                    np.savetxt(tune_ts_te_name, np.column_stack((d1_ts, d1_te)), delimiter='\t')
 
             wlog.writerow(log_state)
             logfile.flush()
@@ -7744,6 +7759,7 @@ if __name__ == '__main__':
             head += ["tT_ts"]
             if np.any(LO > 0):
                 head += ["tT_te"]
+            tune_ts_te_name = "%s/%s_se_windows.txt" % (path_dir, suff_out)
 
         wlog=csv.writer(logfile, delimiter='\t')
         wlog.writerow(head)
