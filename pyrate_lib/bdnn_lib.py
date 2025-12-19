@@ -1908,7 +1908,7 @@ def omit_unused_features_from_feature_group(names, fg):
 
 def get_idx_comb_feat(names, fg):
     idx_comb_feat = []
-    if fg != "":
+    if fg:
         fg_vals = list(fg.values())
         fg_vals, keep_fg = omit_unused_features_from_feature_group(names, fg_vals)
         for i in range(len(fg_vals)):
