@@ -237,7 +237,8 @@ def combine_pkl(path_to_files, tag, burnin, resample):
             direct_mcmc = "%s/*%s*_mcmc.log" % (infile, tag)
             files_mcmc = glob.glob(direct_mcmc)
             name_combined_mcmc = "%s/combined_%s%s_mcmc.log" % (infile, num_replicates, tag)
-            files_mcmc.remove(name_combined_mcmc)
+            if name_combined_mcmc in files_mcmc:
+                files_mcmc.remove(name_combined_mcmc)
             files_mcmc = np.sort(files_mcmc)
 
             with open(files_mcmc[0], 'r') as f:
@@ -294,10 +295,6 @@ def combine_pkl(path_to_files, tag, burnin, resample):
                 pkl_most_bins = np.argmax(n_bins)
                 bdnn_dict.update({
                     'replicate': replicate,
-                    # 'occs_sp': pkl_list[pkl_most_bins].bdnn_settings['occs_sp'],
-                    # 'q_time_frames': pkl_list[pkl_most_bins].bdnn_settings['q_time_frames'],
-                    # 'duration_q_bins': pkl_list[pkl_most_bins].bdnn_settings['duration_q_bins'],
-                    # 'occs_single_bin': pkl_list[pkl_most_bins].bdnn_settings['occs_single_bin']
                     'occs_sp': [pkl_list[i].bdnn_settings['occs_sp'] for i in range(num_replicates)],
                     'q_time_frames': [pkl_list[i].bdnn_settings['q_time_frames'] for i in range(num_replicates)],
                     'duration_q_bins': [pkl_list[i].bdnn_settings['duration_q_bins'] for i in range(num_replicates)],
