@@ -5592,7 +5592,7 @@ def MCMC(all_arg):
                     w_marg_q.writerow(qtt)
                     marginal_q_rate_file.flush()
                     os.fsync(marginal_q_rate_file)
-                    if not samplingNN_TDI0:
+                    if not samplingNN_TDI0 and BDNNmodel == 2:
                         w_marg_sp.writerow(list(LA) + list(timesLA[1:len(timesLA)-1]))
                         marginal_sp_rate_file.flush()
                         os.fsync(marginal_sp_rate_file)
