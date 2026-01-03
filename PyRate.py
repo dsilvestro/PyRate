@@ -2887,12 +2887,14 @@ def HPP_NN_lik(arg):
     [ts, te, q, alpha, q_multipliers, const_q, k, log_factorial_occs, time_frames, duration_q_bins, single_bin, singletons, argsG, gamma_ncat, YangGammaQuant] = arg
     # calc time lived in each time frame
     d = get_time_in_q_bins(ts, te, time_frames, duration_q_bins, single_bin)
+    bins_with_taxa = np.sum(d, axis=0) > 0.0
+
     if argsG == 0:
         if const_q:
             q = q[1]
         q_rates = get_q_rates_NN(q, q_multipliers, const_q)
-        qtl = -q_rates * d
-        lik = np.nansum(qtl + np.log(q_rates) * k, axis=1) - np.log(1 - np.exp(np.nansum(qtl, axis=1))) - log_factorial_occs
+        qtl = -q_rates[:, bins_with_taxa] * d[:, bins_with_taxa]
+        lik = np.nansum(qtl + np.log(q_rates[:, bins_with_taxa]) * k[:, bins_with_taxa], axis=1) - np.log(-np.expm1(np.nansum(qtl, axis=1))) - log_factorial_occs
         weight_per_taxon = 1
     else:
         n_bins_q = len(q)
@@ -2907,15 +2909,19 @@ def HPP_NN_lik(arg):
         YangGamma = get_gamma_rates_qnn(alpha, gamma_ncat, YangGammaQuant)
         for i in range(gamma_ncat):
             q_rates[i, :, :] = get_q_rates_NN(YangGamma[i] * q, q_multipliers, const_q)
+        nan_q_rate = np.isnan(q_rates)
         q_rates[:, singletons, :] = q
-        qtl = -q_rates * d
-        lik_vec = np.nansum(qtl + np.log(q_rates) * k[np.newaxis, :, :], axis=2) - np.log(1 - np.exp(np.nansum(qtl, axis=2))) - log_factorial_occs
+        q_rates[nan_q_rate] = np.nan
+        qtl = -q_rates[:, :, bins_with_taxa] * d[:, bins_with_taxa]
+        lik_vec = np.nansum(qtl + np.log(q_rates[:, :, bins_with_taxa]) * k[np.newaxis, :, bins_with_taxa], axis=2) - np.log(-np.expm1(np.nansum(qtl, axis=2))) - log_factorial_occs
+        # lik_vec = np.nansum(qtl + np.log(q_rates[:, :, bins_with_taxa]) * k[np.newaxis, :, bins_with_taxa], axis=2) - np.log(1 - np.exp(np.nansum(qtl, axis=2))) - log_factorial_occs
         lik_max = np.max(lik_vec, axis=0)
         lik_vec2 = lik_vec - lik_max
         lik = np.log(np.sum(np.exp(lik_vec2), axis=0) / gamma_ncat) + lik_max
         # Get relative weight of the gamma categories
-        lik_vec_exp = np.exp(lik_vec2)
-        weight_per_taxon = lik_vec_exp / np.sum(lik_vec_exp, axis=0)
+        # lik_vec_exp = np.exp(lik_vec2)
+        # weight_per_taxon = lik_vec_exp / np.sum(lik_vec_exp, axis=0)
+        weight_per_taxon = np.exp(lik_vec - np.logaddexp.reduce(lik_vec)) # prevent underflow
         # Weighted harmonic mean
         q_rates = np.sum(weight_per_taxon[:, :, np.newaxis], axis=0) / np.sum((1 / q_rates) * weight_per_taxon[:, :, np.newaxis], axis=0)
     return lik, q_rates, weight_per_taxon
@@ -2927,7 +2933,7 @@ def HOMPP_NN_lik(arg):
     if argsG == 0:
         q_rates = get_q_rates_NN(q[1], q_multipliers, const_q)
         qtl = -q_rates * br_length
-        lik = qtl + np.log(q_rates) * k - log_factorial_occs - np.log(1 - np.exp(qtl))
+        lik = qtl + np.log(q_rates) * k - log_factorial_occs - np.log(-np.expm1(qtl))
         weight_per_taxon = 1
     else:
         n_taxa_q = len(ts)
@@ -2935,14 +2941,17 @@ def HOMPP_NN_lik(arg):
         YangGamma = get_gamma_rates_qnn(q[0], gamma_ncat, YangGammaQuant)
         for i in range(gamma_ncat):
             q_rates[i, :] = get_q_rates_NN(YangGamma[i] * q[1], q_multipliers, const_q)
+        nan_q_rate = np.isnan(q_rates)
         q_rates[:, singletons] = q[1]
+        q_rates[nan_q_rate] = np.nan
         qtl = -q_rates * br_length
-        lik_vec = qtl + np.log(q_rates) * k - log_factorial_occs - np.log(1 - np.exp(qtl))
+        lik_vec = qtl + np.log(q_rates) * k - log_factorial_occs - np.log(-np.expm1(qtl))
         lik_max = np.max(lik_vec, axis=0)
         lik_vec2 = lik_vec - lik_max
         lik = np.log(np.sum(np.exp(lik_vec2), axis=0) / gamma_ncat) + lik_max
-        lik_vec_exp = np.exp(lik_vec)
-        weight_per_taxon = lik_vec_exp / np.sum(lik_vec_exp, axis=0)
+        # lik_vec_exp = np.exp(lik_vec)
+        # weight_per_taxon = lik_vec_exp / np.sum(lik_vec_exp, axis=0)
+        weight_per_taxon = np.exp(lik_vec - np.logaddexp.reduce(lik_vec)) # prevent underflow
         # Weighted harmonic mean
         q_rates = np.sum(weight_per_taxon, axis=0) / np.sum((1 / q_rates) * weight_per_taxon, axis=0)
     return lik, q_rates, weight_per_taxon
@@ -4291,7 +4300,7 @@ def MCMC(all_arg):
             bdnn_q_ratesA = np.zeros(n_taxa)
             if occs_sp.ndim == 2:
                 bdnn_q_ratesA = np.zeros((n_taxa, len(q_time_frames_bdnn) - 1))
-            if snn_timevar:
+            if snn_timevar or bdnn_ads >= 0.0:
                 qbin_ts_te = get_bin_ts_te(tsA, teA, q_time_frames_bdnn)
             # singleton index to calculate preservation likelihood
             singleton_lik = copy_lib.deepcopy(singleton_mask)
@@ -4769,9 +4778,9 @@ def MCMC(all_arg):
                                 lik_fossil = lik_fossilA + 0.0
                             else:
                                 q_rates_tmp = q_rates
-                                if not highres_q_repeats is None: #bdnn_ads > 0.0 and argsHPP == 0:
+                                if not highres_q_repeats is None:
                                     q_rates_tmp = q_rates[highres_q_repeats]
-                                if snn_timevar and ts_te_updated:
+                                if (snn_timevar or bdnn_ads > 0.0) and ts_te_updated:
                                     qbin_ts_te = get_bin_ts_te(ts, te, q_time_frames_bdnn)
                                 if cov_q_updated or (ts_te_updated and bdnn_ads > 0.0):
                                     qnn_output_unreg, nn_q = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_par[2], nn_qA,
@@ -6329,7 +6338,7 @@ if __name__ == '__main__':
                                                                     thin=args.resample,
                                                                     min_bs=args.BDNN_pred_importance_window_size[0],
                                                                     n_perm=args.BDNN_pred_importance_nperm,
-                                                                    combine_discr_features=args.BDNN_groups,
+                                                                    combine_discr_features=copy_lib.deepcopy(args.BDNN_groups),
                                                                     do_inter_imp=do_inter_imp,
                                                                     bdnn_precision=args.BDNNprecision,
                                                                     min_age=args.min_age_plot,
@@ -6343,7 +6352,7 @@ if __name__ == '__main__':
                                                                thin=args.resample,
                                                                min_bs=args.BDNN_pred_importance_window_size[-1],
                                                                n_perm=args.BDNN_pred_importance_nperm,
-                                                               combine_discr_features= args.BDNN_groups,
+                                                               combine_discr_features= copy_lib.deepcopy(args.BDNN_groups),
                                                                do_inter_imp=do_inter_imp,
                                                                bdnn_precision=args.BDNNprecision,
                                                                num_processes=args.thread[0],
@@ -6354,7 +6363,7 @@ if __name__ == '__main__':
                                                                                                                 pkl_file,
                                                                                                                 burnin,
                                                                                                                 thin=args.resample,
-                                                                                                                combine_discr_features=args.BDNN_groups,
+                                                                                                                combine_discr_features=copy_lib.deepcopy(args.BDNN_groups),
                                                                                                                 do_inter_imp=do_inter_imp,
                                                                                                                 use_mean=args.BDNN_mean_shap_per_group,
                                                                                                                 bdnn_precision=args.BDNNprecision,
@@ -6368,7 +6377,7 @@ if __name__ == '__main__':
             q_shap, q_taxa_shap = bdnn_lib.k_add_kernel_shap_sampling(mcmc_file, pkl_file,
                                                                       burnin,
                                                                       thin=args.resample,
-                                                                      combine_discr_features=args.BDNN_groups,
+                                                                      combine_discr_features=copy_lib.deepcopy(args.BDNN_groups),
                                                                       do_inter_imp=do_inter_imp,
                                                                       bdnn_precision=args.BDNNprecision,
                                                                       num_processes=args.thread[0],
@@ -6376,7 +6385,7 @@ if __name__ == '__main__':
         obj_effect = bdnn_lib.get_effect_objects(mcmc_file, pkl_file,
                                                  burnin,
                                                  thin=args.resample,
-                                                 combine_discr_features=args.BDNN_groups,
+                                                 combine_discr_features=copy_lib.deepcopy(args.BDNN_groups),
                                                  file_transf_features=args.plotBDNN_transf_features,
                                                  do_inter_imp=do_inter_imp,
                                                  bdnn_precision=args.BDNNprecision,
