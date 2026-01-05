@@ -457,7 +457,7 @@ def approx_div_traj(nTaxa, dis_rate_vec, ext_rate_vec,
     gain_1_rescaled = gain_1_rescaled[1:]
     gain_2_rescaled = gain_2_rescaled[1:]
 
-    return div_13, div_23, gain_1_rescaled, gain_2_rescaled, pres[1:,:]
+    return div_13, div_23, gain_1_rescaled, gain_2_rescaled, gain_1, gain_2, pres[1:,:]
 
 
 # Calculate difference from a given diversity to the equilibrium diversity for two areas
@@ -1451,20 +1451,20 @@ def lik_opt(x, grad):
         weight_per_taxon = np.ones((pp_gamma_ncat, nTaxa)) / pp_gamma_ncat
     # Only for diversity or dispersal dependence
     if do_approx_div_traj:
-        approx_d1, approx_d2, dis_into_1, dis_into_2, _ = approx_div_traj(nTaxa,
-                                                                          dis_vec[repeats_d, :], ext_vec[repeats_e, :],
-                                                                          transf_d, transf_e, argsG,
-                                                                          r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size,
-                                                                          Q_index, Q_index_first_occ, weight_per_taxon,
-                                                                          covar_par, covar_parD, covar_parE,
-                                                                          offset_dis_div1, offset_dis_div2,
-                                                                          offset_ext_div1, offset_ext_div2,
-                                                                          time_series, len_time_series, bin_first_occ, first_area,
-                                                                          time_varD, time_varE, data_temp,
-                                                                          trait_parD, traitD, trait_parE, traitE,
-                                                                          cat_parD, catD, cat_parE, catE,
-                                                                          argstraitD, argstraitE, argscatD, argscatE, argslogdistr,
-                                                                          pres1_idx, pres2_idx, pres3_idx, gainA_idx, gainB_idx)
+        approx_d1, approx_d2, dis_into_1, dis_into_2, _, _, _ = approx_div_traj(nTaxa,
+                                                                                dis_vec[repeats_d, :], ext_vec[repeats_e, :],
+                                                                                transf_d, transf_e, argsG,
+                                                                                r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size,
+                                                                                Q_index, Q_index_first_occ, weight_per_taxon,
+                                                                                covar_par, covar_parD, covar_parE,
+                                                                                offset_dis_div1, offset_dis_div2,
+                                                                                offset_ext_div1, offset_ext_div2,
+                                                                                time_series, len_time_series, bin_first_occ, first_area,
+                                                                                time_varD, time_varE, data_temp,
+                                                                                trait_parD, traitD, trait_parE, traitE,
+                                                                                cat_parD, catD, cat_parE, catE,
+                                                                                argstraitD, argstraitE, argscatD, argscatE, argslogdistr,
+                                                                                pres1_idx, pres2_idx, pres3_idx, gainA_idx, gainB_idx)
         diversity_d2 = approx_d1 # Limits dispersal into 1
         diversity_d1 = approx_d2 # Limits dispersal into 2
         diversity_e1 = approx_d1
@@ -1696,6 +1696,13 @@ def plot_RTT(plot_file, burnin, plot_time):
         idx1 = "dis12"
         idx2 = "dis21"
         r_file_name = "Dispersal"
+        y_lab1 = 'dispersal 12'
+        y_lab2 = 'dispersal 21'
+        plot_size = 10
+    if "dispersal_fraction" in plot_file:
+        idx1 = "dis12"
+        idx2 = "dis21"
+        r_file_name = "Dispersal_fraction"
         y_lab1 = 'dispersal 12'
         y_lab2 = 'dispersal 21'
         plot_size = 10
@@ -2809,7 +2816,7 @@ bin_last_occ = np.zeros(nTaxa, dtype = int)
 len_delta_t = len(delta_t)
 present_data = np.empty(nTaxa, dtype = object)
 for i in range(nTaxa):
-    last_occ = np.max( np.where( np.in1d(data_temp[i,:], [0., 1., 2., 3.]) ) )
+    last_occ = np.max( np.where( np.isin(data_temp[i,:], [0., 1., 2., 3.]) ) )
     bin_last_occ[i] = last_occ
     present_data[i] = obs_area_series[i, last_occ]
 if verbose == 1:
@@ -3206,7 +3213,7 @@ bin_first_occ = np.zeros(nTaxa, dtype=int)
 first_area = np.zeros(nTaxa)
 first_time = np.zeros(nTaxa)
 for i in range(nTaxa):
-    bin_first_occ[i] = np.min( np.where( np.in1d(data_temp[i, :], [1., 2., 3.]) ) )
+    bin_first_occ[i] = np.min( np.where( np.isin(data_temp[i, :], [1., 2., 3.]) ) )
     first_area[i] = data_temp[i, bin_first_occ[i]]
     first_time[i] = time_series[bin_first_occ[i]]
 
@@ -3351,6 +3358,16 @@ if args.log_div:
     divlog = csv.writer(divfile, delimiter='\t')
     divlog.writerow(head)
 if args.log_dis:
+    out_disfrac ="%s/%s_%s%s%s%s%s_dispersal_fraction.log" % (output_wd, name_file, simulation_no, Q_times_str, ti_tag,model_tag, args.out)
+    disfracfile = open(out_disfrac, "w", newline="")
+    head = "it"
+    for i in range(len(ts_rev)):
+        head += "\tdis12_%s" % (ts_rev[i])
+    for i in range(len(ts_rev)):
+        head += "\tdis21_%s" % (ts_rev[i])
+    head = head.split("\t")
+    disfraclog = csv.writer(disfracfile, delimiter='\t')
+    disfraclog.writerow(head)
     out_dis ="%s/%s_%s%s%s%s%s_dispersal.log" % (output_wd, name_file, simulation_no, Q_times_str, ti_tag,model_tag, args.out)
     disfile = open(out_dis, "w", newline="")
     head = "it"
@@ -3569,19 +3586,22 @@ ext_rate_vec_A = ext_rate_vec + 0.0
 r_vec_A = r_vec + 0.0
 alpha_A = alpha + 0.0
 weight_per_taxon_A = np.zeros(1)
-approx_d1_A, approx_d2_A, dis_into_1_A, dis_into_2_A, pres = approx_div_traj(nTaxa, dis_rate_vec_A[repeats_d, :], ext_rate_vec_A[repeats_e, :],
-                                                                             transf_d, transf_e, argsG,
-                                                                             r_vec_A, alpha_A, YangGammaQuant, pp_gamma_ncat, bin_size,
-                                                                             Q_index, Q_index_first_occ, weight_per_taxon,
-                                                                             covar_par_A, covar_parD_A, covar_parE_A,
-                                                                             offset_dis_div1, offset_dis_div2,
-                                                                             offset_ext_div1, offset_ext_div2,
-                                                                             time_series, len_time_series, bin_first_occ, first_area,
-                                                                             time_varD, time_varE, data_temp,
-                                                                             trait_parD_A, traitD, trait_parE_A, traitE,
-                                                                             cat_parD_A, catD, cat_parE_A, catE,
-                                                                             argstraitD, argstraitE, argscatD, argscatE, argslogdistr,
-                                                                             pres1_idx, pres2_idx, pres3_idx, gainA_idx, gainB_idx)
+approx_d1_A, approx_d2_A, dis_into_1_A, dis_into_2_A, _, _, _ = approx_div_traj(nTaxa,
+                                                                                dis_rate_vec_A[repeats_d, :], ext_rate_vec_A[repeats_e, :],
+                                                                                transf_d, transf_e, argsG,
+                                                                                r_vec_A, alpha_A,
+                                                                                YangGammaQuant, pp_gamma_ncat, bin_size,
+                                                                                Q_index, Q_index_first_occ, weight_per_taxon,
+                                                                                covar_par_A, covar_parD_A, covar_parE_A,
+                                                                                offset_dis_div1, offset_dis_div2,
+                                                                                offset_ext_div1, offset_ext_div2,
+                                                                                time_series, len_time_series,
+                                                                                bin_first_occ, first_area,
+                                                                                time_varD, time_varE, data_temp,
+                                                                                trait_parD_A, traitD, trait_parE_A, traitE,
+                                                                                cat_parD_A, catD, cat_parE_A, catE,
+                                                                                argstraitD, argstraitE, argscatD, argscatE, argslogdistr,
+                                                                                pres1_idx, pres2_idx, pres3_idx, gainA_idx, gainB_idx)
 diversity_d2_A = approx_d1_A # Limits dispersal into 1
 diversity_d1_A = approx_d2_A # Limits dispersal into 2
 diversity_e1_A = approx_d1_A
@@ -3784,19 +3804,19 @@ for it in range(n_generations * len(scal_fac_TI)):
 
 
     if (do_approx_div_traj == 1 and (dis_ext_updated or it % sampling_freq == 0 or args.A == 3)) or (it % sampling_freq == 0 and (traits or cat)):
-        approx_d1, approx_d2, dis_into_1, dis_into_2, pres = approx_div_traj(nTaxa, dis_vec[repeats_d, :], ext_vec[repeats_e, :],
-                                                                             transf_d, transf_e, argsG,
-                                                                             r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size,
-                                                                             Q_index, Q_index_first_occ, weight_per_taxon,
-                                                                             covar_par, covar_parD, covar_parE,
-                                                                             offset_dis_div1, offset_dis_div2,
-                                                                             offset_ext_div1, offset_ext_div2,
-                                                                             time_series, len_time_series, bin_first_occ, first_area,
-                                                                             time_varD, time_varE, data_temp,
-                                                                             trait_parD, traitD, trait_parE, traitE,
-                                                                             cat_parD, catD, cat_parE, catE,
-                                                                             argstraitD, argstraitE, argscatD, argscatE, argslogdistr,
-                                                                             pres1_idx, pres2_idx, pres3_idx, gainA_idx, gainB_idx)
+        approx_d1, approx_d2, dis_into_1, dis_into_2, _, _, _ = approx_div_traj(nTaxa, dis_vec[repeats_d, :], ext_vec[repeats_e, :],
+                                                                                transf_d, transf_e, argsG,
+                                                                                r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size,
+                                                                                Q_index, Q_index_first_occ, weight_per_taxon,
+                                                                                covar_par, covar_parD, covar_parE,
+                                                                                offset_dis_div1, offset_dis_div2,
+                                                                                offset_ext_div1, offset_ext_div2,
+                                                                                time_series, len_time_series, bin_first_occ, first_area,
+                                                                                time_varD, time_varE, data_temp,
+                                                                                trait_parD, traitD, trait_parE, traitE,
+                                                                                cat_parD, catD, cat_parE, catE,
+                                                                                argstraitD, argstraitE, argscatD, argscatE, argslogdistr,
+                                                                                pres1_idx, pres2_idx, pres3_idx, gainA_idx, gainB_idx)
         diversity_d2 = approx_d1 # Limits dispersal into 1
         diversity_d1 = approx_d2 # Limits dispersal into 2
         diversity_e1 = approx_d1
@@ -4182,22 +4202,23 @@ for it in range(n_generations * len(scal_fac_TI)):
         os.fsync(ratesfile)
 
     if (argslogdistr or args.log_div or args.log_dis) and log_to_file == 1:
-        approx_d1, approx_d2, dis_into_2, dis_into_1, pres = approx_div_traj(nTaxa,
-                                                                             dis_rate_vec_A[repeats_d, :], ext_rate_vec_A[repeats_e, :],
-                                                                             transf_d, transf_e, argsG,
-                                                                             r_vec_A, alpha_A,
-                                                                             YangGammaQuant, pp_gamma_ncat, bin_size,
-                                                                             Q_index, Q_index_first_occ,
-                                                                             weight_per_taxon_A,
-                                                                             covar_par, covar_parD, covar_parE,
-                                                                             offset_dis_div1, offset_dis_div2,
-                                                                             offset_ext_div1, offset_ext_div2,
-                                                                             time_series, len_time_series, bin_first_occ, first_area,
-                                                                             time_varD, time_varE, data_temp,
-                                                                             trait_parD_A, traitD, trait_parE_A, traitE,
-                                                                             cat_parD_A, catD, cat_parE_A, catE,
-                                                                             argstraitD, argstraitE, argscatD, argscatE, argslogdistr,
-                                                                             pres1_idx, pres2_idx, pres3_idx, gainA_idx, gainB_idx)
+        approx_d1, approx_d2, dis_into_1, dis_into_2, net_dis_into_1, net_dis_into_2, pres = approx_div_traj(nTaxa,
+                                                                                                             dis_rate_vec_A[repeats_d, :],
+                                                                                                             ext_rate_vec_A[repeats_e, :],
+                                                                                                             transf_d, transf_e, argsG,
+                                                                                                             r_vec_A, alpha_A,
+                                                                                                             YangGammaQuant, pp_gamma_ncat, bin_size,
+                                                                                                             Q_index, Q_index_first_occ,
+                                                                                                             weight_per_taxon_A,
+                                                                                                             covar_par, covar_parD, covar_parE,
+                                                                                                             offset_dis_div1, offset_dis_div2,
+                                                                                                             offset_ext_div1, offset_ext_div2,
+                                                                                                             time_series, len_time_series, bin_first_occ, first_area,
+                                                                                                             time_varD, time_varE, data_temp,
+                                                                                                             trait_parD_A, traitD, trait_parE_A, traitE,
+                                                                                                             cat_parD_A, catD, cat_parE_A, catE,
+                                                                                                             argstraitD, argstraitE, argscatD, argscatE, argslogdistr,
+                                                                                                             pres1_idx, pres2_idx, pres3_idx, gainA_idx, gainB_idx)
     # Log predicted presence
     if argslogdistr and log_to_file == 1:
         pres = pres[:, np.sort(np.concatenate((pres1_idx, pres2_idx, pres3_idx)))]
@@ -4222,10 +4243,13 @@ for it in range(n_generations * len(scal_fac_TI)):
         os.fsync(divfile)
     if args.log_dis and log_to_file == 1:
         log_state = [it] + list(dis_into_2[::-1]) + list(dis_into_1[::-1])
+        disfraclog.writerow(log_state)
+        disfracfile.flush()
+        os.fsync(disfracfile)
+        log_state = [it] + list(net_dis_into_2[::-1]) + list(net_dis_into_1[::-1])
         dislog.writerow(log_state)
         disfile.flush()
         os.fsync(disfile)
-
 
 print("elapsed time:", time.time() - start_time)
 
