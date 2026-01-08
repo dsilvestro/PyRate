@@ -6808,7 +6808,13 @@ if __name__ == '__main__':
         if use_se_tbl==1: pass
         else:
             fix_SE=1
-            fixed_ts, fixed_te= calc_ts_te(args.fixSE, burnin=args.b)
+            if args.fixSE == "0":
+                fixed_ts = FA + 0
+                fixed_te = LO + 0
+                d_tmp = fixed_ts - fixed_te
+                fixed_ts[d_tmp == 0] = fixed_ts[d_tmp == 0] + 0.1
+            else:
+                fixed_ts, fixed_te= calc_ts_te(args.fixSE, burnin=args.b)
     else: fix_SE=0
 
     if args.discrete == 1: useDiscreteTraitModel = 1
