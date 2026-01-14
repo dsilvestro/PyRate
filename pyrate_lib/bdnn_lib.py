@@ -5317,7 +5317,6 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
             names_comb_idx_conc = np.concatenate(names_comb_idx).astype(int)
 
             q = get_q_from_mcmc_file(mcmc_file, burn, thin)
-
             constant_baseline_q = q.shape[1] == 1
 
             argsG = 0
