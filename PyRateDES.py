@@ -3804,19 +3804,19 @@ for it in range(n_generations * len(scal_fac_TI)):
 
 
     if (do_approx_div_traj == 1 and (dis_ext_updated or it % sampling_freq == 0 or args.A == 3)) or (it % sampling_freq == 0 and (traits or cat)):
-        approx_d1, approx_d2, dis_into_1, dis_into_2, _, _, _ = approx_div_traj(nTaxa, dis_vec[repeats_d, :], ext_vec[repeats_e, :],
-                                                                                transf_d, transf_e, argsG,
-                                                                                r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size,
-                                                                                Q_index, Q_index_first_occ, weight_per_taxon,
-                                                                                covar_par, covar_parD, covar_parE,
-                                                                                offset_dis_div1, offset_dis_div2,
-                                                                                offset_ext_div1, offset_ext_div2,
-                                                                                time_series, len_time_series, bin_first_occ, first_area,
-                                                                                time_varD, time_varE, data_temp,
-                                                                                trait_parD, traitD, trait_parE, traitE,
-                                                                                cat_parD, catD, cat_parE, catE,
-                                                                                argstraitD, argstraitE, argscatD, argscatE, argslogdistr,
-                                                                                pres1_idx, pres2_idx, pres3_idx, gainA_idx, gainB_idx)
+        approx_d1, approx_d2, dis_into_1, dis_into_2, _, _, pres = approx_div_traj(nTaxa, dis_vec[repeats_d, :], ext_vec[repeats_e, :],
+                                                                                   transf_d, transf_e, argsG,
+                                                                                   r_vec, alpha, YangGammaQuant, pp_gamma_ncat, bin_size,
+                                                                                   Q_index, Q_index_first_occ, weight_per_taxon,
+                                                                                   covar_par, covar_parD, covar_parE,
+                                                                                   offset_dis_div1, offset_dis_div2,
+                                                                                   offset_ext_div1, offset_ext_div2,
+                                                                                   time_series, len_time_series, bin_first_occ, first_area,
+                                                                                   time_varD, time_varE, data_temp,
+                                                                                   trait_parD, traitD, trait_parE, traitE,
+                                                                                   cat_parD, catD, cat_parE, catE,
+                                                                                   argstraitD, argstraitE, argscatD, argscatE, argslogdistr,
+                                                                                   pres1_idx, pres2_idx, pres3_idx, gainA_idx, gainB_idx)
         diversity_d2 = approx_d1 # Limits dispersal into 1
         diversity_d1 = approx_d2 # Limits dispersal into 2
         diversity_e1 = approx_d1
