@@ -106,7 +106,13 @@ Running PyRate analyses on very large dataset (e.g. hundreds or thousands of lin
 
 `python PyRate.py .../Rhinocerotidae_PyRate.py -qShift .../epochs_q.txt -se_gibbs -fU 0.35 0.6 0`
 
-Note that this model only works for preservation models based on homogenous or time-variable Poisson processes (HPP or TPP). 
+If your analysis includes numerous preservation rate shifts you might want to tune the proposal frequency and window sizes for the preservation parameters to improve and speed up convergence. Typically these settings will help: 
+
+`-fQ 0.1 -tQ 1.05 1.05`
+
+**Note** 
+* This model only works for preservation models based on homogenous or time-variable Poisson processes (HPP or TPP).
+* This model combined with RJMCMC might lead to "smoothed" speciation and extinction rates through time. One option to avoid that is to set predefined times of rate shifts using `-fixShift` (see [tutorial 1](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_1.md#speciation-and-extinction-rates-within-fixed-time-bins)). Another option is to run the analysis (with `-fixShift`), extract the times of origination and extinction (as shown [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_2.md#extract-estimated-times-of-origination-and-extinction)), and then run the RJMCMC algorithm with fixed times of origination and extinction using the `-d` command. 
 
 
 ## Constraining origination and extinction times
