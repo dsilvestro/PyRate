@@ -930,6 +930,7 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn,
     group_species_idx = []
     group_names, group_species_idx = get_species_in_groups(group_names, group_file, group_species_idx, species_names)
     float_prec_f = get_float_prec_f_from_bdnn_obj(bdnn_obj, bdnn_precision)
+    num_it = ts.shape[0]
 
     if do_diversification:
         apply_reg, bias_node_idx, fix_edgeShift, times_edgeShifts, = get_edgeShifts_obj(bdnn_obj)
@@ -945,7 +946,6 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn,
         if is_time_trait(bdnn_obj):
             div_idx_trt_tbl = -2
         n_taxa = trait_tbl[0].shape[-2]
-        num_it = ts.shape[0]
         lam_it = np.zeros((num_it, n_taxa, num_bins))
         mu_it = lam_it + 0.0
         # Get speciation and extinction rates (the same as we obtained them during the BDNN inference)
@@ -1024,7 +1024,7 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn,
             r_q[:, q_bins[:-1] <= LO_gs] = np.nan
             qtt = summarize_rate(r_q, num_q_bins)
 
-        xlim = [FA, LO]
+        xlim = [FA - translate, LO - translate]
         xlim = overwrite_xlim(xlim, min_age, max_age)
         plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q,
                       min_age=min_age, max_age=max_age, xlim=xlim, logT=logT)
@@ -1032,7 +1032,7 @@ def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn,
 
 # Display taxon-specific q multipliers through time
 def get_q_rates_and_multipliers(bdnn_obj, w_q, ts, te, ts_max, t_reg_q, reg_denom_q, norm_q, alpha, replicate,
-                                calc_q_rates=False, baseline_q=None, bdnn_precision=0):
+                                calc_q_rates=False, extent_until_root=False, baseline_q=None, bdnn_precision=0):
     # Objects for multiplier calculation
     n_mcmc = ts.shape[0]
     trt_tbl = get_trt_tbl(bdnn_obj, rate_type='sampling')
@@ -1050,20 +1050,10 @@ def get_q_rates_and_multipliers(bdnn_obj, w_q, ts, te, ts_max, t_reg_q, reg_deno
         use_HPP_NN_lik = False
     q_bins_copy = np.copy(q_bins)
 
-    sm_mask = False
-    if trt_tbl.ndim == 3:
-        sm_mask = True
-        n_bins = trt_tbl.shape[0]
-        q_multi = np.full((n_mcmc, n_taxa, n_bins), np.nan)
-    else:
-        qbins_ts_te = None
-        q_multi = np.full((n_mcmc, n_taxa), np.nan)
-
-    # Additional objects for rate calculation
+    # 0bjects for rate calculation
     q_rates = None
     if calc_q_rates:
         log_factorial_occs = np.copy(bdnn_obj.bdnn_settings['log_factorial_occs'])
-
         const_q = baseline_q.shape[1] == 1
         argsG = 0
         YangGammaQuant = None
@@ -1078,11 +1068,35 @@ def get_q_rates_and_multipliers(bdnn_obj, w_q, ts, te, ts_max, t_reg_q, reg_deno
         if 'highres_q_repeats' in bdnn_obj.bdnn_settings.keys():
             baseline_q = baseline_q[:, bdnn_obj.bdnn_settings['highres_q_repeats'].astype(int)]
 
+        if extent_until_root:
+            mean_bin_size = np.mean(duration_q_bins[0, :])
+            add_bins = np.arange(ts_max, q_bins_copy[0], -mean_bin_size)
+            num_add = len(add_bins)
+            if num_add > 0:
+                q_bins_copy = np.concatenate((add_bins, q_bins_copy), axis=None)
+                q_bins = np.copy(q_bins)
+                add_duration = np.diff(q_bins[:(num_add + 1)])
+                add_duration = np.tile(add_duration, n_taxa).reshape(n_taxa, -1)
+                duration_q_bins = np.c_[add_duration, duration_q_bins]
+                if not const_q:
+                    baseline_q = np.c_[baseline_q[:, :num_add], baseline_q]
+                if trt_tbl.ndim == 3:
+                    trt_tbl = np.concatenate((trt_tbl[[0] * num_add, :, :].reshape(num_add, n_taxa, -1), trt_tbl))
+
         num_q_rates = baseline_q.shape[1]
         if trt_tbl.ndim == 3 and const_q:
              num_q_rates = trt_tbl.shape[0]
              not_na = np.full(num_q_rates, True)
         q_rates = np.full((n_mcmc, n_taxa, num_q_rates), np.nan)
+
+    sm_mask = False
+    if trt_tbl.ndim == 3:
+        sm_mask = True
+        n_bins = trt_tbl.shape[0]
+        q_multi = np.full((n_mcmc, n_taxa, n_bins), np.nan)
+    else:
+        qbins_ts_te = None
+        q_multi = np.full((n_mcmc, n_taxa), np.nan)
 
     if not replicate is None and use_HPP_NN_lik:
         occs_max_bins = get_nbins_to_pad_occs_with_zeros(bdnn_obj)
@@ -1098,6 +1112,9 @@ def get_q_rates_and_multipliers(bdnn_obj, w_q, ts, te, ts_max, t_reg_q, reg_deno
             if use_HPP_NN_lik:
                 occs_single_bin = np.copy(bdnn_obj.bdnn_settings['occs_single_bin'][rep_idx])
                 occs_sp = pad_occs_with_zeros(occs_sp, occs_max_bins)
+
+        if extent_until_root:
+            occs_sp = pad_occs_with_zeros(occs_sp, duration_q_bins.shape[1])
 
         singleton_mask = make_singleton_mask(occs_sp, sm_mask)
         singleton_lik = copy_lib.deepcopy(singleton_mask)
@@ -1117,7 +1134,7 @@ def get_q_rates_and_multipliers(bdnn_obj, w_q, ts, te, ts_max, t_reg_q, reg_deno
             q_multi_i = q_multi[i, ...]
             if use_HPP_NN_lik:
                 occs_sp_i = occs_sp + 0.0
-                q_bins_i = q_bins + 0.0
+                q_bins_i = q_bins_copy + 0.0
                 duration_q_bins_i = duration_q_bins + 0.0
                 if not const_q:
                     not_na = ~np.isnan(baseline_q[i, :]) # remove empty q bins resulting from combing replicates with different number of bins
@@ -1142,6 +1159,12 @@ def get_q_rates_and_multipliers(bdnn_obj, w_q, ts, te, ts_max, t_reg_q, reg_deno
                                                 const_q, occs_sp, log_factorial_occs, singleton_lik,
                                                 argsG, gamma_ncat, YangGammaQuant])
                 q_rates[i, ...] = q_rates_i.reshape((n_taxa, -1))
+
+    if ts_max < q_bins[0]:
+        keep = q_bins[0] < ts_max
+        q_bins = q_bins[keep]
+        q_rates = q_rates[..., keep[:-1]]
+        q_multi = q_multi[..., keep[:-1]]
 
     if not np.isfinite(q_bins[0]):
         q_bins[0] = ts_max
@@ -1380,7 +1403,7 @@ def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, baseline_q=Non
     ts_mean, te_mean = get_mean_tste(bdnn_obj, ts, te)
     q_rates, qm, alpha, q_bins, = get_q_rates_and_multipliers(bdnn_obj, w_q, ts, te, np.max(ts_mean),
                                                               t_reg_q, reg_denom_q, norm_q, alpha, replicates_q,
-                                                              calc_q_rates=True, baseline_q=baseline_q)
+                                                              calc_q_rates=True, extent_until_root=True, baseline_q=baseline_q)
 
     num_q_bins = len(q_bins) - 1
     n_taxa = len(ts_mean)
@@ -1398,8 +1421,9 @@ def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, baseline_q=Non
             q_multi = np.repeat(q_multi, num_q_bins, axis=1)
         if num_q_bins < 99:
             q_bins_lowres = np.copy(q_bins)
-            q_bins = np.sort(np.unique(np.concatenate((np.linspace(0, np.max(q_bins), num=100), q_bins), axis=None)))[::-1]
+            q_bins = np.sort(np.unique(np.concatenate((np.linspace(0, np.max(ts_mean), num=100), q_bins), axis=None)))[::-1]
             rep_ind = np.searchsorted(q_bins_lowres, q_bins[1:], side='right', sorter=np.argsort(q_bins_lowres)) - 1
+            rep_ind[rep_ind >= q_multi.shape[1]] = q_multi.shape[1] - 1
             q_multi = q_multi[:, ::-1][:, rep_ind]
 
     q_multi = mask_taxon_qtt(q_multi, q_bins, ts_mean, te_mean)
@@ -5255,9 +5279,9 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
                     trait_tbl_ex[:, :, div_idx_trt_tbl] = bdnn_binned_div
 
                 taxa_alive = [get_sp_indx_in_timeframe(ts[i, :],
-                                                    te[i, :],
-                                                    up=times_of_shift[j],
-                                                    lo=times_of_shift[j + 1]) for j in range(num_bins)]
+                                                       te[i, :],
+                                                       up=times_of_shift[j],
+                                                       lo=times_of_shift[j + 1]) for j in range(num_bins)]
 
                 a = [num_bins, num_taxa, trait_tbl_sp, trait_tbl_ex, names_comb_idx_conc, w_sp[i], w_ex[i],
                     hidden_act_f, out_act_f, bias_node_idx,
@@ -5307,6 +5331,7 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
         names_features = get_names_features(bdnn_obj, rate_type="sampling")
         age_dependent_sampling = 'taxon_age' in names_features
         float_prec_f = get_float_prec_f_from_bdnn_obj(bdnn_obj, bdnn_precision)
+        num_taxa = trt_tbl.shape[-2]
 
         keys_names_comb = get_names_feature_group(names_comb)
         keys_names_comb = "_".join(keys_names_comb)
@@ -5335,23 +5360,34 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
                 q_bins = np.copy(bdnn_obj.bdnn_settings['q_time_frames'])
                 use_HPP_NN_lik = True
 
-            num_q_bins = len(q_bins) - 1
-
             sm_mask = np.any(feature_is_time_variable) or age_dependent_sampling
             if sm_mask and not constant_baseline_q:
                 q = q[:, bdnn_obj.bdnn_settings['highres_q_repeats'].astype(int)]
 
+            mean_bin_size = np.mean(duration_q_bins[0, :])
+            add_bins = np.arange(FA, q_bins[0], -mean_bin_size)
+            num_add = len(add_bins)
+            if num_add > 0:
+                q_bins = np.concatenate((add_bins, q_bins), axis=None)
+                add_duration = np.diff(q_bins[:(num_add + 1)])
+                add_duration = np.tile(add_duration, num_taxa).reshape(num_taxa, -1)
+                duration_q_bins = np.c_[add_duration, duration_q_bins]
+                if not constant_baseline_q:
+                    q = np.c_[q[:, :num_add], q]
+                if trt_tbl.ndim == 3:
+                    trt_tbl = np.concatenate((trt_tbl[[0] * num_add, :, :].reshape(num_add, num_taxa, -1), trt_tbl))
+
+            num_q_bins = len(q_bins) - 1
             qbins_ts_te = None
-            num_taxa = trt_tbl.shape[-2]
             num_it = ts.shape[0]
 
             args = []
             for i in range(num_it):
                 # What to do if we have a constant baseline q?
                 taxa_alive = [get_sp_indx_in_timeframe(ts[i, :],
-                                                    te[i, :],
-                                                    up=q_bins[j],
-                                                    lo=q_bins[j + 1]) for j in range(num_q_bins)]
+                                                       te[i, :],
+                                                       up=q_bins[j],
+                                                       lo=q_bins[j + 1]) for j in range(num_q_bins)]
 
                 w_q_i = set_list_prec(w_q[i], float_prec_f)
                 if trt_tbl.ndim == 3:
@@ -5371,6 +5407,8 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
                     if use_HPP_NN_lik:
                         occs_single_bin = np.copy(bdnn_obj.bdnn_settings['occs_single_bin'][rep_idx])
                         occs_sp = pad_occs_with_zeros(occs_sp, duration_q_bins.shape[1])
+
+                occs_sp = pad_occs_with_zeros(occs_sp, duration_q_bins.shape[1])
 
                 singleton_mask = make_singleton_mask(occs_sp, sm_mask)
                 singleton_lik = copy_lib.deepcopy(singleton_mask)

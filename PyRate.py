@@ -6443,7 +6443,7 @@ if __name__ == '__main__':
         path_dir_log_files = args.BDNN_interaction.replace("_mcmc.log", "")
         pkl_file = path_dir_log_files + ".pkl"
         mcmc_file = path_dir_log_files + "_mcmc.log"
-        bdnn_obj, w_sp, w_ex, _, sp_fad_lad, ts_post, te_post, t_reg_lam, t_reg_mu, _, reg_denom_lam, reg_denom_mu, _, _, _ = bdnn_lib.bdnn_parse_results(mcmc_file, pkl_file, burnin, args.resample)
+        bdnn_obj, w_sp, w_ex, _, sp_fad_lad, ts_post, te_post, t_reg_lam, t_reg_mu, _, reg_denom_lam, reg_denom_mu, _, _, _, _ = bdnn_lib.bdnn_parse_results(mcmc_file, pkl_file, burnin, args.resample)
         backscale_par = bdnn_lib.read_backscale_file(args.plotBDNN_transf_features)
         sp_inter, sp_trt_tbl, names_features = bdnn_lib.get_pdp_rate_free_combination(bdnn_obj, sp_fad_lad, ts_post, te_post,
                                                                                       w_sp, t_reg_lam, reg_denom_lam,
