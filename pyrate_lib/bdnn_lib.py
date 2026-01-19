@@ -1172,7 +1172,7 @@ def get_q_rates_and_multipliers(bdnn_obj, w_q, ts, te, ts_max, t_reg_q, reg_deno
     return q_rates, q_multi, np.mean(alpha), q_bins
 
 
-def make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names, alpha=1, suffix_pdf="taxon_q_multi", logT=0):
+def make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names, alpha=1, suffix_pdf="taxon_q_multi", logT=0, q_hpd=None):
     mid_colorramp = 1
     if logT == 1:
         q_multi = np.log(q_multi)
@@ -1312,6 +1312,12 @@ def make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names, alpha=
     r_script += "\n     labels = sprintf(paste0('%.', x_labels_digits, 'f'), x_labels),"
     r_script += "\n     adj = c(0.5, 1.0))"
     r_script += "\n"
+    if not q_hpd is None:
+        r_script += "\nq_lwr = vector(mode = 'list', length = %s)" % n_taxa
+        r_script += "\nq_upr = vector(mode = 'list', length = %s)" % n_taxa
+        for i in range(n_taxa):
+            r_script += util.print_R_vec("\nq_lwr[[%s]]", q_hpd[0, i, :]) % (i + 1)
+            r_script += util.print_R_vec("\nq_upr[[%s]]", q_hpd[1, i, :]) % (i + 1)
     r_script += "\ndev.off()"
 
     newfile.writelines(r_script)
@@ -1395,7 +1401,7 @@ def get_mean_tste(bdnn_obj, ts, te):
 
 
 def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, baseline_q=None, bdnn_precision=0,
-                              min_age=0, max_age=0, translate=0, order_by_ts=True, logT=0):
+                              min_age=0, max_age=0, translate=0, order_by_ts=True, logT=0, calcHPD=True):
     pkl_file = path_dir_log_files + ".pkl"
     mcmc_file = path_dir_log_files + "_mcmc.log"
     bdnn_obj, _, _, w_q, sp_fad_lad, ts, te, _, _, t_reg_q, _, _, reg_denom_q, norm_q, alpha, replicates_q = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
@@ -1408,6 +1414,26 @@ def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, baseline_q=Non
     num_q_bins = len(q_bins) - 1
     n_taxa = len(ts_mean)
     taxon_names = sp_fad_lad['Taxon'].to_numpy()
+
+    q_multi_hpd = None
+    q_rates_hpd = None
+    if calcHPD:
+        q_multi_hpd = np.full((2, n_taxa, num_q_bins + 1), np.nan)
+        q_rates_hpd = np.full((2, n_taxa, num_q_bins + 1), np.nan)
+        for i in range(n_taxa):
+            for j in range(num_q_bins + 1):
+                qm_ij = qm[..., i, j]
+                qm_ij = qm_ij[~np.isnan(qm_ij)]
+                nData = len(qm_ij)
+                nIn = int(round(0.95 * nData))
+                if nIn > 3:
+                    q_multi_hpd[:, i, j] = util.calcHPD(qm_ij, 0.95)
+                qr_ij = q_rates[..., i, j]
+                qr_ij = qr_ij[~np.isnan(qr_ij)]
+                nData = len(qm_ij)
+                nIn = int(round(0.95 * nData))
+                if nIn > 3:
+                    q_rates_hpd[:, i, j] = util.calcHPD(qr_ij, 0.95)
 
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', category=RuntimeWarning)
@@ -1425,18 +1451,31 @@ def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, baseline_q=Non
             rep_ind = np.searchsorted(q_bins_lowres, q_bins[1:], side='right', sorter=np.argsort(q_bins_lowres)) - 1
             rep_ind[rep_ind >= q_multi.shape[1]] = q_multi.shape[1] - 1
             q_multi = q_multi[:, ::-1][:, rep_ind]
+            if calcHPD:
+                q_multi_hpd = q_multi_hpd[..., ::-1][..., rep_ind]
 
     q_multi = mask_taxon_qtt(q_multi, q_bins, ts_mean, te_mean)
+    if calcHPD:
+        q_multi_hpd[0, ...] = mask_taxon_qtt(q_multi_hpd[0, ...], q_bins, ts_mean, te_mean)
+        q_multi_hpd[1, ...] = mask_taxon_qtt(q_multi_hpd[1, ...], q_bins, ts_mean, te_mean)
 
     ord = np.arange(n_taxa)
     if order_by_ts:
         ord = np.argsort(ts_mean)[::-1]
         q_multi = q_multi[ord, :]
         taxon_names = taxon_names[ord]
+        if calcHPD:
+            q_multi_hpd = q_multi_hpd[:, ord, :]
 
     q_multi, q_times, taxon_names_1 = trim_taxon_qtt(q_multi, q_bins, taxon_names,
                                                      min_age, max_age, translate, ts_mean[ord], te_mean[ord])
-    make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names_1, alpha, suffix_pdf="taxon_q_multi")
+    if calcHPD:
+        q_multi_hpd[0, ...], _, _ = trim_taxon_qtt(q_multi_hpd[0, ...], q_bins, taxon_names,
+                                                   min_age, max_age, translate, ts_mean[ord], te_mean[ord])
+        q_multi_hpd[1, ...], _, _ = trim_taxon_qtt(q_multi_hpd[1, ...], q_bins, taxon_names,
+                                                   min_age, max_age, translate, ts_mean[ord], te_mean[ord])
+
+    make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names_1, alpha, suffix_pdf="taxon_q_multi", q_hpd=q_multi_hpd)
 
     # taxon-time specific q rates
     if q_rates.shape[-1] < num_q_bins or num_q_bins < 99:
@@ -1449,15 +1488,28 @@ def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, baseline_q=Non
         q_bins = np.sort(np.unique(np.concatenate((q_time_frames, q_bins), axis=None)))[::-1]
         rep_ind = np.searchsorted(q_time_frames, q_bins[1:], side='right', sorter=np.argsort(q_time_frames)) - 1
         q_rates = q_rates[:, ::-1][:, rep_ind]
+        if calcHPD:
+            q_rates_hpd = q_rates_hpd[:, :, ::-1][:, :, rep_ind]
 
     q_rates = mask_taxon_qtt(q_rates, q_bins, ts_mean, te_mean)
+    if calcHPD:
+        q_rates_hpd[0, ...] = mask_taxon_qtt(q_rates_hpd[0, ...], q_bins, ts_mean, te_mean)
+        q_rates_hpd[1, ...] = mask_taxon_qtt(q_rates_hpd[1, ...], q_bins, ts_mean, te_mean)
 
     if order_by_ts:
         q_rates = q_rates[ord, :]
+        if calcHPD:
+            q_rates_hpd = q_rates_hpd[:, ord, :]
 
     q_rates, q_times, taxon_names_2 = trim_taxon_qtt(q_rates, q_bins, taxon_names,
                                                      min_age, max_age, translate, ts_mean[ord], te_mean[ord])
-    make_taxon_qtt_pdf(path_dir_log_files, q_rates, q_times, taxon_names_2, suffix_pdf="taxon_q", logT=logT)
+    if calcHPD:
+        q_rates_hpd[0, ...], _, _ = trim_taxon_qtt(q_rates_hpd[0, ...], q_bins, taxon_names,
+                                                   min_age, max_age, translate, ts_mean[ord], te_mean[ord])
+        q_rates_hpd[1, ...], _, _ = trim_taxon_qtt(q_rates_hpd[1, ...], q_bins, taxon_names,
+                                                   min_age, max_age, translate, ts_mean[ord], te_mean[ord])
+
+    make_taxon_qtt_pdf(path_dir_log_files, q_rates, q_times, taxon_names_2, suffix_pdf="taxon_q", logT=logT, q_hpd=q_rates_hpd)
 
 
 def get_qtt_baseline(sp_fad_lad, path_dir_log_files, burn, q_shift_file, qtt, time_vec_q, min_age, max_age, translate):
