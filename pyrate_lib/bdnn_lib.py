@@ -1430,7 +1430,7 @@ def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, baseline_q=Non
                     q_multi_hpd[:, i, j] = util.calcHPD(qm_ij, 0.95)
                 qr_ij = q_rates[..., i, j]
                 qr_ij = qr_ij[~np.isnan(qr_ij)]
-                nData = len(qm_ij)
+                nData = len(qr_ij)
                 nIn = int(round(0.95 * nData))
                 if nIn > 3:
                     q_rates_hpd[:, i, j] = util.calcHPD(qr_ij, 0.95)
