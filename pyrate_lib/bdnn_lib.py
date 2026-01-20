@@ -1074,7 +1074,7 @@ def get_q_rates_and_multipliers(bdnn_obj, w_q, ts, te, ts_max, t_reg_q, reg_deno
             num_add = len(add_bins)
             if num_add > 0:
                 q_bins_copy = np.concatenate((add_bins, q_bins_copy), axis=None)
-                q_bins = np.copy(q_bins)
+                q_bins = np.copy(q_bins_copy)
                 add_duration = np.diff(q_bins[:(num_add + 1)])
                 add_duration = np.tile(add_duration, n_taxa).reshape(n_taxa, -1)
                 duration_q_bins = np.c_[add_duration, duration_q_bins]
@@ -1418,10 +1418,10 @@ def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, baseline_q=Non
     q_multi_hpd = None
     q_rates_hpd = None
     if calcHPD:
-        q_multi_hpd = np.full((2, n_taxa, num_q_bins + 1), np.nan)
-        q_rates_hpd = np.full((2, n_taxa, num_q_bins + 1), np.nan)
+        q_multi_hpd = np.full((2, n_taxa, num_q_bins), np.nan)
+        q_rates_hpd = np.full((2, n_taxa, num_q_bins), np.nan)
         for i in range(n_taxa):
-            for j in range(num_q_bins + 1):
+            for j in range(num_q_bins):
                 qm_ij = qm[..., i, j]
                 qm_ij = qm_ij[~np.isnan(qm_ij)]
                 nData = len(qm_ij)
