@@ -977,7 +977,7 @@ def comb_mcmc_files(infile, files,burnin,tag,resample,col_tag,file_type="", keep
                 head_temp= np.array(head_temp)
                 head_t= ["%s\t" % (i) for i in head_temp[sp_ind]]
                 tbl_header="it\t"
-                for i in head_t: tbl_header+=i
+                tbl_header+=''.join([ht for ht in head_t])
                 tbl_header+="\n"
                 print("found", len(head_t), "columns")
                 comb = t_file[:,sp_ind]
@@ -1159,7 +1159,7 @@ def comb_log_files(path_to_files,burnin=0,tag="",resample=0,col_tag=[]):
                 head_temp= np.array(head_temp)
                 head_t= ["%s\t" % (i) for i in head_temp[sp_ind]]
                 tbl_header="it\t"
-                for i in head_t: tbl_header+=i
+                tbl_header += ''.join([ht for ht in head_t])
                 tbl_header+="\n"
                 print("found", len(head_t), "columns")
                 comb = t_file[:,sp_ind]
