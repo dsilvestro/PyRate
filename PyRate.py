@@ -4049,6 +4049,7 @@ def get_rate_HP(n,target_k,hp_gamma_shape):
 
 ####### END FUNCTIONS for DIRICHLET PROCESS PRIOR #######
 
+
 def get_init_values(mcmc_log_file, taxa_names, float_prec_f):
     tbl = np.loadtxt(mcmc_log_file,skiprows=1)
     last_row = np.shape(tbl)[0]-1
@@ -4071,29 +4072,36 @@ def get_init_values(mcmc_log_file, taxa_names, float_prec_f):
         q_rates_index = np.array([head.index("alpha"), head.index("q_rate")])
         q_rates = tbl[last_row,q_rates_index]
     except:
-        q_rates_index = [head.index(i) for i in head if i.startswith('q_')]
-        q_rates = tbl[last_row,q_rates_index]
+        try:
+            q_rates_index = [head.index(i) for i in head if i.startswith('q_')]
+            q_rates = tbl[last_row,q_rates_index]
+        except: 
+            q_rate = np.ones(2)
         try:
             alpha_pp = tbl[last_row,head.index("alpha")]
         except: pass
-    ts = tbl[last_row,ts_index]
-    te = tbl[last_row,te_index]
-    if len(fixed_times_of_shift)>0: # fixShift
-        try:
-            hyp_index = [head.index("hypL"), head.index("hypM")]
-            l_index = [head.index(i) for i in head if "lambda_" in i]
-            m_index = [head.index(i) for i in head if "mu_" in i]
-            lam = tbl[last_row,l_index]
-            mu  = tbl[last_row,m_index]
-            hyp = tbl[last_row,hyp_index]
-        except:
+    try:
+        ts = tbl[last_row,ts_index]
+        te = tbl[last_row,te_index]
+        if len(fixed_times_of_shift)>0: # fixShift
+            try:
+                hyp_index = [head.index("hypL"), head.index("hypM")]
+                l_index = [head.index(i) for i in head if "lambda_" in i]
+                m_index = [head.index(i) for i in head if "mu_" in i]
+                lam = tbl[last_row,l_index]
+                mu  = tbl[last_row,m_index]
+                hyp = tbl[last_row,hyp_index]
+            except:
+                lam = np.array([float(len(ts))/sum(ts-te)      ])    # const rate ML estimator
+                mu  = np.array([float(len(te[te>0]))/sum(ts-te)])    # const rate ML estimator
+                hyp = np.ones(2)
+        else:
             lam = np.array([float(len(ts))/sum(ts-te)      ])    # const rate ML estimator
             mu  = np.array([float(len(te[te>0]))/sum(ts-te)])    # const rate ML estimator
             hyp = np.ones(2)
-    else:
-        lam = np.array([float(len(ts))/sum(ts-te)      ])    # const rate ML estimator
-        mu  = np.array([float(len(te[te>0]))/sum(ts-te)])    # const rate ML estimator
-        hyp = np.ones(2)
+    except:
+        o = np.ones(1)
+        ts, te, lam, mu, hyp = o, o, o, o, o
 
     # window size for ts/te proposals
     try:
