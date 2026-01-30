@@ -2923,7 +2923,7 @@ def HPP_NN_lik(arg):
         # weight_per_taxon = lik_vec_exp / np.sum(lik_vec_exp, axis=0)
         weight_per_taxon = np.exp(lik_vec - np.logaddexp.reduce(lik_vec)) # prevent underflow
         # Weighted harmonic mean
-        q_rates = np.sum(weight_per_taxon[:, :, np.newaxis], axis=0) / np.sum((1 / q_rates) * weight_per_taxon[:, :, np.newaxis], axis=0)
+        q_rates = 1 / np.sum((1 / q_rates) * weight_per_taxon[:, :, np.newaxis], axis=0)
     return lik, q_rates, weight_per_taxon
 
 
@@ -2953,7 +2953,7 @@ def HOMPP_NN_lik(arg):
         # weight_per_taxon = lik_vec_exp / np.sum(lik_vec_exp, axis=0)
         weight_per_taxon = np.exp(lik_vec - np.logaddexp.reduce(lik_vec)) # prevent underflow
         # Weighted harmonic mean
-        q_rates = np.sum(weight_per_taxon, axis=0) / np.sum((1 / q_rates) * weight_per_taxon, axis=0)
+        q_rates = 1 / np.sum((1 / q_rates) * weight_per_taxon, axis=0)
     return lik, q_rates, weight_per_taxon
 
 
@@ -2996,11 +2996,19 @@ def add_taxon_age(ts, te, q_time_frames, trt_tbl, tsA=None, teA=None):
         trt_tbl[:, i, -1] = 0.0
         age = np.arange(te[i], ts[i], step=step_size)
         age_bins = np.digitize(age, bins) - 1
+
+        step_size_too_large = np.any(np.diff(np.unique(age_bins)) > 1)
+        d = 2
+        while step_size_too_large:
+            age = np.arange(te[i], ts[i], step=step_size/d)
+            age_bins = np.digitize(age, bins) - 1
+            d += 1
+            step_size_too_large = np.any(np.diff(np.unique(age_bins)) > 1)
+
         u, c = np.unique(age_bins, return_counts=True)
         rel_age = np.array([0.5])
         if (ts[i] - te[i]) >= step_size:
             age_norm = (age - np.min(age)) / np.ptp(age)
-            # This give 0.5 if a taxon occurs in just a single bin
             rel_age = np.bincount(age_bins - np.min(age_bins), weights=age_norm) / c
         trt_tbl[n_bins - u, i, -1] = rel_age[::-1]
 #    trt_tbl[:, ts_te_changed, -1] -= 0.5 # center in 0
@@ -3255,12 +3263,17 @@ def HPP_vec_lik(arg, return_rate=False):
             lik2 = np.ones(pp_gamma_ncat) / pp_gamma_ncat
     if return_rate:
         pr = np.exp(lik2) / np.sum(np.exp(lik2))
-        weighted_mean = np.sum(YangGamma * pr)
+        # Weighted harmonic mean
+        if np.sum(k_vec[ind]) == 1:
+            weighted_mean = q_rates
+        else:
+            weighted_mean = 1 / np.sum((1 / (q_rates[np.newaxis, :] * YangGamma.reshape((pp_gamma_ncat, -1)))) * pr.reshape((pp_gamma_ncat, -1)), axis=0)
+        weighted_mean = weighted_mean.tolist()
         return weighted_mean
     else:
         return lik
 
-def HOMPP_lik(arg):
+def HOMPP_lik(arg, return_rate=False):
     [m,M,shapeGamma,q_rate,i,cov_par, ex_rate]=arg
     i=int(i)
     x=fossil[i]
@@ -3278,8 +3291,16 @@ def HOMPP_lik(arg):
         lik1= -qGamma*(br_length) + log(qGamma)*k - sum(log(np.arange(1,k+1)))  -log(1-exp(-qGamma*(br_length)))
         maxLik1 = np.max(lik1)
         lik2= lik1-maxLik1
-        lik=log(sum(exp(lik2)*(1./pp_gamma_ncat)))+maxLik1
-        return lik
+        if return_rate:
+            if k == 1:
+                weighted_mean = q
+            else:
+                pr = np.exp(lik2) / np.sum(np.exp(lik2))
+                weighted_mean = 1 / np.sum((1 / qGamma) * pr)
+            return [weighted_mean]
+        else:
+            lik=log(sum(exp(lik2)*(1./pp_gamma_ncat)))+maxLik1
+            return lik
     else:
         return -q*(br_length) + log(q)*k - sum(log(np.arange(1,k+1))) - log(1-exp(-q*(br_length)))
 
@@ -5512,9 +5533,13 @@ def MCMC(all_arg):
             if sp_specific_q_rates:
                 sp_q_rates = []
                 for i in range(len(tsA)):
-                    w_rates = HPP_vec_lik([teA[i],tsA[i],q_time_frames,q_ratesA,i,alpha_pp_gamma], return_rate=True)
-                    sp_q_rates.append(w_rates)
-                
+                    if TPP_model == 1:
+                        w_rates = HPP_vec_lik([teA[i],tsA[i],q_time_frames,q_ratesA,i,alpha_pp_gamma], return_rate=True)
+                    else:
+                        w_rates = HOMPP_lik([te[i], ts[i], q_rates[0], q_rates[1], i, cov_par[2], 0.0], return_rate=True)
+                    # sp_q_rates.append(w_rates)
+                    sp_q_rates = sp_q_rates + w_rates
+
                 sp_q_marg.writerow([it, alpha_pp_gammaA] + sp_q_rates)
                 sp_q_marg_rate_file.flush()
                 os.fsync(sp_q_marg_rate_file)
@@ -5927,8 +5952,10 @@ if __name__ == '__main__':
 
     sp_specific_q_rates = args.log_sp_q_rates
     if sp_specific_q_rates:
-        if argsG == 0 or args.qShift == "":
-            sys.exit("option only available with TPP + Gamma model")
+        # if argsG == 0 or args.qShift == "":
+        #     sys.exit("option only available with TPP + Gamma model")
+        if argsG == 0:
+            sys.exit("Gamma model")
     
     edge_indicator = args.edge_indicator
 
@@ -6360,7 +6387,7 @@ if __name__ == '__main__':
                                                                thin=args.resample,
                                                                min_bs=args.BDNN_pred_importance_window_size[-1],
                                                                n_perm=args.BDNN_pred_importance_nperm,
-                                                               combine_discr_features= copy_lib.deepcopy(args.BDNN_groups),
+                                                               combine_discr_features=copy_lib.deepcopy(args.BDNN_groups),
                                                                do_inter_imp=do_inter_imp,
                                                                bdnn_precision=args.BDNNprecision,
                                                                num_processes=args.thread[0],
@@ -7887,7 +7914,15 @@ if __name__ == '__main__':
         if sp_specific_q_rates: #  or BDNNmodel in [2, 3]
             sp_q_marg_rate_file_name = "%s/%s_per_species_q_rates.log" % (path_dir, suff_out)
             head = ["iteration", "alpha"]
-            for i in taxa_names: head.append("%s_rel_q" % (i))
+            # for i in taxa_names: head.append("%s_rel_q" % (i))
+            if TPP_model == 1:
+                times_q_shift_log = times_q_shift + [0]
+                for i in taxa_names:
+                    for j in range(len(times_q_shift_log)):
+                        head.append("%s_%s" % (i, times_q_shift_log[j]))
+            else:
+                for i in taxa_names:
+                    head.append("%s" % i)
             sp_q_marg_rate_file = open(sp_q_marg_rate_file_name , "w", newline="")
             sp_q_marg=csv.writer(sp_q_marg_rate_file, delimiter='\t')
             sp_q_marg.writerow(head)
