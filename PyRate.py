@@ -1298,18 +1298,18 @@ def update_rates_sliding_win(L,M,tot_L,mod_d3):
     #Ln,Mn=Ln * scale_factor/tot_L , Mn * scale_factor/tot_L
     return Ln,Mn, 1
 
-def update_parameter_normal_vec(oldL,d,f=.25, float_prec_f=np.float64):
-    S = oldL.shape
-    ii = np.random.normal(0,d,S)
-    ff = np.random.binomial(1,np.min([f, 1]),S)
-    # avoid no update being performed at all
-    if np.sum(ff) == 0:
-        up = np.random.randint(oldL.size, size=1)
-        row, col = np.unravel_index(up, ff.shape)
-        ff[row, col] = 1
-    # print(np.sum(ff), S, f)
-    s= oldL + float_prec_f(ii*ff)
-    return s
+def update_parameter_normal_vec(oldL, d, f=.25, par_mask=None, float_prec_f=np.float64):
+    p = np.copy(oldL)
+    if par_mask is None:
+        row, col = np.where(p)
+    else:
+        row, col = np.where(par_mask == 1)
+    n = len(row)
+    size = np.maximum(1, np.ceil(f * n), dtype=int, casting='unsafe')
+    update = np.random.choice(n, size)
+    ii = float_prec_f(np.random.normal(0, d, size))
+    p[row[update], col[update]] += ii
+    return p
 
 
 def update_rates_multiplier(L,M,tot_L,mod_d3):
@@ -4644,11 +4644,12 @@ def MCMC(all_arg):
                     # update layers B rate
                     cov_lam_updated = 1
                     rnd_layer_lam = np.random.randint(0, len(cov_parA[0]))
-                    cov_par[0][rnd_layer_lam] = update_parameter_normal_vec(cov_parA[0][rnd_layer_lam], d=0.05, f=bdnn_update_f[rnd_layer_lam], float_prec_f=float_prec_f)
+                    cov_par[0][rnd_layer_lam] = update_parameter_normal_vec(cov_parA[0][rnd_layer_lam],
+                                                                            d=0.05,
+                                                                            f=bdnn_update_f[rnd_layer_lam],
+                                                                            par_mask=BDNN_MASK_lam[rnd_layer_lam],
+                                                                            float_prec_f=float_prec_f)
                     bdnn_prior_cov_par[0] = np.sum([np.sum(prior_normal(cov_par[0][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[0]))])
-                    if BDNN_MASK_lam:
-                        for i_layer in range(len(cov_parA[0])):
-                            cov_par[0][i_layer] *= BDNN_MASK_lam[i_layer]
                 elif rr_cov_lam_mu < cov_par_update_f[2] and prior_lam_t_reg[1] > 0:
                     # update treg mu
                     cov_mu_updated = 1
@@ -4659,11 +4660,12 @@ def MCMC(all_arg):
                     # update layers D rate
                     cov_mu_updated = 1
                     rnd_layer_mu = np.random.randint(0, len(cov_parA[1]))
-                    cov_par[1][rnd_layer_mu] = update_parameter_normal_vec(cov_parA[1][rnd_layer_mu], d=0.05, f=bdnn_update_f[rnd_layer_mu], float_prec_f=float_prec_f)
+                    cov_par[1][rnd_layer_mu] = update_parameter_normal_vec(cov_parA[1][rnd_layer_mu],
+                                                                           d=0.05,
+                                                                           f=bdnn_update_f[rnd_layer_mu],
+                                                                           par_mask=BDNN_MASK_mu[rnd_layer_mu],
+                                                                           float_prec_f=float_prec_f)
                     bdnn_prior_cov_par[1] = np.sum([np.sum(prior_normal(cov_par[1][i],prior_bdnn_w_sd[i])) for i in range(len(cov_par[1]))])
-                    if BDNN_MASK_mu:
-                        for i_layer in range(len(cov_parA[1])):
-                            cov_par[1][i_layer] *= BDNN_MASK_mu[i_layer]
                 # Recalculate bdnn rates when we updated cov_par
                 if cov_lam_updated:
                     bdnn_lam_rates, denom_lam, nn_lam = get_rate_BDNN_3D(cov_par[3], trait_tbl_NN[0], cov_par[0], nn_lamA,
@@ -7332,20 +7334,21 @@ if __name__ == '__main__':
                 nodes_time = n_BDNN_nodes[0] - nodes_traits
                 indx_input_list_2 = np.concatenate((np.zeros(nodes_traits),np.ones(nodes_time))).astype(int)
                 nodes_per_feature_list = [list(np.unique(indx_input_list_2, return_counts=True)[1])]
-                if len(n_BDNN_nodes) == 2:
-                    nodes_traits = int(n_BDNN_nodes[1] / 2)
-                    nodes_time = n_BDNN_nodes[1] - nodes_traits
+                for i in range(1, len(n_BDNN_nodes)):
+                    nodes_traits = int(n_BDNN_nodes[i] / 2)
+                    nodes_time = n_BDNN_nodes[i] - nodes_traits
                     nodes_per_feature_list.append([nodes_traits, nodes_time])
                 nodes_per_feature_list.append([])
-        
+
                 BDNN_MASK_lam = create_mask(cov_par_init_NN[0],
                                             indx_input_list=[indx_input_list_1, indx_input_list_2, []],
                                             # nodes_per_feature_list=[[1, 1], [1, 1], []])
                                             nodes_per_feature_list=nodes_per_feature_list) # [[4, 4], [1, 1], []]
                 BDNN_MASK_mu = create_mask(cov_par_init_NN[1],
-                                           indx_input_list=[indx_input_list_1, indx_input_list_2, []],
-                                           # nodes_per_feature_list=[[1, 1], [1, 1], []])
-                                           nodes_per_feature_list=nodes_per_feature_list) # [[4, 4], [1, 1], []]
+                                        indx_input_list=[indx_input_list_1, indx_input_list_2, []],
+                                        # nodes_per_feature_list=[[1, 1], [1, 1], []])
+                                        nodes_per_feature_list=nodes_per_feature_list) # [[4, 4], [1, 1], []]
+
                 if has_invariant_bdnn_pred:
                     # Block input of invariant predictors into neural network
                     if block_nn_model is False:
@@ -7356,10 +7359,13 @@ if __name__ == '__main__':
                     BDNN_MASK_mu[0][:, invariant_bdnn_pred[1]] = 0.0
                 else:
                     [print("\n", i) for i in BDNN_MASK_lam]
-        
+
+                for i_layer in range(len(cov_par_init_NN[0])):
+                    cov_par_init_NN[0][i_layer] *= BDNN_MASK_lam[i_layer]
+                    cov_par_init_NN[1][i_layer] *= BDNN_MASK_mu[i_layer]
             else:
-                BDNN_MASK_lam = None
-                BDNN_MASK_mu = None
+                BDNN_MASK_lam = [None] * (len(n_BDNN_nodes) + 1)
+                BDNN_MASK_mu = [None] * (len(n_BDNN_nodes) + 1)
         #---
             if False:
                 print(rescaled_time)
@@ -7373,10 +7379,6 @@ if __name__ == '__main__':
         bdnn_settings = ""
         if BDNNmodel in [1, 3]:
             for i_layer in range(len(cov_par_init_NN[0])):
-                if BDNN_MASK_lam:
-                    cov_par_init_NN[0][i_layer] *= BDNN_MASK_lam[i_layer]
-                if BDNN_MASK_mu:
-                    cov_par_init_NN[1][i_layer] *= BDNN_MASK_mu[i_layer]
                 n_prm += cov_par_init_NN[0][i_layer].size
                 n_free_prm += np.sum(cov_par_init_NN[0][i_layer] != 0)
                 bdnn_settings = bdnn_settings + "\n %s" % str(cov_par_init_NN[0][i_layer].shape)
@@ -7386,7 +7388,7 @@ if __name__ == '__main__':
                 n_free_prm += np.sum(cov_par_init_NN[2][i_layer] != 0)
                 bdnn_settings = bdnn_settings + "\n %s" % str(cov_par_init_NN[2][i_layer].shape)
 
-        bdnn_settings = "\n\nUsing BDNN model\nN. free parameters: %s \nN. parameters: %s\n%s\n" % (n_prm, n_free_prm, bdnn_settings)
+        bdnn_settings = "\n\nUsing BDNN model\nN. free parameters: %s \nN. parameters: %s\n%s\n" % (n_free_prm, n_prm, bdnn_settings)
         print(bdnn_settings)
 
 
@@ -7653,7 +7655,7 @@ if __name__ == '__main__':
                 })
             if not highres_q_repeats is None: # bdnn_ads >= 0.0:
                 bdnn_dict.update({'highres_q_repeats': highres_q_repeats})
-        
+
         obj = bdnn(bdnn_settings=bdnn_dict,
                    weights=cov_par_init_NN,
                    trait_tbls=trait_tbl_NN,
