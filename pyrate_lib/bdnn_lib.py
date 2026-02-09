@@ -903,7 +903,7 @@ def plot_rtt(path_dir_log_files, burn, thin=0, translate=0, min_age=0, max_age=0
 
     if not qtt is None:
         plot_taxon_q_through_time(path_dir_log_files, burn, thin=thin, baseline_q=baseline_q_untrimmed, bdnn_precision=bdnn_precision,
-                                  min_age=min_age2, max_age=max_age2, translate=translate, logT=logT)
+                                  min_age=min_age2, max_age=max_age2, translate=translate, logT=logT, q_shift_file=q_shift_file)
 
 
 def plot_bdnn_rtt_groups(path_dir_log_files, groups_path, burn,
@@ -1172,7 +1172,7 @@ def get_q_rates_and_multipliers(bdnn_obj, w_q, ts, te, ts_max, t_reg_q, reg_deno
     return q_rates, q_multi, np.mean(alpha), q_bins
 
 
-def make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names, alpha=1, suffix_pdf="taxon_q_multi", logT=0, q_hpd=None):
+def make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names, q_shift="", alpha=1, suffix_pdf="taxon_q_multi", logT=0, q_hpd=None):
     mid_colorramp = 1
     if logT == 1:
         q_multi = np.log(q_multi)
@@ -1220,6 +1220,9 @@ def make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names, alpha=
     r_script += "\npar(las = 1, mar = c(4, 0.5, 0.5, 0.5))"
     r_script += "\nplot(0, 0, type = 'n', xlim = c(max(q_times), min(q_times)), ylim = c(1, n_taxa),"
     r_script += "\n     xlab = 'Time (Ma)', ylab = 'Taxon', yaxt = 'n')"
+    if isinstance(q_shift, np.ndarray):
+        r_script += util.print_R_vec("\nq_shift", q_shift)
+        r_script += "\nabline(v = q_shift, lty = 2, col = 'grey')"
     r_script += "\nfor (i in 1:n_taxa) {"
     r_script += "\n  col_idx <- findInterval(q_list[[i]], q_range)"
     r_script += "\n  not_na <- !is.na(q_list[[i]])"
@@ -1401,7 +1404,14 @@ def get_mean_tste(bdnn_obj, ts, te):
 
 
 def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, baseline_q=None, bdnn_precision=0,
-                              min_age=0, max_age=0, translate=0, order_by_ts=True, logT=0, calcHPD=True):
+                              min_age=0, max_age=0, translate=0, order_by_ts=True, logT=0, calcHPD=True, q_shift_file=""):
+    q_shift = None
+    if q_shift_file != "":
+        try:
+            q_shift = np.sort(np.loadtxt(q_shift_file))[::-1]
+        except:
+            q_shift = np.array([np.loadtxt(q_shift_file)])
+
     pkl_file = path_dir_log_files + ".pkl"
     mcmc_file = path_dir_log_files + "_mcmc.log"
     bdnn_obj, _, _, w_q, sp_fad_lad, ts, te, _, _, t_reg_q, _, _, reg_denom_q, norm_q, alpha, replicates_q = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
@@ -1475,7 +1485,7 @@ def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, baseline_q=Non
         q_multi_hpd[1, ...], _, _ = trim_taxon_qtt(q_multi_hpd[1, ...], q_bins, taxon_names,
                                                    min_age, max_age, translate, ts_mean[ord], te_mean[ord])
 
-    make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names_1, alpha, suffix_pdf="taxon_q_multi", q_hpd=q_multi_hpd)
+    make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names_1, q_shift, alpha, suffix_pdf="taxon_q_multi", q_hpd=q_multi_hpd)
 
     # taxon-time specific q rates
     if q_rates.shape[-1] < num_q_bins or num_q_bins < 99:
@@ -1509,7 +1519,7 @@ def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, baseline_q=Non
         q_rates_hpd[1, ...], _, _ = trim_taxon_qtt(q_rates_hpd[1, ...], q_bins, taxon_names,
                                                    min_age, max_age, translate, ts_mean[ord], te_mean[ord])
 
-    make_taxon_qtt_pdf(path_dir_log_files, q_rates, q_times, taxon_names_2, suffix_pdf="taxon_q", logT=logT, q_hpd=q_rates_hpd)
+    make_taxon_qtt_pdf(path_dir_log_files, q_rates, q_times, taxon_names_2, q_shift, suffix_pdf="taxon_q", logT=logT, q_hpd=q_rates_hpd)
 
 
 def get_qtt_baseline(sp_fad_lad, path_dir_log_files, burn, q_shift_file, qtt, time_vec_q, min_age, max_age, translate):
