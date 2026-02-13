@@ -1346,6 +1346,9 @@ def update_rates_multiplier(L,M,tot_L,mod_d3):
 def update_q_multiplier(q,d=1.1,f=0.75):
     S=np.shape(q)
     ff=np.random.binomial(1,f,S)
+    # avoid no update being performed at all
+    if np.sum(ff) == 0:
+        ff[np.random.randint(S, size=1)] = 1
     u = np.random.uniform(0,1,S)
     l = 2*log(d)
     m = exp(l*(u-.5))
@@ -1666,6 +1669,46 @@ def set_bound_se(b_ts, b_te, b_se, taxa, FA, LO, rescale=1, translate=0):
 
     return b_ts, b_te, FA, LO
 
+
+def make_q_tune_obj(q, d, argsG):
+    l = argsG + len(q)
+    q_tune_obj = np.zeros((l, 3)) # attempts, successes, and acceptance ratio for alpha and q
+    d2 = np.repeat(d[1], l)
+    if argsG == 1:
+        d2[0] = d[0]
+    return d2, q_tune_obj
+
+
+def tune_q_windows(d, q_tune_obj,
+                   it, tune_Q_schedule,
+                   updated, accepted=0, target=[0.2, 0.4]):
+
+    # Keep track of acceptance ratio
+    q_tune_obj[updated, 0] += 1
+    q_tune_obj[updated, 1] += accepted
+    q_tune_obj[updated, 2] = q_tune_obj[updated, 1] / q_tune_obj[updated, 0]
+
+    exceeds_tuning_interval = q_tune_obj[:, 0] > tune_Q_schedule[1]
+    any_exceeds_tuning_interval = np.any(exceeds_tuning_interval)
+
+    # Tune window sizes
+    if any_exceeds_tuning_interval and it < tune_Q_schedule[0] and it > 0.1 * tune_Q_schedule[0]:
+        u = np.isin(np.arange(len(d)), updated)
+        too_low = np.logical_and(q_tune_obj[:, 2] < target[0], u)
+        too_high = np.logical_and(q_tune_obj[:, 2] > target[1], u)
+        # decrease window size
+        d[too_low] = 0.95 * d[too_low]
+        d[d < 1.05] = 1.05
+        # increase window size
+        d[too_high] = 1.05 * d[too_high]
+
+    # Reset acceptance ratio calculation
+    if any_exceeds_tuning_interval and it > 0.1 * tune_Q_schedule[0]:
+        q_tune_obj[exceeds_tuning_interval, 0] = 0
+        q_tune_obj[exceeds_tuning_interval, 1] = 0
+        q_tune_obj[exceeds_tuning_interval, 2] = 0
+
+    return d, q_tune_obj
 
 
 def seed_missing(x,m,s): # assigns random normally distributed trait values to missing data
@@ -4131,8 +4174,15 @@ def get_init_values(mcmc_log_file, taxa_names, float_prec_f):
         d1_ts = se_windows[:, 0]
         d1_te = se_windows[:, 1]
     except:
-        d1_ts = np.ones(len(ts))
-        d1_te = np.ones(len(te))
+        d1_ts = np.ones(1)
+        d1_te = np.ones(1)
+
+    # window size for q proposals
+    try:
+        q_name = mcmc_log_file.replace("mcmc.log", "q_windows.txt")
+        d2 = np.loadtxt(q_name)
+    except:
+        d2 = np.ones(1)
 
     if BDNNmodel:
         from pyrate_lib.bdnn_lib import bdnn_reshape_w
@@ -4159,7 +4209,7 @@ def get_init_values(mcmc_log_file, taxa_names, float_prec_f):
             cov_par[2] = w_q
             cov_par[5] = tbl[last_row, head.index("t_reg_q")]
 
-    return [ts,te,q_rates,lam,mu,hyp,alpha_pp, cov_par, d1_ts, d1_te]
+    return [ts,te,q_rates,lam,mu,hyp,alpha_pp, cov_par, d1_ts, d1_te, d2]
 
 ########################## MCMC #########################################
 
@@ -4378,8 +4428,12 @@ def MCMC(all_arg):
 
     if fix_SE == 0:
         d1_ts, d1_te, tste_tune_obj = make_tste_tune_obj(LO, bound_te, d1)
-        if restore_chain:
+        if restore_chain and tune_T_schedule[0] > 0:
             d1_ts, d1_te = restore_init_values[8], restore_init_values[9]
+
+        d2, q_tune_obj = make_q_tune_obj(q_ratesA, d_q, argsG)
+        if restore_chain and tune_Q_schedule[0] > 0:
+            d2 = restore_init_values[10]
 
     # start threads
     if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
@@ -4475,6 +4529,7 @@ def MCMC(all_arg):
 
         updated_lam_mu = False
         ts_te_updated = 0
+        q_updated = 0
         cov_lam_updated = 0
         cov_mu_updated = 0
         cov_q_updated = 0
@@ -4551,17 +4606,24 @@ def MCMC(all_arg):
             tot_L=np.sum(ts-te)
         
         elif rr<f_update_q: # q/alpha
+            q_updated = 1
             move_type = 2
             q_rates=np.zeros(len(q_ratesA))+q_ratesA
             if TPP_model == 1:
-                q_rates, hasting = update_q_multiplier(q_ratesA,d=d2[1],f=f_qrate_update)
-                if np.random.random()> 1./len(q_rates) and argsG == 1:
-                    alpha_pp_gamma, hasting2 = update_multiplier_proposal(alpha_pp_gammaA,d2[0]) # shape prm Gamma
-                    hasting += hasting2
+                hasting = 0
+                if np.random.random() > ((1./len(q_rates)) * argsG):
+                    q_rates, hasting2 = update_q_multiplier(q_ratesA, d=d2[argsG:], f=f_qrate_update)
+                    ind_updated_q = (q_ratesA - q_rates).nonzero()[0] + argsG
+                else:
+                    alpha_pp_gamma, hasting2 = update_multiplier_proposal(alpha_pp_gammaA, d2[0]) # shape prm Gamma
+                    ind_updated_q = 0
+                hasting += hasting2
             elif np.random.random()>.5 and argsG == 1:
-                q_rates[0], hasting=update_multiplier_proposal(q_ratesA[0],d2[0]) # shape prm Gamma
+                q_rates[0], hasting=update_multiplier_proposal(q_ratesA[0], d2[0]) # shape prm Gamma
+                ind_updated_q = 0
             else:
-                q_rates[1], hasting=update_multiplier_proposal(q_ratesA[1],d2[1]) #  preservation rate (q)
+                q_rates[1], hasting=update_multiplier_proposal(q_ratesA[1], d2[1]) #  preservation rate (q)
+                ind_updated_q = 1
 
         elif rr < f_update_lm: # l/m
             updated_lam_mu = True
@@ -5340,6 +5402,9 @@ def MCMC(all_arg):
                     d1_ts, d1_te, tste_tune_obj = tune_tste_windows(d1_ts, d1_te, LO, bound_te, tste_tune_obj, it,
                                                                     tune_T_schedule, ind_updated_tste, ts_or_te_updated,
                                                                     accepted=1)
+                elif q_updated and tune_Q_schedule[0] > 0:
+                    d2, q_tune_obj = tune_q_windows(d2, q_tune_obj, it, tune_Q_schedule,
+                                                    ind_updated_q, accepted=1)
             elif BDNNmodel:
                 if BDNNmodel in [1, 3]:
                     bdnn_lam_rates = bdnn_lam_ratesA
@@ -5362,10 +5427,14 @@ def MCMC(all_arg):
                     nn_q = nn_qA
 #                    if trait_tbl_NN[2].ndim == 3 and ts_te_updated == 1:
 #                        qbin_ts_te = get_bin_ts_te(tsA, teA, q_time_frames_bdnn)
-            if not is_accepted and ts_te_updated and tune_T_schedule[0] > 0:
-                d1_ts, d1_te, tste_tune_obj = tune_tste_windows(d1_ts, d1_te, LO, bound_te, tste_tune_obj, it,
-                                                                tune_T_schedule, ind_updated_tste, ts_or_te_updated,
-                                                                accepted=0)
+            if not is_accepted:
+                if ts_te_updated and tune_T_schedule[0] > 0:
+                    d1_ts, d1_te, tste_tune_obj = tune_tste_windows(d1_ts, d1_te, LO, bound_te, tste_tune_obj, it,
+                                                                    tune_T_schedule, ind_updated_tste, ts_or_te_updated,
+                                                                    accepted=0)
+                elif q_updated and tune_Q_schedule[0] > 0:
+                    d2, q_tune_obj = tune_q_windows(d2, q_tune_obj, it, tune_Q_schedule,
+                                                    ind_updated_q, accepted=0)
 
         if it % print_freq ==0 or it==burnin:
             try: l=[round(y, 2) for y in [PostA, likA, priorA, SA]]
@@ -5550,15 +5619,24 @@ def MCMC(all_arg):
                 log_state += list(tsA)
                 log_state += list(teA)
 
-            if tune_T_schedule[0] > 0:
-                log_state += list(np.mean(tste_tune_obj[:, 2]).flatten())
-                if np.any(LO > 0):
-                    log_state += list(np.mean(tste_tune_obj[LO > 0, 5]).flatten())
-                log_state += list(np.mean(d1_ts).flatten())
-                if np.any(LO > 0):
-                    log_state += list(np.mean(d1_te[LO > 0]).flatten())
-                if it < tune_T_schedule[0]:
-                    np.savetxt(tune_ts_te_name, np.column_stack((d1_ts, d1_te)), delimiter='\t')
+                if tune_T_schedule[0] > 0:
+                    log_state += list(np.mean(tste_tune_obj[:, 2]).flatten())
+                    if np.any(LO > 0):
+                        log_state += list(np.mean(tste_tune_obj[LO > 0, 5]).flatten())
+                    log_state += list(np.mean(d1_ts).flatten())
+                    if np.any(LO > 0):
+                        log_state += list(np.mean(d1_te[LO > 0]).flatten())
+                    if it < tune_T_schedule[0]:
+                        np.savetxt(tune_ts_te_name, np.column_stack((d1_ts, d1_te)), delimiter='\t')
+
+                if tune_Q_schedule[0] > 0:
+                    if argsG == 1:
+                        log_state += [q_tune_obj[0, 2]]
+                        log_state += [d2[0]]
+                    log_state += list(np.mean(q_tune_obj[argsG:, 2]).flatten())
+                    log_state += list(np.mean(d2[argsG:]).flatten())
+                    if it < tune_Q_schedule[0]:
+                        np.savetxt(tune_q_name, d2, delimiter='\t')
 
             wlog.writerow(log_state)
             logfile.flush()
@@ -5897,7 +5975,6 @@ if __name__ == '__main__':
     # TUNING
     p.add_argument('-tT',     type=float, help='Tuning - window size (ts, te)', default=1., metavar=1.)
     p.add_argument('-nT',     type=int,   help='Tuning - max number updated values (ts, te)', default=5, metavar=5)
-    p.add_argument('-tuneT',  type=float, help='Autotuning window sizes tT. Maximum iteration and tuning interval', default=[0, 1000], nargs=2)
     p.add_argument('-tQ',     type=float, help='Tuning - window sizes (q/alpha: 1.2 1.2)', default=[1.2,1.2], nargs=2)
     p.add_argument('-tR',     type=float, help='Tuning - window size (rates)', default=1.2, metavar=1.2)
     p.add_argument('-tS',     type=float, help='Tuning - window size (time of shift)', default=1., metavar=1.)
@@ -5908,6 +5985,8 @@ if __name__ == '__main__':
     p.add_argument('-fU',     type=float, help='Tuning - update freq. (q: .02, l/m: .18, cov: .08)', default=[.02, .18, .08], nargs=3)
     p.add_argument('-multiR', type=int,   help='Tuning - Proposals for l/m: 0) sliding win 1) muliplier ', default=1, metavar=1)
     p.add_argument('-tHP',    type=float, help='Tuning - window sizes hyperpriors on l and m', default=[1.2, 1.2], nargs=2)
+    p.add_argument('-tuneT',  type=float, help='Autotuning window sizes tT. Maximum iteration and tuning interval', default=[0, 1000], nargs=2)
+    p.add_argument('-tuneQ',  type=float, help='Autotuning window sizes tQ. Maximum iteration and tuning interval', default=[0, 1000], nargs=2)
 
     args = p.parse_args()
     t1=time.time()
@@ -6008,14 +6087,20 @@ if __name__ == '__main__':
     frac1= args.nT                 # max number updated values (ts, te)
     tune_T_schedule = args.tuneT   # schedule tuning win-size (ts, te)
     if args.tuneT[0] > 0 and args.tuneT[0] < 1:
-        tune_T_schedule[0] = int(args.tuneT[0] * mcmc_gen)        
-    
-    d2=args.tQ                     # win-sizes (q,alpha)
+        tune_T_schedule[0] = int(args.tuneT[0] * mcmc_gen)
+
+    d_q = args.tQ                  # win-sizes (q,alpha)
+    f_qrate_update =args.fQ        # update frequency (preservation rates under TPP model)
+    tune_Q_schedule = args.tuneQ   # schedule tuning win-size (q rates)
+    if tune_Q_schedule[0] > 0:
+        f_qrate_update = 0.0
+        if tune_Q_schedule[0] > 0 and tune_Q_schedule[0] < 1:
+            tune_Q_schedule[0] = int(tune_Q_schedule[0] * mcmc_gen)
+
     d3=args.tR                     # win-size (rates)
     f_rate=args.fR                 # fraction of updated values (rates)
     d4=args.tS                     # win-size (time of shift)
     f_shift=args.fS                # update frequency (time of shift) || will turn into 0 when no rate shifts
-    f_qrate_update =args.fQ        # update frequency (preservation rates under TPP model)
     freq_list=args.fU              # generate update frequencies by parm category
     d5=args.tC                     # win-size (cov)
     d_hyperprior=np.array(args.tHP)          # win-size hyper-priors onf l/m (or W_scale)
@@ -7804,14 +7889,22 @@ if __name__ == '__main__':
             for i in taxa_names: head.append("%s_TS" % (i))
             for i in taxa_names: head.append("%s_TE" % (i))
 
-        if tune_T_schedule[0] > 0:
-            head += ["accept_ratio_ts"]
-            if np.any(LO > 0):
-                head += ["accept_ratio_te"]
-            head += ["tT_ts"]
-            if np.any(LO > 0):
-                head += ["tT_te"]
-            tune_ts_te_name = "%s/%s_se_windows.txt" % (path_dir, suff_out)
+            if tune_T_schedule[0] > 0:
+                head += ["accept_ratio_ts"]
+                if np.any(LO > 0):
+                    head += ["accept_ratio_te"]
+                head += ["tT_ts"]
+                if np.any(LO > 0):
+                    head += ["tT_te"]
+                tune_ts_te_name = "%s/%s_se_windows.txt" % (path_dir, suff_out)
+
+            if tune_Q_schedule[0] > 0:
+                if argsG == 1:
+                    head += ["accept_ratio_alpha"]
+                    head += ["tQ_0"]
+                head += ["accept_ratio_q"]
+                head += ["tQ_1"]
+                tune_q_name = "%s/%s_q_windows.txt" % (path_dir, suff_out)
 
         wlog=csv.writer(logfile, delimiter='\t')
         wlog.writerow(head)
