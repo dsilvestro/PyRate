@@ -4132,6 +4132,7 @@ def get_init_values(mcmc_log_file, taxa_names, float_prec_f):
 
     alpha_pp=1
     cov_par = np.zeros(3)
+    timesL, timesM = None, None
     try:
         q_rates_index = np.array([head.index("alpha"), head.index("q_rate")])
         q_rates = tbl[last_row,q_rates_index]
@@ -4144,6 +4145,7 @@ def get_init_values(mcmc_log_file, taxa_names, float_prec_f):
         try:
             alpha_pp = tbl[last_row,head.index("alpha")]
         except: pass
+
     try:
         ts = tbl[last_row,ts_index]
         te = tbl[last_row,te_index]
@@ -4160,9 +4162,22 @@ def get_init_values(mcmc_log_file, taxa_names, float_prec_f):
                 mu  = np.array([float(len(te[te>0]))/sum(ts-te)])    # const rate ML estimator
                 hyp = np.ones(2)
         else:
-            lam = np.array([float(len(ts))/sum(ts-te)      ])    # const rate ML estimator
-            mu  = np.array([float(len(te[te>0]))/sum(ts-te)])    # const rate ML estimator
             hyp = np.ones(2)
+            if TDI == 4:
+                k_birth = int(tbl[last_row, head.index("k_birth")])
+                k_death = int(tbl[last_row, head.index("k_death")])
+                lam_log_name = mcmc_log_file.replace("mcmc.log", "sp_rates.log")
+                with open(lam_log_name, "r") as f:
+                    last_lam = f.readlines()[last_row]
+                    lam_times = np.array(last_lam.strip().split(), dtype=float)
+                mu_log_name = mcmc_log_file.replace("mcmc.log", "ex_rates.log")
+                with open(mu_log_name, "r") as f:
+                    last_mu = f.readlines()[last_row]
+                    mu_times = np.array(last_mu.strip().split(), dtype=float)
+                timesL = np.concatenate((np.inf, lam_times[k_birth:], 0), axis=None)
+                timesM = np.concatenate((np.inf, mu_times[k_death:], 0), axis=None)
+                lam = lam_times[:k_birth]
+                mu = mu_times[:k_death]
     except:
         o = np.ones(1)
         ts, te, lam, mu, hyp = o, o, o, o, o
@@ -4209,7 +4224,7 @@ def get_init_values(mcmc_log_file, taxa_names, float_prec_f):
             cov_par[2] = w_q
             cov_par[5] = tbl[last_row, head.index("t_reg_q")]
 
-    return [ts,te,q_rates,lam,mu,hyp,alpha_pp, cov_par, d1_ts, d1_te, d2]
+    return [ts,te,q_rates,lam,mu,hyp,alpha_pp, cov_par, d1_ts, d1_te, d2, timesL, timesM]
 
 ########################## MCMC #########################################
 
@@ -4239,7 +4254,7 @@ def MCMC(all_arg):
             teA[teA>LO]=LO[teA>LO]-1
             teA[teA<0]=teA_temp[teA<0]
         maxTSA = np.max(tsA)
-        
+
         timesLA, timesMA = init_times(maxTSA,time_framesL,time_framesM, np.min(teA))
         if len(fixed_times_of_shift) > 0:
             timesLA[1:-1], timesMA[1:-1] = fixed_times_of_shift, fixed_times_of_shift
@@ -4299,7 +4314,13 @@ def MCMC(all_arg):
             if use_Death_model == 1: LA = np.ones(1)
             if use_Birth_model == 1: MA = np.zeros(1)+init_M_rate
             rj_cat_HP= 1
-        
+            if restore_chain:
+                timesLA = restore_init_values[11]
+                timesMA = restore_init_values[12]
+                LA = restore_init_values[3]
+                MA = restore_init_values[4]
+                rj_cat_HP = get_post_rj_HP(len(LA),len(MA))
+
         q_ratesA,cov_parA = init_q_rates() # use 1 for symmetric PERT
         
         if BDNNmodel in [1, 3]:
@@ -4420,20 +4441,20 @@ def MCMC(all_arg):
                 if args_bdc:
                     r_treeA = np.ones(len(phylo_times_of_shift))*0.8
 
+        if fix_SE == 0:
+            d1_ts, d1_te, tste_tune_obj = make_tste_tune_obj(LO, bound_te, d1)
+            if restore_chain == 1 and tune_T_schedule[0] > 0:
+                d1_ts, d1_te = restore_init_values[8], restore_init_values[9]
+
+            d2, q_tune_obj = make_q_tune_obj(q_ratesA, d_q, argsG)
+            if restore_chain == 1 and tune_Q_schedule[0] > 0:
+                d2 = restore_init_values[10]
+
     else: # restore values
         [itt, n_proc_,PostA, likA, priorA,tsA,teA,timesLA,timesMA,LA,MA,q_ratesA, cov_parA, lik_fossilA,likBDtempA]=arg
         SA=np.sum(tsA-teA)
 
 
-
-    if fix_SE == 0:
-        d1_ts, d1_te, tste_tune_obj = make_tste_tune_obj(LO, bound_te, d1)
-        if restore_chain and tune_T_schedule[0] > 0:
-            d1_ts, d1_te = restore_init_values[8], restore_init_values[9]
-
-        d2, q_tune_obj = make_q_tune_obj(q_ratesA, d_q, argsG)
-        if restore_chain and tune_Q_schedule[0] > 0:
-            d2 = restore_init_values[10]
 
     # start threads
     if num_processes>0: pool_lik = multiprocessing.Pool(num_processes) # likelihood
