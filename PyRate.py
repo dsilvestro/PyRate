@@ -6053,11 +6053,8 @@ if __name__ == '__main__':
     model_cov=args.mCov           # boolean 0: no covariance 1: covariance (speciation,extinction) 2: covariance (speciation,extinction,preservation)
 
     sp_specific_q_rates = args.log_sp_q_rates
-    if sp_specific_q_rates:
-        # if argsG == 0 or args.qShift == "":
-        #     sys.exit("option only available with TPP + Gamma model")
-        if argsG == 0:
-            sys.exit("Gamma model")
+    if sp_specific_q_rates and argsG == 0:
+        sys.exit("log_sp_q_rates option only available with Gamma model")
     
     edge_indicator = args.edge_indicator
 
