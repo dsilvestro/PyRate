@@ -105,7 +105,7 @@ useHP = args.use_hp
 ts, te, _, _, _ = read_ts_te_table(dataset, rep_j, args.rescale, focus_clade=focus_clade)
 
 
-output_wd = os.path.dirname(dataset)
+output_wd = os.path.dirname(os.path.realpath(dataset))
 name_file = os.path.splitext(os.path.basename(dataset))[0]
 
 if np.max(args.mSpEx) > -np.inf:
