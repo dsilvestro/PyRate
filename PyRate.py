@@ -2466,7 +2466,7 @@ def init_trait_and_weights(trait_tbl, time_var_tbl_lambda, time_var_tbl_mu,
     return [float_prec_f(trait_tbl_lam), float_prec_f(trait_tbl_mu)], [w_lam,w_mu]
 
 
-def init_sampling_trait_and_weights(trait_tbl, time_var_tbl, ads,
+def init_sampling_trait_and_weights(trait_tbl, time_var_tbl, ads, me,
                                     nodes, bias_node=False,
                                     n_taxa=None,
                                     replicates_tbls=None,
@@ -2481,6 +2481,7 @@ def init_sampling_trait_and_weights(trait_tbl, time_var_tbl, ads,
         tbl_trt = np.empty((n_taxa, 0))
         tbl_env = np.empty((n_taxa, 0))
         tbl_ads = np.empty((n_taxa, 0))
+        tbl_me = np.empty((n_taxa, 0))
 
         if is_env_dep:
             n_env_bins, n_env_var = time_var_tbl.shape
@@ -2497,16 +2498,25 @@ def init_sampling_trait_and_weights(trait_tbl, time_var_tbl, ads,
         if is_trait_dep:
             tbl_trt = trait_tbl
 
+        if me:
+            tbl_me = np.empty((n_taxa, 1))
+
         n_q_bins = np.maximum(n_env_bins, n_ads_bins)
         if n_q_bins > 1:
             tbl_trt = np.tile(tbl_trt, (n_q_bins, 1, 1))
+            tbl_me = np.tile(tbl_me, (n_q_bins, 1, tbl_me.shape[1]))
 
-        trait_tbl_q = np.c_[tbl_trt, tbl_env, tbl_ads]
+        trait_tbl_q = np.c_[tbl_trt, tbl_env, tbl_me, tbl_ads]
 
     else:
         trait_tbl_q = loaded_tbls
         if trait_tbl_q.ndim == 3:
             trait_tbl_q = trait_tbl_q[::-1, :, :]
+        if me:
+            n_taxa = trait_tbl_q.shape[1]
+            n_bins = trait_tbl_q.shape[0]
+            add_zeros = np.zeros(n_taxa * n_bins).reshape((n_bins, n_taxa, 1))
+            trait_tbl_q = np.c_[trait_tbl_q, add_zeros]
         if ads > 0:
             n_taxa = trait_tbl_q.shape[1]
             n_bins = trait_tbl_q.shape[0]
@@ -3055,6 +3065,13 @@ def add_taxon_age(ts, te, q_time_frames, trt_tbl, tsA=None, teA=None):
             rel_age = np.bincount(age_bins - np.min(age_bins), weights=age_norm) / c
         trt_tbl[n_bins - u, i, -1] = rel_age[::-1]
 #    trt_tbl[:, ts_te_changed, -1] -= 0.5 # center in 0
+    return trt_tbl
+
+
+def identify_me_victims(te, me_times, trt_tbl, idx):
+    num_me_events = me_times.shape[0]
+    num_taxa = trt_tbl.shape[-2]
+    trt_tbl[..., idx] = np.searchsorted(me_times, te) % 2
     return trt_tbl
 
 
@@ -4396,6 +4413,8 @@ def MCMC(all_arg):
                 trait_tbl_NN[2] = add_taxon_age(tsA, teA, q_time_frames_bdnn, trait_tbl_NN[2])
                 if not highres_q_repeats is None:
                     q_rates_tmp = q_ratesA[highres_q_repeats]
+            if snn_me:
+                trait_tbl_NN[2] = identify_me_victims(teA, snn_me_times, trait_tbl_NN[2], snn_me_idx)
             qbin_ts_te = None
             bdnn_q_ratesA = np.zeros(n_taxa)
             if occs_sp.ndim == 2:
@@ -4622,6 +4641,9 @@ def MCMC(all_arg):
                 if BDNNmodel in [2, 3]:
                     if bdnn_ads >= 0.0:
                         trait_tbl_NN[2] = add_taxon_age(ts, te, q_time_frames_bdnn, trait_tbl_NN[2], tsA, teA)
+                        rnd_layer_q = 0
+                    if snn_me and not np.allclose(te, teA):
+                        trait_tbl_NN[2] = identify_me_victims(te, snn_me_times, trait_tbl_NN[2], snn_me_idx)
                         rnd_layer_q = 0
 
             tot_L=np.sum(ts-te)
@@ -4894,9 +4916,9 @@ def MCMC(all_arg):
                                 q_rates_tmp = q_rates
                                 if not highres_q_repeats is None:
                                     q_rates_tmp = q_rates[highres_q_repeats]
-                                if (snn_timevar or bdnn_ads > 0.0) and ts_te_updated:
+                                if (snn_timevar or bdnn_ads > 0.0 or (snn_me and not np.allclose(te, teA))) and ts_te_updated:
                                     qbin_ts_te = get_bin_ts_te(ts, te, q_time_frames_bdnn)
-                                if cov_q_updated or (ts_te_updated and bdnn_ads > 0.0):
+                                if cov_q_updated or (ts_te_updated and bdnn_ads > 0.0) or (snn_me and not np.allclose(te, teA)):
                                     qnn_output_unreg, nn_q = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_par[2], nn_qA,
                                                                                     hidden_act_f, out_act_f_q, rnd_layer=rnd_layer_q)
                                 q_multi, denom_q, norm_fac = get_q_multipliers_NN(cov_par[5], qnn_output_unreg, singleton_mask, apply_reg_q, qbin_ts_te)
@@ -5376,6 +5398,18 @@ def MCMC(all_arg):
         if Post>-inf and Post<inf:
             r_acc = log(np.random.random())
             is_accepted = Post*tempMC3-PostA*tempMC3 + hasting >= r_acc or stop_update==inf and TDI in [2,3,4] or accept_it==1
+
+            # if updated_lam_mu:
+            #     print('accepted', is_accepted)
+            #     if (len(L) == len(LA)):
+            #         if np.any((L - LA).nonzero()[0]):
+            #             print('L', L)
+            #             print('LA', LA)
+            #     if len(M) == len(MA):
+            #         if np.any((M - MA).nonzero()[0]):
+            #             print('M', M)
+            #             print('MA', MA)
+
             if is_accepted:
                 likBDtempA=likBDtemp
                 PostA=Post
@@ -5976,6 +6010,7 @@ if __name__ == '__main__':
     p.add_argument('-SNNtimevar', type=str, help='Time variable file for sampling process, several variable in different columns possible', default="", metavar="")
     p.add_argument('-SNNads', type=float, help='(Relative)age-dependent sampling (-1.0: off; 0.0: use qShifts; >0.0 resample qShifts to this value)', default=-1.0, metavar=1)
     p.add_argument('-SNNtrait_file', type=str, help="Load trait table for sampling neural network model", metavar='<input file>', default="")
+    p.add_argument('-SNNmass_ext', type=float, help='lower and upper time bounds for mass extinctions (e.g. 205 201 68 66)', default=[inf, inf], metavar=[inf, inf], nargs='+')
     p.add_argument('-BDNNpath_taxon_time_tables', type=str, help='Path to director(y|ies) with table(s) of taxon-time specific predictors. One path for identical speciation/extinction predictors, two paths if they differ.', default=["", ""], nargs='+')
     p.add_argument('-SNNpath_taxon_time_tables', type=str, help='Path to directory with table(s) of taxon-time specific predictors for sampling.', default="", nargs=1)
     p.add_argument('-BDNNexport_taxon_time_tables', help='Export BDNN predictors. Creates a new directory with one text file per time bin (from most recent to earliest).', action='store_true', default=False)
@@ -7413,9 +7448,14 @@ if __name__ == '__main__':
                 names_time_var_q = []
                 if bdnn_timevar_q:
                     time_var_q, names_time_var_q = get_binned_time_variable(q_time_frames_bdnn, bdnn_timevar_q, args.rescale, args.translate)
+                snn_me = np.all(np.isfinite(args.SNNmass_ext))
+                if snn_me:
+                    snn_me_times = np.sort(np.array(args.SNNmass_ext))
+                    snn_me_idx = -1 - int(bdnn_ads > 0)
                 trait_tbl_NN[2], cov_par_init_NN_q = init_sampling_trait_and_weights(trait_values_q,
                                                                                      time_var_q,
                                                                                      bdnn_ads,
+                                                                                     snn_me,
                                                                                      n_BDNN_nodes,
                                                                                      bias_node=False,
                                                                                      n_taxa=n_taxa,
@@ -7737,6 +7777,8 @@ if __name__ == '__main__':
                 names_traits_q = snn_loaded_names_traits
             names_features_q += names_traits_q
             names_features_q += names_time_var_q
+            if snn_me:
+                names_features_q += ['me_victim']
             if bdnn_ads >= 0.0:
                 names_features_q += ['taxon_age']
             bdnn_dict.update({
@@ -7755,6 +7797,11 @@ if __name__ == '__main__':
                     'q_time_frames': q_time_frames_bdnn,
                     'duration_q_bins': duration_q_bins,
                     'occs_single_bin': occs_single_bin
+                })
+            if snn_me:
+                bdnn_dict.update({
+                    'snn_me_times': snn_me_times,
+                    'snn_me_idx': snn_me_idx
                 })
             if not highres_q_repeats is None: # bdnn_ads >= 0.0:
                 bdnn_dict.update({'highres_q_repeats': highres_q_repeats})

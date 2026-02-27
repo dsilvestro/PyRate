@@ -56,6 +56,7 @@ from PyRate import make_missing_bins
 from PyRate import harmonic_mean_q_through_time
 from PyRate import prior_gamma
 from PyRate import add_taxon_age
+from PyRate import identify_me_victims
 from PyRate import get_float_prec_f
 
 from scipy.special import bernoulli, binom
@@ -1050,6 +1051,10 @@ def get_q_rates_and_multipliers(bdnn_obj, w_q, ts, te, ts_max, t_reg_q, reg_deno
         use_HPP_NN_lik = False
     q_bins_copy = np.copy(q_bins)
 
+    if 'me_victim' in names_features:
+        snn_me_times = bdnn_obj.bdnn_settings['snn_me_times']
+        snn_me_idx = bdnn_obj.bdnn_settings['snn_me_idx']
+
     # 0bjects for rate calculation
     q_rates = None
     if calc_q_rates:
@@ -1122,6 +1127,8 @@ def get_q_rates_and_multipliers(bdnn_obj, w_q, ts, te, ts_max, t_reg_q, reg_deno
             singleton_lik = singleton_lik[:, 0].reshape(-1)
 
         trt_tbl_a = np.copy(trt_tbl)
+        if 'me_victim' in names_features:
+            trt_tbl_a = identify_me_victims(te[i, :], snn_me_times, trt_tbl_a, snn_me_idx)
         if 'taxon_age' in names_features:
             trt_tbl_a = add_taxon_age(ts[i, :], te[i, :], q_bins_copy, trt_tbl_a)
         if trt_tbl_a.ndim == 3:
@@ -2470,11 +2477,18 @@ def build_conditional_trait_tbl(bdnn_obj,
         if is_time_trait(bdnn_obj):
             div_idx_trt_tbl = -2
         trait_tbl[ :, :, div_idx_trt_tbl] = div_traj_binned
+
+    if rate_type == "sampling" and 'me_victim' in names_features:
+        snn_me_idx = bdnn_obj.bdnn_settings['snn_me_idx']
+        n_taxa = trait_tbl.shape[-2]
+        trait_tbl[..., snn_me_idx] = np.random.choice([0, 1], n_taxa)
+
     if rate_type == "sampling" and "taxon_age" in names_features:
         s0, s1, _ = trait_tbl.shape
         # Use random values to avoid being detected as categorical feature
         trait_tbl[ :, :, -1] = np.random.uniform(0.0, 1.0, size=s0 * s1).reshape((s0, s1))
         trait_tbl[ :, 0, -1] = np.linspace(1.0, 0.0, s0)
+
     n_features = trait_tbl.shape[-1]
     idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
     conc_comb_feat = np.array([])
@@ -2490,6 +2504,7 @@ def build_conditional_trait_tbl(bdnn_obj,
                                                   conc_comb_feat,
                                                   len_cont,
                                                   bins_within_edges)
+
     feature_variation = is_time_variable_feature(trait_tbl)
     feature_is_time_variable = feature_variation[0,:]
     
@@ -4883,8 +4898,10 @@ def get_partial_dependence_rates(bdnn_obj, cond_trait_tbl, post_w, post_t_reg, p
     float_prec_f = get_float_prec_f_from_bdnn_obj(bdnn_obj, bdnn_precision)
     trait_tbl = set_list_prec(trait_tbl, float_prec_f)
     names_features = get_names_features(bdnn_obj, rate_type=rate_type)
+    if 'me_victim' in names_features:
+        snn_me_times = bdnn_obj.bdnn_settings['snn_me_times']
+        snn_me_idx = bdnn_obj.bdnn_settings['snn_me_idx']
     idx_comb_feat = get_idx_comb_feat(names_features, combine_discr_features)
-    args = []
     if rate_type == 'sampling':
         out_act_f = bdnn_obj.bdnn_settings['out_act_f_q']
         if not replicates_q is None and 'q_time_frames' in bdnn_obj.bdnn_settings.keys():
@@ -4893,9 +4910,13 @@ def get_partial_dependence_rates(bdnn_obj, cond_trait_tbl, post_w, post_t_reg, p
         out_act_f = bdnn_obj.bdnn_settings['out_act_f']
     hidden_act_f = bdnn_obj.bdnn_settings['hidden_act_f']
     bins_within_edges, bias_node_idx, fix_edgeShift, times_edgeShifts = get_edgeShifts_obj(bdnn_obj, min_age, max_age, translate, rate_type)
+
+    args = []
     for i in range(num_it):
         trait_tbl_a = trait_tbl + 0.0
         if rate_type == 'sampling':
+            if 'me_victim' in names_features:
+                trait_tbl_a = identify_me_victims(post_te[i, :], snn_me_times, trait_tbl_a, snn_me_idx)
             if 'taxon_age' in names_features:
                 trait_tbl_a = add_taxon_age(post_ts[i, :], post_te[i, :], bdnn_obj.bdnn_settings['q_time_frames'], trait_tbl_a)
             if replicates_q is None:
