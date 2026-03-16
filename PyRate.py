@@ -1221,10 +1221,10 @@ def init_ts_te(FA,LO):
         ts[ts>boundMax] = np.random.uniform(FA[ts>boundMax],boundMax,len(ts[ts>boundMax])) # avoit init values outside bounds
     if np.min(te) < boundMin:
         te[te<boundMin] = np.random.uniform(boundMin,LO[te<boundMin],len(te[te<boundMin])) # avoit init values outside bounds
-    if np.any(bound_ts != bound_ts[0]):
+    if np.any(bound_ts != bound_ts[0]) or not np.all(np.isnan(bound_ts)):
         indx = ts > bound_ts
         ts[indx] = np.random.uniform(bound_ts[indx], FA[indx], len(ts[indx])) # avoid init values older than max_ts in -bound_se
-    if np.any(bound_te != bound_te[0]):
+    if np.any(bound_te != bound_te[0]) or not np.all(np.isnan(bound_te)):
         indx = te < bound_te
         te[indx] = np.random.uniform(bound_te[indx], LO[indx], len(te[indx])) # avoid init values yonger than min_ts in -bound_se
     #te=LO*tt
@@ -1588,7 +1588,7 @@ def make_tste_tune_obj(LO, bound_te, d1):
 
 
 def tune_tste_windows(d1_ts, d1_te,
-                      LO, bound_te, tste_tune_obj,
+                      FA, LO, bound_ts, bound_te, tste_tune_obj,
                       it, tune_T_schedule,
                       updated, se_updated,
                       accepted=0, target=[0.2, 0.4]):
@@ -1624,6 +1624,10 @@ def tune_tste_windows(d1_ts, d1_te,
             d1_ts[too_high] = 1.1 * d1_ts[too_high]
         else:
             d1_te[too_high] = 1.1 * d1_te[too_high]
+
+        b = 2 * (bound_ts - FA)
+        exceeds_upper_bound = d1_ts > b
+        d1_ts[exceeds_upper_bound] = b[exceeds_upper_bound]
 
         b = 2 * (LO - bound_te)
         exceeds_LO = d1_te > b
@@ -2230,7 +2234,7 @@ def BDNN_fast_partial_lik(arg):
     r_i_events[np.isfinite(r_i_events)] = np.log(r_i_events[np.isfinite(r_i_events)])
     rns = np.nan_to_num(r_i_events) + -r * n_S
     lik = np.sum(rns[:, include[0, :]], axis=1) # Likelihood only within edges
-#    lik = np.sum(rns, axis=1)
+    # lik = np.sum(rns, axis=1)
     return lik
 
 
@@ -5454,7 +5458,7 @@ def MCMC(all_arg):
                     bdnn_prior_qA = bdnn_prior_q
                     nn_qA = nn_q
                 if ts_te_updated and tune_T_schedule[0] > 0:
-                    d1_ts, d1_te, tste_tune_obj = tune_tste_windows(d1_ts, d1_te, LO, bound_te, tste_tune_obj, it,
+                    d1_ts, d1_te, tste_tune_obj = tune_tste_windows(d1_ts, d1_te, FA, LO, bound_ts, bound_te, tste_tune_obj, it,
                                                                     tune_T_schedule, ind_updated_tste, ts_or_te_updated,
                                                                     accepted=1)
                 elif q_updated and tune_Q_schedule[0] > 0:
@@ -5484,7 +5488,7 @@ def MCMC(all_arg):
 #                        qbin_ts_te = get_bin_ts_te(tsA, teA, q_time_frames_bdnn)
             if not is_accepted:
                 if ts_te_updated and tune_T_schedule[0] > 0:
-                    d1_ts, d1_te, tste_tune_obj = tune_tste_windows(d1_ts, d1_te, LO, bound_te, tste_tune_obj, it,
+                    d1_ts, d1_te, tste_tune_obj = tune_tste_windows(d1_ts, d1_te, FA, LO, bound_ts, bound_te, tste_tune_obj, it,
                                                                     tune_T_schedule, ind_updated_tste, ts_or_te_updated,
                                                                     accepted=0)
                 elif q_updated and tune_Q_schedule[0] > 0:
