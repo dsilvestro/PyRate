@@ -5311,7 +5311,6 @@ def MCMC(all_arg):
             prior += -log(maxTs-minTe)*(len(L)-1+len(M)-1)
             prior += Poisson_prior(len(L),rj_cat_HP)+Poisson_prior(len(M),rj_cat_HP)
             #if it % 100 ==0: print len(L),len(M), prior_old, -log(max(ts)-min(te))*(len(L)-1+len(M)-1), hasting
-
             if get_min_diffTime(timesL)<=min_allowed_t or get_min_diffTime(timesM)<=min_allowed_t: prior = -np.inf
 
         priorBD= get_hyper_priorBD(timesL,timesM,L,M,maxTs,hyperP)
@@ -5773,7 +5772,7 @@ def MCMC(all_arg):
                     w_marg_q.writerow(qtt)
                     marginal_q_rate_file.flush()
                     os.fsync(marginal_q_rate_file)
-                    if not samplingNN_TDI0 and BDNNmodel == 2:
+                    if not samplingNN_constBD and BDNNmodel == 2:
                         w_marg_sp.writerow(list(LA) + list(timesLA[1:len(timesLA)-1]))
                         marginal_sp_rate_file.flush()
                         os.fsync(marginal_sp_rate_file)
@@ -8009,8 +8008,8 @@ if __name__ == '__main__':
 
         # save files with sp/ex rates and times of shift
         elif log_marginal_rates_to_file == 0:
-            samplingNN_TDI0 = BDNNmodel == 2 and TDI == 0
-            if TDI==4 or use_ADE_model != 0 or (BDNNmodel and not samplingNN_TDI0):
+            samplingNN_constBD = BDNNmodel == 2 and TDI == 0 and not args.fixShift != ""
+            if TDI==4 or use_ADE_model != 0 or (BDNNmodel and not samplingNN_constBD):
                 marginal_sp_rate_file_name = "%s/%s_sp_rates.log" % (path_dir, suff_out)
                 marginal_sp_rate_file = open(marginal_sp_rate_file_name , "w", newline="")
                 w_marg_sp=csv.writer(marginal_sp_rate_file, delimiter='\t')
