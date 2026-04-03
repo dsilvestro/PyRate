@@ -7835,6 +7835,10 @@ def k_add_kernel_shap_sampling(mcmc_file, pkl_file, burnin, thin, combine_discr_
     n_features = trt_tbl.shape[-1]
 
     names_features = get_names_features(bdnn_obj, rate_type='sampling')
+    if 'me_victim' in names_features:
+        snn_me_times = bdnn_obj.bdnn_settings['snn_me_times']
+        snn_me_idx = bdnn_obj.bdnn_settings['snn_me_idx']
+
     n_states = 1
     if len(combine_discr_features) > 0:
         feature_group_vals = list(combine_discr_features.values())
@@ -7863,6 +7867,8 @@ def k_add_kernel_shap_sampling(mcmc_file, pkl_file, burnin, thin, combine_discr_
 
     args = []
     for i in range(mcmc_samples):
+        if 'me_victim' in names_features:
+            trt_tbl = identify_me_victims(post_te[i, :], snn_me_times, trt_tbl, snn_me_idx)
         if 'taxon_age' in names_features:
             trt_tbl = add_taxon_age(post_ts[i, :], post_te[i, :], bdnn_obj.bdnn_settings['q_time_frames'], trt_tbl)
         if replicates_q is None:
