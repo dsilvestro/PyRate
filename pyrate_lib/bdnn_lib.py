@@ -1073,6 +1073,9 @@ def get_q_rates_and_multipliers(bdnn_obj, w_q, ts, te, ts_max, t_reg_q, reg_deno
         if 'highres_q_repeats' in bdnn_obj.bdnn_settings.keys():
             baseline_q = baseline_q[:, bdnn_obj.bdnn_settings['highres_q_repeats'].astype(int)]
 
+        if not 'q_time_frames' in bdnn_obj.bdnn_settings.keys() and extent_until_root:
+            extent_until_root = False
+
         if extent_until_root:
             mean_bin_size = np.mean(duration_q_bins[0, :])
             add_bins = np.arange(ts_max, q_bins_copy[0], -mean_bin_size)
@@ -1439,12 +1442,20 @@ def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, baseline_q=Non
         q_rates_hpd = np.full((2, n_taxa, num_q_bins), np.nan)
         for i in range(n_taxa):
             for j in range(num_q_bins):
-                qm_ij = qm[..., i, j]
-                qm_ij = qm_ij[~np.isnan(qm_ij)]
-                nData = len(qm_ij)
-                nIn = int(round(0.95 * nData))
-                if nIn > 3:
-                    q_multi_hpd[:, i, j] = util.calcHPD(qm_ij, 0.95)
+                if qm.ndim == 3:
+                    qm_ij = qm[..., i, j]
+                    qm_ij = qm_ij[~np.isnan(qm_ij)]
+                    nData = len(qm_ij)
+                    nIn = int(round(0.95 * nData))
+                    if nIn > 3:
+                        q_multi_hpd[:, i, j] = util.calcHPD(qm_ij, 0.95)
+                elif j == 0:
+                    qm_i = qm[:, i]
+                    nData = len(qm_i)
+                    nIn = int(round(0.95 * nData))
+                    if nIn > 3:
+                        hpd_i = util.calcHPD(qm_i, 0.95)
+                        q_multi_hpd[:, i, :] = np.repeat(hpd_i, num_q_bins).reshape((2, num_q_bins))
                 qr_ij = q_rates[..., i, j]
                 qr_ij = qr_ij[~np.isnan(qr_ij)]
                 nData = len(qr_ij)
