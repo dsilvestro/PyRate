@@ -4171,17 +4171,18 @@ def get_init_values(mcmc_log_file, taxa_names, float_prec_f):
         ts = tbl[last_row,ts_index]
         te = tbl[last_row,te_index]
         if len(fixed_times_of_shift)>0: # fixShift
+            hyp = np.ones(2)
             try:
-                hyp_index = [head.index("hypL"), head.index("hypM")]
                 l_index = [head.index(i) for i in head if "lambda_" in i]
                 m_index = [head.index(i) for i in head if "mu_" in i]
                 lam = tbl[last_row,l_index]
                 mu  = tbl[last_row,m_index]
-                hyp = tbl[last_row,hyp_index]
+                if "hypL" in head:
+                    hyp_index = [head.index("hypL"), head.index("hypM")]
+                    hyp = tbl[last_row, hyp_index]
             except:
                 lam = np.array([float(len(ts))/sum(ts-te)      ])    # const rate ML estimator
                 mu  = np.array([float(len(te[te>0]))/sum(ts-te)])    # const rate ML estimator
-                hyp = np.ones(2)
         else:
             hyp = np.ones(2)
             if TDI == 4:
@@ -6971,6 +6972,8 @@ if __name__ == '__main__':
 
     if len(fixed_times_of_shift)>0:
         fixed_times_of_shift=fixed_times_of_shift[fixed_times_of_shift<np.max(FA)]
+        if args.fixShift != '':
+            fixed_times_of_shift = fixed_times_of_shift[fixed_times_of_shift > np.min(LO)]
         # fixed number of dpp bins
         if args.dpp_nB>0:
             t_bin_set = np.linspace(0,np.max(FA),args.dpp_nB+1)[::-1]
