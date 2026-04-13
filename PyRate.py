@@ -1312,50 +1312,49 @@ def update_parameter_normal_vec(oldL, d, f=.25, par_mask=None, float_prec_f=np.f
     return p
 
 
+def update_multiplier(x, d, f):
+    """
+    Generic multiplier proposal:
+    - x: array to update
+    - d: tuning parameter
+    - f: probability of updating each element
+    """
+    S = np.shape(x)
+    ff = np.random.binomial(1, f, S)
+    if np.sum(ff) == 0:
+        ff[np.random.randint(S, size=1)] = 1
+
+    u = np.random.uniform(0, 1, S)
+    l = 2 * np.log(d)
+    m = np.exp(l * (u - 0.5))
+    m[ff == 0] = 1.0
+    new_x = x * m
+    U = np.sum(np.log(m))
+
+    return new_x, U
+
+
 def update_rates_multiplier(L,M,tot_L,mod_d3):
     if use_ADE_model == 0 and use_Death_model == 0:
         # UPDATE LAMBDA
-        S=np.shape(L)
-        #print L, S
-        ff=np.random.binomial(1,f_rate,S)
-        #print ff
-        d=1.2
-        u = np.random.uniform(0,1,S)
-        l = 2*log(mod_d3)
-        m = exp(l*(u-.5))
-        m[ff==0] = 1.
-        newL = L * m
-        U=sum(log(m))
-    else: U,newL = 0,L
+        newL, U = update_multiplier(L, mod_d3, f_rate)
+    else:
+        U, newL = 0, L
 
-    # UPDATE MU
     if use_Birth_model == 0:
-        S=np.shape(M)
-        ff=np.random.binomial(1,f_rate,S)
-        d=1.2
-        u = np.random.uniform(0,1,S) #*np.rint(np.random.uniform(0,f,S))
-        l = 2*log(mod_d3)
-        m = exp(l*(u-.5))
-        m[ff==0] = 1.
-        newM = M * m
-        U+=sum(log(m))
-    else: 
+        # UPDATE MU
+        newM, Umu = update_multiplier(M, mod_d3, f_rate)
+        U += Umu
+    else:
         newM = M
-    return newL,newM,U
 
-def update_q_multiplier(q,d=1.1,f=0.75):
-    S=np.shape(q)
-    ff=np.random.binomial(1,f,S)
-    # avoid no update being performed at all
-    if np.sum(ff) == 0:
-        ff[np.random.randint(S, size=1)] = 1
-    u = np.random.uniform(0,1,S)
-    l = 2*log(d)
-    m = exp(l*(u-.5))
-    m[ff==0] = 1.
-    new_q = q * m
-    U=sum(log(m))
-    return new_q,U
+    return newL, newM, U
+
+
+def update_q_multiplier(q, d=1.1, f=0.75):
+    new_q, U = update_multiplier(q, d, f)
+    return new_q, U
+
 
 def update_times(times, max_time,min_time, mod_d4,a,b):
     rS= times+zeros(len(times))
