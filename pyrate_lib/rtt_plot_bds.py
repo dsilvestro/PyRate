@@ -129,7 +129,7 @@ def RTTplot_high_res(f,grid_cell_size=1.,burnin=0,max_age=0):
 
 def RTTplot_Q(f, q_shift_file, burnin=0, min_age=0, max_age=0, translate=0, logT=0, r_script=None,
               x_label='Ma', y_label='Preservation rate', title='Preservation rates', col="#756bb1", lwd=3,
-              min_y_axis=None, max_y_axis=None, use_mean_event_ages=False):
+              min_y_axis=None, max_y_axis=None, use_mean_event_ages=True, plot_q_shifts=False):
     wd = "%s" % os.path.dirname(os.path.realpath(f)) # What is "%s" doing here?
     name_file=os.path.splitext(os.path.basename(f))[0]
     t = np.loadtxt(f, skiprows=1)
@@ -168,6 +168,14 @@ def RTTplot_Q(f, q_shift_file, burnin=0, min_age=0, max_age=0, translate=0, logT
     if used_qFilter:
         times_q_shift = times_q_shift[times_q_shift > max_death_age]
         times_q_shift = times_q_shift[times_q_shift < min_root_age]
+        still_to_many = len(times_q_shift) >= len(q_ind)
+        if still_to_many:
+            dist_recent_shift = times_q_shift[-1] - max_death_age
+            dist_earliest_shift = min_root_age - times_q_shift[0]
+            if dist_earliest_shift < dist_recent_shift or max_death_age == 0:
+                times_q_shift = times_q_shift[1:]
+            else:
+                times_q_shift = times_q_shift[:-1]
 
     if min_age != 0:
         max_death_age = min_age
@@ -250,6 +258,9 @@ def RTTplot_Q(f, q_shift_file, burnin=0, min_age=0, max_age=0, translate=0, logT
             if not r_script is None:
                 data += "\nxaxt_labels = abs(xaxt_labels)"
             data += "\naxis(side = 1, at = xaxt, labels = xaxt_labels)"
+            if plot_q_shifts:
+                data += util.print_R_vec('\nq_shift', -times_q_shift[1:-1])
+                data += "\nabline(v = q_shift, lty = 2, col = 'grey')"
         else:
             data += """\nsegments(x0=age[1], y0 = %s, x1 = age[1], y1 = Q_mean, col = '%s', lwd = %s)""" % (Q_mean_previous, col, lwd)
         Q_mean_previous = Q_mean + 0.0
