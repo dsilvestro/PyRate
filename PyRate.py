@@ -4924,7 +4924,7 @@ def MCMC(all_arg):
                 else:
                     if num_processes_ts==0:
                         if BDNNmodel in [2, 3]:
-                            if it > 0 and (rr == 1.5 or updated_lam_mu):
+                            if it > 0 and (rr == 1.5 or updated_lam_mu or cov_lam_updated or cov_mu_updated):
                                 # RJMCMC move for lam/mu or last mcmc iteration
                                 lik_fossil = lik_fossilA + 0.0
                             else:
@@ -4932,15 +4932,16 @@ def MCMC(all_arg):
                                 if not highres_q_repeats is None:
                                     q_rates_tmp = q_rates[highres_q_repeats]
 
-                                if (snn_timevar or bdnn_ads > 0.0) and ts_te_updated:
+                                update_qbin_ts_te = (snn_timevar or bdnn_ads > 0.0) and ts_te_updated
+                                if update_qbin_ts_te:
                                     qbin_ts_te = get_bin_ts_te(ts, te, q_time_frames_bdnn)
 
-                                calc_snn = (cov_q_updated and rnd_layer_q > -1) or (ts_te_updated and bdnn_ads > 0.0) or snn_me_victims_changed
-                                if calc_snn:
+                                update_snn = (cov_q_updated and rnd_layer_q > -1) or (ts_te_updated and bdnn_ads > 0.0) or snn_me_victims_changed
+                                if update_snn:
                                     qnn_output_unreg, nn_q = get_unreg_rate_BDNN_3D(trait_tbl_NN[2], cov_par[2], nn_qA,
                                                                                     hidden_act_f, out_act_f_q, rnd_layer=rnd_layer_q)
 
-                                if calc_snn or (cov_q_updated and rnd_layer_q == -1):
+                                if update_qbin_ts_te or update_snn or (cov_q_updated and rnd_layer_q == -1):
                                     q_multi, denom_q, norm_fac = get_q_multipliers_NN(cov_par[5], qnn_output_unreg,
                                                                                       singleton_mask, apply_reg_q, qbin_ts_te)
 
