@@ -4797,7 +4797,7 @@ def MCMC(all_arg):
                                                                       apply_reg, bias_node_idx, fix_edgeShift,
                                                                       rnd_layer_mu)
 
-            if BDNNmodel in [2, 3]:
+            elif BDNNmodel in [2, 3]:
                 cov_q_updated = 1
                 rnd_layer_q = -1
                 if prior_lam_t_reg[-1] > 0 and np.random.random() < 0.1:
