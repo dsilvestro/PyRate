@@ -4716,8 +4716,8 @@ def MCMC(all_arg):
 
         elif rr<f_update_cov: # cov
             # Do not update weights for lam/mu and q at the same time
-            rr_bdnn = (np.random.random() - 0.5) * int(BDNNmodel in [3])
-            if BDNNmodel in [1, 3] and rr_bdnn <= 0.0:
+            rr_bdnn = np.random.random() * int(BDNNmodel in [2, 3])
+            if BDNNmodel in [1, 3] and rr_bdnn <= 0.5:
 #                cov_lam_updated = 1
 #                cov_mu_updated = 1
 #                rnd_layer = np.random.randint(0, len(cov_parA[0]))
@@ -4797,7 +4797,7 @@ def MCMC(all_arg):
                                                                       apply_reg, bias_node_idx, fix_edgeShift,
                                                                       rnd_layer_mu)
 
-            if BDNNmodel in [2, 3] and rr_bdnn > 0.0:
+            if BDNNmodel in [2, 3]:
                 cov_q_updated = 1
                 rnd_layer_q = -1
                 if prior_lam_t_reg[-1] > 0 and np.random.random() < 0.1:
@@ -4963,12 +4963,12 @@ def MCMC(all_arg):
 
                     if use_HPP_NN_lik:
                         lik_fossil[ind1], bdnn_q_rates[ind1, :], _ = HPP_NN_lik([ts[ind1], te[ind1],
-                                                                                q_rates_tmp, alpha_pp_gamma,
-                                                                                q_multi[ind1], const_q,
-                                                                                occs_sp[ind1, :], log_factorial_occs[ind1],
-                                                                                q_time_frames_bdnn, duration_q_bins[ind1, :],
-                                                                                occs_single_bin[ind1], singleton_lik[ind1],
-                                                                                argsG, pp_gamma_ncat, YangGammaQuant])
+                                                                                 q_rates_tmp, alpha_pp_gamma,
+                                                                                 q_multi[ind1], const_q,
+                                                                                 occs_sp[ind1, :], log_factorial_occs[ind1],
+                                                                                 q_time_frames_bdnn, duration_q_bins[ind1, :],
+                                                                                 occs_single_bin[ind1], singleton_lik[ind1],
+                                                                                 argsG, pp_gamma_ncat, YangGammaQuant])
                     else:
                         lik_fossil[ind1], bdnn_q_rates[ind1], _ = HOMPP_NN_lik([ts[ind1], te[ind1],
                                                                                 q_rates_tmp,
