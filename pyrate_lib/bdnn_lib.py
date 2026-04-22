@@ -1195,7 +1195,8 @@ def get_q_rates_and_multipliers(bdnn_obj, w_q, ts, te, ts_max, t_reg_q, reg_deno
     return q_rates, q_multi, np.mean(alpha), q_bins
 
 
-def make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names, q_shift="", alpha=1, suffix_pdf="taxon_q_multi", logT=0, q_hpd=None):
+def make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names, q_shift="", alpha=1,
+                       suffix_pdf="taxon_q_multi", logT=0, q_hpd=None, fossils=None):
     mid_colorramp = 1
     if logT == 1:
         q_multi = np.log(q_multi)
@@ -1231,6 +1232,11 @@ def make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names, q_shif
     r_script += "\nq_list = vector(mode = 'list', length = %s)" % n_taxa
     for i in range(n_taxa):
         r_script += util.print_R_vec("\nq_list[[%s]]", q_multi[i, :]) % (i + 1)
+    if not fossils is None:
+        r_script += "\n"
+        r_script += "\nfossils = vector(mode = 'list', length = %s)" % n_taxa
+        for i in range(n_taxa):
+            r_script += util.print_R_vec("\nfossils[[%s]]", fossils[i]) % (i + 1)
     r_script += "\n"
     r_script += "\ntaxon_names = rep(NA_character_, length = %s)" % n_taxa
     for i in range(n_taxa):
@@ -1258,6 +1264,9 @@ def make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names, q_shif
     r_script += "\n         ybottom = i - 0.4, ytop = i + 0.4,"
     r_script += "\n         border = NA, col = col_i[j])"
     r_script += "\n  }"
+    if not fossils is None:
+        r_script += "\n  points(x = fossils[[i]], y = rep(i, length(fossils[[i]])),"
+        r_script += "\n         pch = 4, cex = 0.5, lwd = 0.5, col = adjustcolor('black', alpha = 0.5))"
     r_script += "\n  text(x = q_times_i[1] + a, y = i, labels = taxon_names[i], cex = 0.3, adj = 1)"
     r_script += "\n}"
     r_script += "\n"
@@ -1439,7 +1448,8 @@ def read_q_shift(q_shift_file, max_age=np.inf, min_age=0.0, translate=0.0):
 
 
 def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, baseline_q=None, bdnn_precision=0,
-                              min_age=0, max_age=0, translate=0, order_by_ts=True, logT=0, calcHPD=True, q_shift_file=""):
+                              min_age=0, max_age=0, translate=0, order_by_ts=True, logT=0, calcHPD=True,
+                              q_shift_file="", plot_fossils=False):
     pkl_file = path_dir_log_files + ".pkl"
     mcmc_file = path_dir_log_files + "_mcmc.log"
     bdnn_obj, _, _, w_q, sp_fad_lad, ts, te, _, _, t_reg_q, _, _, reg_denom_q, norm_q, alpha, replicates_q = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
@@ -1523,7 +1533,14 @@ def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, baseline_q=Non
                                            min_age, max_age, translate, ts_mean[ord], te_mean[ord])
         q_multi_hpd = np.stack((q_multi_lwr, q_multi_upr))
 
-    make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names_1, q_shift, alpha, suffix_pdf="taxon_q_multi", q_hpd=q_multi_hpd)
+    fossils = None
+    if plot_fossils:
+        fossils = bdnn_obj.occ_data
+        if order_by_ts:
+            fossils = [fossils[i] for i in ord]
+
+    make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names_1, q_shift, alpha,
+                       suffix_pdf="taxon_q_multi", q_hpd=q_multi_hpd, fossils=fossils)
 
     # taxon-time specific q rates
     if q_rates.shape[-1] < num_q_bins or num_q_bins < 99:
@@ -1558,7 +1575,8 @@ def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, baseline_q=Non
                                                    min_age, max_age, translate, ts_mean[ord], te_mean[ord])
         q_rates_hpd = np.stack((q_rates_lwr, q_rates_upr))
 
-    make_taxon_qtt_pdf(path_dir_log_files, q_rates, q_times, taxon_names_2, q_shift, suffix_pdf="taxon_q", logT=logT, q_hpd=q_rates_hpd)
+    make_taxon_qtt_pdf(path_dir_log_files, q_rates, q_times, taxon_names_2, q_shift,
+                       suffix_pdf="taxon_q", logT=logT, q_hpd=q_rates_hpd, fossils=fossils)
 
 
 def get_qtt_baseline(sp_fad_lad, path_dir_log_files, burn, q_shift_file, qtt, time_vec_q, min_age, max_age, translate):
