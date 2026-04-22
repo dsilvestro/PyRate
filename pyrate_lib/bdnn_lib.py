@@ -1235,7 +1235,7 @@ def make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names, q_shif
     if not fossils is None:
         r_script += "\n"
         r_script += "\nfossils = vector(mode = 'list', length = %s)" % n_taxa
-        for i in range(n_taxa):
+        for i in range(len(fossils)):
             r_script += util.print_R_vec("\nfossils[[%s]]", fossils[i]) % (i + 1)
     r_script += "\n"
     r_script += "\ntaxon_names = rep(NA_character_, length = %s)" % n_taxa
@@ -1535,9 +1535,18 @@ def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, baseline_q=Non
 
     fossils = None
     if plot_fossils:
-        fossils = bdnn_obj.occ_data
+        occ_data = bdnn_obj.occ_data
         if order_by_ts:
-            fossils = [fossils[i] for i in ord]
+            occ_data = [occ_data[i] for i in ord]
+        fossils = []
+        for i in range(n_taxa):
+            fossils_tmp = occ_data[i] - translate
+            if min_age != 0:
+                fossils_tmp = fossils_tmp[fossils_tmp > min_age]
+            if max_age != 0:
+                fossils_tmp = fossils_tmp[fossils_tmp < max_age]
+            if len(fossils_tmp) > 0:
+                fossils.append(fossils_tmp)
 
     make_taxon_qtt_pdf(path_dir_log_files, q_multi, q_times, taxon_names_1, q_shift, alpha,
                        suffix_pdf="taxon_q_multi", q_hpd=q_multi_hpd, fossils=fossils)
