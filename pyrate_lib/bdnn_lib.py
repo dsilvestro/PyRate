@@ -1461,7 +1461,7 @@ def read_q_shift(q_shift_file, max_age=np.inf, min_age=0.0, translate=0.0):
 
 def plot_taxon_q_through_time(path_dir_log_files, burnin, thin=0, baseline_q=None, bdnn_precision=0,
                               min_age=0, max_age=0, translate=0, order_by_ts=True, logT=0, calcHPD=True,
-                              q_shift_file="", plot_fossils=True):
+                              q_shift_file="", plot_fossils=False):
     pkl_file = path_dir_log_files + ".pkl"
     mcmc_file = path_dir_log_files + "_mcmc.log"
     bdnn_obj, _, _, w_q, sp_fad_lad, ts, te, _, _, t_reg_q, _, _, reg_denom_q, norm_q, alpha, replicates_q = bdnn_parse_results(mcmc_file, pkl_file, burnin, thin)
