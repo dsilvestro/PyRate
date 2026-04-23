@@ -585,13 +585,13 @@ def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, lo
         newfile = open(out, "w")
         n_rows = 0
         n_elements = 0
-        if not r_sp_sum is None:
+        if has_div_rates:
             n_rows += 2
             n_elements += 4
-        if not r_q_sum is None:
+        if has_q_rates:
             n_rows += 1
             n_elements += 1
-            if not r_sp_sum is None:
+            if has_div_rates:
                 n_elements += 1
         if platform.system() == "Windows" or platform.system() == "Microsoft":
             wd_forward = os.path.abspath(output_wd).replace('\\', '/')
@@ -600,6 +600,7 @@ def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, lo
             r_script = "pdf(file='%s/%s', width = 9, height = %s, useDingbats = FALSE)\n" % (output_wd, pdf_file, 3 * n_rows)
         r_script += "\nlayout(matrix(1:%s, ncol = 2, nrow = %s, byrow = TRUE))" % (n_elements, n_rows)
         r_script += "\npar(las = 1, mar = c(4.5, 4.5, 0.5, 0.5))"
+
         if has_div_rates:
             net_div_greater0 = not np.any(r_div_sum < 0)
             if logT == 1:
@@ -708,7 +709,9 @@ def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, lo
             r_script += "\naxis(side = 2, at = yaxt, label = yaxt_label)"
             r_script += "\npolygon(c(time_vec[not_NA], rev(time_vec[not_NA])), c(long_lwr[not_NA], rev(long_upr[not_NA])), col = adjustcolor('black', alpha = 0.3), border = NA)"
             r_script += "\nlines(time_vec[not_NA], long_mean[not_NA], col = 'black', lwd = 2)"
-        if not r_q_sum is None:
+
+        y_lim_q = (0, 0)
+        if has_q_rates:
             if logT == 1:
                 r_q_sum = np.log(r_q_sum)
             elif logT == 2:
@@ -720,14 +723,15 @@ def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, lo
             r_script += util.print_R_vec('\nq_upr', r_q_sum[:, 2])
             r_script += "\nxlim = c(%s, %s)" % (np.max(time_vec_q), np.min(time_vec_q))
             if y_max_q is None:
-                r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_q_sum), np.nanmax(r_q_sum))
+                y_lim_q = (np.nanmin(r_q_sum), np.nanmax(r_q_sum))
             elif logT == 1:
-                r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_q_sum), np.log(y_max_q))
+                y_lim_q = (np.nanmin(r_q_sum), np.log(y_max_q))
             elif logT == 2:
-                r_script += "\nylim = c(%s, %s)" % (np.nanmin(r_q_sum), np.log10(y_max_q))
+                y_lim_q = (np.nanmin(r_q_sum), np.log10(y_max_q))
             else:
                 # as in rtt_plot_bds.RTTplot_Q
-                r_script += "\nylim = c(0, %s)" % y_max_q
+                y_lim_q = (0, y_max_q)
+            r_script += "\nylim = c(%s, %s)" % y_lim_q
             r_script += "\nnot_NA = !is.na(q_mean)"
             r_script += "\nplot(time_vec_q[not_NA], q_mean[not_NA], type = 'n', xlim = xlim, ylim = ylim, xlab = 'Time (Ma)', ylab = 'Sampling rate', yaxt = 'n')"
             r_script += "\nyaxt_label <- pretty(par('usr')[3:4])"
@@ -758,7 +762,7 @@ def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, lo
             print("cmd", cmd)
             os.system(cmd)
         else:
-            return r_script, newfile
+            return r_script, newfile, y_lim_q
 
 
 def get_rtt_summary(lam_it, mu_it, gs, times_of_shift, FA, ts, te, num_it, num_bins, translate):
@@ -852,9 +856,9 @@ def plot_rtt(path_dir_log_files, burn, thin=0, translate=0, min_age=0, max_age=0
         max_age2 = times_edgeShifts[0] - translate
     if fix_edgeShift in [1, 3] and min_age == 0.0: # both or min boundary
         min_age2 = times_edgeShifts[-1] - translate + 0.0001 * (times_edgeShifts[-1] - translate)
-    r_script, newfile = plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q,
-                                      min_age=min_age2, max_age=max_age2, translate=translate, y_max_q=y_max_q,
-                                      logT=logT, q_shift_file=q_shift_file, rscript_to_pdf=False)
+    r_script, newfile, y_lim_q = plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, qtt, time_vec_q,
+                                               min_age=min_age2, max_age=max_age2, translate=translate, y_max_q=y_max_q,
+                                               logT=logT, q_shift_file=q_shift_file, rscript_to_pdf=False)
 
     # if not r_script is None:
         # baseline sampling rate through time
@@ -866,6 +870,8 @@ def plot_rtt(path_dir_log_files, burn, thin=0, translate=0, min_age=0, max_age=0
         #     max_age2 = times_edgeShifts[0]
         # if fix_edgeShift in [1, 3] and min_age == 0.0: # both or min boundary
         #     min_age2 = times_edgeShifts[-1]
+        y_min_q = np.minimum(y_min_q, y_lim_q[0])
+        y_max_q = np.maximum(y_min_q, y_lim_q[1])
         if not q_shift_file == "":
             from pyrate_lib.rtt_plot_bds import RTTplot_Q
             r_script = RTTplot_Q(path_dir_log_files + "_mcmc.log", q_shift_file, burnin=burn,
