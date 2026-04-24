@@ -6022,7 +6022,6 @@ if __name__ == '__main__':
     p.add_argument('-BDNNpath_taxon_time_tables', type=str, help='Path to director(y|ies) with table(s) of taxon-time specific predictors. One path for identical speciation/extinction predictors, two paths if they differ.', default=["", ""], nargs='+')
     p.add_argument('-SNNpath_taxon_time_tables', type=str, help='Path to directory with table(s) of taxon-time specific predictors for sampling.', default="", nargs=1)
     p.add_argument('-BDNNexport_taxon_time_tables', help='Export BDNN predictors. Creates a new directory with one text file per time bin (from most recent to earliest).', action='store_true', default=False)
-    p.add_argument('-BDNNupdate_se_f', type=float, help='fraction of updated times of origination and extinction', default=[0.6], metavar=[0.6], nargs=1)
     p.add_argument('-BDNNupdate_f', type=float, help='fraction of updated weights', default=[0.1], metavar=[0.1], nargs='+')
     p.add_argument('-BDNNdd', help='Diversity-dependent BDNN', action='store_true', default=False)
     p.add_argument('-BDNNpklfile', type=str, help='Load BDNN pickle file', default="", metavar="")
@@ -6046,7 +6045,7 @@ if __name__ == '__main__':
     p.add_argument('-fS',     type=float, help='Tuning - fraction of updated values (shifts)', default=.7, metavar=.7)
     p.add_argument('-fQ',     type=float, help='Tuning - fraction of updated values (q rates, TPP)', default=.5, metavar=.5)
     p.add_argument('-tC',     type=float, help='Tuning - window sizes cov parameters (l,m,q)', default=[.2, .2, .15], nargs=3)
-    p.add_argument('-fU',     type=float, help='Tuning - update freq. (q: .02, l/m: .18, cov: .08)', default=[.02, .18, .08], nargs=3)
+    p.add_argument('-fU',     type=float, help='Tuning - update freq. (q: .02, l/m: .18, cov: .08; for BDNN and SNN q: .1 and cov: .3)', default=[.02, .18, .08], nargs=3)
     p.add_argument('-multiR', type=int,   help='Tuning - Proposals for l/m: 0) sliding win 1) muliplier ', default=1, metavar=1)
     p.add_argument('-tHP',    type=float, help='Tuning - window sizes hyperpriors on l and m', default=[1.2, 1.2], nargs=2)
     p.add_argument('-tuneT',  type=float, help='Autotuning window sizes tT. Maximum iteration and tuning interval', default=[0, 1000], nargs=2)
@@ -6165,9 +6164,18 @@ if __name__ == '__main__':
     freq_list=args.fU              # generate update frequencies by parm category
     d5=args.tC                     # win-size (cov)
     d_hyperprior=np.array(args.tHP)          # win-size hyper-priors onf l/m (or W_scale)
-    if model_cov==0: freq_list[2]=0
-    f_update_se=1-sum(freq_list)
-    if frac1==0: f_update_se=0
+    if model_cov == 0 and not BDNNmodel:
+        freq_list[2] = 0
+    if BDNNmodel:
+        if freq_list[0] == 0.02:
+            freq_list[0] = 0.1
+        if BDNNmodel in [1, 3]:
+            freq_list[1] = 0.0
+        if freq_list[2] == 0.08:
+            freq_list[2] = 0.3
+    f_update_se = 1 - np.sum(freq_list)
+    if frac1 == 0:
+        f_update_se = 0
     [f_update_q,f_update_lm,f_update_cov]=f_update_se+np.cumsum(array(freq_list))
     # print("f_update_se", f_update_se)
 
@@ -7352,9 +7360,6 @@ if __name__ == '__main__':
             hasFoundPyRateC = 0
     
     if BDNNmodel:
-        # model_cov = 6
-        f_cov_par = [0.4, 0.5,0.9,1]
-        f_update_se = args.BDNNupdate_se_f[0]
         if len(args.BDNNupdate_f) == 1:
             bdnn_update_f = args.BDNNupdate_f * (len(args.BDNNnodes) + 1)
             print("bdnn_update_f", bdnn_update_f)
@@ -7362,14 +7367,6 @@ if __name__ == '__main__':
             sys.exit("BDNNupdate_f flag should be called with 1 or %s values for a model with %s layers " % (len(args.BDNNnodes) + 1, len(args.BDNNnodes)))
         else:
             bdnn_update_f = args.BDNNupdate_f
-    
-        if bdnn_const_baseline:
-            [f_update_q,f_update_lm,f_update_cov]=f_update_se+ np.array([0.1, 0,1-f_update_se])
-            if BDNNmodel in [2]:
-                [f_update_q, f_update_lm, f_update_cov] = f_update_se + np.array([0.1, 0.2, 1 - f_update_se])
-        else:
-            # print([f_update_q,f_update_lm,f_update_cov])
-            [f_update_q,f_update_lm,f_update_cov]=f_update_se+ np.array([0.1, 0.15,1-f_update_se])
 
         n_BDNN_nodes = args.BDNNnodes
         prior_lam_t_reg = args.BDNNreg
