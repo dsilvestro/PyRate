@@ -6842,7 +6842,7 @@ class Logger:
 
 
 class KernelExplainer:
-    def __init__(self, model, background_data):
+    def __init__(self, model, background_data, use_harmonic_mean=False):
         """
         The KernelExplainer is capable of calculating shap values for any arbitrary function.
 
@@ -6865,6 +6865,7 @@ class KernelExplainer:
         """
         self.model = model
         self.background_data = [background_data]
+        self.use_harmonic_mean = use_harmonic_mean
         self.num_columns = background_data.shape[1]
         self.n_splits = 0
         background_preds = model(background_data)
@@ -6986,7 +6987,10 @@ class KernelExplainer:
 
         working_background_data = self.background_data[background_fold_to_use]
         background_preds = _ensure_2d_array(self.model(working_background_data))
-        background_pred_mean = np.array([ 1.0 / np.mean(1.0 / background_preds) ]) #background_preds.mean(0)
+        if self.use_harmonic_mean:
+            background_pred_mean = np.array([ 1.0 / np.mean(1.0 / background_preds) ]) #background_preds.mean(0)
+        else:
+            background_pred_mean = np.array([np.mean(background_preds)])
 
         # Do cursory glances at the background and new data
         if isinstance(data, pd_DataFrame):
@@ -7193,7 +7197,10 @@ class KernelExplainer:
                     del masked_data_complement
 
             # Back to outer batch
-            mean_model_output = np.array([ 1.0 / np.mean(1.0 / data_preds) ])#data_preds.mean(0)
+            if self.use_harmonic_mean:
+                mean_model_output = np.array([ 1.0 / np.mean(1.0 / data_preds) ])
+            else:
+                mean_model_output = np.array([np.mean(data_preds)])
             linear_features = mask_matrix[:, :-1] - mask_matrix[:, -1].reshape(-1, 1)
 
             for outer_batch_sample in range(outer_batch_length):
@@ -7417,7 +7424,8 @@ def shapley_kernel(M, s):
     return (M - 1) / (binom(M, s) * s * (M - s))
 
 
-def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f, bias_node_idx, explain_matrix, XX_w, baseline, norm):
+def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f,
+                       bias_node_idx, explain_matrix, XX_w, baseline, norm, use_harmonic_mean):
     n_species, nAttr = trt_tbl.shape
     trt_tbl_aux2 = np.zeros(nEval * n_species * nAttr, dtype='float32').reshape(nEval, n_species, nAttr)
     for ll in range(nEval):
@@ -7430,7 +7438,10 @@ def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_a
     rate_aux = norm * (rate_aux ** t_reg / reg_denom)
     rate_aux = rate_aux * baseline
     rate_aux = rate_aux.reshape(nEval, n_species)
-    exp_payoffs_ci = 1.0 / np.mean(1.0 / rate_aux, axis = 1)
+    if use_harmonic_mean:
+        exp_payoffs_ci = 1.0 / np.mean(1.0 / rate_aux, axis=1)
+    else:
+        exp_payoffs_ci = np.mean(rate_aux, axis=1)
     exp_payoffs_shap = exp_payoffs_ci + 0.0
     exp_payoffs_ci = exp_payoffs_ci - exp_payoffs_ci[0]
     # For weighted random samples
@@ -7454,7 +7465,8 @@ def get_shap_species_i(i, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_a
     return shapley_val_ci_shap, indices
 
 
-def k_add_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f, bias_node_idx, baseline=1.0, norm=1.0):
+def k_add_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f,
+                           bias_node_idx, baseline=1.0, norm=1.0, use_harmonic_mean=True):
     n_species, nAttr = trt_tbl.shape  # Number of instances and attributes
     k_add = 3
     k_add_not_ok = True
@@ -7485,7 +7497,7 @@ def k_add_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out
             X_w = np.einsum('ij,jk->ik', X.T, np.diag(weights_shap))
             XX_w = np.einsum('ij,jk->ik', np.linalg.inv(np.einsum('ij,jk->ik', X_w, X)), X_w)
             _, _ = get_shap_species_i(0, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f,
-                                      bias_node_idx, explain_matrix, XX_w, baseline, norm)
+                                      bias_node_idx, explain_matrix, XX_w, baseline, norm, use_harmonic_mean)
             k_add_not_ok = False
         except:
             k_add_not_ok = True
@@ -7497,24 +7509,22 @@ def k_add_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out
     for i in range(n_species):
         # For all samples
         shapley_val_ci_shap, indices = get_shap_species_i(i, nEval, trt_tbl, X, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f,
-                                                          bias_node_idx, explain_matrix, XX_w, baseline, norm)
+                                                          bias_node_idx, explain_matrix, XX_w, baseline, norm, use_harmonic_mean)
         shap_main[i, :] = shapley_val_ci_shap
         shap_inter[i, :, :] = indices
     return shap_main, shap_inter
 
 
-def fastshap_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f, bias_node_idx, baseline=1.0, norm=1.0):
+def fastshap_kernel_explainer(trt_tbl, cov_par, t_reg, reg_denom, hidden_act_f, out_act_f, bias_node_idx, baseline=1.0, norm=1.0, use_harmonic_mean=False):
     def lambdaX(X, cov_par, hidden_act_f, out_act_f, t_reg, reg_denom, bias_node_idx):
         r, _ = get_unreg_rate_BDNN_3D(X, cov_par, None, hidden_act_f, out_act_f, bias_node_idx=bias_node_idx)
         r = baseline * norm * (r ** t_reg / reg_denom)
-#        harmonic_mean = 1.0 / np.mean(1.0 / r)
-#        multi = harmonic_mean / r
-#        r *= multi
         return r
     
     ke = KernelExplainer(
         model = lambda X: lambdaX(X, cov_par, hidden_act_f, out_act_f, t_reg, reg_denom, bias_node_idx),
-        background_data = trt_tbl
+        background_data = trt_tbl,
+        use_harmonic_mean=use_harmonic_mean
     )
     strata = np.ceil(trt_tbl.shape[0] / 100.0).astype(int)
     ke.stratify_background_set(strata)
@@ -7914,9 +7924,11 @@ def k_add_kernel_shap(mcmc_file, pkl_file, burnin, thin, combine_discr_features=
 def k_add_kernel_shap_sampling_i(arg):
     [post_w_q_i, t_reg_q_i, reg_denom_q_i, q, n, hidden_act_f, out_act_f, shap_trt_tbl, idx_comb_feat, do_inter_imp, use_taxa_q] = arg
     if do_inter_imp:
-        shap_main, shap_interaction = k_add_kernel_explainer(shap_trt_tbl, post_w_q_i, t_reg_q_i, reg_denom_q_i, hidden_act_f, out_act_f, q, n)
+        shap_main, shap_interaction = k_add_kernel_explainer(shap_trt_tbl, post_w_q_i, t_reg_q_i, reg_denom_q_i,
+                                                             hidden_act_f, out_act_f, q, n, use_harmonic_mean=False)
     else:
-        shap_main = fastshap_kernel_explainer(shap_trt_tbl, post_w_q_i, t_reg_q_i, reg_denom_q_i, hidden_act_f, out_act_f, q, n) # check this later
+        shap_main = fastshap_kernel_explainer(shap_trt_tbl, post_w_q_i, t_reg_q_i, reg_denom_q_i,
+                                              hidden_act_f, out_act_f, q, n, use_harmonic_mean=False)
         shap_interaction = np.array([])
     ke = combine_shap_featuregroup(shap_main, shap_interaction, idx_comb_feat, use_taxa_q)
     return ke
