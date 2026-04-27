@@ -270,7 +270,7 @@ def combine_pkl(path_to_files, tag, burnin, resample):
                 num_it = np.loadtxt(files_mcmc[i], skiprows=1).shape[0]
                 b = check_burnin(burnin, num_it)
                 mcmc_it[i] = num_it - b
-                if resample > 0 and resample < mcmc_it:
+                if resample > 0 and resample < mcmc_it[i]:
                     mcmc_it[i] = resample
             replicate = np.repeat(np.arange(num_replicates), mcmc_it)
 
