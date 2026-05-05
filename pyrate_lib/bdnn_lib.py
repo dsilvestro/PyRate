@@ -1953,7 +1953,7 @@ def get_trt_tbl(bdnn_obj, rate_type):
 
 def set_list_prec(trt_tbl, prec_f=np.float64):
     if isinstance(trt_tbl, np.ndarray):
-        trt_tbl = prec_f(trt_tbl).reshape(trt_tbl[i].shape)
+        trt_tbl = prec_f(trt_tbl).reshape(trt_tbl.shape)
     else:
         for i in range(len(trt_tbl)):
             trt_tbl[i] = prec_f(trt_tbl[i]).reshape(trt_tbl[i].shape)
