@@ -192,7 +192,6 @@ def combine_pkl(path_to_files, tag, burnin, resample):
             bdnn_dict.update({'prior_t_reg': pkl_list[0].bdnn_settings['prior_t_reg']})
         if 'independent_t_reg' in pkl_list[0].bdnn_settings.keys():
             bdnn_dict.update({'independent_t_reg': pkl_list[0].bdnn_settings['independent_t_reg']})
-        bdnn_dict.update({'prior_cov': pkl_list[0].bdnn_settings['prior_cov']})
 
         num_replicates = len(pkl_list)
         if bd:
@@ -207,6 +206,7 @@ def combine_pkl(path_to_files, tag, burnin, resample):
             pkl_most_bins = np.argmax(n_bins)
             
             bdnn_dict.update({
+                'prior_cov': pkl_list[0].bdnn_settings['prior_cov'],
                 'layers_shapes': pkl_list[0].bdnn_settings['layers_shapes'],
                 'layers_sizes': pkl_list[0].bdnn_settings['layers_sizes'],
                 'out_act_f': pkl_list[0].bdnn_settings['out_act_f'],
@@ -275,6 +275,7 @@ def combine_pkl(path_to_files, tag, burnin, resample):
             replicate = np.repeat(np.arange(num_replicates), mcmc_it)
 
             bdnn_dict.update({
+                'prior_cov_q': pkl_list[0].bdnn_settings['prior_cov_q'],
                 'layers_shapes_q': pkl_list[0].bdnn_settings['layers_shapes_q'],
                 'layers_sizes_q': pkl_list[0].bdnn_settings['layers_sizes_q'],
                 'out_act_f_q': pkl_list[0].bdnn_settings['out_act_f_q'],
@@ -1956,7 +1957,10 @@ def set_list_prec(trt_tbl, prec_f=np.float64):
         trt_tbl = prec_f(trt_tbl).reshape(trt_tbl.shape)
     else:
         for i in range(len(trt_tbl)):
-            trt_tbl[i] = prec_f(trt_tbl[i]).reshape(trt_tbl[i].shape)
+            if isinstance(trt_tbl[i], np.ndarray):
+                trt_tbl[i] = prec_f(trt_tbl[i]).reshape(trt_tbl[i].shape)
+            else:
+                trt_tbl[i] = trt_tbl[i]
     return trt_tbl
 
 
@@ -3619,9 +3623,10 @@ def get_CV_from_sim_bdnn(bdnn_obj, num_taxa, starting_taxa, sp_rates, ex_rates, 
             independ_reg = bdnn_obj.bdnn_settings['independent_t_reg']
         else:
             prior_t_reg = [prior_t_reg, prior_t_reg]
-    prior_cov = 1.0
-    if 'prior_cov' in bdnn_obj.bdnn_settings:
-        prior_cov = bdnn_obj.bdnn_settings['prior_cov']
+    prior_cov = bdnn_obj.bdnn_settings['prior_cov']
+    # Backwards compatible to version without layer-specific prior
+    if isinstance(prior_cov, (int, float, complex)):
+        prior_cov = [prior_cov] * len(layer_shapes)
 
     args = []
     for i in range(num_sim):
@@ -3910,7 +3915,7 @@ class BdnnTester():
                  bdnn_update_f=[0.1, 0.2, 0.4],
                  prior_t_reg=-1.0,
                  independ_reg=False,
-                 prior_cov=1.0,
+                 prior_cov=[1.0, 1.0, 1.0],
                  mcmc_iterations=25000,
                  burnin=5000,
                  seed=None,
@@ -3966,8 +3971,8 @@ class BdnnTester():
 
 
     def get_prior(self, w_lam, w_mu, t_reg):
-        prior = np.sum([np.sum(stats.norm.logpdf(i, loc=0, scale=self.prior_cov)) for i in w_lam])
-        prior += np.sum([np.sum(stats.norm.logpdf(i, loc=0, scale=self.prior_cov)) for i in w_mu])
+        prior = np.sum([np.sum(stats.norm.logpdf(w_lam[i], loc=0, scale=self.prior_cov[i])) for i in range(len(w_lam))])
+        prior += np.sum([np.sum(stats.norm.logpdf(w_mu[i], loc=0, scale=self.prior_cov[i])) for i in range(len(w_mu))])
         if self.prior_t_reg[0] > 0.0:
             prior += np.log(self.prior_t_reg[0]) - self.prior_t_reg[0] * t_reg[0]
         if self.prior_t_reg[1] > 0.0 and self.independ_reg:
@@ -4078,7 +4083,7 @@ class BdnnTesterSampling():
                  act_f=np.tanh,
                  bdnn_update_f=[0.1, 0.2, 0.4],
                  prior_t_reg=[-1.0],
-                 prior_cov=1.0,
+                 prior_cov=[1.0, 1.0, 1.0],
                  pert_prior=[1.5, 1.1],
                  mcmc_iterations=25000,
                  burnin=5000,
@@ -4162,7 +4167,7 @@ class BdnnTesterSampling():
 
 
     def get_prior(self, q_rates, w_q, t_reg):
-        prior = np.sum([np.sum(stats.norm.logpdf(i, loc=0, scale=self.prior_cov)) for i in w_q])
+        prior = np.sum([np.sum(stats.norm.logpdf(w_q[i], loc=0, scale=self.prior_cov[i])) for i in range(len(w_q))])
         if self.prior_t_reg > 0.0:
             prior += np.log(self.prior_t_reg) - self.prior_t_reg * t_reg
         if self.TPP_model:
@@ -4369,12 +4374,14 @@ def get_coefficient_sampling_variation(path_dir_log_files, burn, combine_discr_f
     act_f = bdnn_obj.bdnn_settings['hidden_act_f']
     out_act_f = bdnn_obj.bdnn_settings['out_act_f_q']
     pp_gamma_ncat = bdnn_obj.bdnn_settings['pp_gamma_ncat']
-    prior_t_reg = -1.0
-    if 'prior_t_reg' in bdnn_obj.bdnn_settings:
-        prior_t_reg = bdnn_obj.bdnn_settings['prior_t_reg']
-    prior_cov = 1.0
-    if 'prior_cov' in bdnn_obj.bdnn_settings:
+    prior_t_reg = bdnn_obj.bdnn_settings['prior_t_reg']
+    # Backwards compatibility before layer-specific weight priors
+    if 'prior_cov_q' in bdnn_obj.bdnn_settings:
+        pprior_cov = bdnn_obj.bdnn_settings['prior_cov_q']
+    else:
         prior_cov = bdnn_obj.bdnn_settings['prior_cov']
+    if isinstance(prior_cov, (int, float, complex)):
+        prior_cov = [prior_cov] * len(layer_shapes)
 
     args = []
     for i in range(num_sim):
