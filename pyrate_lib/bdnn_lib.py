@@ -157,6 +157,102 @@ def export_trait_tbl(trait_tbl, names_features, output_wd, time, rate_type="BD")
     print("%sNN predictors export into %s" % (rate_type, path_predictors))
 
 
+def export_snn(f, burnin, trt_tbl, names_features, names_taxa, me_times, age_dependent_sampling, q_repeats, time, TPP_model, counts):
+    output_wd = os.path.dirname(os.path.realpath(f))
+    name_file = os.path.basename(f)
+
+    m = pd.read_csv(f, delimiter='\t')
+    np_m = m.to_numpy()
+    is_log_file = '.log' in f
+    if is_log_file:
+        name_file = name_file.replace("_mcmc.log", "")
+        ts_indx = [i for i in range(len(m.columns)) if '_TS' in m.columns[i]]
+        te_indx = [i for i in range(len(m.columns)) if '_TE' in m.columns[i]]
+        num_it = np_m.shape[0]
+        b = check_burnin(burnin, num_it)
+        ts = np_m[burnin:, ts_indx]
+        te = np_m[burnin:, te_indx]
+        ts_mean = np.mean(ts, axis=0)
+        te_mean = np.mean(te, axis=0)
+    else:
+        # fixed or true tste from e.g. simulation
+        name_file = name_file.replace(".txt", "")
+        name_file = name_file.replace(".csv", "")
+        name_file = name_file.replace(".tsv", "")
+        # filter by names_taxa
+        taxa = np.array(names_taxa)
+        keep = np.isin(np_m[:, 0], taxa)
+        np_m = np_m[keep, :]
+        # order as in all PyRate objects
+        idx = np.argsort(np_m[:, 0])
+        np_m = np_m[idx[np.searchsorted(np_m[idx, 0], taxa)], :]
+        ts_mean = np_m[:, 1]
+        te_mean = np_m[:, 2]
+
+    time = time[:-1]
+    n_taxa = trt_tbl.shape[-2]
+
+    if counts.ndim == 1:
+        trt_tbl_flat = trt_tbl
+        counts_flat = counts
+        row_names = names_taxa
+
+    else:
+        n_bins = counts.shape[1]
+
+        # make 3D trait table if there is no paleoenvironment or age-dependent sampling
+        not_timevar = trt_tbl.ndim == 2
+        if not_timevar:
+            trt_tbl = np.stack([trt_tbl] * n_bins, axis=0)
+
+        # add mass extinction victim identifier
+        if not me_times is None:
+            me_idx = -1 - int(age_dependent_sampling)
+            trt_tbl, _, _ = identify_me_victims(te_mean, me_times, trt_tbl, me_idx)
+
+        # add relative taxon age
+        if age_dependent_sampling:
+            trt_tbl = add_taxon_age(ts_mean, te_mean, time, trt_tbl)
+
+        # add q bin identifier
+        if TPP_model:
+            if not q_repeats is None:
+                add_q_repeats = np.repeat(q_repeats, n_taxa).reshape((-1, n_taxa, 1))
+            else:
+                add_q_repeats = np.repeat(np.arange(n_bins), n_taxa).reshape((-1, n_taxa, 1))
+            trt_tbl = np.dstack((trt_tbl, add_q_repeats))
+            names_features.append('q_bin')
+
+        # add time
+        if n_bins > 1:
+            add_time = np.repeat(time, n_taxa).reshape((-1, n_taxa, 1))
+            trt_tbl = np.dstack((trt_tbl, add_time))
+            names_features.append('time')
+
+        # trim trait table and counts to ts and te
+        trt_tbl_list = []
+        counts_list = []
+        row_names = []
+
+        for i in range(n_taxa):
+            keep = np.logical_and(time > te_mean[i], time < ts_mean[i])
+            trt_tbl_i = trt_tbl[:, i, :]
+            trt_tbl_list.append(trt_tbl_i[keep, :])
+            counts_list.append(counts[i, keep])
+            row_names += [names_taxa[i]] * np.sum(keep)
+
+        # flatten by instance
+        trt_tbl_flat = np.vstack(trt_tbl_list)
+        counts_flat = np.concatenate(counts_list)
+
+    # write
+    trt_tbl_df = pd.DataFrame(trt_tbl_flat, columns=names_features, index=row_names)
+    feature_file = os.path.join(output_wd, name_file + '_features.txt')
+    trt_tbl_df.to_csv(feature_file, sep='\t')
+    counts_df = pd.DataFrame(counts_flat, columns=['k'], index=row_names)
+    counts_file = os.path.join(output_wd, name_file + '_counts.txt')
+    counts_df.to_csv(counts_file, sep='\t')
+
 
 def make_pseudo_tste(tse, repeats):
     """Create array of origination or extinction time from fixed events"""

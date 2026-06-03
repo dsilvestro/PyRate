@@ -6022,6 +6022,7 @@ if __name__ == '__main__':
     p.add_argument('-BDNNpath_taxon_time_tables', type=str, help='Path to director(y|ies) with table(s) of taxon-time specific predictors. One path for identical speciation/extinction predictors, two paths if they differ.', default=["", ""], nargs='+')
     p.add_argument('-SNNpath_taxon_time_tables', type=str, help='Path to directory with table(s) of taxon-time specific predictors for sampling.', default="", nargs=1)
     p.add_argument('-BDNNexport_taxon_time_tables', help='Export BDNN predictors. Creates a new directory with one text file per time bin (from most recent to earliest).', action='store_true', default=False)
+    p.add_argument('-SNNexport',   metavar='<input file>', type=str, help="Export fossil counts and features for external machine learning: provide path and base name for 'mcmc.log' file (e.g. .../pyrate_mcmc_logs/example_Grj_mcmc.log)", default = "")
     p.add_argument('-BDNNupdate_f', type=float, help='fraction of updated weights', default=[0.1], metavar=[0.1], nargs='+')
     p.add_argument('-BDNNdd', help='Diversity-dependent BDNN', action='store_true', default=False)
     p.add_argument('-BDNNpklfile', type=str, help='Load BDNN pickle file', default="", metavar="")
@@ -7827,10 +7828,22 @@ if __name__ == '__main__':
                    sp_fad_lad=sp_fad_lad,
                    occ_data=occ_data)
 
-        bdnn_obj_out_file = "%s/%s.pkl" % (path_dir,suff_out)
-        write_pkl(obj, bdnn_obj_out_file)
-        print("\n\nBDNN object saved as:", bdnn_obj_out_file, "\n")
-    
+        if args.SNNexport == '':
+            bdnn_obj_out_file = "%s/%s.pkl" % (path_dir,suff_out)
+            write_pkl(obj, bdnn_obj_out_file)
+            print("\n\nBDNN object saved as:", bdnn_obj_out_file, "\n")
+        else:
+            import pyrate_lib.bdnn_lib as bdnn_lib
+            snn_ads = bdnn_ads > 0.0
+            if not snn_me:
+                snn_me_times = None
+            bdnn_lib.export_snn(args.SNNexport, burnin,
+                                trait_tbl_NN[2], names_features_q, taxa_names,
+                                snn_me_times, snn_ads,
+                                highres_q_repeats, q_time_frames_bdnn, TPP_model,
+                                occs_sp)
+            sys.exit()
+
         if args.BDNNexport_taxon_time_tables:
             import pyrate_lib.bdnn_lib as bdnn_lib
             if BDNNmodel in [1, 3]:
@@ -7838,6 +7851,8 @@ if __name__ == '__main__':
             if BDNNmodel in [2, 3]:
                 bdnn_lib.export_trait_tbl(trait_tbl_NN[2], names_features_q, output_wd, q_time_frames_bdnn, rate_type="S")
             sys.exit()
+
+
     
     if mcmc_gen > 0:
         # OUTPUT 0 SUMMARY AND SETTINGS
