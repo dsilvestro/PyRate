@@ -73,7 +73,7 @@ from sklearn.linear_model import LinearRegression
 
 np.seterr(over='ignore', under='ignore')
 
-small_number= 1e-50
+small_number = 1e-50
 
 
 def load_trait_tbl(path, rate_type="diversification"):
@@ -157,7 +157,7 @@ def export_trait_tbl(trait_tbl, names_features, output_wd, time, rate_type="BD")
     print("%sNN predictors export into %s" % (rate_type, path_predictors))
 
 
-def export_snn(f, burnin, trt_tbl, names_features, names_taxa, me_times, age_dependent_sampling, q_repeats, time, TPP_model, counts):
+def export_snn(f, burn, trt_tbl, names_features, names_taxa, me_times, age_dependent_sampling, q_repeats, time, TPP_model, counts):
     output_wd = os.path.dirname(os.path.realpath(f))
     name_file = os.path.basename(f)
 
@@ -169,7 +169,7 @@ def export_snn(f, burnin, trt_tbl, names_features, names_taxa, me_times, age_dep
         ts_indx = [i for i in range(len(m.columns)) if '_TS' in m.columns[i]]
         te_indx = [i for i in range(len(m.columns)) if '_TE' in m.columns[i]]
         num_it = np_m.shape[0]
-        b = check_burnin(burnin, num_it)
+        burnin = check_burnin(burn, num_it)
         ts = np_m[burnin:, ts_indx]
         te = np_m[burnin:, te_indx]
         ts_mean = np.mean(ts, axis=0)
@@ -189,7 +189,7 @@ def export_snn(f, burnin, trt_tbl, names_features, names_taxa, me_times, age_dep
         ts_mean = np_m[:, 1]
         te_mean = np_m[:, 2]
 
-    time = time[:-1]
+    time[0] = np.inf
     n_taxa = trt_tbl.shape[-2]
 
     if counts.ndim == 1:
@@ -225,7 +225,7 @@ def export_snn(f, burnin, trt_tbl, names_features, names_taxa, me_times, age_dep
 
         # add time
         if n_bins > 1:
-            add_time = np.repeat(time, n_taxa).reshape((-1, n_taxa, 1))
+            add_time = np.repeat(time[1:], n_taxa).reshape((-1, n_taxa, 1))
             trt_tbl = np.dstack((trt_tbl, add_time))
             names_features.append('time')
 
@@ -235,7 +235,7 @@ def export_snn(f, burnin, trt_tbl, names_features, names_taxa, me_times, age_dep
         row_names = []
 
         for i in range(n_taxa):
-            keep = np.logical_and(time > te_mean[i], time < ts_mean[i])
+            keep = np.logical_and(time[:-1] > te_mean[i], time[1:] < ts_mean[i])
             trt_tbl_i = trt_tbl[:, i, :]
             trt_tbl_list.append(trt_tbl_i[keep, :])
             counts_list.append(counts[i, keep])
