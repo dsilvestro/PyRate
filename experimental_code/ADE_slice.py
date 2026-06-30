@@ -175,10 +175,15 @@ class ADE_simulator:
         # 2. records
         n_foss = self.rg.poisson(q * sigmas_t)
         foss_age_list = []
+        sampled_occ_species_id = []
+        sampled_species_id = 0
         for i in range(len(n_foss)):
             if n_foss[i] > 0:
                 foss_ages = ts[i] - self.rg.random(int(n_foss[i])) * sigmas_t[i]
                 foss_age_list = foss_age_list + list(foss_ages)
+                sampled_occ_species_id = sampled_occ_species_id + list(np.repeat(sampled_species_id, n_foss[i]))
+                sampled_species_id += 1
+
 
         foss_age_list = np.array(foss_age_list)
 
@@ -205,13 +210,15 @@ class ADE_simulator:
                    'sampled_sigmas': sampled_sigmas,
                    'sampled_ts': sampled_ts,
                    'sampled_te': sampled_te,
-                   'sampled_n_foss': sampled_n_foss,
-                   'foss_age_list': foss_age_list,
+                   'sampled_n_foss': sampled_n_foss, # n. sampled fossils per species
+                   'foss_age_list': foss_age_list, # all sampled fossils' ages
+                   # len(foss_age_list) = sum(sampled_n_foss)
                    'foss_age_in_bin': foss_age_list[foss_age_list <= t0],
                    'length_in_bin': sampled_sigmas - sampled_age_at_bin_start,
                    'true_sigmas': sigmas_t,
                    'mean_sampled_sigmas': np.mean(sampled_sigmas),
-                   'mean_length_in_bin': np.mean(sampled_sigmas - sampled_age_at_bin_start)
+                   'mean_length_in_bin': np.mean(sampled_sigmas - sampled_age_at_bin_start),
+                   'sampled_occ_species_id': np.array(sampled_occ_species_id)
                    }
 
 
@@ -302,14 +309,14 @@ if __name__ == '__main__':
     # age of the process
     root = 12
     min_age_ts = 0
-    q = 0.1
+    q = 0.05
     w_shape = 1.75
     avg_longevity = 3
     w_scale = avg_longevity / scipy.special.gamma(1 + 1 / w_shape)
 
     # define time slice
-    t0 = 10.
-    t1 = 2
+    t0 = 12.
+    t1 = 0
     n_taxa = 1000
     # ---
     ade_data = ade_sim.simulate(min_age_ts=min_age_ts,
@@ -320,7 +327,12 @@ if __name__ == '__main__':
                                 t0=t0,
                                 t1=t1,
                                 n_taxa=n_taxa)
-    
+
+    for k in ade_data.keys():
+        try:
+            print(k, len(ade_data[k]))
+        except:
+            print(k, ade_data[k], "<-")
 
     init_prm = np.array([1., np.mean(ade_data['mean_length_in_bin']),
                          np.sum(ade_data['sampled_n_foss']) / np.sum(ade_data['sampled_sigmas'])])
