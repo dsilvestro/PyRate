@@ -2768,7 +2768,7 @@ def get_binned_time_variable(timebins, var_file, rescale, translate):
     return mean_var, names_var
 
 
-def read_traits(trait_file, taxa_name):
+def read_traits(trait_file, taxa_names):
     if trait_file != "":
         traitfile = open(trait_file, 'r')
 
@@ -4383,6 +4383,7 @@ def MCMC(all_arg):
                                                                  hidden_act_f, out_act_f,
                                                                  apply_reg, bias_node_idx, fix_edgeShift)
             if use_time_as_trait or bdnn_timevar[0] or bdnn_dd or bdnn_loaded_tbls_timevar:
+                print("timesLA2\n", timesLA)
                 bin_size_lam_mu = np.tile(np.abs(np.diff(timesLA)), n_taxa).reshape((n_taxa, len(timesLA) - 1))
                 i_events_spA, i_events_exA, n_SA = get_events_ns(tsA, teA, timesLA, bin_size_lam_mu)
                 likBDtempA = np.zeros((2, n_taxa))
