@@ -6919,19 +6919,19 @@ def ampute_data(
                 na_ind = random_state.choice(
                     np.arange(data_shape[0]), replace=False, size=amp_rows
                 )
-                amputed_data.iloc[na_ind, v] = np.NaN
+                amputed_data.iloc[na_ind, v] = np.nan
         if isinstance(amputed_data, np.ndarray):
             amputed_data = amputed_data.astype("float64")
             for v in variables:
                 na_ind = random_state.choice(
                     np.arange(data_shape[0]), replace=False, size=amp_rows
                 )
-                amputed_data[na_ind, v] = np.NaN
+                amputed_data[na_ind, v] = np.nan
     else:
         na_ind = random_state.choice(
             np.arange(data_shape[0]), replace=False, size=amp_rows
         )
-        amputed_data[na_ind] = np.NaN
+        amputed_data[na_ind] = np.nan
     return amputed_data
 
 
