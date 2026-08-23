@@ -8,7 +8,7 @@ import copy as copy_lib
 import json
 
 version= "PyRate"
-build  = "v3.1.3 - 20230919"
+build  = "v3.1.3 - 20260823"
 if platform.system() == "Darwin": sys.stdout.write("\x1b]2;%s\x07" % version)
 
 citation= """Silvestro, D., Antonelli, A., Salamin, N., & Meyer, X. (2019). 
