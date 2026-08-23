@@ -1569,9 +1569,9 @@ def plot_raw_diversity(time, desin_list, wd, fossil):
     desin_div1_hpd = np.zeros((2, len_time))
     desin_div2_hpd = np.zeros((2, len_time))
     desin_div3_hpd = np.zeros((2, len_time))
-    desin_div1_hpd[:] = np.NaN
-    desin_div2_hpd[:] = np.NaN
-    desin_div3_hpd[:] = np.NaN
+    desin_div1_hpd[:] = np.nan
+    desin_div2_hpd[:] = np.nan
+    desin_div3_hpd[:] = np.nan
     if reps > 1:
         for i in range(len_time):
             par = desin_div1[:,i]
@@ -1673,7 +1673,7 @@ def plot_RTT(plot_file, burnin, plot_time):
     else:
         ncols = rtt.shape[0]
         hpd = np.zeros((2, ncols))
-        hpd[:] = np.NaN
+        hpd[:] = np.nan
         rate_mean = rtt
     
     if "marginal_rates" in plot_file:
@@ -1854,7 +1854,7 @@ def get_covar_effect(covar, par, de, transf, plotCI=np.array([0.95])):
             hpd[[2 * y, 1 + 2 * y],:] = np.quantile(rate, quantile, axis = 0)
     else:
         rate_mean = rate[0,:]
-        hpd[:] = np.NaN
+        hpd[:] = np.nan
     rate_mean = rate_mean.reshape(1, len_covar) # columns: rate along covariate/trait, rows: mean + CI
     return np.vstack((rate_mean.reshape(1, len_covar), hpd))
 
@@ -2650,7 +2650,7 @@ if input_data=="":
 #    print(obs_area_series)
     len_time_series = len(time_series)
     sampled_sim = np.empty((nTaxa, len_time_series + 1))
-    sampled_sim[:] = np.NaN
+    sampled_sim[:] = np.nan
     sampled_sim[:, 0] = np.arange(nTaxa)
     for i in range(nTaxa):
         for y in range(len_time_series):
