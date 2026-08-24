@@ -8,12 +8,11 @@
 PyRate requires Python v.3.10 or higher. 
 To install or upgrade Python visit: [python.org](https://www.python.org/downloads/). 
 To ensure all the dependencies are installed, you can **setup a virtual environment** as shown [here](https://github.com/dsilvestro/PyRate/blob/master/tutorials/pyrate_tutorial_0.md).
-Older versions of PyRate for Python v.2 are available [here](https://github.com/dsilvestro/PyRate/releases/tag/v3.1.1) (PyRate\_for\_Python2 directory).
-
 
 PyRate is licensed under a [AGPLv3 License](https://tldrlegal.com/license/gnu-affero-general-public-license-v3-(agpl-3.0)#summary).
 
 The **program's documentation** is available in [PyRate Tutorials](https://github.com/dsilvestro/PyRate/tree/master/tutorials)
+Additional instructions, example files, and Colab notebooks are available in [this repository](https://github.com/decoding-the-past/decoding_the_past/tree/main).
 
 For questions, suggestions or bugs [contact us](mailto:pyrate.help@gmail.com)
 
