@@ -2872,8 +2872,12 @@ def plot_bdnn_discr(rs, r, tr, r_script, names, names_states, rate_type):
         r_script += util.print_R_vec("\nvio_data", r_tmp)
         r_script += "\nvio_data = vio_data[vio_data < ylim[2] & vio_data > ylim[1]]"
         r_script += "\nvioplot(vio_data, at = %s, add = TRUE, wex = 0.5, rectCol = NA, lineCol = NA, colMed = NA, col = col[%s])" % (i, i + 1)
-        r_script += "\nlines(rep(%s, 2), c(%s, %s), lwd = 1.5)" % (i, rs[i, 1], rs[i, 2])
-        r_script += "\npoints(%s, %s, pch = 19)" % (i, rs[i, 0])
+        # r_script += "\nlines(rep(%s, 2), c(%s, %s), lwd = 1.5)" % (i, rs[i, 1], rs[i, 2])
+        # r_script += "\npoints(%s, %s, pch = 19)" % (i, rs[i, 0])
+        r_script += "\nlines(rep(%s, 2), c(%s, %s), lwd = 1.5)" % (i, float(rs[i, 1].item()), float(rs[i, 2].item()))
+        r_script += "\npoints(%s, %s, pch = 19)" % (i, float(rs[i, 0].item()))
+
+    
     r_script += "\ntitle(main = '%s')" % names
     if rotate_labels:
         r_script += "\npar(las = 1, mar = c(4, 4, 1.5, 0.5))"
@@ -3084,8 +3088,12 @@ def plot_bdnn_inter_discr_discr(rs, r, tr, r_script, feat_idx_1, feat_idx_2, nam
             if len(r_tmp) > 0:
                 r_script += util.print_R_vec("\nvio_data", r_tmp)
                 r_script += "\nvioplot(vio_data, at = %s, add = TRUE, wex = 0.5, rectCol = NA, lineCol = NA, colMed = NA, col = col[%s])" % (counter, j + 1)
-                r_script += "\nlines(rep(%s, 2), c(%s, %s), lwd = 1.5)" % (counter, float(rs[idx, 1]), float(rs[idx, 2]))
-                r_script += "\npoints(%s, %s, pch = 19)" % (counter, float(rs[idx, 0]))
+                # r_script += "\nlines(rep(%s, 2), c(%s, %s), lwd = 1.5)" % (counter, float(rs[idx, 1]), float(rs[idx, 2]))
+                # r_script += "\npoints(%s, %s, pch = 19)" % (counter, float(rs[idx, 0]))
+                r_script += "\nlines(rep(%s, 2), c(%s, %s), lwd = 1.5)" % (counter, float(rs[idx, 1].item()), float(rs[idx, 2].item()))
+                r_script += "\npoints(%s, %s, pch = 19)" % (counter, float(rs[idx, 0].item()))
+
+            
             r_script += "\naxis(side = 1, at = %s, labels = paste0('%s', ': ', '%s', '\n', '%s', ': ', '%s'), cex.axis = %s)" % (counter, names[0], names_states_feat_1[i], names[1], names_states_feat_2[j], cex_labels)
             counter += 1
     r_script += "\ntitle(main = paste0('%s', ' x ', '%s'))" % (names[0], names[1])
