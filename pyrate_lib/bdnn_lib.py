@@ -7785,7 +7785,7 @@ def delete_invariantfeat_from_taxa_shap(feature_without_variance, names_features
     shap_names_main = shap_names[shap_names[:, 1] == 'none', 0]
     idx_del = np.array([])
     for i in feature_without_variance:
-        w = np.where(shap_names_main == names_features[i])[0]
+        w = np.where(shap_names_main == names_features[i])[0].item()
         r = np.arange(w, n_shap, len(shap_names_main))
         idx_del = np.concatenate((idx_del, r))
     idx_del = 1 + idx_del
