@@ -2588,10 +2588,11 @@ def trait_combination_exists(w, trait_tbl, i, j, feature_is_time_variable, bdnn_
                 for s in states:
                     # State-dependent continuous trait
                     ts = t[t[:, bin_idx] == s, cont_idx]
-                    in_range_cont = np.logical_and(wc >= np.min(ts), wc <= np.max(ts))
-                    is_state = w[:, bin_idx_w] == s
-                    exists_idx = np.logical_and(in_range_cont, is_state)
-                    comb_exists[exists_idx] = 1.0
+                    if len(ts) > 0:
+                        in_range_cont = np.logical_and(wc >= np.min(ts), wc <= np.max(ts))
+                        is_state = w[:, bin_idx_w] == s
+                        exists_idx = np.logical_and(in_range_cont, is_state)
+                        comb_exists[exists_idx] = 1.0
             else:
                 comb_exists = np.ones(lw)
         else:
