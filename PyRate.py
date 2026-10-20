@@ -612,7 +612,7 @@ def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1.): # change rescale to
     time_vec = np.sort(np.linspace(np.min(te),np.max(ts),int((np.max(ts)-np.min(te))/float(step_size)) ))
 
     # create out file
-    wd = "%s" % os.path.dirname(tste_file)
+    wd = os.path.dirname(os.path.realpath(tste_file))
     out_file_name = os.path.splitext(os.path.basename(tste_file))[0]
     out_file="%s/%s" % (wd,out_file_name+"_ltt.txt")
     ltt_file = open(out_file , "w", newline="")
