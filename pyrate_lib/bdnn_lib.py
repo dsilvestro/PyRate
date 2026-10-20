@@ -5935,9 +5935,9 @@ def get_rate_BDNN_3D_noreg(x, w, act_f, out_act_f, apply_reg=True, bias_node_idx
     if fix_edgeShift > 0 and len(bias_node_idx) > 1:
         apply_reg_change = np.diff(apply_reg[0, :].astype(int), prepend=99)
         if apply_reg[0, 0] == False: # max boundary
-            tmp[:, :int(np.where(apply_reg_change == 1)[0])] = w[-1][:, bias_node_idx[1]]
+            tmp[:, :int(np.where(apply_reg_change == 1)[0].item())] = w[-1][:, bias_node_idx[1]]
         if apply_reg[0, -1] == False: # min boundary
-            tmp[:, int(np.where(apply_reg_change == -1)[0]):] = w[-1][:, bias_node_idx[-1]]
+            tmp[:, int(np.where(apply_reg_change == -1)[0].item()):] = w[-1][:, bias_node_idx[-1]]
 
     # output
     rates = out_act_f(tmp)
