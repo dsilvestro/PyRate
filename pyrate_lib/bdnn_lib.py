@@ -3766,7 +3766,7 @@ def trim_edges_cv_objects(fix_edgeShift, edgeShifts, bdnn_obj, mcmc_file, burnin
     """Exclude the species beyond the edges as those will probably have inflated rates"""
     
     _, _, _, ts, te, _, _, _, _, _, _, _, _ = bdnn_read_mcmc_file(mcmc_file, burnin, thin=0)
-    fixed_tste_used = len(ts) > 0
+    fixed_tste_used = ts.shape[1] == 0
     num_iter = sp_rates.shape[0]
     if fixed_tste_used:
         try:
@@ -3783,30 +3783,29 @@ def trim_edges_cv_objects(fix_edgeShift, edgeShifts, bdnn_obj, mcmc_file, burnin
     starting_taxa = np.ones(num_iter)
     num_taxa = np.zeros(num_iter)
 
-    if fix_edgeShift == 2: # max boundary
-        for i in range(num_iter):
+    for i in range(num_iter):
+        if fix_edgeShift == 2: # max boundary
             taxa_going_into_interval = np.logical_and(ts[i, :] > edgeShifts[0], te[i, :] <= edgeShifts[0])
             taxa_originating_in_interval = ts[i, :] <= edgeShifts[0]
             taxa_going_extinct_in_interval = te[i, :] <= edgeShifts[0]
             starting_taxa[i] = np.sum(taxa_going_into_interval)
             num_taxa[i] = starting_taxa[i] + np.sum(taxa_originating_in_interval)
 
-    elif fix_edgeShift == 3: # min boundary
-        for i in range(num_iter):
+        elif fix_edgeShift == 3: # min boundary
             taxa_originating_in_interval = ts[i, :] >= edgeShifts[-1]
             taxa_going_extinct_in_interval = te[i, :] >= edgeShifts[-1]
             num_taxa[i] = np.sum(taxa_originating_in_interval)
 
-    else: # both
-        for i in range(num_iter):
+        else: # both
             taxa_going_into_interval = np.logical_and(ts[i, :] > edgeShifts[0], te[i, :] <= edgeShifts[0])
             taxa_originating_in_interval = np.logical_and(ts[i, :] <= edgeShifts[0], ts[i, :] >= edgeShifts[-1])
             taxa_going_extinct_in_interval = np.logical_and(te[i, :] <= edgeShifts[0], te[i, :] >= edgeShifts[-1])
             starting_taxa[i] = np.sum(taxa_going_into_interval)
             num_taxa[i] = starting_taxa[i] + np.sum(taxa_originating_in_interval)
 
-    sp_rates[i, ~taxa_originating_in_interval] = np.nan
-    ex_rates[i, ~taxa_going_extinct_in_interval] = np.nan
+        sp_rates[i, ~taxa_originating_in_interval] = np.nan
+        ex_rates[i, ~taxa_going_extinct_in_interval] = np.nan
+
     # Exclude rates when they are nan in all iteration (i.e. taxon always outside of edge boundaries); avoiding nan warnings
     sp_rates = sp_rates[:, np.sum(np.isnan(sp_rates), axis=0) < num_iter]
     ex_rates = ex_rates[:, np.sum(np.isnan(ex_rates), axis=0) < num_iter]
