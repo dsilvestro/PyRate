@@ -1811,8 +1811,8 @@ def HPBD3(timesL,timesM,L,M,T,s):
 
     #all_t_frames=sort(np.append(timesL, timesM[1:-1]+.001 ))[::-1] # merge time frames
     #else: all_t_frames=sort(np.append(timesL, timesM[1:-1] ))[::-1] # merge time frames
-    sL=(np.in1d(all_t_frames,timesL[1:-1])+0).nonzero()[0] # indexes within 'all_t_frames' of shifts of L
-    sM=(np.in1d(all_t_frames,timesMtemp[1:-1])+0).nonzero()[0] # indexes within 'all_t_frames' of shifts of M
+    sL=(np.isin(all_t_frames,timesL[1:-1])+0).nonzero()[0] # indexes within 'all_t_frames' of shifts of L
+    sM=(np.isin(all_t_frames,timesMtemp[1:-1])+0).nonzero()[0] # indexes within 'all_t_frames' of shifts of M
     sL[(sL-1>len(M)-1).nonzero()]=len(M)
     sM[(sM-1>len(L)-1).nonzero()]=len(L)
 
