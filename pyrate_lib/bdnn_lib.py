@@ -5165,7 +5165,7 @@ def match_names_comb_with_features(names_comb, names_features):
         for j in range(J):
             w = np.where(names_comb_i[j] == names_features)[0]
             if len(w) > 0:
-                idx[j] = w
+                idx[j] = w.item()
         if not np.any(np.isnan(idx)):
             m.append(idx)
     return m
