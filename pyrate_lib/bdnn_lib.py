@@ -4857,8 +4857,8 @@ def get_prob_inter_2_con_trait(cond_rates_eff, trait_tbl_eff, incl_features, con
     feat_at_min_rate = trait_tbl_eff[idx_min_rate, :]
     feat_at_max_rate = trait_tbl_eff[idx_max_rate, :]
     # Get main effects at the feature values
-    feat0_idx = [int(np.where(feat_at_min_rate[0] == feat0)[0]), int(np.where(feat_at_max_rate[0] == feat0)[0])]
-    feat1_idx = [int(np.where(feat_at_min_rate[1] == feat1)[0]), int(np.where(feat_at_max_rate[1] == feat1)[0])]
+    feat0_idx = [int(np.where(feat_at_min_rate[0] == feat0)[0].item()), int(np.where(feat_at_max_rate[0] == feat0)[0].item())]
+    feat1_idx = [int(np.where(feat_at_min_rate[1] == feat1)[0].item()), int(np.where(feat_at_max_rate[1] == feat1)[0].item())]
     rates_feat0 = rates_feat0[feat0_idx, :]
     rates_feat1 = rates_feat1[feat1_idx, :]
     prob_feat0 = 0.0
