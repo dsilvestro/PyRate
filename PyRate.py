@@ -7638,9 +7638,7 @@ if __name__ == '__main__':
     elif args.bdc: suff_out+= "_BDC"
     else:
         if TDI<=1: 
-            if use_ADE_model >= 1:
-                suff_out+= "_ADE"
-            elif len(fixed_times_of_shift) > 0:
+            if len(fixed_times_of_shift) > 0:
                 suff_out+= "_BDS"
             else:
                 suff_out+= "_BD%s-%s" % (args.mL,args.mM)
