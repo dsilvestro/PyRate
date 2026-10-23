@@ -2580,7 +2580,7 @@ def get_q_rates_NN(q, q_multipliers, const_q):
     return q_rates_NN
 
 
-def get_highres_repeats(args_qShift, new_bs, FA, qt=None):
+def get_highres_repeats(args_qShift, times_q_shift, new_bs, FA, qt=None):
     if (args_qShift != '' and new_bs > 0.0) or (not qt is None):
         # q_time_frames should be global
         # Shifts in sampling rate over time
@@ -2834,7 +2834,7 @@ def get_fossil_features_q_shifts(fossil, q_bins, occs_sp, LO):
     return log_factorial_occs, duration_q_bins, occs_single_bin
 
 
-def precompute_fossil_features(arg_q_shift, snn_timevar, bdnn_ads, bin_size=1):
+def precompute_fossil_features(FA, LO, fossil, arg_q_shift, snn_timevar, bdnn_ads, bin_size=1):
     duration_q_bins = None
     occs_single_bin = None
     if arg_q_shift == "" and not snn_timevar and bdnn_ads < 0.0:
@@ -7251,14 +7251,14 @@ if __name__ == '__main__':
             if bdnn_ads >= 0.0:
                 min_bin_size = np.minimum(bdnn_ads, bdnn_time_res)
             highres_q_repeats, times_q_shift = get_highres_repeats(args_qShift, min_bin_size, np.max(FA))
-        argsHPP, occs_sp, log_factorial_occs, duration_q_bins, occs_single_bin, q_time_frames_bdnn, use_HPP_NN_lik, TPP_model, const_q = precompute_fossil_features(args_qShift, snn_timevar, bdnn_ads, bdnn_time_res)
+        argsHPP, occs_sp, log_factorial_occs, duration_q_bins, occs_single_bin, q_time_frames_bdnn, use_HPP_NN_lik, TPP_model, const_q = precompute_fossil_features(FA, LO, fossil, args_qShift, snn_timevar, bdnn_ads, bdnn_time_res)
         singleton_mask = make_singleton_mask(occs_sp, snn_timevar, bdnn_ads)
         apply_reg_q = np.full_like(singleton_mask, True)
         if (((use_HPP_NN_lik and bdnn_ads <= 0.0) or (not use_HPP_NN_lik and bdnn_time_res < 1.0) or (snn_timevar and bdnn_time_res == 1)) and not (snn_timevar and TPP_model == 0)):
-            highres_q_repeats_rtt, times_q_shift_rtt = get_highres_repeats(args_qShift, bdnn_time_res, np.max(FA))
+            highres_q_repeats_rtt, times_q_shift_rtt = get_highres_repeats(args_qShift, times_q_shift, bdnn_time_res, np.max(FA))
             times_q_shift_rtt = np.concatenate((np.inf, times_q_shift_rtt, np.zeros(1)), axis=None)
         elif (bdnn_ads > 0.0 and bdnn_time_res < bdnn_ads):
-            highres_q_repeats_rtt, times_q_shift_rtt = get_highres_repeats(args_qShift, bdnn_time_res, np.max(FA), q_time_frames_bdnn[::-1])
+            highres_q_repeats_rtt, times_q_shift_rtt = get_highres_repeats(args_qShift, times_q_shift, bdnn_time_res, np.max(FA), q_time_frames_bdnn[::-1])
             times_q_shift_rtt = np.concatenate((np.inf, times_q_shift_rtt, np.zeros(1)), axis=None)
         else:
             times_q_shift_rtt = q_time_frames_bdnn + 0.0
