@@ -2834,10 +2834,12 @@ def get_fossil_features_q_shifts(fossil, q_bins, occs_sp, LO):
     return log_factorial_occs, duration_q_bins, occs_single_bin
 
 
-def precompute_fossil_features(FA, LO, fossil, arg_q_shift, snn_timevar, bdnn_ads, bin_size=1):
+def precompute_fossil_features(FA, LO, fossil, args_qShift, times_q_shift, snn_timevar, bdnn_ads, bin_size=1):
     duration_q_bins = None
     occs_single_bin = None
-    if arg_q_shift == "" and not snn_timevar and bdnn_ads < 0.0:
+    has_q_shifts = args_qShift != ""
+
+    if not has_q_shifts and not snn_timevar and bdnn_ads < 0.0:
         # Constant baseline q
         constant_q = True
         argsHPP = 1
@@ -2854,12 +2856,6 @@ def precompute_fossil_features(FA, LO, fossil, arg_q_shift, snn_timevar, bdnn_ad
         constant_q = False
         argsHPP = 0
         TPP_model = 1
-        try:
-            occs_sp_bin
-        except NameError:
-            has_q_shifts = False
-        else:
-            has_q_shifts = True
         if has_q_shifts or bdnn_ads > 0.0:
             q_bins = np.concatenate((np.max(FA), times_q_shift, np.zeros(1)), axis=None)
         else:
@@ -2867,7 +2863,7 @@ def precompute_fossil_features(FA, LO, fossil, arg_q_shift, snn_timevar, bdnn_ad
         occs_sp = get_occs_sp(fossil, q_bins)
         log_factorial_occs, duration_q_bins, occs_single_bin = get_fossil_features_q_shifts(fossil, q_bins, occs_sp, LO)
         use_HPP_NN_lik = True
-        if (arg_q_shift == "" and bdnn_ads >= 0.0) or (arg_q_shift == "" and snn_timevar):
+        if (not has_q_shifts and bdnn_ads > 0.0) or (not has_q_shifts and snn_timevar):
             argsHPP = 1
             TPP_model = 0
             constant_q = True
@@ -7245,13 +7241,15 @@ if __name__ == '__main__':
     bdnn_ads = args.SNNads
     if BDNNmodel in [2, 3]:
         args_qShift = args.qShift
+        if not "times_q_shift" in locals():
+            times_q_shift = None
         highres_q_repeats = None
         if bdnn_ads >= 0.0 or (args_qShift != '' and snn_timevar):
             min_bin_size = bdnn_time_res
             if bdnn_ads >= 0.0:
                 min_bin_size = np.minimum(bdnn_ads, bdnn_time_res)
-            highres_q_repeats, times_q_shift = get_highres_repeats(args_qShift, min_bin_size, np.max(FA))
-        argsHPP, occs_sp, log_factorial_occs, duration_q_bins, occs_single_bin, q_time_frames_bdnn, use_HPP_NN_lik, TPP_model, const_q = precompute_fossil_features(FA, LO, fossil, args_qShift, snn_timevar, bdnn_ads, bdnn_time_res)
+            highres_q_repeats, times_q_shift = get_highres_repeats(args_qShift, times_q_shift, min_bin_size, np.max(FA))
+        argsHPP, occs_sp, log_factorial_occs, duration_q_bins, occs_single_bin, q_time_frames_bdnn, use_HPP_NN_lik, TPP_model, const_q = precompute_fossil_features(FA, LO, fossil, args_qShift, times_q_shift, snn_timevar, bdnn_ads, bdnn_time_res)
         singleton_mask = make_singleton_mask(occs_sp, snn_timevar, bdnn_ads)
         apply_reg_q = np.full_like(singleton_mask, True)
         if (((use_HPP_NN_lik and bdnn_ads <= 0.0) or (not use_HPP_NN_lik and bdnn_time_res < 1.0) or (snn_timevar and bdnn_time_res == 1)) and not (snn_timevar and TPP_model == 0)):
