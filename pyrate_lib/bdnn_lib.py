@@ -687,9 +687,7 @@ def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, lo
             n_elements += 4
         if has_q_rates:
             n_rows += 1
-            n_elements += 1
-            if has_div_rates:
-                n_elements += 1
+            n_elements += 2
         if platform.system() == "Windows" or platform.system() == "Microsoft":
             wd_forward = os.path.abspath(output_wd).replace('\\', '/')
             r_script = "pdf(file='%s/%s', width = 9, height = %s, useDingbats = FALSE)\n" % (wd_forward, pdf_file, 3 * n_rows)
