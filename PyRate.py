@@ -3318,24 +3318,24 @@ def HOMPP_lik(arg, return_rate=False):
     if cov_par ==2: # transform preservation rate by trait value
         q=exp(log(q_rate)+cov_par*(con_trait[i]-parGAUS[0]))
     else: q=q_rate
-    if argsG == 1:
+    if argsG == 1  and np.sum(k) > 1: # for singletons no Gamma
         YangGamma=get_gamma_rates(shapeGamma)
-        qGamma= YangGamma*q
-        lik1= -qGamma*(br_length) + log(qGamma)*k - sum(log(np.arange(1,k+1)))  -log(1-exp(-qGamma*(br_length)))
+        qGamma = YangGamma * q
+        lik1 = -qGamma * (br_length) + np.log(qGamma) * k - np.sum(np.log(np.arange(1, k + 1))) - np.log(1 - np.exp(-qGamma * (br_length)))
         maxLik1 = np.max(lik1)
-        lik2= lik1-maxLik1
-        if return_rate:
-            if k == 1:
-                weighted_mean = q
-            else:
-                pr = np.exp(lik2) / np.sum(np.exp(lik2))
-                weighted_mean = 1 / np.sum((1 / qGamma) * pr)
-            return [weighted_mean]
-        else:
-            lik=log(sum(exp(lik2)*(1./pp_gamma_ncat)))+maxLik1
-            return lik
+        lik2 = lik1 - maxLik1
+        lik = np.log(np.sum(np.exp(lik2) * (1. / pp_gamma_ncat))) + maxLik1
     else:
-        return -q*(br_length) + log(q)*k - sum(log(np.arange(1,k+1))) - log(1-exp(-q*(br_length)))
+        lik = -q * (br_length) + np.log(q) * k - np.sum(np.log(np.arange(1, k + 1))) - np.log(1 - np.exp(-q * (br_length)))
+    if return_rate:
+        if k == 1:
+            weighted_mean = q
+        else:
+            pr = np.exp(lik2) / np.sum(np.exp(lik2))
+            weighted_mean = 1 / np.sum((1 / qGamma) * pr)
+        return [weighted_mean]
+    else:
+        return lik
 
 def NHPP_lik(arg):
     [m,M,shapeGamma,q_rate,i,cov_par, ex_rate]=arg
