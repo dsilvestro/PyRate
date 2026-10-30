@@ -262,7 +262,7 @@ std::vector<double> PyRateC_HOMPP_lik(
 		double nF = fossils[iF].size();
 		nF = (double)(fossils[iF].back() == 0 ? nF-1 : nF);
 
-		if(gammaRates.size() > 1) {
+		if(gammaRates.size() > 1 && nF > 1) {
 
 			double spLogLik = 0.;
 			for(size_t iG = 0; iG < gammaRates.size(); ++iG) {
