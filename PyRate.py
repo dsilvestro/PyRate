@@ -4104,7 +4104,7 @@ def get_rate_HP(n,target_k,hp_gamma_shape):
 ####### END FUNCTIONS for DIRICHLET PROCESS PRIOR #######
 
 
-def get_init_values(mcmc_log_file, taxa_names, float_prec_f):
+def get_init_values(mcmc_log_file, taxa_names, TDI, BDNNmodel, float_prec_f):
     tbl = np.loadtxt(mcmc_log_file,skiprows=1)
     last_row = np.shape(tbl)[0]-1
     head = next(open(mcmc_log_file)).split()
@@ -4137,24 +4137,22 @@ def get_init_values(mcmc_log_file, taxa_names, float_prec_f):
         except: pass
 
     try:
-        ts = tbl[last_row,ts_index]
-        te = tbl[last_row,te_index]
-        if len(fixed_times_of_shift)>0: # fixShift
-            hyp = np.ones(2)
-            try:
+        ts = tbl[last_row, ts_index]
+        te = tbl[last_row, te_index]
+        hyp = np.ones(2)
+        try:
+            if TDI == 0:
                 l_index = [head.index(i) for i in head if "lambda_" in i]
                 m_index = [head.index(i) for i in head if "mu_" in i]
-                lam = tbl[last_row,l_index]
-                mu  = tbl[last_row,m_index]
+                lam = tbl[last_row, l_index]
+                mu  = tbl[last_row, m_index]
                 if "hypL" in head:
-                    hyp_index = [head.index("hypL"), head.index("hypM")]
-                    hyp = tbl[last_row, hyp_index]
-            except:
-                lam = np.array([float(len(ts))/sum(ts-te)      ])    # const rate ML estimator
-                mu  = np.array([float(len(te[te>0]))/sum(ts-te)])    # const rate ML estimator
-        else:
-            hyp = np.ones(2)
-            if TDI == 4:
+                    hyp_index = head.index("hypL")
+                    hyp[0] = tbl[last_row, hyp_index]
+                if "hypM" in head:
+                    hyp_index = head.index("hypM")
+                    hyp[1] = tbl[last_row, hyp_index]
+            elif TDI == 4:
                 k_birth = int(tbl[last_row, head.index("k_birth")])
                 k_death = int(tbl[last_row, head.index("k_death")])
                 lam_log_name = mcmc_log_file.replace("mcmc.log", "sp_rates.log")
@@ -4169,6 +4167,10 @@ def get_init_values(mcmc_log_file, taxa_names, float_prec_f):
                 timesM = np.concatenate((np.inf, mu_times[k_death:], 0), axis=None)
                 lam = lam_times[:k_birth]
                 mu = mu_times[:k_death]
+        except:
+            lam = np.array([float(len(ts)) / np.sum(ts - te)]) # const rate ML estimator
+            mu  = np.array([float(len(te[te > 0])) / np.sum(ts - te)]) # const rate ML estimator
+
     except:
         o = np.ones(1)
         ts, te, lam, mu, hyp = o, o, o, o, o
@@ -6847,7 +6849,7 @@ if __name__ == '__main__':
 
     float_prec_f = get_float_prec_f(args.BDNNprecision)
     if args.restore_mcmc != "":
-        restore_init_values = get_init_values(args.restore_mcmc, taxa_names, float_prec_f)
+        restore_init_values = get_init_values(args.restore_mcmc, taxa_names, TDI, BDNNmodel, float_prec_f)
         restore_chain = 1
     else:
         restore_chain = 0
