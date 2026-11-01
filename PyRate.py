@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # Created by Daniele Silvestro on 02/03/2012 => pyrate.help@gmail.com
-import argparse, os,sys, platform, time, csv, glob
+import argparse, os,sys, platform, time, csv, glob, subprocess
 import random as rand
 import warnings, importlib
 import importlib.util
@@ -590,11 +590,7 @@ def plot_RTT(infile,burnin, file_stem="",one_file= 0, root_plot=0,plot_type=1):
     newfile.writelines(Rfile)
     newfile.close()
     print("\nAn R script with the source for the RTT plot was saved as: %s_RTT.r\n(in %s)" % (name_file, wd))
-    if platform.system() == "Windows" or platform.system() == "Microsoft":
-        cmd="cd %s & Rscript %s_RTT.r" % (wd,name_file)
-    else:
-        cmd="cd %s; Rscript %s/%s_RTT.r" % (wd,wd,name_file)
-    os.system(cmd)
+    subprocess.run(["Rscript", "%s_RTT.r" % name_file], cwd=wd)
     print("done\n")
 
 
@@ -680,11 +676,7 @@ def plot_ltt(tste_file,plot_type=1,rescale= 1,step_size=1.): # change rescale to
     R_file.writelines(R_script)
     R_file.close()
     print("\nAn R script with the source for the stat plot was saved as: \n%s" % (R_file_name))
-    if platform.system() == "Windows" or platform.system() == "Microsoft":
-        cmd="cd %s & Rscript %s" % (wd,out_file_name+"_ltt.R")
-    else:
-        cmd="cd %s; Rscript %s" % (wd,out_file_name+"_ltt.R")
-    os.system(cmd)
+    subprocess.run(["Rscript", out_file_name + "_ltt.R"], cwd=wd)
     sys.exit("done\n")
 
 
@@ -806,11 +798,7 @@ def plot_tste_stats(tste_file, EXT_RATE, step_size,no_sim_ex_time,burnin,rescale
     R_file.writelines(R_script)
     R_file.close()
     print("\nAn R script with the source for the stat plot was saved as: \n%s" % (R_file_name))
-    if platform.system() == "Windows" or platform.system() == "Microsoft":
-        cmd="cd %s & Rscript %s" % (wd,out_file_name+"_stats.R")
-    else:
-        cmd="cd %s; Rscript %s" % (wd,out_file_name+"_stats.R")
-    os.system(cmd)
+    subprocess.run(["Rscript", out_file_name + "_stats.R"], cwd=wd)
     print("done\n")
 
 
