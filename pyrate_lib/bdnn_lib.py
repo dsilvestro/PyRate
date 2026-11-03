@@ -866,7 +866,7 @@ def plot_bdnn_rtt(output_wd, r_file, pdf_file, r_sp_sum, r_ex_sum, r_div_sum, lo
             return r_script, newfile, y_lim_q
 
 
-def get_rtt_summary(lam_it, mu_it, gs, times_of_shift, FA, ts, te, num_it, num_bins, translate, output_wd, name_file, group_name):
+def get_rtt_summary(lam_it, mu_it, gs, times_of_shift, FA, ts, te, num_it, num_bins, translate, output_wd, name_file, group_name, write_rates=True):
     FA_gs = np.max(np.mean(ts[:, gs], axis=0))
     LO_gs = np.min(np.mean(te[:, gs], axis=0))
     timetrait1 = len(times_of_shift) > 2
@@ -899,14 +899,15 @@ def get_rtt_summary(lam_it, mu_it, gs, times_of_shift, FA, ts, te, num_it, num_b
         divtt = summarize_rate(r_div, num_bins)
         longtt = summarize_rate(longevity, num_bins)
 
-        # Write posterior rates as text file
-        time = np.tile(times_of_shift[1:-1], num_it).reshape((num_it, -1))
-        sp_file = os.path.join(output_wd, "%s_%s_sp_rates.txt" % (name_file, group_name))
-        sp_rates = np.c_[r_sp, time]
-        np.savetxt(sp_file, sp_rates, delimiter="\t", fmt="%.6f")
-        ex_file = os.path.join(output_wd, "%s_%s_ex_rates.txt" % (name_file, group_name))
-        ex_rates = np.c_[r_ex, time]
-        np.savetxt(ex_file, ex_rates, delimiter="\t", fmt="%.6f")
+        if write_rates:
+            # Write posterior rates as text file
+            time = np.tile(times_of_shift[1:-1], num_it).reshape((num_it, -1))
+            sp_file = os.path.join(output_wd, "%s_%s_sp_rates.txt" % (name_file, group_name))
+            sp_rates = np.c_[r_sp, time]
+            np.savetxt(sp_file, sp_rates, delimiter="\t", fmt="%.6f")
+            ex_file = os.path.join(output_wd, "%s_%s_ex_rates.txt" % (name_file, group_name))
+            ex_rates = np.c_[r_ex, time]
+            np.savetxt(ex_file, ex_rates, delimiter="\t", fmt="%.6f")
 
     else:
         time_vec = np.copy(times_of_shift)
@@ -5605,7 +5606,8 @@ def get_PDRTT(f, names_comb, burn, thin, groups_path='', translate=0.0, min_age=
                 gs = group_species_idx[g]
                 r_file = "%s_%s_%s_PDRTT.r" % (name_file, group_names[g], keys_names_comb)
                 pdf_file = "%s_%s_%s_PDRTT.pdf" % (name_file, group_names[g], keys_names_comb)
-                sptt, extt, divtt, longtt, time_vec = get_rtt_summary(pdsptt, pdextt, gs, times_of_shift, FA, ts, te, num_it, num_bins, translate)
+                sptt, extt, divtt, longtt, time_vec = get_rtt_summary(pdsptt, pdextt, gs, times_of_shift, FA, ts, te, num_it, num_bins, translate,
+                                                                      output_wd, name_file, group_names[g], write_rates=False)
                 xlim = [FA - translate, LO - translate]
                 xlim = overwrite_xlim(xlim, min_age, max_age)
                 plot_bdnn_rtt(output_wd, r_file, pdf_file, sptt, extt, divtt, longtt, time_vec, r_q_sum=None, time_vec_q=None,
