@@ -6232,7 +6232,7 @@ def perm_mcmc_sample_i(args):
                                                   apply_reg, bias_node_idx, fix_edgeShift)
                 else:
                     sp_lik_j[k, j], ex_lik_j[k, j] = get_bdnn_lik_notime(hidden_act_f, out_act_f,
-                                                                         w_sp[i], w_ex[i], trt_tbls,
+                                                                         w_sp[i], w_ex[i], trt_tbls_perm,
                                                                          t_reg_lam[i], t_reg_mu[i],
                                                                          reg_denom_lam[i], reg_denom_mu[i],
                                                                          ts[i, :], te[i, :])
